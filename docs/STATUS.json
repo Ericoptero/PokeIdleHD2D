@@ -153,12 +153,13 @@
   "props": {
    "round": 1,
    "score": null,
-   "status": "built, not yet seen on screen",
+   "status": "built and seen in-engine",
    "errors": 0,
    "openIssues": [
-    "not screenshotted in-engine yet: src/collection/index.js imports a showcase.js that does not exist, so the dev server returns 500 and every capture fails",
+    "the two crossed-billboard props (tree_mush, pile_of_logs) read flatter than the revolved ones; AdAstra's slice-quad trick needs top-down canopy art these sprites do not have (DECISIONS #17)",
     "hgss-overworld/water_rock and hgss-overworld/rock have water and grass baked into the sprite; the cylindrical wrap carries it up the body (DECISIONS #16)",
-    "76 triangles per revolved prop against 18 for AdAstra's bench_s \u2014 fine against the budget, first thing to cut if it tightens"
+    "76 triangles per revolved prop against 18 for AdAstra's bench_s \u2014 fine against the budget, first thing to cut if it tightens",
+    "not yet placed in any map; city and hunts should draw from tiles.load('props')"
    ],
    "verified": {
     "models": 15,
@@ -166,9 +167,18 @@
     "windingMismatches": 0,
     "degenerateTriangles": 0,
     "missingTextures": 0,
-    "method": "pack.bin parsed directly; each triangle's winding compared against its stored normal"
+    "method": "pack.bin parsed directly; each triangle's winding compared against its stored normal",
+    "inEngine": {
+     "fps": 60,
+     "drawCalls": 40,
+     "triangles": 3000,
+     "consoleErrors": 0,
+     "uvRectsInsideSourceSprite": true
+    }
    },
-   "lastShots": []
+   "lastShots": [
+    "docs/progress/props/r5/preview.png"
+   ]
   }
  },
  "coreRequests": [],
