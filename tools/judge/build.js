@@ -72,14 +72,21 @@ export async function build(a) {
 
     // Capture ours at the reference's exact size. pixelScale is left to the app's default so
     // the internal buffer scales with the window and the pixel grid stays honest.
-    const mine = join(dir, '_ours.png');
+    // It lands *outside* the packet: a file called `_ours.png` sitting next to A and B would
+    // hand the answer to any judge who listed the directory.
+    const capDir = join(outRoot, '.captures');
+    mkdirSync(capDir, { recursive: true });
+    const mine = join(capDir, `${p.id}.png`);
     const log = await shoot({
       base: a.base, out: mine, size: `${w}x${h}`, settle: Number(a.settle),
       showcase: p.shot.showcase ?? null, mode: p.shot.mode ?? null,
       preset: p.shot.preset ?? null, tod: p.shot.tod ?? null,
       seed: p.shot.seed ?? 1, timeout: 45000, retries: 3, extra: p.shot.extra ?? {},
     });
-    if (!log.ok) { failures.push(`${p.id}: capture failed — ${log.error ?? 'not ok'}`); continue; }
+    if (!log.ok) {
+      failures.push(`${p.id}: capture failed — ${log.error ?? log.fatal ?? 'no error reported'}`);
+      continue;
+    }
 
     const oursIsA = (hash(`${a.round}:${p.id}`) & 1) === 0;
     copyFileSync(mine, join(dir, oursIsA ? 'A.png' : 'B.png'));
@@ -89,7 +96,7 @@ export async function build(a) {
     key.pairs.push({
       id: p.id, ours: oursIsA ? 'A' : 'B', ref: p.ref, size: [w, h],
       refIsNearest: !!p.refIsNearest, shot: p.shot,
-      fps: log.fps ?? null, drawCalls: log.drawCalls ?? null,
+      fps: log.fps?.mean ?? null, drawCalls: log.drawCalls ?? null,
       consoleErrors: (log.consoleErrors ?? []).length,
     });
   }
