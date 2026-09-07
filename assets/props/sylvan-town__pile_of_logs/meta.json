@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "pile_of_logs",
+  "atlas": "Decoration.png"
+ },
+ "recipe": "conifer",
+ "category": "prop",
+ "subcategory": "pile_of_logs",
+ "tags": [
+  "adapted",
+  "multicell",
+  "occluder",
+  "prop",
+  "rustic"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 2,
+ "h": 2,
+ "uv": {
+  "u0": 0.027739,
+  "u1": 0.471973,
+  "v0": 0.432241,
+  "v1": 0.994647
+ },
+ "tris": 5,
+ "dimensions": [
+  2.0,
+  2.0,
+  2.9092
+ ]
+}

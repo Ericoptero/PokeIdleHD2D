@@ -1,6 +1,8 @@
 {
  "sets": [
-  "bw2-adastra"
+  "bw2-adastra",
+  "structures",
+  "props"
  ],
  "built": [
   {

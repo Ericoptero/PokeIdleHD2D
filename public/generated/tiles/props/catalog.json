@@ -1,0 +1,927 @@
+{
+ "tileset": "props",
+ "unitsPerCell": 1,
+ "axis": "y-up, +x east, +z south",
+ "source": "assets/props (authored — DECISIONS #3, #15)",
+ "materials": [
+  {
+   "id": 0,
+   "image": "d7_rock01.png",
+   "name": "bw2-twist__small_rock:d7_rock01.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 1,
+   "image": "rock01.png",
+   "name": "hgss-overworld__rock:rock01.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 2,
+   "image": "dsea_rock.png",
+   "name": "hgss-overworld__water_rock:dsea_rock.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 3,
+   "image": "sea_rock_m.png",
+   "name": "hgss-overworld__water_rock_small:sea_rock_m.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 4,
+   "image": "imped.png",
+   "name": "pt-forest__hedge:imped.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 5,
+   "image": "imped_lm53.png",
+   "name": "pt-overworld-7__hedge:imped_lm53.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 6,
+   "image": "Decoration.png",
+   "name": "sylvan-town__axe:Decoration.006",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 7,
+   "image": "Decoration.png",
+   "name": "sylvan-town__axe_rotated:Decoration.007",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 8,
+   "image": "Decoration.png",
+   "name": "sylvan-town__barrel:Decoration.009",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 9,
+   "image": "Decoration.png",
+   "name": "sylvan-town__fat_log:Decoration.013",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 10,
+   "image": "Decoration.png",
+   "name": "sylvan-town__log:Decoration.012",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 11,
+   "image": "Decoration.png",
+   "name": "sylvan-town__pile_of_logs:Decoration.008",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 12,
+   "image": "Decoration.png",
+   "name": "sylvan-town__rock_small:Decoration.010",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 13,
+   "image": "Decoration.png",
+   "name": "sylvan-town__rock_tall:Decoration.011",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 14,
+   "image": "TreeMushroom.png",
+   "name": "sylvan-town__tree_mush:TreeMushroom.001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  }
+ ],
+ "models": [
+  {
+   "id": 0,
+   "name": "bw2-twist__small_rock",
+   "category": "prop",
+   "subcategory": "small_rock",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "occluder",
+    "rock",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0.3258,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 0,
+     "offset": 0,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 1,
+   "name": "hgss-overworld__rock",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "multicell",
+    "occluder",
+    "rock",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0.8284,
+     2
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 1,
+     "offset": 10032,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 2,
+   "name": "hgss-overworld__water_rock",
+   "category": "prop",
+   "subcategory": "water_rock",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "multicell",
+    "occluder",
+    "rock",
+    "sunken",
+    "water",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0.6516,
+     2
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 2,
+     "offset": 20064,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 3,
+   "name": "hgss-overworld__water_rock_small",
+   "category": "prop",
+   "subcategory": "water_rock_small",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "occluder",
+    "rock",
+    "sunken",
+    "water",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0.2374,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 3,
+     "offset": 30096,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 4,
+   "name": "pt-forest__hedge",
+   "category": "plant",
+   "subcategory": "hedge",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "hedge",
+    "occluder",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0.8604,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 4,
+     "offset": 40128,
+     "count": 138
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 5,
+   "name": "pt-overworld-7__hedge",
+   "category": "plant",
+   "subcategory": "hedge",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "hedge",
+    "occluder",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0.8067,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 5,
+     "offset": 46200,
+     "count": 138
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 6,
+   "name": "sylvan-town__axe",
+   "category": "prop",
+   "subcategory": "axe",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0.03,
+   "bounds": {
+    "min": [
+     0,
+     0.03,
+     0
+    ],
+    "max": [
+     0.7456,
+     0.03,
+     0.9489
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 6,
+     "offset": 52272,
+     "count": 6
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 7,
+   "name": "sylvan-town__axe_rotated",
+   "category": "prop",
+   "subcategory": "axe_rotated",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored",
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0.03,
+   "bounds": {
+    "min": [
+     0,
+     0.03,
+     0
+    ],
+    "max": [
+     1.1532,
+     0.03,
+     1.4677
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 7,
+     "offset": 52536,
+     "count": 6
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 8,
+   "name": "sylvan-town__barrel",
+   "category": "prop",
+   "subcategory": "barrel",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1.1213,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 8,
+     "offset": 52800,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 9,
+   "name": "sylvan-town__fat_log",
+   "category": "prop",
+   "subcategory": "fat_log",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0.4839
+    ],
+    "max": [
+     2,
+     1.0323,
+     1.5161
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 9,
+     "offset": 62832,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 10,
+   "name": "sylvan-town__log",
+   "category": "prop",
+   "subcategory": "log",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0.0625
+    ],
+    "max": [
+     1,
+     0.875,
+     0.9375
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 10,
+     "offset": 72864,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 11,
+   "name": "sylvan-town__pile_of_logs",
+   "category": "prop",
+   "subcategory": "pile_of_logs",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     2.9092,
+     2
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 11,
+     "offset": 82896,
+     "count": 30
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 12,
+   "name": "sylvan-town__rock_small",
+   "category": "prop",
+   "subcategory": "rock_small",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "multicell",
+    "occluder",
+    "rock",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0.5152,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 12,
+     "offset": 84216,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 13,
+   "name": "sylvan-town__rock_tall",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "decor",
+    "multicell",
+    "occluder",
+    "rock",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1.357,
+     1
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 13,
+     "offset": 94248,
+     "count": 228
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  },
+  {
+   "id": 14,
+   "name": "sylvan-town__tree_mush",
+   "category": "tree",
+   "subcategory": "tree_mush",
+   "orientation": null,
+   "tags": [
+    "adapted",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree",
+    "authored"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1.694,
+     3.8331,
+     1.694
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 14,
+     "offset": 104280,
+     "count": 30
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": []
+  }
+ ]
+}

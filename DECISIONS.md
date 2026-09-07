@@ -303,3 +303,208 @@ you count triangles, but it climbs in steps and so is not planar; a leaning spri
 plane to within 0.02 of a cell. That test finds **15** models to rebuild across nine
 tilesets, and finds **zero** in AdAstra itself — which is the check that it is measuring the
 right thing.
+
+---
+
+### 16 — 2026-09-07 — economy: four currencies, and income is multiplied at the `add()` boundary
+
+`src/economy/` mints **money (₽), research (◈), Battle Points (BP) and shards (◆)**, each from a
+different activity and none exchangeable for another. `research` is the currency
+`src/idle/accrual.js` produces — it reports the same number as both `research` and `tokens` —
+so `tokens` is an **alias** for `research` in `currencies.js`, and the seed module's
+`wallet.tokens` keeps working. BP comes only from battles won (`idle:tick` gains and
+`encounter:resolved`), shards only from catches and released Pokémon.
+
+**Upgrades reach the idle rate without `idle` importing anything.** `idle` banks accrual with
+`economy.add('money', n, 'idle')`. `state.add()` classifies the *reason*: `idle`, `offline`,
+`battle`, `loot`… are income and are multiplied by the relevant upgrade track on the way in;
+`sell:*`, `buy:*`, `grant`, `save:restore` are not. Checked on screen — the transcript in
+`docs/progress/economy/r1/terminal-noon.png` shows `add("money", 10k, "idle")` crediting
+₽12,400 at Payday level 4, and `add("money", 600k, "grant")` crediting exactly 600k.
+Research is deliberately **not** multiplied here: `idle` already applies its own chain to it.
+
+**Balances keep their fractions; only displays are floored.** The seed floored each credit,
+and `idle` pays out a few hundredths of a coin at a time, so the entire idle income rounded to
+zero. `balance()` floors, the ledger does not.
+
+**Prices were fitted to `idle`'s faucet, not to the mainline's.** A level-5 party already earns
+about ₽50,000/h under `accrual.js` and a level-100 one about ₽1.4M/h, so mainline-scale upgrade
+prices (₽1,500) were bought out in the first two minutes. `pacing.js` runs a projection of the
+real cost curves against a mirror of that income model; the fitted table gives 4 upgrade levels
+at 15 minutes, 21 at an hour, 95 at eight hours, 232 at a week and 266 of 291 at a month. Item
+prices stay mainline (a Poké Ball is ₽200, a Comet Shard sells for ₽60,000) because they are
+recognisable and are no longer the interesting decision. If `accrual.js` retunes its constants,
+`INCOME_MODEL` in `pacing.js` is stale and the fit must be re-run — the command is in the file.
+
+**Persistence uses the native seam `src/offline/slices.js` prefers:** `saveState()` /
+`loadState()`, which supersedes that file's economy adapter and carries the bag, upgrade levels
+and lifetime statistics the adapter cannot see.
+
+---
+
+### 17 — 2026-09-07 — Trainer sheet: sideA is **west**, and the walk cycle is contact / stride / contact / stride
+
+Closes the two items DECISIONS #4 left open. Both were settled on screen, in
+`docs/progress/pokemon/r1/02-trainer.png` (three ranks of trainers on a real map: the four
+directions on the path, the west walk cycle behind them, the west run cycle behind that).
+
+**(a) `sideA = [1, 2, 3, 14, 15, 16]` is WEST.** Those frames draw the face, the cap brim and
+the shoulder bag on the screen-left side of the sprite; `sideB` is their exact mirror. The
+camera's yaw is fixed looking north (`core/render.js` never rotates it), so screen-left is
+−X, which is west by §3. Confirmed twice: on the frame dumps at 10× and in the shot, where
+the second trainer of the front rank faces left and the fourth faces right.
+
+The same test settles the Pokémon sheets: row 1 faces screen-left, so the row order
+`[north, west, south, east]` in #4 is right, and `rowByDir = [2, 1, 0, 3]`.
+
+**(b) Each direction owns six frames — three walk, three run.** Within a trio one frame is
+the *contact* pose (feet together in profile, feet side by side head-on) and the other two are
+the opposite strides. The cycle played is `contact, strideA, contact, strideB`, two phases per
+tile walked, so the feet stay locked to the grid instead of sliding.
+
+```
+                 walk (contact, strideA, strideB)   run (contact, strideA, strideB)
+  south          21, 22, 23                          11, 12, 13
+  west            2,  1,  3                           14, 15, 16
+  north           0,  9, 20                            7,  8, 10
+  east            4,  6,  5                           17, 19, 18      (mirrors of west)
+```
+
+The sheet's index order does **not** group them, so the trios were separated by measurement,
+not by reading the file in order:
+
+- exact mirrors pair the two profiles: 1↔6, 2↔4, 3↔5, 14↔17, 15↔19, 16↔18;
+- comparing only rows 20–31 of each frame (the legs) pairs the same pose across directions —
+  0↔21 (0.43), 9↔22 (0.36), 20↔23 (0.34) are each other's best match, so north `[0,9,20]` and
+  south `[21,22,23]` are the same three poses from behind and in front, which leaves north
+  `[7,8,10]` / south `[11,12,13]` as the other trio;
+- the run trio leans into the direction of travel: the alpha centroid of west frames 14/15/16
+  sits at x 13.8/12.7/14.8 — ahead of centre while facing left — against 16.0/16.2/16.0 for
+  walk frames 1/2/3, and the run frames are one to two rows shorter (crouched).
+
+The idle pose is the walk contact frame: `[21, 2, 0, 4]` in `core/dir.js` order.
+
+**Also corrected in #4:** the Pokémon sheets are *not* all 64×128. 1192 are (32 px frames);
+**61 are 128×256 with 64 px frames** — Wailord, Steelix, every Arceus, Lugia, Dondozo and the
+rest of the big bodies. Both shapes are 2 columns × 4 rows and are handled by frame size, not
+by a hard-coded 32.
+
+---
+
+### 18 — 2026-09-07 — Sprites are 16 texels per world unit, upright, and stretched by 1/cos(pitch)
+
+Three numbers decide whether DS pixel art and 3-D tiles read as one image. All three are now
+fixed, and all three are visible in `docs/progress/pokemon/r1/07-pixel-grid.png`.
+
+**Density: 16 texels per world unit — half the tiles' 32 (DECISIONS #3).** The DS overworld
+sprites are 32 px frames drawn against 16 px tiles, i.e. two tiles tall, so a 32 px frame is
+**two world units** and a 64 px frame is four. That also matches the reference: the creature
+pixels in `docs/refs/03-forest-voxel-night.png` are visibly about twice the size of the fence
+and flower texels behind them. At 32 texels/unit the trainer would stand 0.75 tiles tall,
+which is not the Black & White silhouette; at 16 he stands ~1.5 tiles, which is.
+
+**The billboard is upright, and its height is multiplied by 1/cos(cameraPitch) = 1.414.** The
+quad stands in world Y and faces +Z; the camera's yaw is fixed, so it never needs to rotate.
+But a vertical world unit only covers cos(45°) of the screen height it would cover face-on, so
+an unstretched quad renders the art squashed to 71 % and its texels stop being square. With
+the stretch a 32×32 frame lands on screen as a square block of pixels.
+
+**Pixel-exact camera distances.** The internal buffer is 640 px wide at 1080p, so
+
+```
+internal pixels per world unit = 640 / (2·D·tan(fov/2)·16/9) = 779.7 / D      (fov 26)
+```
+
+`D = 779.7 / (16·k)` puts *both* sprites and tiles on the pixel grid at the focus plane:
+**k = 2 → D = 24.36**, where one sprite texel is exactly two internal pixels and one tile texel
+is exactly one. The showcase frames at 24.36 (and 16.24 / 8.12 for the close shots). The
+game's `config.cameraDistance` default of **30** is not one of these values — at 30 a sprite
+texel is 1.62 internal pixels, so pixel blocks come out 4 and 5 output pixels wide at random.
+Changing that default is a core change and is filed as a coreRequest, not made here.
+
+**Contact shadow, not a cast sprite shadow.** Each sprite gets a soft elliptical decal on the
+ground, sized from the *current frame's* own content box (measured once per atlas build), so it
+sits under the body rather than under the empty margin and shifts with a leaning run frame. It
+is stretched and offset along the sun's ground direction. This is what the reference does —
+see the trainer in `docs/refs/04-cave-golden-hour.png`. The sprite itself does not cast into
+the shadow map (a billboarded quad would cast a shadow shaped like whatever the *light* sees,
+not the camera), but it does receive, so a sprite standing in a tree's shadow darkens.
+
+**Sprites drop 2 texels so their feet touch.** The modal bottom padding of a south-facing frame
+is 2 rows across the whole set; the flyers — Zubat 5, Golbat 5, Butterfree 4, Lugia 6 — keep the
+extra clearance their art was drawn with and go on hovering.
+
+---
+
+### 19 — 2026-09-07 — Idle accrual is chunk-additive by construction, and that is measured
+
+`idle.simulate(state, elapsedS, seed)` is the only definition of what a second produces, and
+`offline` calls the same function. The two must agree, but they cannot run the same way: a
+three-hour gap has to drain in slices on the frame loop, while `offline` applies it in one
+call. So the model is built to make slicing irrelevant.
+
+- Continuous currencies are `rate(state) * elapsedS`, and the rate never sees `elapsedS`.
+- Discrete encounters are indexed by *cumulative* progress carried in
+  `state.progress.encounters`. Encounter **N** is always rolled from
+  `makeRng(seed, 'idle/encounter/N')`, so a chunk boundary cannot renumber, add or drop one.
+
+**Measured**, by `node src/idle/selftest.js` (21 checks) and again in the browser on the
+showcase panel: one 10 800 s call versus 10 800 × 1 s versus 79 × 137 s give *identical*
+encounter counts, wins, catches and shinies, and money within **1.3e-13** relative — IEEE-754
+summation error and nothing else. Against the real drainer the figure is **~1e-16**, because
+the comparison uses the snapshot the drain actually opened the gap with.
+
+Two consequences worth stating: a gap is settled against the state it *started* with (a
+replay of time already past, which is what `offline` does too), and slice width is therefore
+free. Gaps under ~8 minutes use the fixed 1-second steps §5.7 asks for; larger ones widen
+just enough to stay inside the step ceiling, because 12 h of 1-second steps is 43 200 calls.
+
+### 20 — 2026-09-07 — Three timing bugs the idle module only found by measuring
+
+1. **The frame budget was checked every 16th step** and a wide slice resolves dozens of
+   encounters, so a 12 h gap overshot its 4 ms budget to **35.75 ms**. Checked every step it
+   is **2.95 ms**. The clock read is nearly free; the assumption that it was not, was not.
+2. **The first slice paid V8's compilation** inside the budget it was being measured
+   against — **8.4 ms** for a call that costs 1.7 ms warm. `init` now runs one
+   `simulate(state, 1e-6, seed)` to warm the model off the critical path.
+3. **Heartbeat liveness was measured on the wall clock.** Advancing the module's own clock
+   three hours to stage a gap made the watchdog conclude the worker had been silent for
+   three hours and swap a perfectly healthy worker for a timer. Liveness is a duration and
+   is now measured on `performance.now()`; only *how much time passed* comes from
+   `Date.now()`, and that is reconciled, never trusted to a pulse.
+
+### 21 — 2026-09-07 — `economy/pacing.js` mirrors `idle/accrual.js`; they now agree to 1.4 %
+
+`economy` prices its shop against an `INCOME_MODEL` that copies `idle`'s balance constants.
+It was copied mid-edit and had drifted (`BASE_MONEY` 0.85 there, 0.55 here) — a silent
+mismatch that would have made every price wrong by 55 %. `idle` has been moved back onto the
+mirrored values, and a six-member party at levels 10/25/50 now projects `24.04 / 48.82 /
+83.70` money per second here against `24.39 / 49.47 / 84.83` there.
+
+Resolved battles were retuned in the same pass: they were keyed to *total party power*, which
+is a sum over six members, so a full bench made every encounter a foregone win (97 % wins,
+73 % catches). They are keyed to the **lead's** level now — the wild level band already scales
+with the lead — giving 69 % wins and 31 % catches against the 72 % / 35 % `pacing.js` assumes.
+
+**This coupling is invisible to both files at runtime.** It wants a seam test asserting the
+two tables are equal; that is in the idle builder's `coreRequests`.
+
+### 16 — 2026-09-07 — The adapted props ship as a tileset named `props`
+
+The fifteen rebuilt props are authored art in the same folder shape as `assets/structures/`,
+so they need a source directory and a slug, not a second builder:
+`tools/assets/build-structures.js --src assets/props --slug props`. They land at
+`public/generated/tiles/props/` and load with `tiles.load('props')` like any other set,
+which means a map author places one with the same call that places a tree.
+
+They cost more triangles than the AdAstra props they sit beside: 76 for a revolved rock
+against 18 for `bench_s`, because the profile is 8 segments around by 5 rows up and the
+exporter triangulates the quads. That is real and is not being rounded down here; against a
+900k triangle budget on instanced geometry it is not worth trading the silhouette for, but
+it is the number to cut first if the budget ever gets tight.
+
+Two of the fifteen are honestly weaker than the rest. `hgss-overworld/water_rock` and
+`hgss-overworld/rock` have the surrounding water and ground baked into the sprite, so the
+cylindrical wrap carries ripples and grass up the body; they read as a crystal and a slab
+rather than as boulders. Both are still better than the leaning card they replace, and both
+are usable, but they are the two to re-cut first if these props go on screen prominently.

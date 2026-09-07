@@ -1,0 +1,34 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "axe_rotated",
+  "atlas": "Decoration.png"
+ },
+ "recipe": "decal",
+ "category": "prop",
+ "subcategory": "axe_rotated",
+ "tags": [
+  "adapted",
+  "occluder",
+  "prop",
+  "rustic"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.828132,
+  "u1": 1.001247,
+  "v0": 1.029989,
+  "v1": 1.242337
+ },
+ "tris": 1,
+ "dimensions": [
+  1.1532,
+  1.4677,
+  0.0
+ ]
+}

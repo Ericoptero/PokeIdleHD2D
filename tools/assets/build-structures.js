@@ -13,7 +13,11 @@
  * meta.json giving the footprint, collision and door cell. Output goes to
  * public/generated/tiles/structures/.
  *
+ * The same code builds the adapted props (DECISIONS #15): they are authored art in exactly
+ * the same folder shape, so they are a source directory and a slug, not a second builder.
+ *
  *   node tools/assets/build-structures.js
+ *   node tools/assets/build-structures.js --src assets/props --slug props
  */
 
 import { readdirSync, mkdirSync, writeFileSync, copyFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
@@ -23,9 +27,22 @@ import { parseObj } from './obj.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
-const SRC = join(REPO, 'assets', 'structures');
-const OUT = join(REPO, 'public', 'generated', 'tiles', 'structures');
 const STRIDE = 11;
+
+function parseArgs(argv) {
+  const a = { src: 'assets/structures', slug: 'structures' };
+  for (let i = 0; i < argv.length; i++) {
+    if (!argv[i].startsWith('--')) continue;
+    const k = argv[i].slice(2);
+    if (argv[i + 1] && !argv[i + 1].startsWith('--')) a[k] = argv[++i];
+  }
+  return a;
+}
+
+const ARGS = parseArgs(process.argv.slice(2));
+const SRC = join(REPO, ARGS.src);
+const SLUG = ARGS.slug;
+const OUT = join(REPO, 'public', 'generated', 'tiles', SLUG);
 
 /** Defaults for a structure that ships no meta.json. */
 const DEFAULT_META = {
@@ -47,7 +64,7 @@ const DEFAULT_META = {
 
 function build() {
   if (!existsSync(SRC)) {
-    console.log(`— no ${SRC}; nothing to build. Author structures there first.`);
+    console.log(`— no ${SRC}; nothing to build. Author art there first.`);
     return { models: 0 };
   }
   rmSync(OUT, { recursive: true, force: true });
@@ -145,23 +162,23 @@ function build() {
       `h=${(b.max[1] - b.min[1]).toFixed(2)}`);
   }
 
-  const pack = { tileset: 'structures', stride: STRIDE, materials, autotileSets: [], models };
+  const pack = { tileset: SLUG, stride: STRIDE, materials, autotileSets: [], models };
   writeFileSync(join(OUT, 'pack.json'), JSON.stringify(pack));
   writeFileSync(join(OUT, 'pack.bin'), Buffer.concat(chunks));
   writeFileSync(join(OUT, 'catalog.json'), JSON.stringify({
-    tileset: 'structures', unitsPerCell: 1, axis: 'y-up, +x east, +z south',
-    source: 'assets/structures (authored — DECISIONS #3)',
+    tileset: SLUG, unitsPerCell: 1, axis: 'y-up, +x east, +z south',
+    source: `${ARGS.src} (authored — DECISIONS #3, #15)`,
     materials, models,
   }, null, 1));
 
   const index = join(REPO, 'public', 'generated', 'tiles', 'index.json');
   if (existsSync(index)) {
     const idx = JSON.parse(readFileSync(index, 'utf8'));
-    if (!idx.sets.includes('structures')) idx.sets.push('structures');
+    if (!idx.sets.includes(SLUG)) idx.sets.push(SLUG);
     writeFileSync(index, JSON.stringify(idx, null, 1));
   }
   return { models: models.length, materials: materials.length, bytes: offset };
 }
 
 const r = build();
-console.log(`structures: ${r.models} models, ${r.materials ?? 0} materials, ${((r.bytes ?? 0) / 1024).toFixed(0)}KB`);
+console.log(`${SLUG}: ${r.models} models, ${r.materials ?? 0} materials, ${((r.bytes ?? 0) / 1024).toFixed(0)}KB`);

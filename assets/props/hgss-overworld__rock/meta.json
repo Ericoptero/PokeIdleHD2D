@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "hgss-overworld",
+  "model": "rock",
+  "atlas": "rock01.png"
+ },
+ "recipe": "axial",
+ "category": "prop",
+ "subcategory": "rock",
+ "tags": [
+  "adapted",
+  "decor",
+  "multicell",
+  "occluder",
+  "rock"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 2,
+ "h": 2,
+ "uv": {
+  "u0": 0.03125,
+  "u1": 0.96875,
+  "v0": 0.03125,
+  "v1": 0.96875
+ },
+ "tris": 34,
+ "dimensions": [
+  2.0,
+  2.0,
+  0.8284
+ ]
+}

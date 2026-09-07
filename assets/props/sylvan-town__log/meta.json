@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "log",
+  "atlas": "Decoration.png"
+ },
+ "recipe": "lying",
+ "category": "prop",
+ "subcategory": "log",
+ "tags": [
+  "adapted",
+  "multicell",
+  "occluder",
+  "prop",
+  "rustic"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.74124,
+  "u1": 0.993838,
+  "v0": 0.49113,
+  "v1": 0.713907
+ },
+ "tris": 34,
+ "dimensions": [
+  1.0,
+  0.875,
+  0.875
+ ]
+}

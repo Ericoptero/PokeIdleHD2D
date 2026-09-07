@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "rock_small",
+  "atlas": "Decoration.png"
+ },
+ "recipe": "axial",
+ "category": "prop",
+ "subcategory": "rock_small",
+ "tags": [
+  "adapted",
+  "decor",
+  "multicell",
+  "occluder",
+  "rock"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.492399,
+  "u1": 0.705764,
+  "v0": 0.49014,
+  "v1": 0.727189
+ },
+ "tris": 34,
+ "dimensions": [
+  1.0,
+  1.0,
+  0.5152
+ ]
+}

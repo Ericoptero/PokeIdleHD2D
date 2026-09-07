@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "tree_mush",
+  "atlas": "TreeMushroom.png"
+ },
+ "recipe": "conifer",
+ "category": "tree",
+ "subcategory": "tree_mush",
+ "tags": [
+  "adapted",
+  "multicell",
+  "occluder",
+  "tall",
+  "tree"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 2,
+ "h": 2,
+ "uv": {
+  "u0": 0.010101,
+  "u1": 0.489899,
+  "v0": 0.042938,
+  "v1": 0.988584
+ },
+ "tris": 5,
+ "dimensions": [
+  1.694,
+  1.694,
+  3.8331
+ ]
+}

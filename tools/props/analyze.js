@@ -122,6 +122,26 @@ export function classify(model, bin) {
   return { klass: 'solid', tris, dy, dz, flatness, why: 'mixed orientations' };
 }
 
+/**
+ * The sprite's rectangle on its atlas. UVs are exported with V negated and tiles may address
+ * outside 0..1, so the rect is taken from the raw values and then shifted whole — wrapping
+ * each value on its own splits a rect that straddles 1.0 (which is what `axe` does) and
+ * yields a box covering most of the sheet.
+ */
+function uvRect(model, bin) {
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const g of model.groups ?? []) {
+    for (let i = 0; i < g.count; i++) {
+      const b = g.offset + (i * STRIDE + 6) * 4;
+      const u = bin.readFloatLE(b), v = bin.readFloatLE(b + 4);
+      if (u < u0) u0 = u; if (u > u1) u1 = u;
+      if (v < v0) v0 = v; if (v > v1) v1 = v;
+    }
+  }
+  const su = Math.floor(u0), sv = Math.floor(v0);
+  return { u0: u0 - su, u1: u1 - su, v0: v0 - sv, v1: v1 - sv };
+}
+
 export function analyze() {
   // Scan the directory rather than index.json: the index lists whatever the last build touched,
   // and every tileset ever converted is still on disk and still a source of props.
@@ -134,13 +154,15 @@ export function analyze() {
     if (!existsSync(catPath)) continue;
     const cat = JSON.parse(readFileSync(catPath, 'utf8'));
     const bin = readFileSync(join(TILES, slug, 'pack.bin'));
+    const images = new Map(cat.materials.map((mm) => [mm.id, mm.image]));
     for (const m of cat.models) {
       if (!PROPISH.has(m.category)) continue;
       const c = classify(m, bin);
       out.push({
         slug, id: m.id, name: m.name, category: m.category, subcategory: m.subcategory ?? null,
         obj: m.obj, w: m.w, h: m.h, materials: m.materials, tags: m.tags ?? [],
-        bounds: m.bounds, ...c,
+        atlas: images.get(m.materials?.[0]) ?? null,
+        bounds: m.bounds, uv: uvRect(m, bin), ...c,
       });
     }
   }

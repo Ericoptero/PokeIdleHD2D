@@ -1,0 +1,33 @@
+{
+ "source": {
+  "tileset": "pt-overworld-7",
+  "model": "hedge",
+  "atlas": "imped_lm53.png"
+ },
+ "recipe": "planter",
+ "category": "plant",
+ "subcategory": "hedge",
+ "tags": [
+  "adapted",
+  "hedge",
+  "occluder"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.515625,
+  "u1": 0.75,
+  "v0": 0.515625,
+  "v1": 0.75
+ },
+ "tris": 21,
+ "dimensions": [
+  1.0,
+  1.0,
+  0.8067
+ ]
+}

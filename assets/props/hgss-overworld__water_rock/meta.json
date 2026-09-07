@@ -1,0 +1,37 @@
+{
+ "source": {
+  "tileset": "hgss-overworld",
+  "model": "water_rock",
+  "atlas": "dsea_rock.png"
+ },
+ "recipe": "axial",
+ "category": "prop",
+ "subcategory": "water_rock",
+ "tags": [
+  "adapted",
+  "decor",
+  "multicell",
+  "occluder",
+  "rock",
+  "sunken",
+  "water"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 2,
+ "h": 2,
+ "uv": {
+  "u0": 0.0,
+  "u1": 1.0,
+  "v0": 0.03125,
+  "v1": 0.96875
+ },
+ "tris": 34,
+ "dimensions": [
+  2.0,
+  2.0,
+  0.6517
+ ]
+}

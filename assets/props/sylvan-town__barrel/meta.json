@@ -1,0 +1,35 @@
+{
+ "source": {
+  "tileset": "sylvan-town",
+  "model": "barrel",
+  "atlas": "Decoration.png"
+ },
+ "recipe": "axial",
+ "category": "prop",
+ "subcategory": "barrel",
+ "tags": [
+  "adapted",
+  "multicell",
+  "occluder",
+  "prop",
+  "rustic"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.270321,
+  "u1": 0.519419,
+  "v0": 0.019546,
+  "v1": 0.39945
+ },
+ "tris": 34,
+ "dimensions": [
+  1.0,
+  1.0,
+  1.1213
+ ]
+}

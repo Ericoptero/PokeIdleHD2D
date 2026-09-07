@@ -1,0 +1,34 @@
+{
+ "source": {
+  "tileset": "bw2-twist",
+  "model": "small_rock",
+  "atlas": "d7_rock01.png"
+ },
+ "recipe": "axial",
+ "category": "prop",
+ "subcategory": "small_rock",
+ "tags": [
+  "adapted",
+  "decor",
+  "occluder",
+  "rock"
+ ],
+ "biomes": [
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "uv": {
+  "u0": 0.0,
+  "u1": 1.0,
+  "v0": 0.03125,
+  "v1": 0.96875
+ },
+ "tris": 34,
+ "dimensions": [
+  1.0,
+  1.0,
+  0.3258
+ ]
+}
