@@ -1,0 +1,25 @@
+{
+ "category": "building",
+ "subcategory": "poke_mart",
+ "tags": [
+  "building",
+  "landmark",
+  "mart",
+  "shop"
+ ],
+ "biomes": [
+  "city"
+ ],
+ "collision": "block",
+ "w": 6,
+ "h": 5,
+ "door": [
+  3.6,
+  4
+ ],
+ "swapYZ": true,
+ "emissiveMaterials": [
+  "window",
+  "door"
+ ]
+}

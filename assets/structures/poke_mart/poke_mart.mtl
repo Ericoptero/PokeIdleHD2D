@@ -1,0 +1,73 @@
+# poke_mart
+newmtl plinth
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd plinth.png
+
+newmtl wall
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd wall.png
+
+newmtl timber
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd timber.png
+
+newmtl roof
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd roof.png
+
+newmtl door
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.300 0 0
+illum 1
+map_Kd door.png
+
+newmtl awning
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd awning.png
+
+newmtl sign
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd sign.png
+
+newmtl window
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.500 0 0
+illum 1
+map_Kd window.png
+

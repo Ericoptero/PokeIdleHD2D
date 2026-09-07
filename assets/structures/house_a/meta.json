@@ -1,0 +1,22 @@
+{
+ "category": "building",
+ "subcategory": "house",
+ "tags": [
+  "building",
+  "house"
+ ],
+ "biomes": [
+  "city"
+ ],
+ "collision": "block",
+ "w": 5,
+ "h": 4,
+ "door": [
+  1.9,
+  3
+ ],
+ "swapYZ": true,
+ "emissiveMaterials": [
+  "window"
+ ]
+}

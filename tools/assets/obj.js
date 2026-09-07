@@ -111,9 +111,13 @@ export function parseObj(path, { scale = 1, swapYZ = false } = {}) {
     else if (key === 'f') {
       const g = group ?? (group = groupFor(material));
       const verts = parts.slice(1).map((v) => v.split('/'));
-      // fan an n-gon; our own art is quads and tris but this costs nothing
+      // Fan the n-gon. Swapping Y and Z mirrors the model, which flips every triangle's
+      // handedness, so the fan is reversed to keep winding consistent with the (equally
+      // mirrored) normals — otherwise every upward-facing face renders backwards and a
+      // roof looks like it has a hole in it.
       for (let i = 1; i + 1 < verts.length; i++) {
-        for (const v of [verts[0], verts[i], verts[i + 1]]) push(g, v[0], v[1], v[2]);
+        const tri = swapYZ ? [verts[0], verts[i + 1], verts[i]] : [verts[0], verts[i], verts[i + 1]];
+        for (const v of tri) push(g, v[0], v[1], v[2]);
       }
     }
   }

@@ -21,7 +21,7 @@ const CHROME = process.env.CHROME_PATH
 export function parseArgs(argv) {
   const a = { base: 'http://127.0.0.1:5173', size: '1920x1080', tod: null, preset: null,
     showcase: null, mode: null, seed: null, settle: 30, out: null, timeout: 30000,
-    focus: null, pixelScale: null, software: false, debug: false, extra: {} };
+    focus: null, pixelScale: null, software: false, debug: false, retries: 3, extra: {} };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (!k.startsWith('--')) continue;
@@ -35,7 +35,24 @@ export function parseArgs(argv) {
   return a;
 }
 
+/**
+ * Takes one screenshot, retrying a page that navigated out from under us. Several agents
+ * edit the tree at once and Vite reloads the page on every save, so a capture that lands
+ * mid-reload is normal traffic rather than a failure.
+ */
 export async function shoot(opts) {
+  const attempts = Number(opts.retries ?? 3);
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    last = await shootOnce(opts);
+    const transient = last.error && /Execution context was destroyed|Target closed|detached Frame|Navigation/i.test(last.error);
+    if (!transient) return last;
+    await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+  }
+  return last;
+}
+
+async function shootOnce(opts) {
   const a = { ...opts };
   const [w, h] = String(a.size).split('x').map(Number);
   const out = resolve(a.out);

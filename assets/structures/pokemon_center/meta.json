@@ -1,0 +1,25 @@
+{
+ "category": "building",
+ "subcategory": "pokemon_center",
+ "tags": [
+  "building",
+  "landmark",
+  "pokecenter",
+  "heal"
+ ],
+ "biomes": [
+  "city"
+ ],
+ "collision": "block",
+ "w": 8,
+ "h": 6,
+ "door": [
+  3,
+  5
+ ],
+ "swapYZ": true,
+ "emissiveMaterials": [
+  "window",
+  "door"
+ ]
+}
