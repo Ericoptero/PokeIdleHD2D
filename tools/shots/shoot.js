@@ -81,6 +81,12 @@ async function shootOnce(opts) {
   });
 
   const page = await browser.newPage();
+  // Never screenshot a cached asset. Vite serves `public/` with far-future caching, so after
+  // an asset rebuild the page can fetch a stale pack.bin whose offsets no longer match the
+  // catalog it is paired with: the draw calls and triangle count look completely normal and
+  // the scene renders nothing. That failure is indistinguishable from a real bug, which is
+  // exactly the kind of thing this harness exists to rule out.
+  await page.setCacheEnabled(false);
   const consoleErrors = [];
   const consoleWarnings = [];
   page.on('console', (msg) => {

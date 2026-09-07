@@ -236,12 +236,17 @@ def build_ground_quad(ob, w, d, uv, y=0.03):
     bm.free()
 
 
-def build_crossed(name, size, uv, radii=None, slices=3):
+def build_crossed(name, size, uv, radii=None, slices=0):
     """
-    AdAstra's own tree: two upright quads crossing at the cell centre, plus horizontal slice
-    quads across the footprint. The slices are what make a ten-triangle tree read as a volume
-    under a camera locked at 45 degrees -- they stack into layers instead of presenting one
-    cutout. Measured off `bw2-adastra/tree`, which slices at y = 0.19, 1.63 and 3.72 of 4.50.
+    AdAstra's own tree: two upright quads crossing at the cell centre. Measured off
+    `bw2-adastra/tree`, which also carries horizontal slice quads at y = 0.19, 1.63 and 3.72
+    of 4.50 -- and those are **off by default here**, which is a deliberate departure.
+
+    AdAstra's slices work because that tree ships four materials, one per layer, each drawn
+    as a top-down canopy. Ours would have to take a horizontal band of a *front-view* sprite
+    and stretch it across the footprint, which on screen is three grey plates through the
+    tree rather than canopy depth. Without the top-down art the trick has nothing to draw,
+    so the blades stand alone; pass `slices` to opt back in if a sprite ever gets that art.
     """
     w, h = size
     bm = bmesh.new()
@@ -258,9 +263,19 @@ def build_crossed(name, size, uv, radii=None, slices=3):
             loop[uv_layer].uv = sprite_uv(uvc[0], uvc[1], uv)
 
     full = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
-    # the two upright blades, each spanning the whole sprite
-    quad([(0, c, 0), (w, c, 0), (w, c, h), (0, c, h)], full)
-    quad([(c, 0, 0), (c, w, 0), (c, w, h), (c, 0, h)], full)
+
+    # The two upright blades, each spanning the whole sprite -- and each emitted twice, once
+    # per winding. A blade is a plane, so one of its two sides always faces away from the
+    # camera and is culled; the first pass through this showed nothing on screen but a
+    # perfect tree-shaped shadow, because three renders shadows from the opposite face. The
+    # alternative is a double-sided material, which would mean new plumbing through the pack
+    # for four extra triangles.
+    def blade(pts):
+        quad(pts, full)
+        quad(list(reversed(pts)), tuple(reversed(full)))
+
+    blade([(0, c, 0), (w, c, 0), (w, c, h), (0, c, h)])
+    blade([(c, 0, 0), (c, w, 0), (c, w, h), (c, 0, h)])
 
     # Horizontal slices: each takes the band of the sprite it sits at, so a canopy layer
     # shows canopy and a base layer shows trunk. Each is inset to the silhouette's own width
@@ -498,6 +513,11 @@ def export_one(ob, entry, uv_used):
     folder = os.path.join(OUT, f"{slug}__{name}")
     os.makedirs(folder, exist_ok=True)
 
+    # The UVs go out exactly as built. `sprite_uv` returns a GL-style V so the Blender
+    # previews match what the game will draw, the OBJ format stores V the other way up, and
+    # tools/assets/obj.js flips it back on import -- the two cancel. Flipping here as well
+    # samples the mirrored band, which for a sprite that is a sub-rect of a shared atlas is
+    # a different picture entirely (the barrel becomes the log pile beside it).
     for o in bpy.context.selected_objects:
         o.select_set(False)
     ob.select_set(True)

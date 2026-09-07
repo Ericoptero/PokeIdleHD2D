@@ -384,6 +384,24 @@ not by reading the file in order:
 
 The idle pose is the walk contact frame: `[21, 2, 0, 4]` in `core/dir.js` order.
 
+**`heroine.png` groups its frames the same way but pairs its mirrors differently.** The sheet
+was measured with the same script and looked at frame by frame: same six back frames
+`[0,7,8,9,10,20]`, same `{1,2,3}`/`{4,5,6}` and `{14,15,16}`/`{17,18,19}` mirror sets, same
+walk/run split (legs-only best matches 0↔21, 9↔22, 20↔23; run frames lean into the direction
+of travel, centroids 14.2/13.1/15.0 against 16.5/16.6/16.6). But the pixel-identical mirror
+pairs are **not** the hero's:
+
+```
+  hero.png     1↔6  2↔4  3↔5   14↔17  15↔19  16↔18
+  heroine.png  1↔5  2↔4  3↔6   14↔17  15↔18  16↔19
+```
+
+So the east cycle is *derived* from the west cycle through each sheet's own map
+(`TRAINER_MIRRORS` in `src/pokemon/sprites.js`) rather than written out once. Applying the
+hero's map to the heroine would not have broken her walk — it would have led with the wrong
+foot, which is the kind of thing that is never noticed and never right. Both trainers, in all
+four directions, are in `docs/progress/pokemon/r1/02-trainer.png`.
+
 **Also corrected in #4:** the Pokémon sheets are *not* all 64×128. 1192 are (32 px frames);
 **61 are 128×256 with 64 px frames** — Wailord, Steelix, every Arceus, Lugia, Dondozo and the
 rest of the big bodies. Both shapes are 2 columns × 4 rows and are handled by frame size, not
@@ -508,3 +526,25 @@ Two of the fifteen are honestly weaker than the rest. `hgss-overworld/water_rock
 cylindrical wrap carries ripples and grass up the body; they read as a crystal and a slab
 rather than as boulders. Both are still better than the leaning card they replace, and both
 are usable, but they are the two to re-cut first if these props go on screen prominently.
+
+### 17 — 2026-09-07 — The screenshot harness never reads a cached asset
+
+Twice during the props round a rebuild produced a screenshot of an empty floor — with the
+*same* 40 draw calls and 3k triangles as the shot that had just worked. The geometry was
+being submitted and drawing nothing.
+
+The cause was cache, not code. Vite serves `public/` with far-future caching, so after
+`pack.bin` is rebuilt the page can fetch the previous copy while loading the new
+`catalog.json` beside it. The offsets in one no longer address the other, every model reads
+garbage vertices, and the scene renders nothing while the metrics stay perfectly healthy.
+
+That failure is indistinguishable from a real rendering bug, and it cost a wrong diagnosis:
+the empty frame was read as a UV problem and "fixed" by flipping V on export, which broke
+UVs that had been correct. `tools/shots/shoot.js` now calls `page.setCacheEnabled(false)`,
+so a screenshot always shows what is on disk.
+
+The related lesson is recorded here too: **do not judge art in a frame the environment
+module is mid-rewrite in.** The same props were called wrong twice from a scene that was
+simply too dark to read. What settled it in the end was a measurement — every prop's UV
+rect parsed out of `pack.bin` and checked to lie inside the source sprite's rect, which was
+itself proven by cropping the atlas and looking at it.
