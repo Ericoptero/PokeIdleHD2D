@@ -212,3 +212,94 @@ the same URL gives the same pixels; that was false. `tools/shots/shoot.js` now s
 `timeFrozen=1` unless a caller explicitly asks otherwise, which makes every screenshot in
 `docs/progress/` and every blind pair reproducible — and makes a diff between two rounds mean
 something.
+
+---
+
+### 15 — 2026-09-07 — Offline discounts time, not rate; a bad save is quarantined at `warn`, not `error`
+
+Four decisions from `src/offline/`, each of which had a plausible alternative.
+
+**The discount lives in the time axis.** `idle/accrual.js` documents a `state.efficiency`
+field ("offline passes `config.offlineEfficiency`"), and `offline` deliberately does not use
+it. Two reasons, both checked. First, the discount is a *curve* — full rate for a 30 min
+grace period, then a half-life decay of the surplus down to the `offlineEfficiency` floor —
+and no single scalar can express a curve, so passing one would have to pick a number that is
+wrong at every instant except one. Second, `accrual.simulate` resolves discrete encounters by
+*index* (`idle/encounter/N`), and a rate multiplier changes how many indices an absence
+consumes; discounting the elapsed seconds instead means `offline`'s single call is exactly
+the call `idle` would have made had the player been present for that much active time,
+whatever `idle` later decides a second is worth. The curve is integrated in closed form —
+`E(T) = grace + floor·d + (1−floor)·halfLife/ln2 · (1 − 2^(−d/halfLife))`, `d = T − grace` —
+and checked against a 0.5 s numerical integration in `selftest.js` to 1e-6 relative, so the
+number cannot drift with a step size. Twelve hours away is worth **62 %** of twelve active
+hours.
+
+`selftest.js` also cross-checks the live `idle.simulate` for chunk additivity (two hours in
+one call versus 240 chunks of 30 s): money agrees to 3.1e-15 relative and the encounter set
+is identical. That property is the whole licence for handing it one big number.
+
+**A corrupt save is a `warn`, not an `error`.** `core/log.js` feeds `log.error` straight into
+the screenshot budget, and §7 requires zero console errors. A quarantined save is the
+*handled* path — the bytes are preserved at `pokeidle.save.broken`, the player is toasted,
+`offline.info()` reports it, and the game boots — so logging it at error level would fail a
+budget for behaving correctly. Unhandled is what `error` is for. Same for a save from a
+future version, which is moved to `pokeidle.save.future` and never migrated backwards or
+overwritten; re-installing the newer build gets the run back.
+
+**Integrity is checked, not assumed.** The save carries `h`, an FNV-1a of its own
+key-order-independent JSON. It is not a security primitive and is not pretending to be one:
+it catches a truncated or hand-mangled file before the migrations run on nonsense. A save
+with no `h` (hand-written, or from before this field) still loads.
+
+**The save seam is `saveState()`/`loadState()`, or `snapshot()`/`restore()`.** `offline` owns
+the file; every other module owns its own state and lives in a folder `offline` may not
+touch. So the store *pulls*: at capture time it asks each module for its slice through its
+published API, accepting either name pair (both halves must exist — a lone `snapshot()` on
+some future module far more likely means something else). `economy` and `idle` already ship
+one. For modules that do not, `src/offline/slices.js` carries feature-detected adapters built
+only from published methods, which evaporate the moment the owner adds the real seam. Slices
+this build does not recognise are carried through a load/save cycle untouched, so a save
+written by a newer build loses nothing on a downgrade.
+
+**`?showcase=…` is read-only.** A showcase must be deterministic (§6.3) and must not spend a
+player's real absence on a screenshot, so in showcase mode `offline` runs against an
+in-memory copy of the save: it never hydrates, never grants and never writes.
+
+### 15 — 2026-09-07 — What "adapt to AdAstra" means, measured from AdAstra's own geometry
+
+The brief says the other tilesets are "tilted sprites in 45 degrees with not connected
+parts" and asks for them adapted to the AdAstra style. Rather than guess at that, the two
+styles were measured out of `pack.bin`.
+
+**A non-AdAstra prop** — `sylvan-town/barrel` — is *two triangles*: one quad running from
+(y 0.10, z 0.10) to (y 1.62, z 1.58), every normal `(0, 0.70, -0.72)`. One flat sheet leaning
+back at 45°. It only reads from the angle it was drawn for, it takes light as though it were
+a ramp, and anything passing behind it shears across it.
+
+**An AdAstra prop** is built. `tree` (2x2 cells, y 0.19-4.50, 10 triangles) is:
+
+  - two *upright* quads crossing at the cell centre — one at x=1 facing -X, one at z=1
+    facing -Z, both spanning the full height;
+  - **three horizontal quads** across the whole 2x2 footprint, at y = 0.19, 1.63 and 3.72;
+  - four separate materials, one per layer.
+
+Those horizontal slices are the whole trick. Under a camera locked at 45° they stack into
+canopy layers, so a 10-triangle tree reads as a volume instead of as a cutout. `bench_s`
+(18 triangles) does the solid-object version: a faceted low-poly body whose normals point
+up-and-outward `(±0.58, 0.58, -0.58)` to fake soft shading, plus a flat quad at y=0.04 that
+grounds it.
+
+So the rebuild recipe, per kind:
+
+  - **foliage** (`hedge`, `tree_mush`) — crossed upright billboards + horizontal slice quads
+    + a ground quad;
+  - **solid volumes** (`barrel`, `log`, `fat_log`, `pile_of_logs`, the rocks) — a faceted
+    prism with up-and-out normals, sprite projected from the front, + a ground quad;
+  - **thin decoration** (`axe`) — one upright billboard + a ground quad.
+
+`tools/props/analyze.js` finds the work by *coplanarity*, not by triangle count. A cliff bank
+(`bw2-brom/rock_edge_n`, 4 triangles, normals tilted) looks identical to a leaning sprite if
+you count triangles, but it climbs in steps and so is not planar; a leaning sprite fits one
+plane to within 0.02 of a cell. That test finds **15** models to rebuild across nine
+tilesets, and finds **zero** in AdAstra itself — which is the check that it is measuring the
+right thing.

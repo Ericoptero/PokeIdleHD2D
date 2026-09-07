@@ -1,0 +1,557 @@
+{
+ "total": 281,
+ "needsRebuild": 15,
+ "models": [
+  {
+   "slug": "bw2-twist",
+   "id": 71,
+   "name": "small_rock",
+   "category": "prop",
+   "subcategory": "small_rock",
+   "obj": "obj/prop/small_rock.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    15
+   ],
+   "tags": [
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.125,
+     0
+    ],
+    "max": [
+     1,
+     0.625,
+     1
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.5,
+   "dz": 1,
+   "flatness": 6.664001878098347e-9,
+   "why": "one plane leaning 27 degrees"
+  },
+  {
+   "slug": "hgss-overworld",
+   "id": 369,
+   "name": "water_rock_small",
+   "category": "prop",
+   "subcategory": "water_rock_small",
+   "obj": "obj/prop/water_rock_small.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    19
+   ],
+   "tags": [
+    "decor",
+    "occluder",
+    "rock",
+    "sunken",
+    "water"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     -0.3535,
+     0.1465
+    ],
+    "max": [
+     1,
+     0.4863,
+     0.7041
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.8398,
+   "dz": 0.5576,
+   "flatness": 0.00046385852176930586,
+   "why": "one plane leaning 56 degrees"
+  },
+  {
+   "slug": "hgss-overworld",
+   "id": 372,
+   "name": "water_rock",
+   "category": "prop",
+   "subcategory": "water_rock",
+   "obj": "obj/prop/water_rock.obj",
+   "w": 2,
+   "h": 2,
+   "materials": [
+    17
+   ],
+   "tags": [
+    "decor",
+    "multicell",
+    "occluder",
+    "rock",
+    "sunken",
+    "water"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     -0.457,
+     0.293
+    ],
+    "max": [
+     2,
+     0.957,
+     1.707
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 1.414,
+   "dz": 1.4140000000000001,
+   "flatness": 3.477115002037401e-7,
+   "why": "one plane leaning 45 degrees"
+  },
+  {
+   "slug": "hgss-overworld",
+   "id": 373,
+   "name": "rock",
+   "category": "prop",
+   "subcategory": "rock",
+   "obj": "obj/prop/rock.obj",
+   "w": 2,
+   "h": 2,
+   "materials": [
+    18
+   ],
+   "tags": [
+    "decor",
+    "multicell",
+    "occluder",
+    "rock"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.043,
+     0.293
+    ],
+    "max": [
+     2,
+     1.457,
+     1.707
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 1.4140000000000001,
+   "dz": 1.4140000000000001,
+   "flatness": 3.4902858925267566e-7,
+   "why": "one plane leaning 45 degrees"
+  },
+  {
+   "slug": "pt-forest",
+   "id": 229,
+   "name": "hedge",
+   "category": "plant",
+   "subcategory": "hedge",
+   "obj": "obj/plant/hedge.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    32
+   ],
+   "tags": [
+    "hedge",
+    "occluder"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0.1465
+    ],
+    "max": [
+     1,
+     0.707,
+     0.8535
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.707,
+   "dz": 0.7070000000000001,
+   "flatness": 2.9742223683904e-9,
+   "why": "one plane leaning 45 degrees"
+  },
+  {
+   "slug": "pt-overworld-7",
+   "id": 281,
+   "name": "hedge",
+   "category": "plant",
+   "subcategory": "hedge",
+   "obj": "obj/plant/hedge.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    38
+   ],
+   "tags": [
+    "hedge",
+    "occluder"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0.1465
+    ],
+    "max": [
+     1,
+     0.707,
+     0.8535
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.707,
+   "dz": 0.7070000000000001,
+   "flatness": 2.9742223683904e-9,
+   "why": "one plane leaning 45 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 103,
+   "name": "axe",
+   "category": "prop",
+   "subcategory": "axe",
+   "obj": "obj/prop/axe.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0.1272,
+     0.4597,
+     0.1408
+    ],
+    "max": [
+     0.8728,
+     1.0622,
+     0.9661
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.6025,
+   "dz": 0.8252999999999999,
+   "flatness": 0.000002157732784835442,
+   "why": "one plane leaning 36 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 104,
+   "name": "axe_rotated",
+   "category": "prop",
+   "subcategory": "axe_rotated",
+   "obj": "obj/prop/axe_rotated.obj",
+   "w": 1,
+   "h": 1,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0.3201,
+     0.4461,
+     0.0381
+    ],
+    "max": [
+     1.4733,
+     1.0758,
+     1.0689
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.6297000000000001,
+   "dz": 1.0308,
+   "flatness": 0.000023020545065061127,
+   "why": "one plane leaning 31 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 107,
+   "name": "pile_of_logs",
+   "category": "prop",
+   "subcategory": "pile_of_logs",
+   "obj": "obj/prop/pile_of_logs.obj",
+   "w": 2,
+   "h": 2,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1443,
+     0
+    ],
+    "max": [
+     2,
+     1.9872,
+     2.1418
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 1.8429,
+   "dz": 2.1418,
+   "flatness": 0.000020545789636172707,
+   "why": "one plane leaning 41 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 108,
+   "name": "barrel",
+   "category": "prop",
+   "subcategory": "barrel",
+   "obj": "obj/prop/barrel.obj",
+   "w": 1,
+   "h": 2,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1,
+     0.1
+    ],
+    "max": [
+     1,
+     1.6172,
+     1.5751
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 1.5171999999999999,
+   "dz": 1.4750999999999999,
+   "flatness": 0.00001129430790303143,
+   "why": "one plane leaning 46 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 109,
+   "name": "rock_small",
+   "category": "prop",
+   "subcategory": "rock_small",
+   "obj": "obj/prop/rock_small.obj",
+   "w": 1,
+   "h": 2,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "decor",
+    "multicell",
+    "occluder",
+    "rock"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1,
+     0.1
+    ],
+    "max": [
+     1,
+     0.8,
+     1.2
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.7000000000000001,
+   "dz": 1.0999999999999999,
+   "flatness": 2.039875601766994e-9,
+   "why": "one plane leaning 32 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 110,
+   "name": "rock_tall",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "obj": "obj/prop/rock_tall.obj",
+   "w": 1,
+   "h": 2,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "decor",
+    "multicell",
+    "occluder",
+    "rock"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1,
+     0.1
+    ],
+    "max": [
+     1,
+     1.6172,
+     1.5751
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 1.5171999999999999,
+   "dz": 1.4750999999999999,
+   "flatness": 0.00001129430790303143,
+   "why": "one plane leaning 46 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 111,
+   "name": "log",
+   "category": "prop",
+   "subcategory": "log",
+   "obj": "obj/prop/log.obj",
+   "w": 1,
+   "h": 2,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1,
+     0.1
+    ],
+    "max": [
+     1,
+     0.8,
+     1.0359
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.7000000000000001,
+   "dz": 0.9359000000000001,
+   "flatness": 0.000016361553601129675,
+   "why": "one plane leaning 37 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 112,
+   "name": "fat_log",
+   "category": "prop",
+   "subcategory": "fat_log",
+   "obj": "obj/prop/fat_log.obj",
+   "w": 2,
+   "h": 1,
+   "materials": [
+    28
+   ],
+   "tags": [
+    "multicell",
+    "occluder",
+    "prop",
+    "rustic"
+   ],
+   "bounds": {
+    "min": [
+     0,
+     0.1443,
+     0
+    ],
+    "max": [
+     2,
+     0.9523,
+     1.1069
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 0.808,
+   "dz": 1.1069,
+   "flatness": 0.000002944778012714533,
+   "why": "one plane leaning 36 degrees"
+  },
+  {
+   "slug": "sylvan-town",
+   "id": 113,
+   "name": "tree_mush",
+   "category": "tree",
+   "subcategory": "tree_mush",
+   "obj": "obj/tree/tree_mush.obj",
+   "w": 2,
+   "h": 2,
+   "materials": [
+    35
+   ],
+   "tags": [
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "bounds": {
+    "min": [
+     0.153,
+     0,
+     0.175
+    ],
+    "max": [
+     1.847,
+     2.284,
+     2.2229
+    ]
+   },
+   "klass": "tilted",
+   "tris": 2,
+   "dy": 2.284,
+   "dz": 2.0479000000000003,
+   "flatness": 0.001001634698211018,
+   "why": "one plane leaning 48 degrees"
+  }
+ ]
+}
