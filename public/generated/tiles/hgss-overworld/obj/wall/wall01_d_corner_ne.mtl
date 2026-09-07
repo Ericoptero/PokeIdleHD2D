@@ -1,0 +1,19 @@
+# wall01_d_corner_ne
+newmtl cliff01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/cliff01.png
+map_d ../../tex/cliff01.png
+
+newmtl wall01_d
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/wall01_d.png
+map_d ../../tex/wall01_d.png
+

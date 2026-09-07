@@ -1,0 +1,10 @@
+# sand_path_center
+newmtl michi01b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/michi01b.png
+map_d ../../tex/michi01b.png
+

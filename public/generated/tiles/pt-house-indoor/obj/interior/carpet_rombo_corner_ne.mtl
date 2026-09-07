@@ -1,0 +1,19 @@
+# carpet_rombo_corner_ne
+newmtl carpet01_2mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/carpet01_2mat.png
+map_d ../../tex/carpet01_2mat.png
+
+newmtl carpet01_1mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/carpet01_1mat.png
+map_d ../../tex/carpet01_1mat.png
+

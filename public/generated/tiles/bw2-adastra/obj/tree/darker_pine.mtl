@@ -1,0 +1,37 @@
+# darker_pine
+newmtl ki02c
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02c.png
+map_d ../../tex/ki02c.png
+
+newmtl ki02DARKax
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02DARKax.png
+map_d ../../tex/ki02DARKax.png
+
+newmtl ki02DARKbx
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02DARKbx.png
+map_d ../../tex/ki02DARKbx.png
+
+newmtl ki02DARKdx
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02DARKdx.png
+map_d ../../tex/ki02DARKdx.png
+

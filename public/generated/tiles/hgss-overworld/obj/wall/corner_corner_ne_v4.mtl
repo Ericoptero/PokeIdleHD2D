@@ -1,0 +1,19 @@
+# corner_corner_ne_v4
+newmtl grass01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/grass01.png
+map_d ../../tex/grass01.png
+
+newmtl wallkn_g
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/wallkn_g.png
+map_d ../../tex/wallkn_g.png
+

@@ -1,0 +1,10 @@
+# ecave_rock_corner_se
+newmtl d6gake_002
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d6gake_002.png
+map_d ../../tex/d6gake_002.png
+

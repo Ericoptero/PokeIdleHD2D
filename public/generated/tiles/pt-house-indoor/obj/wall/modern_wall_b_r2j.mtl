@@ -1,0 +1,19 @@
+# modern_wall_b_r2j
+newmtl labo_01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/labo_01.png
+map_d ../../tex/labo_01.png
+
+newmtl labo_02
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/labo_02.png
+map_d ../../tex/labo_02.png
+

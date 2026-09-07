@@ -1,0 +1,10 @@
+# water_rock_small
+newmtl sea_rock_m
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/sea_rock_m.png
+map_d ../../tex/sea_rock_m.png
+

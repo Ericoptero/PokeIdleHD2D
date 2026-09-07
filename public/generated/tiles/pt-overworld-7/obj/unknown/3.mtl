@@ -1,0 +1,19 @@
+# 3
+newmtl fenter
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/fenter_lm6.png
+map_d ../../tex/fenter_lm6.png
+
+newmtl tree01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tree01_lm2.png
+map_d ../../tex/tree01_lm2.png
+

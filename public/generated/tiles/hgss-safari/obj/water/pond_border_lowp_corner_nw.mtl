@@ -1,0 +1,19 @@
+# pond_border_lowp_corner_nw
+newmtl ms09_10
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ms09_10.png
+map_d ../../tex/ms09_10.png
+
+newmtl pond_edge
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/pond_edge.png
+map_d ../../tex/pond_edge.png
+

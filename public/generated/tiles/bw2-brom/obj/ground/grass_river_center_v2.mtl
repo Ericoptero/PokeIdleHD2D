@@ -1,0 +1,10 @@
+# grass_river_center_v2
+newmtl grass01ax
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/grass01ax.png
+map_d ../../tex/grass01ax.png
+

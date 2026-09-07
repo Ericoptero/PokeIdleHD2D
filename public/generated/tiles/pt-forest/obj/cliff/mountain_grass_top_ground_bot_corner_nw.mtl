@@ -1,0 +1,37 @@
+# mountain_grass_top_ground_bot_corner_nw
+newmtl criffp3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/file2Material.png
+map_d ../../tex/file2Material.png
+
+newmtl criffp2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criff2.png
+map_d ../../tex/criff2.png
+
+newmtl criff
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criff.png
+map_d ../../tex/criff.png
+
+newmtl criffp
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criff1.png
+map_d ../../tex/criff1.png
+

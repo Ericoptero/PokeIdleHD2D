@@ -1,0 +1,28 @@
+# tree_shadow_v6
+newmtl tree1_b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tree01_un.png
+map_d ../../tex/tree01_un.png
+
+newmtl TreeTall
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/TreeTall.png
+map_d ../../tex/TreeTall.png
+
+newmtl Tree_shadow
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 0.484
+illum 1
+map_Kd ../../tex/Tree_shadow.png
+map_d ../../tex/Tree_shadow.png
+

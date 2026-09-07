@@ -1,0 +1,37 @@
+# mine
+newmtl criffp
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criffp_lm42.png
+map_d ../../tex/criffp_lm42.png
+
+newmtl c3_slope1_lm19
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/c3_slope1_lm19.png
+map_d ../../tex/c3_slope1_lm19.png
+
+newmtl c3_slope3_lm12
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/c3_slope3_lm12.png
+map_d ../../tex/c3_slope3_lm12.png
+
+newmtl c3_slope2_lm19
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/c3_slope2_lm19.png
+map_d ../../tex/c3_slope2_lm19.png
+

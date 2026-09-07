@@ -1,0 +1,19 @@
+# ecave_stairs_s_v4
+newmtl d6_udan2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d6_udan2.png
+map_d ../../tex/d6_udan2.png
+
+newmtl d6_udan1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d6_udan1.png
+map_d ../../tex/d6_udan1.png
+

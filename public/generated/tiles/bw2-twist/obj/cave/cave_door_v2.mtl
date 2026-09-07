@@ -1,0 +1,46 @@
+# cave_door_v2
+newmtl d7cliff2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliff2.png
+map_d ../../tex/d7cliff2.png
+
+newmtl d7_ana02
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7_ana02.png
+map_d ../../tex/d7_ana02.png
+
+newmtl d7_ana01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7_ana01.png
+map_d ../../tex/d7_ana01.png
+
+newmtl d7cliffue2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliffue2.png
+map_d ../../tex/d7cliffue2.png
+
+newmtl d7bedrock2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7bedrock2.png
+map_d ../../tex/d7bedrock2.png
+

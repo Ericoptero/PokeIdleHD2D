@@ -1,0 +1,10 @@
+# r0_path_mark02
+newmtl michi_hage02
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/michi_hage02.png
+map_d ../../tex/michi_hage02.png
+

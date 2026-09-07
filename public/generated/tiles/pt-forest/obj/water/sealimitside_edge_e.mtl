@@ -1,0 +1,10 @@
+# sealimitside_edge_e
+newmtl seaside3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/sside.png
+map_d ../../tex/sside.png
+

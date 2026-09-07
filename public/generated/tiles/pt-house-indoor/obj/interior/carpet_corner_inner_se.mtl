@@ -1,0 +1,19 @@
+# carpet_corner_inner_se
+newmtl carpet03_1mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/carpet03_1mat.png
+map_d ../../tex/carpet03_1mat.png
+
+newmtl carpet03_2mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/carpet03_2mat.png
+map_d ../../tex/carpet03_2mat.png
+

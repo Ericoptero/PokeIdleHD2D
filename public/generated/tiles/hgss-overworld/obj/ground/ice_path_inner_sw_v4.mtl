@@ -1,0 +1,10 @@
+# ice_path_inner_sw_v4
+newmtl grass02_r
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/grass02_r.png
+map_d ../../tex/grass02_r.png
+

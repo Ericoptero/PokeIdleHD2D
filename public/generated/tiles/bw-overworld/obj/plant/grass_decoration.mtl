@@ -1,0 +1,10 @@
+# grass_decoration
+newmtl ue_grass00
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ue_grass00.png
+map_d ../../tex/ue_grass00.png
+

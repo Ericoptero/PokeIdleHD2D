@@ -1,0 +1,10 @@
+# ice_path_corner_se_v3
+newmtl fieldkk01_r
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/fieldkk01_r.png
+map_d ../../tex/fieldkk01_r.png
+

@@ -1,0 +1,37 @@
+# tower
+newmtl WitchHouse
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/WitchHouse.png
+map_d ../../tex/WitchHouse.png
+
+newmtl BrickWall
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/BrickWall.png
+map_d ../../tex/BrickWall.png
+
+newmtl Tejas
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/Tejas.png
+map_d ../../tex/Tejas.png
+
+newmtl h_kage
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 0.484
+illum 1
+map_Kd ../../tex/h_kage.png
+map_d ../../tex/h_kage.png
+

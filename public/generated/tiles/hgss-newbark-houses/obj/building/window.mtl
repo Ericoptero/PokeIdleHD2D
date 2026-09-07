@@ -1,0 +1,19 @@
+# window
+newmtl la_wina
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/la_wina.png
+map_d ../../tex/la_wina.png
+
+newmtl la_wallb
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/la_wallb.png
+map_d ../../tex/la_wallb.png
+

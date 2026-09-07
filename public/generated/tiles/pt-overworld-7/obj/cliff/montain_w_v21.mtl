@@ -1,0 +1,10 @@
+# montain_w_v21
+newmtl hanger_lm4
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/hanger_lm4.png
+map_d ../../tex/hanger_lm4.png
+

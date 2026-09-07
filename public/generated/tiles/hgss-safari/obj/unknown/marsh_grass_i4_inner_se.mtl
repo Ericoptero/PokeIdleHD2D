@@ -1,0 +1,10 @@
+# marsh_grass_i4_inner_se
+newmtl numa_kc
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/numa_kc1.png
+map_d ../../tex/numa_kc1.png
+

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PokeIdle HD2D</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: #05070c; overflow: hidden;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #e8eef7; }
+    #stage { position: fixed; inset: 0; }
+    #stage canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+    #ui { position: fixed; inset: 0; pointer-events: none; }
+    #ui > * { pointer-events: auto; }
+    #boot { position: fixed; inset: 0; display: grid; place-items: center; background: #05070c;
+      transition: opacity .35s ease; z-index: 50; }
+    #boot.gone { opacity: 0; pointer-events: none; }
+    #boot .bar { width: 220px; height: 3px; background: #17202e; border-radius: 2px; overflow: hidden; }
+    #boot .bar i { display: block; height: 100%; width: 0; background: #6cc6ff; transition: width .2s; }
+    #boot p { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #6a7a90; margin: 12px 0 0; }
+    #fatal { position: fixed; left: 12px; bottom: 12px; max-width: 60ch; font-size: 11px;
+      line-height: 1.5; color: #ff9a9a; white-space: pre-wrap; z-index: 60; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="ui"></div>
+  <div id="boot"><div><div class="bar"><i></i></div><p>loading</p></div></div>
+  <div id="fatal"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

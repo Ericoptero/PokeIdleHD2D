@@ -1,0 +1,19 @@
+# sea_cliff_n_v3
+newmtl sea_gake01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/sea_gake01.png
+map_d ../../tex/sea_gake01.png
+
+newmtl sea_gake02
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/sea_gake02.png
+map_d ../../tex/sea_gake02.png
+

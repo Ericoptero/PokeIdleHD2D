@@ -1,0 +1,10 @@
+# grass_center_v3
+newmtl Mud_ground
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/Mud_ground.png
+map_d ../../tex/Mud_ground.png
+

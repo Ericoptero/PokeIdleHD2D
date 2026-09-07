@@ -1,0 +1,19 @@
+# rock_edge_n
+newmtl d7cliff2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliff2.png
+map_d ../../tex/d7cliff2.png
+
+newmtl d7cliffue4
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliffue4.png
+map_d ../../tex/d7cliffue4.png
+

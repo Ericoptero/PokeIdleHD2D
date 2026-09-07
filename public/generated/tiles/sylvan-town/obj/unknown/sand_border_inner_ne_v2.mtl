@@ -1,0 +1,10 @@
+# sand_border_inner_ne_v2
+newmtl Mud
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/Mud.png
+map_d ../../tex/Mud.png
+

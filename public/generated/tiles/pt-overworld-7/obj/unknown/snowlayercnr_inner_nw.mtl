@@ -1,0 +1,10 @@
+# snowlayercnr_inner_nw
+newmtl s_sonwp
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/s_sonwp_lm2.png
+map_d ../../tex/s_sonwp_lm2.png
+

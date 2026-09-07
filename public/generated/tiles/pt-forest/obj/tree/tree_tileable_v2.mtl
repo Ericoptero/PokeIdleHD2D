@@ -1,0 +1,28 @@
+# tree_tileable_v2
+newmtl t22
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/t22.png
+map_d ../../tex/t22.png
+
+newmtl t21
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/t21.png
+map_d ../../tex/t21.png
+
+newmtl tshadow
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tshadow.png
+map_d ../../tex/tshadow.png
+

@@ -1,0 +1,28 @@
+# rock_tall_edge_n_v2
+newmtl gake01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake01.png
+map_d ../../tex/gake01.png
+
+newmtl gake1_0
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake1_0.png
+map_d ../../tex/gake1_0.png
+
+newmtl yamagake01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/yamagake01.png
+map_d ../../tex/yamagake01.png
+

@@ -1,0 +1,19 @@
+# mountain_ground_bot_corner_nw_v4
+newmtl wcliff
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/wcliff_lm4.png
+map_d ../../tex/wcliff_lm4.png
+
+newmtl criffp2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/file1Material.png
+map_d ../../tex/file1Material.png
+

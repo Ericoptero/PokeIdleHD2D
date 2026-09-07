@@ -1,0 +1,28 @@
+# cave_rock_border_edge_w
+newmtl d0gake_002b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d0gake_002b.png
+map_d ../../tex/d0gake_002b.png
+
+newmtl d0gake_001b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d0gake_001b.png
+map_d ../../tex/d0gake_001b.png
+
+newmtl d0gake_001
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d0gake_001.png
+map_d ../../tex/d0gake_001.png
+

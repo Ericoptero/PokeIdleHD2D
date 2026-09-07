@@ -1,0 +1,28 @@
+# tall_grass
+newmtl kusa_ec2s
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kusa_ec2s.png
+map_d ../../tex/kusa_ec2s.png
+
+newmtl kusa_ec1s
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kusa_ec1s.png
+map_d ../../tex/kusa_ec1s.png
+
+newmtl kusa_ec3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kusa_ec3.png
+map_d ../../tex/kusa_ec3.png
+

@@ -1,0 +1,10 @@
+# f_kage_center_v3
+newmtl f_kage
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 0.387
+illum 1
+map_Kd ../../tex/f_kage.png
+map_d ../../tex/f_kage.png
+

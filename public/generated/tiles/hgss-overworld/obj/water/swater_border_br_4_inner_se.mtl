@@ -1,0 +1,28 @@
+# swater_border_br_4_inner_se
+newmtl river
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/river.png
+map_d ../../tex/river.png
+
+newmtl river_r
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/river_r.png
+map_d ../../tex/river_r.png
+
+newmtl pond_line
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/pond_line.png
+map_d ../../tex/pond_line.png
+

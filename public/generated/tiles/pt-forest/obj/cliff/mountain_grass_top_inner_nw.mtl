@@ -1,0 +1,19 @@
+# mountain_grass_top_inner_nw
+newmtl criffp2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criff2.png
+map_d ../../tex/criff2.png
+
+newmtl criffp2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/criff2.png
+map_d ../../tex/criff2.png
+

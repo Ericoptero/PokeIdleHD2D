@@ -1,0 +1,19 @@
+# table
+newmtl counter_h01_mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/counter_h01_mat.png
+map_d ../../tex/counter_h01_mat.png
+
+newmtl counter_h02_mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/counter_h02_mat.png
+map_d ../../tex/counter_h02_mat.png
+

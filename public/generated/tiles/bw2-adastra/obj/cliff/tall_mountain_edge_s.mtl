@@ -1,0 +1,28 @@
+# tall_mountain_edge_s
+newmtl yamagake01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/yamagake01.png
+map_d ../../tex/yamagake01.png
+
+newmtl gake1_1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake1_1.png
+map_d ../../tex/gake1_1.png
+
+newmtl gake01a
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake01a.png
+map_d ../../tex/gake01a.png
+

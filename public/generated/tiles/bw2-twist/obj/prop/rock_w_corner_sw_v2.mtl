@@ -1,0 +1,28 @@
+# rock_w_corner_sw_v2
+newmtl d7cliff2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliff2.png
+map_d ../../tex/d7cliff2.png
+
+newmtl d7bedrock3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7bedrock3.png
+map_d ../../tex/d7bedrock3.png
+
+newmtl d7cliffue2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7cliffue2.png
+map_d ../../tex/d7cliffue2.png
+

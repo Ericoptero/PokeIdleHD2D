@@ -1,0 +1,3461 @@
+{
+ "tileset": "bw2-chargestone",
+ "source": "Black_-_White_2/Chargestone_Cave/ElectricCave.pdsts",
+ "unitsPerCell": 1,
+ "axis": "y-up, +x east, +z south",
+ "materials": [
+  {
+   "id": 0,
+   "image": "d6yuka_001.png",
+   "name": "d6yuka_001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 1,
+   "image": "d6gake_002.png",
+   "name": "d6gake_002",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 2,
+   "image": "d6gake_06.png",
+   "name": "d6gake_06",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 3,
+   "image": "d6gake_007.png",
+   "name": "d6gake_007",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 4,
+   "image": "yuka_002.png",
+   "name": "yuka_002",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 5,
+   "image": "d6yuka_003.png",
+   "name": "d6yuka_003",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 6,
+   "image": "d6yuka_002.png",
+   "name": "d6yuka_002",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 7,
+   "image": "yuka_001.png",
+   "name": "yuka_001",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 8,
+   "image": "d6gake_02_2.png",
+   "name": "d6gake_02_2",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 9,
+   "image": "d6_udan1.png",
+   "name": "d6_udan1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 10,
+   "image": "d6_udan2.png",
+   "name": "d6_udan2",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 11,
+   "image": "d6ana_003.png",
+   "name": "d6ana_003",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 12,
+   "image": "d6ana_004.png",
+   "name": "d6ana_004",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 13,
+   "image": "d6gake_03.png",
+   "name": "d6gake_03",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 14,
+   "image": "d6gake_004.png",
+   "name": "d6gake_004",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  }
+ ],
+ "autotileSets": [
+  {
+   "id": "set0",
+   "index": 0,
+   "grid": [
+    [
+     22,
+     20,
+     24
+    ],
+    [
+     19,
+     1,
+     18
+    ],
+    [
+     23,
+     21,
+     25
+    ],
+    [
+     26,
+     28,
+     -1
+    ],
+    [
+     27,
+     29,
+     -1
+    ]
+   ],
+   "slots": [
+    22,
+    19,
+    23,
+    26,
+    27,
+    20,
+    1,
+    21,
+    28,
+    29,
+    24,
+    18,
+    25
+   ],
+   "name": "ecave_rock",
+   "bySignature": {
+    "5": 23,
+    "6": 25,
+    "7": 21,
+    "9": 22,
+    "10": 24,
+    "11": 20,
+    "13": 19,
+    "14": 18,
+    "127": 28,
+    "191": 29,
+    "223": 26,
+    "239": 27,
+    "255": 1
+   }
+  },
+  {
+   "id": "set1",
+   "index": 1,
+   "grid": [
+    [
+     22,
+     16,
+     24
+    ],
+    [
+     15,
+     1,
+     14
+    ],
+    [
+     23,
+     17,
+     25
+    ],
+    [
+     26,
+     28,
+     -1
+    ],
+    [
+     27,
+     29,
+     -1
+    ]
+   ],
+   "slots": [
+    22,
+    15,
+    23,
+    26,
+    27,
+    16,
+    1,
+    17,
+    28,
+    29,
+    24,
+    14,
+    25
+   ],
+   "name": "ecave_rock",
+   "bySignature": {
+    "5": 23,
+    "6": 25,
+    "7": 17,
+    "9": 22,
+    "10": 24,
+    "11": 16,
+    "13": 15,
+    "14": 14,
+    "127": 28,
+    "191": 29,
+    "223": 26,
+    "239": 27,
+    "255": 1
+   }
+  },
+  {
+   "id": "set2",
+   "index": 2,
+   "grid": [
+    [
+     6,
+     4,
+     8
+    ],
+    [
+     3,
+     0,
+     2
+    ],
+    [
+     7,
+     5,
+     9
+    ],
+    [
+     10,
+     12,
+     -1
+    ],
+    [
+     11,
+     13,
+     -1
+    ]
+   ],
+   "slots": [
+    6,
+    3,
+    7,
+    10,
+    11,
+    4,
+    0,
+    5,
+    12,
+    13,
+    8,
+    2,
+    9
+   ],
+   "name": "ecave_levitating_rock",
+   "bySignature": {
+    "5": 7,
+    "6": 9,
+    "7": 5,
+    "9": 6,
+    "10": 8,
+    "11": 4,
+    "13": 3,
+    "14": 2,
+    "127": 12,
+    "191": 13,
+    "223": 10,
+    "239": 11,
+    "255": 0
+   }
+  },
+  {
+   "id": "set3",
+   "index": 3,
+   "grid": [
+    [
+     34,
+     32,
+     36
+    ],
+    [
+     31,
+     1,
+     30
+    ],
+    [
+     35,
+     33,
+     37
+    ],
+    [
+     38,
+     40,
+     -1
+    ],
+    [
+     39,
+     41,
+     -1
+    ]
+   ],
+   "slots": [
+    34,
+    31,
+    35,
+    38,
+    39,
+    32,
+    1,
+    33,
+    40,
+    41,
+    36,
+    30,
+    37
+   ],
+   "name": "ecave_rock_top",
+   "bySignature": {
+    "5": 35,
+    "6": 37,
+    "7": 33,
+    "9": 34,
+    "10": 36,
+    "11": 32,
+    "13": 31,
+    "14": 30,
+    "127": 40,
+    "191": 41,
+    "223": 38,
+    "239": 39,
+    "255": 1
+   }
+  },
+  {
+   "id": "set4",
+   "index": 4,
+   "grid": [
+    [
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "slots": [
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1
+   ],
+   "name": "set4",
+   "bySignature": {}
+  }
+ ],
+ "models": [
+  {
+   "id": 0,
+   "name": "ecave_ground_center",
+   "obj": "obj/cave/ecave_ground_center.obj",
+   "source": "ECaveGround.obj",
+   "category": "cave",
+   "subcategory": "ecave_ground",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "flat",
+    "floor"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.5,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    0
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "1.2.2.1.0.1.-1",
+   "groups": [
+    {
+     "material": 0,
+     "offset": 0,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 1,
+   "name": "ecave_rock_center",
+   "obj": "obj/cave/ecave_rock_center.obj",
+   "source": "ECaveRock.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "flat",
+    "floor"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.5,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    7
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "2.1.1.2.0.1.-1",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 264,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 2,
+   "name": "ecave_levitating_rock_edge_n",
+   "obj": "obj/cave/ecave_levitating_rock_edge_n.obj",
+   "source": "ECaveLevitatingRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.1.3.2.1.1.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 528,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 3,
+   "name": "ecave_levitating_rock_edge_s",
+   "obj": "obj/cave/ecave_levitating_rock_edge_s.obj",
+   "source": "ECaveLevitatingRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "2.3.1.1.1.1.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 1056,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 4,
+   "name": "ecave_levitating_rock_edge_w",
+   "obj": "obj/cave/ecave_levitating_rock_edge_w.obj",
+   "source": "ECaveLevitatingRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.2.1.3.1.1.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 1584,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 5,
+   "name": "ecave_levitating_rock_edge_e",
+   "obj": "obj/cave/ecave_levitating_rock_edge_e.obj",
+   "source": "ECaveLevitatingRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "3.1.2.1.1.1.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 2112,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 6,
+   "name": "ecave_levitating_rock_corner_sw",
+   "obj": "obj/cave/ecave_levitating_rock_corner_sw.obj",
+   "source": "ECaveLevitatingRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    3
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.5.1.1.1.1.2",
+   "groups": [
+    {
+     "material": 3,
+     "offset": 2640,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 7,
+   "name": "ecave_levitating_rock_corner_se",
+   "obj": "obj/cave/ecave_levitating_rock_corner_se.obj",
+   "source": "ECaveLevitatingRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    3
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "5.1.0.2.1.1.2",
+   "groups": [
+    {
+     "material": 3,
+     "offset": 3828,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 8,
+   "name": "ecave_levitating_rock_corner_nw",
+   "obj": "obj/cave/ecave_levitating_rock_corner_nw.obj",
+   "source": "ECaveLevitatingRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    3
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "0.1.1.5.1.1.2",
+   "groups": [
+    {
+     "material": 3,
+     "offset": 5016,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 9,
+   "name": "ecave_levitating_rock_corner_ne",
+   "obj": "obj/cave/ecave_levitating_rock_corner_ne.obj",
+   "source": "ECaveLevitatingRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    3
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "1.1.5.1.1.1.2",
+   "groups": [
+    {
+     "material": 3,
+     "offset": 6204,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 10,
+   "name": "ecave_levitating_rock_inner_ne",
+   "obj": "obj/cave/ecave_levitating_rock_inner_ne.obj",
+   "source": "ECaveLevitatingRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "2.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 7392,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 11,
+   "name": "ecave_levitating_rock_inner_nw",
+   "obj": "obj/cave/ecave_levitating_rock_inner_nw.obj",
+   "source": "ECaveLevitatingRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.2.2.3.1.2.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 8448,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 12,
+   "name": "ecave_levitating_rock_inner_se",
+   "obj": "obj/cave/ecave_levitating_rock_inner_se.obj",
+   "source": "ECaveLevitatingRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "3.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 9504,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 13,
+   "name": "ecave_levitating_rock_inner_sw",
+   "obj": "obj/cave/ecave_levitating_rock_inner_sw.obj",
+   "source": "ECaveLevitatingRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_levitating_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -2,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    2
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.3.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 2,
+     "offset": 10560,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 14,
+   "name": "ecave_rock_gem_edge_n",
+   "obj": "obj/cave/ecave_rock_gem_edge_n.obj",
+   "source": "ECaveRockGem_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_gem",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    8
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.1.3.2.1.1.2",
+   "groups": [
+    {
+     "material": 8,
+     "offset": 11616,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 15,
+   "name": "ecave_rock_gem_edge_s",
+   "obj": "obj/cave/ecave_rock_gem_edge_s.obj",
+   "source": "ECaveRockGem_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_gem",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    8
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "2.3.1.1.1.1.2",
+   "groups": [
+    {
+     "material": 8,
+     "offset": 12144,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 16,
+   "name": "ecave_rock_gem_edge_w",
+   "obj": "obj/cave/ecave_rock_gem_edge_w.obj",
+   "source": "ECaveRockGem_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_gem",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    8
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.2.1.3.1.1.2",
+   "groups": [
+    {
+     "material": 8,
+     "offset": 12672,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 17,
+   "name": "ecave_rock_gem_edge_e",
+   "obj": "obj/cave/ecave_rock_gem_edge_e.obj",
+   "source": "ECaveRockGem_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_gem",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    8
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "3.1.2.1.1.1.2",
+   "groups": [
+    {
+     "material": 8,
+     "offset": 13200,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 18,
+   "name": "ecave_rock_edge_n",
+   "obj": "obj/cave/ecave_rock_edge_n.obj",
+   "source": "ECaveRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.1.2.3.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 13728,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 19,
+   "name": "ecave_rock_edge_s",
+   "obj": "obj/cave/ecave_rock_edge_s.obj",
+   "source": "ECaveRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "3.2.1.1.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 14256,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 20,
+   "name": "ecave_rock_edge_w",
+   "obj": "obj/cave/ecave_rock_edge_w.obj",
+   "source": "ECaveRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.3.1.2.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 14784,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 21,
+   "name": "ecave_rock_edge_e",
+   "obj": "obj/cave/ecave_rock_edge_e.obj",
+   "source": "ECaveRock_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "2.1.3.1.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 15312,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 22,
+   "name": "ecave_rock_corner_sw",
+   "obj": "obj/cave/ecave_rock_corner_sw.obj",
+   "source": "ECaveRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.5.1.1.1.2.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 15840,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 23,
+   "name": "ecave_rock_corner_se",
+   "obj": "obj/cave/ecave_rock_corner_se.obj",
+   "source": "ECaveRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "5.1.0.2.1.2.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 17028,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 24,
+   "name": "ecave_rock_corner_nw",
+   "obj": "obj/cave/ecave_rock_corner_nw.obj",
+   "source": "ECaveRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "0.1.1.5.1.2.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 18216,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 25,
+   "name": "ecave_rock_corner_ne",
+   "obj": "obj/cave/ecave_rock_corner_ne.obj",
+   "source": "ECaveRock_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "1.1.5.1.1.2.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 19404,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 26,
+   "name": "ecave_rock_inner_ne",
+   "obj": "obj/cave/ecave_rock_inner_ne.obj",
+   "source": "ECaveRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "2.1.3.2.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 20592,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 27,
+   "name": "ecave_rock_inner_nw",
+   "obj": "obj/cave/ecave_rock_inner_nw.obj",
+   "source": "ECaveRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.2.2.3.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 21648,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 28,
+   "name": "ecave_rock_inner_se",
+   "obj": "obj/cave/ecave_rock_inner_se.obj",
+   "source": "ECaveRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "3.2.2.1.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 22704,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 29,
+   "name": "ecave_rock_inner_sw",
+   "obj": "obj/cave/ecave_rock_inner_sw.obj",
+   "source": "ECaveRock_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    1
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.3.1.2.1.1.2",
+   "groups": [
+    {
+     "material": 1,
+     "offset": 23760,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 30,
+   "name": "ecave_rock_top_edge_n",
+   "obj": "obj/cave/ecave_rock_top_edge_n.obj",
+   "source": "ECaveRockTop_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.1.3.2.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 24816,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 31,
+   "name": "ecave_rock_top_edge_s",
+   "obj": "obj/cave/ecave_rock_top_edge_s.obj",
+   "source": "ECaveRockTop_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "2.3.1.1.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 25344,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 32,
+   "name": "ecave_rock_top_edge_w",
+   "obj": "obj/cave/ecave_rock_top_edge_w.obj",
+   "source": "ECaveRockTop_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.2.1.3.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 25872,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 33,
+   "name": "ecave_rock_top_edge_e",
+   "obj": "obj/cave/ecave_rock_top_edge_e.obj",
+   "source": "ECaveRockTop_b.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "s",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "3.1.2.1.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 26400,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 34,
+   "name": "ecave_rock_top_corner_sw",
+   "obj": "obj/cave/ecave_rock_top_corner_sw.obj",
+   "source": "ECaveRockTop_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    14
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.5.1.1.1.1.2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 26928,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 35,
+   "name": "ecave_rock_top_corner_se",
+   "obj": "obj/cave/ecave_rock_top_corner_se.obj",
+   "source": "ECaveRockTop_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    14
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "5.1.0.2.1.1.2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 28116,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 36,
+   "name": "ecave_rock_top_corner_nw",
+   "obj": "obj/cave/ecave_rock_top_corner_nw.obj",
+   "source": "ECaveRockTop_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    14
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "0.1.1.5.1.1.2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 29304,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 37,
+   "name": "ecave_rock_top_corner_ne",
+   "obj": "obj/cave/ecave_rock_top_corner_ne.obj",
+   "source": "ECaveRockTop_bl.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "sw",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    14
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "1.1.5.1.1.1.2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 30492,
+     "count": 27
+    }
+   ],
+   "tris": 9
+  },
+  {
+   "id": 38,
+   "name": "ecave_rock_top_inner_ne",
+   "obj": "obj/cave/ecave_rock_top_inner_ne.obj",
+   "source": "ECaveRockTop_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "2.1.3.2.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 31680,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 39,
+   "name": "ecave_rock_top_inner_nw",
+   "obj": "obj/cave/ecave_rock_top_inner_nw.obj",
+   "source": "ECaveRockTop_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.2.2.3.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 32736,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 40,
+   "name": "ecave_rock_top_inner_se",
+   "obj": "obj/cave/ecave_rock_top_inner_se.obj",
+   "source": "ECaveRockTop_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "3.2.2.1.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 33792,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 41,
+   "name": "ecave_rock_top_inner_sw",
+   "obj": "obj/cave/ecave_rock_top_inner_sw.obj",
+   "source": "ECaveRockTop_c.obj",
+   "category": "cave",
+   "subcategory": "ecave_rock_top",
+   "orientation": "center",
+   "tags": [
+    "cave",
+    "cliff",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "door",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    13
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.3.1.2.1.-15.2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 34848,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 42,
+   "name": "ecave_stairs_s",
+   "obj": "obj/stairs/ecave_stairs_s.obj",
+   "source": "ECaveStairsDown.obj",
+   "category": "stairs",
+   "subcategory": "ecave_stairs",
+   "orientation": "s",
+   "tags": [
+    "multicell",
+    "stairs",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -3,
+     0
+    ],
+    "max": [
+     3,
+     0.25,
+     3
+    ]
+   },
+   "materials": [
+    10,
+    9
+   ],
+   "autotile": null,
+   "signature": "1.1.3.3.1.2.3",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 35904,
+     "count": 12
+    },
+    {
+     "material": 9,
+     "offset": 36432,
+     "count": 183
+    }
+   ],
+   "tris": 65
+  },
+  {
+   "id": 43,
+   "name": "ecave_stairs_s_v2",
+   "obj": "obj/stairs/ecave_stairs_s_v2.obj",
+   "source": "ECaveStairsDown.obj",
+   "category": "stairs",
+   "subcategory": "ecave_stairs",
+   "orientation": "s",
+   "tags": [
+    "multicell",
+    "stairs",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -3,
+     0
+    ],
+    "max": [
+     3,
+     0.25,
+     3
+    ]
+   },
+   "materials": [
+    10,
+    9
+   ],
+   "autotile": null,
+   "signature": "2.3.2.2.1.2.3",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 44484,
+     "count": 12
+    },
+    {
+     "material": 9,
+     "offset": 45012,
+     "count": 183
+    }
+   ],
+   "tris": 65
+  },
+  {
+   "id": 44,
+   "name": "ecave_stairs_s_v3",
+   "obj": "obj/stairs/ecave_stairs_s_v3.obj",
+   "source": "ECaveStairsDown.obj",
+   "category": "stairs",
+   "subcategory": "ecave_stairs",
+   "orientation": "s",
+   "tags": [
+    "multicell",
+    "stairs",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -3,
+     0
+    ],
+    "max": [
+     3,
+     0.25,
+     3
+    ]
+   },
+   "materials": [
+    10,
+    9
+   ],
+   "autotile": null,
+   "signature": "2.2.3.2.1.2.3",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 53064,
+     "count": 12
+    },
+    {
+     "material": 9,
+     "offset": 53592,
+     "count": 183
+    }
+   ],
+   "tris": 65
+  },
+  {
+   "id": 45,
+   "name": "ecave_stairs_s_v4",
+   "obj": "obj/stairs/ecave_stairs_s_v4.obj",
+   "source": "ECaveStairsDown.obj",
+   "category": "stairs",
+   "subcategory": "ecave_stairs",
+   "orientation": "s",
+   "tags": [
+    "multicell",
+    "stairs",
+    "sunken",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -3,
+     0
+    ],
+    "max": [
+     3,
+     0.25,
+     3
+    ]
+   },
+   "materials": [
+    10,
+    9
+   ],
+   "autotile": null,
+   "signature": "1.3.1.3.1.2.3",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 61644,
+     "count": 12
+    },
+    {
+     "material": 9,
+     "offset": 62172,
+     "count": 183
+    }
+   ],
+   "tris": 65
+  },
+  {
+   "id": 46,
+   "name": "ecave_light_mud",
+   "obj": "obj/cave/ecave_light_mud.obj",
+   "source": "ECaveLightMud.obj",
+   "category": "cave",
+   "subcategory": "ecave_light_mud",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "flat",
+    "floor",
+    "multicell"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 3,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.5117,
+     0.125,
+     0.1367
+    ],
+    "max": [
+     2.2383,
+     0.125,
+     1.8633
+    ]
+   },
+   "materials": [
+    4
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.2",
+   "groups": [
+    {
+     "material": 4,
+     "offset": 70224,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 47,
+   "name": "ecave_mud",
+   "obj": "obj/cave/ecave_mud.obj",
+   "source": "ECaveMud.obj",
+   "category": "cave",
+   "subcategory": "ecave_mud",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "flat",
+    "floor",
+    "multicell"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.5,
+     0.125,
+     -0.5
+    ],
+    "max": [
+     1.75,
+     0.125,
+     1.75
+    ]
+   },
+   "materials": [
+    5
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.2",
+   "groups": [
+    {
+     "material": 5,
+     "offset": 70488,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 48,
+   "name": "ecave_mud_big",
+   "obj": "obj/cave/ecave_mud_big.obj",
+   "source": "ECaveMudBig.obj",
+   "category": "cave",
+   "subcategory": "ecave_mud_big",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "flat",
+    "floor",
+    "multicell"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.958,
+     0.125,
+     -1.2471
+    ],
+    "max": [
+     3.2256,
+     0.125,
+     2.9375
+    ]
+   },
+   "materials": [
+    6
+   ],
+   "autotile": null,
+   "signature": "2.3.0.1.0.2.2",
+   "groups": [
+    {
+     "material": 6,
+     "offset": 70752,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 49,
+   "name": "ecave_exit",
+   "obj": "obj/cave/ecave_exit.obj",
+   "source": "ECaveExit.obj",
+   "category": "cave",
+   "subcategory": "ecave_exit",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "floor",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -1.25
+    ],
+    "max": [
+     5,
+     3,
+     5
+    ]
+   },
+   "materials": [
+    7,
+    4,
+    12,
+    13,
+    11,
+    1
+   ],
+   "autotile": null,
+   "signature": "3.2.1.1.1.1.4",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 71016,
+     "count": 18
+    },
+    {
+     "material": 4,
+     "offset": 71808,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 72072,
+     "count": 57
+    },
+    {
+     "material": 13,
+     "offset": 74580,
+     "count": 48
+    },
+    {
+     "material": 11,
+     "offset": 76692,
+     "count": 126
+    },
+    {
+     "material": 1,
+     "offset": 82236,
+     "count": 48
+    }
+   ],
+   "tris": 101
+  },
+  {
+   "id": 50,
+   "name": "ecave_exit_v2",
+   "obj": "obj/cave/ecave_exit_v2.obj",
+   "source": "ECaveExit.obj",
+   "category": "cave",
+   "subcategory": "ecave_exit",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "floor",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     5,
+     3,
+     6.25
+    ]
+   },
+   "materials": [
+    7,
+    4,
+    12,
+    13,
+    11,
+    1
+   ],
+   "autotile": null,
+   "signature": "1.1.2.3.1.1.4",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 84348,
+     "count": 18
+    },
+    {
+     "material": 4,
+     "offset": 85140,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 85404,
+     "count": 57
+    },
+    {
+     "material": 13,
+     "offset": 87912,
+     "count": 48
+    },
+    {
+     "material": 11,
+     "offset": 90024,
+     "count": 126
+    },
+    {
+     "material": 1,
+     "offset": 95568,
+     "count": 48
+    }
+   ],
+   "tris": 101
+  },
+  {
+   "id": 51,
+   "name": "ecave_exit_v3",
+   "obj": "obj/cave/ecave_exit_v3.obj",
+   "source": "ECaveExit.obj",
+   "category": "cave",
+   "subcategory": "ecave_exit",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "floor",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -1.25,
+     0,
+     0
+    ],
+    "max": [
+     5,
+     3,
+     5
+    ]
+   },
+   "materials": [
+    7,
+    4,
+    12,
+    13,
+    11,
+    1
+   ],
+   "autotile": null,
+   "signature": "2.1.3.1.1.1.4",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 97680,
+     "count": 18
+    },
+    {
+     "material": 4,
+     "offset": 98472,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 98736,
+     "count": 57
+    },
+    {
+     "material": 13,
+     "offset": 101244,
+     "count": 48
+    },
+    {
+     "material": 11,
+     "offset": 103356,
+     "count": 126
+    },
+    {
+     "material": 1,
+     "offset": 108900,
+     "count": 48
+    }
+   ],
+   "tris": 101
+  },
+  {
+   "id": 52,
+   "name": "ecave_exit_v4",
+   "obj": "obj/cave/ecave_exit_v4.obj",
+   "source": "ECaveExit.obj",
+   "category": "cave",
+   "subcategory": "ecave_exit",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "floor",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     6.25,
+     3,
+     5
+    ]
+   },
+   "materials": [
+    7,
+    4,
+    12,
+    13,
+    11,
+    1
+   ],
+   "autotile": null,
+   "signature": "1.3.1.2.1.1.4",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 111012,
+     "count": 18
+    },
+    {
+     "material": 4,
+     "offset": 111804,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 112068,
+     "count": 57
+    },
+    {
+     "material": 13,
+     "offset": 114576,
+     "count": 48
+    },
+    {
+     "material": 11,
+     "offset": 116688,
+     "count": 126
+    },
+    {
+     "material": 1,
+     "offset": 122232,
+     "count": 48
+    }
+   ],
+   "tris": 101
+  }
+ ]
+}

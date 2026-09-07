@@ -1,0 +1,28 @@
+# tree_tileable
+newmtl conttree_t
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/conttree_t_lm2.png
+map_d ../../tex/conttree_t_lm2.png
+
+newmtl conttree_b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/conttree_b_lm2.png
+map_d ../../tex/conttree_b_lm2.png
+
+newmtl tshadow
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tshadow_lm2.png
+map_d ../../tex/tshadow_lm2.png
+

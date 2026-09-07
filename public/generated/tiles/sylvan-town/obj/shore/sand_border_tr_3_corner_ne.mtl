@@ -1,0 +1,10 @@
+# sand_border_tr_3_corner_ne
+newmtl beach01_r
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/beach01_r.png
+map_d ../../tex/beach01_r.png
+

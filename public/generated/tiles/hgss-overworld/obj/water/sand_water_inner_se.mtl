@@ -1,0 +1,19 @@
+# sand_water_inner_se
+newmtl swave_un
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/swave_un.png
+map_d ../../tex/swave_un.png
+
+newmtl swave_p
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/swave_p.png
+map_d ../../tex/swave_p.png
+

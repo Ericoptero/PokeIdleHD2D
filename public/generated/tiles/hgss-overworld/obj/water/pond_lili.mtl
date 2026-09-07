@@ -1,0 +1,10 @@
+# pond_lili
+newmtl pond_sub
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/pond_sub.png
+map_d ../../tex/pond_sub.png
+

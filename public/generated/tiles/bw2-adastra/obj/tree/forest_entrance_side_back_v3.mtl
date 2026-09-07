@@ -1,0 +1,37 @@
+# forest_entrance_side_back_v3
+newmtl ki02bx
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02bx.png
+map_d ../../tex/ki02bx.png
+
+newmtl ki02ax
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02ax.png
+map_d ../../tex/ki02ax.png
+
+newmtl mori01s
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/mori01s.png
+map_d ../../tex/mori01s.png
+
+newmtl ki02dx
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ki02dx.png
+map_d ../../tex/ki02dx.png
+

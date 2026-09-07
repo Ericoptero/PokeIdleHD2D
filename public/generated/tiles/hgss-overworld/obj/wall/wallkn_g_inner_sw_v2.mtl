@@ -1,0 +1,10 @@
+# wallkn_g_inner_sw_v2
+newmtl wallkn_g
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/wallkn_g.png
+map_d ../../tex/wallkn_g.png
+

@@ -1,0 +1,10 @@
+# marsh_ground_center
+newmtl ms04_03
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/ms04_2.png
+map_d ../../tex/ms04_2.png
+

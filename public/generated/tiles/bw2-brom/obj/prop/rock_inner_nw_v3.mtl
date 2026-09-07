@@ -1,0 +1,19 @@
+# rock_inner_nw_v3
+newmtl gake01
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake01.png
+map_d ../../tex/gake01.png
+
+newmtl gake1_3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake1_3.png
+map_d ../../tex/gake1_3.png
+

@@ -1,0 +1,28 @@
+# stairs_v9
+newmtl gake1_0
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake1_0.png
+map_d ../../tex/gake1_0.png
+
+newmtl gake01a
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake01a.png
+map_d ../../tex/gake01a.png
+
+newmtl kaidan01a
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kaidan01a.png
+map_d ../../tex/kaidan01a.png
+

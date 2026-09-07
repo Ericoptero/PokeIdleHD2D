@@ -1,0 +1,33 @@
+{
+ "sets": [
+  "bw2-adastra"
+ ],
+ "built": [
+  {
+   "slug": "bw2-adastra",
+   "tiles": 262,
+   "models": 262,
+   "materials": 57,
+   "autotileSets": 11,
+   "packBytes": 317064,
+   "byCat": {
+    "path": 36,
+    "shore": 12,
+    "water": 16,
+    "cliff": 92,
+    "ground": 9,
+    "plant": 16,
+    "prop": 5,
+    "ledge": 12,
+    "bridge": 4,
+    "tree": 9,
+    "light": 4,
+    "fence": 14,
+    "cave": 4,
+    "stairs": 28,
+    "meta": 1
+   },
+   "unknown": []
+  }
+ ]
+}

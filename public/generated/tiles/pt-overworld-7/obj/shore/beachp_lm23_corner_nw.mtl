@@ -1,0 +1,10 @@
+# beachp_lm23_corner_nw
+newmtl beachp
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/beachp_lm23.png
+map_d ../../tex/beachp_lm23.png
+

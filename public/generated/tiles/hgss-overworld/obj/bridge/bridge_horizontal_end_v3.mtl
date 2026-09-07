@@ -1,0 +1,10 @@
+# bridge_horizontal_end_v3
+newmtl bridge_b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/bridge_b.png
+map_d ../../tex/bridge_b.png
+

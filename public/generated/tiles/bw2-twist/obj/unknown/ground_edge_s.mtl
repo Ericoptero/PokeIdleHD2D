@@ -1,0 +1,10 @@
+# ground_edge_s
+newmtl d7bedrock2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/d7bedrock2.png
+map_d ../../tex/d7bedrock2.png
+

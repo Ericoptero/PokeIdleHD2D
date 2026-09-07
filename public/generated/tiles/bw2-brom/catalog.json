@@ -1,0 +1,11562 @@
+{
+ "tileset": "bw2-brom",
+ "source": "Black_-_White_2/Tileset_2_-_Overworld_(by_Brom)/Tileset_2_Overworld_BW2.pdsts",
+ "unitsPerCell": 1,
+ "axis": "y-up, +x east, +z south",
+ "materials": [
+  {
+   "id": 0,
+   "image": "ki02ax.png",
+   "name": "ki02ax",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": true,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 1,
+   "image": "ki02c.png",
+   "name": "ki02c",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 2,
+   "image": "ki02dx.png",
+   "name": "ki02dx",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 3,
+   "image": "ki02bx.png",
+   "name": "ki02bx",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 4,
+   "image": "ki03ax.png",
+   "name": "ki03ax",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": true,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 5,
+   "image": "ki03dx.png",
+   "name": "ki03dx",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 6,
+   "image": "ki03bx.png",
+   "name": "ki03bx",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 7,
+   "image": "hana01.png",
+   "name": "hana01",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 8,
+   "image": "sea_jimen.png",
+   "name": "sea_jimen",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 9,
+   "image": "rock01.png",
+   "name": "rock01",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 10,
+   "image": "gake01.png",
+   "name": "gake01",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 11,
+   "image": "gake01a2.png",
+   "name": "gake01a2",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 12,
+   "image": "gake1_0.png",
+   "name": "gake1_0",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 13,
+   "image": "gake1_1.png",
+   "name": "gake1_1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 14,
+   "image": "gake1_3.png",
+   "name": "gake1_3",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 15,
+   "image": "yamagake01.png",
+   "name": "yamagake01",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 16,
+   "image": "hashi01a.png",
+   "name": "hashi01a",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 17,
+   "image": "gake_futa.png",
+   "name": "gake_futa",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 18,
+   "image": "doukutu01.png",
+   "name": "doukutu01",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 19,
+   "image": "kusa_ec1s.png",
+   "name": "kusa_ec1s",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 20,
+   "image": "kusa_ec2s.png",
+   "name": "kusa_ec2s",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 21,
+   "image": "kusa_ec3.png",
+   "name": "kusa_ec3",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 22,
+   "image": "gake_michi.png",
+   "name": "gake_michi",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 23,
+   "image": "ue_grass00.png",
+   "name": "ue_grass00",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 24,
+   "image": "grass01ax.png",
+   "name": "grass01ax",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 25,
+   "image": "michi01a.png",
+   "name": "michi01a",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 26,
+   "image": "michi01b.png",
+   "name": "michi01b",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 27,
+   "image": "michi_hage.png",
+   "name": "michi_hage",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 28,
+   "image": "michi_hage02.png",
+   "name": "michi_hage02",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 29,
+   "image": "michi_hibi.png",
+   "name": "michi_hibi",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 30,
+   "image": "michi_isi.png",
+   "name": "michi_isi",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 31,
+   "image": "mori01s.png",
+   "name": "mori01s",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 32,
+   "image": "kawa_soko.png",
+   "name": "kawa_soko",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 33,
+   "image": "kawasoko_isi.png",
+   "name": "kawasoko_isi",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 34,
+   "image": "kawa_kage.png",
+   "name": "kawa_kage",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 35,
+   "image": "sea_mizu1_1.png",
+   "name": "sea_mizu1_1",
+   "alpha": 15,
+   "translucent": true,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 36,
+   "image": "sea_mizu1.png",
+   "name": "sea_mizu1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 37,
+   "image": "sea_zanami2.png",
+   "name": "sea_zanami2",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 38,
+   "image": "sea_zanami.png",
+   "name": "sea_zanami",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 1,
+   "uniformNormals": true
+  },
+  {
+   "id": 39,
+   "image": "sea_simi_1.png",
+   "name": "sea_simi_1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 40,
+   "image": "kaidan01a.png",
+   "name": "kaidan01a",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 41,
+   "image": "kusa_ec1.png",
+   "name": "kusa_ec1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 42,
+   "image": "kusa_ec2.png",
+   "name": "kusa_ec2",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 43,
+   "image": "ue_grass50.png",
+   "name": "ue_grass50",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 44,
+   "image": "kawa_fuchi_1.png",
+   "name": "kawa_fuchi_1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  },
+  {
+   "id": 45,
+   "image": "kawa_nose_1.png",
+   "name": "kawa_nose_1",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 0,
+   "tilingV": 0,
+   "uniformNormals": true
+  }
+ ],
+ "autotileSets": [
+  {
+   "id": "set0",
+   "index": 0,
+   "grid": [
+    [
+     8,
+     6,
+     10
+    ],
+    [
+     5,
+     100,
+     4
+    ],
+    [
+     9,
+     7,
+     11
+    ],
+    [
+     68,
+     70,
+     -1
+    ],
+    [
+     69,
+     71,
+     -1
+    ]
+   ],
+   "slots": [
+    8,
+    5,
+    9,
+    68,
+    69,
+    6,
+    100,
+    7,
+    70,
+    71,
+    10,
+    4,
+    11
+   ],
+   "name": "rock",
+   "bySignature": {
+    "5": 9,
+    "6": 11,
+    "7": 7,
+    "9": 8,
+    "10": 10,
+    "11": 6,
+    "13": 5,
+    "14": 4,
+    "127": 70,
+    "191": 71,
+    "223": 68,
+    "239": 69,
+    "255": 100
+   }
+  },
+  {
+   "id": "set1",
+   "index": 1,
+   "grid": [
+    [
+     16,
+     14,
+     18
+    ],
+    [
+     13,
+     102,
+     12
+    ],
+    [
+     17,
+     15,
+     19
+    ],
+    [
+     72,
+     74,
+     -1
+    ],
+    [
+     73,
+     75,
+     -1
+    ]
+   ],
+   "slots": [
+    16,
+    13,
+    17,
+    72,
+    73,
+    14,
+    102,
+    15,
+    74,
+    75,
+    18,
+    12,
+    19
+   ],
+   "name": "rock",
+   "bySignature": {
+    "5": 17,
+    "6": 19,
+    "7": 15,
+    "9": 16,
+    "10": 18,
+    "11": 14,
+    "13": 13,
+    "14": 12,
+    "127": 74,
+    "191": 75,
+    "223": 72,
+    "239": 73,
+    "255": 102
+   }
+  },
+  {
+   "id": "set2",
+   "index": 2,
+   "grid": [
+    [
+     24,
+     22,
+     26
+    ],
+    [
+     21,
+     104,
+     20
+    ],
+    [
+     25,
+     23,
+     27
+    ],
+    [
+     76,
+     78,
+     -1
+    ],
+    [
+     77,
+     79,
+     -1
+    ]
+   ],
+   "slots": [
+    24,
+    21,
+    25,
+    76,
+    77,
+    22,
+    104,
+    23,
+    78,
+    79,
+    26,
+    20,
+    27
+   ],
+   "name": "rock",
+   "bySignature": {
+    "5": 25,
+    "6": 27,
+    "7": 23,
+    "9": 24,
+    "10": 26,
+    "11": 22,
+    "13": 21,
+    "14": 20,
+    "127": 78,
+    "191": 79,
+    "223": 76,
+    "239": 77,
+    "255": 104
+   }
+  },
+  {
+   "id": "set3",
+   "index": 3,
+   "grid": [
+    [
+     32,
+     30,
+     34
+    ],
+    [
+     29,
+     100,
+     28
+    ],
+    [
+     33,
+     31,
+     35
+    ],
+    [
+     80,
+     82,
+     -1
+    ],
+    [
+     81,
+     83,
+     -1
+    ]
+   ],
+   "slots": [
+    32,
+    29,
+    33,
+    80,
+    81,
+    30,
+    100,
+    31,
+    82,
+    83,
+    34,
+    28,
+    35
+   ],
+   "name": "rock_tall",
+   "bySignature": {
+    "5": 33,
+    "6": 35,
+    "7": 31,
+    "9": 32,
+    "10": 34,
+    "11": 30,
+    "13": 29,
+    "14": 28,
+    "127": 82,
+    "191": 83,
+    "223": 80,
+    "239": 81,
+    "255": 100
+   }
+  },
+  {
+   "id": "set4",
+   "index": 4,
+   "grid": [
+    [
+     40,
+     38,
+     42
+    ],
+    [
+     37,
+     102,
+     36
+    ],
+    [
+     41,
+     39,
+     43
+    ],
+    [
+     84,
+     86,
+     -1
+    ],
+    [
+     85,
+     87,
+     -1
+    ]
+   ],
+   "slots": [
+    40,
+    37,
+    41,
+    84,
+    85,
+    38,
+    102,
+    39,
+    86,
+    87,
+    42,
+    36,
+    43
+   ],
+   "name": "rock_tall",
+   "bySignature": {
+    "5": 41,
+    "6": 43,
+    "7": 39,
+    "9": 40,
+    "10": 42,
+    "11": 38,
+    "13": 37,
+    "14": 36,
+    "127": 86,
+    "191": 87,
+    "223": 84,
+    "239": 85,
+    "255": 102
+   }
+  },
+  {
+   "id": "set5",
+   "index": 5,
+   "grid": [
+    [
+     48,
+     46,
+     50
+    ],
+    [
+     45,
+     104,
+     44
+    ],
+    [
+     49,
+     47,
+     51
+    ],
+    [
+     88,
+     90,
+     -1
+    ],
+    [
+     89,
+     91,
+     -1
+    ]
+   ],
+   "slots": [
+    48,
+    45,
+    49,
+    88,
+    89,
+    46,
+    104,
+    47,
+    90,
+    91,
+    50,
+    44,
+    51
+   ],
+   "name": "rock_tall",
+   "bySignature": {
+    "5": 49,
+    "6": 51,
+    "7": 47,
+    "9": 48,
+    "10": 50,
+    "11": 46,
+    "13": 45,
+    "14": 44,
+    "127": 90,
+    "191": 91,
+    "223": 88,
+    "239": 89,
+    "255": 104
+   }
+  },
+  {
+   "id": "set6",
+   "index": 6,
+   "grid": [
+    [
+     56,
+     54,
+     58
+    ],
+    [
+     52,
+     101,
+     53
+    ],
+    [
+     57,
+     55,
+     59
+    ],
+    [
+     92,
+     94,
+     -1
+    ],
+    [
+     93,
+     95,
+     -1
+    ]
+   ],
+   "slots": [
+    56,
+    52,
+    57,
+    92,
+    93,
+    54,
+    101,
+    55,
+    94,
+    95,
+    58,
+    53,
+    59
+   ],
+   "name": "sand_path",
+   "bySignature": {
+    "5": 57,
+    "6": 59,
+    "7": 55,
+    "9": 56,
+    "10": 58,
+    "11": 54,
+    "13": 52,
+    "14": 53,
+    "127": 94,
+    "191": 95,
+    "223": 92,
+    "239": 93,
+    "255": 101
+   }
+  },
+  {
+   "id": "set7",
+   "index": 7,
+   "grid": [
+    [
+     64,
+     62,
+     66
+    ],
+    [
+     60,
+     -1,
+     61
+    ],
+    [
+     65,
+     63,
+     67
+    ],
+    [
+     96,
+     98,
+     -1
+    ],
+    [
+     97,
+     99,
+     -1
+    ]
+   ],
+   "slots": [
+    64,
+    60,
+    65,
+    96,
+    97,
+    62,
+    -1,
+    63,
+    98,
+    99,
+    66,
+    61,
+    67
+   ],
+   "name": "river_border",
+   "bySignature": {
+    "5": 65,
+    "6": 67,
+    "7": 63,
+    "9": 64,
+    "10": 66,
+    "11": 62,
+    "13": 60,
+    "14": 61,
+    "127": 98,
+    "191": 99,
+    "223": 96,
+    "239": 97
+   }
+  }
+ ],
+ "models": [
+  {
+   "id": 0,
+   "name": "r0_tree_pine",
+   "obj": "obj/tree/r0_tree_pine.obj",
+   "source": "r0_treePine.obj",
+   "category": "tree",
+   "subcategory": "r0_tree_pine",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.3032,
+     0
+    ],
+    "max": [
+     2,
+     3.625,
+     2
+    ]
+   },
+   "materials": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 0,
+     "offset": 0,
+     "count": 12
+    },
+    {
+     "material": 1,
+     "offset": 528,
+     "count": 6
+    },
+    {
+     "material": 2,
+     "offset": 792,
+     "count": 6
+    },
+    {
+     "material": 3,
+     "offset": 1056,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 1,
+   "name": "r0_tree07",
+   "obj": "obj/tree/r0_tree07.obj",
+   "source": "r0_tree07.obj",
+   "category": "tree",
+   "subcategory": "r0_tree07",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.2846,
+     0
+    ],
+    "max": [
+     2,
+     4.4368,
+     2
+    ]
+   },
+   "materials": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 0,
+     "offset": 1320,
+     "count": 12
+    },
+    {
+     "material": 1,
+     "offset": 1848,
+     "count": 6
+    },
+    {
+     "material": 2,
+     "offset": 2112,
+     "count": 6
+    },
+    {
+     "material": 3,
+     "offset": 2376,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 2,
+   "name": "r0_tree_round",
+   "obj": "obj/tree/r0_tree_round.obj",
+   "source": "r0_treeRound.obj",
+   "category": "tree",
+   "subcategory": "r0_tree_round",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.3032,
+     0
+    ],
+    "max": [
+     2,
+     3.5498,
+     2
+    ]
+   },
+   "materials": [
+    4,
+    1,
+    5,
+    6
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 4,
+     "offset": 2640,
+     "count": 12
+    },
+    {
+     "material": 1,
+     "offset": 3168,
+     "count": 6
+    },
+    {
+     "material": 5,
+     "offset": 3432,
+     "count": 6
+    },
+    {
+     "material": 6,
+     "offset": 3696,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 3,
+   "name": "r0_tree08",
+   "obj": "obj/tree/r0_tree08.obj",
+   "source": "r0_tree08.obj",
+   "category": "tree",
+   "subcategory": "r0_tree08",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.2455,
+     0
+    ],
+    "max": [
+     2,
+     4.3037,
+     2
+    ]
+   },
+   "materials": [
+    4,
+    1,
+    5,
+    6
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 4,
+     "offset": 3960,
+     "count": 12
+    },
+    {
+     "material": 1,
+     "offset": 4488,
+     "count": 6
+    },
+    {
+     "material": 5,
+     "offset": 4752,
+     "count": 6
+    },
+    {
+     "material": 6,
+     "offset": 5016,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 4,
+   "name": "rock_edge_n",
+   "obj": "obj/prop/rock_edge_n.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.3.3.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 5280,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 5544,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 5,
+   "name": "rock_edge_s",
+   "obj": "obj/prop/rock_edge_s.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "1.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 5808,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 6072,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 6,
+   "name": "rock_edge_w",
+   "obj": "obj/prop/rock_edge_w.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.1.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 6336,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 6600,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 7,
+   "name": "rock_edge_e",
+   "obj": "obj/prop/rock_edge_e.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.2.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 6864,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 7128,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 8,
+   "name": "rock_corner_sw",
+   "obj": "obj/prop/rock_corner_sw.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0012
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0012
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "1.2.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 7392,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 7788,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 9,
+   "name": "rock_corner_se",
+   "obj": "obj/prop/rock_corner_se.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0012,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0012,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "2.2.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 7920,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 8316,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 10,
+   "name": "rock_corner_nw",
+   "obj": "obj/prop/rock_corner_nw.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0012,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9988,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "2.1.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 8448,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 8844,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 11,
+   "name": "rock_corner_ne",
+   "obj": "obj/prop/rock_corner_ne.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0012
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9988
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "2.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 8976,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 9372,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 12,
+   "name": "rock_edge_n_v2",
+   "obj": "obj/prop/rock_edge_n_v2.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.3.3.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 9504,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 9768,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 13,
+   "name": "rock_edge_s_v2",
+   "obj": "obj/prop/rock_edge_s_v2.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "1.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 10032,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 10296,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 14,
+   "name": "rock_edge_w_v2",
+   "obj": "obj/prop/rock_edge_w_v2.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.1.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 10560,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 10824,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 15,
+   "name": "rock_edge_e_v2",
+   "obj": "obj/prop/rock_edge_e_v2.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.2.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 11088,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 11352,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 16,
+   "name": "rock_corner_sw_v2",
+   "obj": "obj/prop/rock_corner_sw_v2.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0012
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0012
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "1.2.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 11616,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 12012,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 17,
+   "name": "rock_corner_se_v2",
+   "obj": "obj/prop/rock_corner_se_v2.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0012,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0012,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "2.2.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 12144,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 12540,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 18,
+   "name": "rock_corner_nw_v2",
+   "obj": "obj/prop/rock_corner_nw_v2.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0012,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9988,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "2.1.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 12672,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 13068,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 19,
+   "name": "rock_corner_ne_v2",
+   "obj": "obj/prop/rock_corner_ne_v2.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0012
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9988
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "2.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 13200,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 13596,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 20,
+   "name": "rock_edge_n_v3",
+   "obj": "obj/prop/rock_edge_n_v3.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "1.3.3.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 13728,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 13992,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 21,
+   "name": "rock_edge_s_v3",
+   "obj": "obj/prop/rock_edge_s_v3.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "1.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 14256,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 14520,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 22,
+   "name": "rock_edge_w_v3",
+   "obj": "obj/prop/rock_edge_w_v3.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.1.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 14784,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 15048,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 23,
+   "name": "rock_edge_e_v3",
+   "obj": "obj/prop/rock_edge_e_v3.obj",
+   "source": "Rock.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.2.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 15312,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 15576,
+     "count": 6
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 24,
+   "name": "rock_corner_sw_v3",
+   "obj": "obj/prop/rock_corner_sw_v3.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0012
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0012
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "1.2.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 15840,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 16236,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 25,
+   "name": "rock_corner_se_v3",
+   "obj": "obj/prop/rock_corner_se_v3.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0012,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0012,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "2.2.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 16368,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 16764,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 26,
+   "name": "rock_corner_nw_v3",
+   "obj": "obj/prop/rock_corner_nw_v3.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0012,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9988,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "2.1.2.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 16896,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 17292,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 27,
+   "name": "rock_corner_ne_v3",
+   "obj": "obj/prop/rock_corner_ne_v3.obj",
+   "source": "Rock_bl.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0012
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9988
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "2.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 17424,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 17820,
+     "count": 3
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 28,
+   "name": "rock_tall_edge_n",
+   "obj": "obj/prop/rock_tall_edge_n.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "0.3.3.0.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 17952,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 18216,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 18480,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 29,
+   "name": "rock_tall_edge_s",
+   "obj": "obj/prop/rock_tall_edge_s.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 18744,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 19008,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 19272,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 30,
+   "name": "rock_tall_edge_w",
+   "obj": "obj/prop/rock_tall_edge_w.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.0.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 19536,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 19800,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 20064,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 31,
+   "name": "rock_tall_edge_e",
+   "obj": "obj/prop/rock_tall_edge_e.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.3.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 20328,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 20592,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 20856,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 32,
+   "name": "rock_tall_corner_sw",
+   "obj": "obj/prop/rock_tall_corner_sw.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.3.1.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 21120,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 21516,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 21648,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 33,
+   "name": "rock_tall_corner_se",
+   "obj": "obj/prop/rock_tall_corner_se.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "0.3.3.1.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 21912,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 22308,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 22440,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 34,
+   "name": "rock_tall_corner_nw",
+   "obj": "obj/prop/rock_tall_corner_nw.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "1.0.0.5.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 22704,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 23100,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 23232,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 35,
+   "name": "rock_tall_corner_ne",
+   "obj": "obj/prop/rock_tall_corner_ne.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 23496,
+     "count": 9
+    },
+    {
+     "material": 13,
+     "offset": 23892,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 24024,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 36,
+   "name": "rock_tall_edge_n_v2",
+   "obj": "obj/prop/rock_tall_edge_n_v2.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "0.3.3.0.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 24288,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 24552,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 24816,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 37,
+   "name": "rock_tall_edge_s_v2",
+   "obj": "obj/prop/rock_tall_edge_s_v2.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 25080,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 25344,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 25608,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 38,
+   "name": "rock_tall_edge_w_v2",
+   "obj": "obj/prop/rock_tall_edge_w_v2.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.0.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 25872,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 26136,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 26400,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 39,
+   "name": "rock_tall_edge_e_v2",
+   "obj": "obj/prop/rock_tall_edge_e_v2.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.3.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 26664,
+     "count": 6
+    },
+    {
+     "material": 12,
+     "offset": 26928,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 27192,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 40,
+   "name": "rock_tall_corner_sw_v2",
+   "obj": "obj/prop/rock_tall_corner_sw_v2.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.3.1.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 27456,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 27852,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 27984,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 41,
+   "name": "rock_tall_corner_se_v2",
+   "obj": "obj/prop/rock_tall_corner_se_v2.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "0.3.3.1.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 28248,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 28644,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 28776,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 42,
+   "name": "rock_tall_corner_nw_v2",
+   "obj": "obj/prop/rock_tall_corner_nw_v2.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "1.0.0.5.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 29040,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 29436,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 29568,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 43,
+   "name": "rock_tall_corner_ne_v2",
+   "obj": "obj/prop/rock_tall_corner_ne_v2.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 29832,
+     "count": 9
+    },
+    {
+     "material": 12,
+     "offset": 30228,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 30360,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 44,
+   "name": "rock_tall_edge_n_v3",
+   "obj": "obj/prop/rock_tall_edge_n_v3.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "0.3.3.0.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 30624,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 30888,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 31152,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 45,
+   "name": "rock_tall_edge_s_v3",
+   "obj": "obj/prop/rock_tall_edge_s_v3.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 31416,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 31680,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 31944,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 46,
+   "name": "rock_tall_edge_w_v3",
+   "obj": "obj/prop/rock_tall_edge_w_v3.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "3.0.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 32208,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 32472,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 32736,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 47,
+   "name": "rock_tall_edge_e_v3",
+   "obj": "obj/prop/rock_tall_edge_e_v3.obj",
+   "source": "Rock_tall_b.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.3.0.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 33000,
+     "count": 6
+    },
+    {
+     "material": 14,
+     "offset": 33264,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 33528,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 48,
+   "name": "rock_tall_corner_sw_v3",
+   "obj": "obj/prop/rock_tall_corner_sw_v3.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.3.1.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 33792,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 34188,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 34320,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 49,
+   "name": "rock_tall_corner_se_v3",
+   "obj": "obj/prop/rock_tall_corner_se_v3.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "0.3.3.1.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 34584,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 34980,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 35112,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 50,
+   "name": "rock_tall_corner_nw_v3",
+   "obj": "obj/prop/rock_tall_corner_nw_v3.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "1.0.0.5.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 35376,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 35772,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 35904,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 51,
+   "name": "rock_tall_corner_ne_v3",
+   "obj": "obj/prop/rock_tall_corner_ne_v3.obj",
+   "source": "Rock_tall_bl.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "0.1.3.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 36168,
+     "count": 9
+    },
+    {
+     "material": 14,
+     "offset": 36564,
+     "count": 3
+    },
+    {
+     "material": 15,
+     "offset": 36696,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 52,
+   "name": "sand_path_edge_s",
+   "obj": "obj/path/sand_path_edge_s.obj",
+   "source": "Sand_path_r.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "e",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 36960,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 53,
+   "name": "sand_path_edge_n",
+   "obj": "obj/path/sand_path_edge_n.obj",
+   "source": "Sand_path_r.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "e",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 37224,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 54,
+   "name": "sand_path_edge_w",
+   "obj": "obj/path/sand_path_edge_w.obj",
+   "source": "Sand_path_r.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "e",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.2.2.1.0.2.-2",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 37488,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 55,
+   "name": "sand_path_edge_e",
+   "obj": "obj/path/sand_path_edge_e.obj",
+   "source": "Sand_path_r.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "e",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "1.2.2.1.0.2.-2",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 37752,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 56,
+   "name": "sand_path_corner_sw",
+   "obj": "obj/path/sand_path_corner_sw.obj",
+   "source": "Sand_path_tr.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "ne",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "1.2.2.1.0.2.-3",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 38016,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 57,
+   "name": "sand_path_corner_se",
+   "obj": "obj/path/sand_path_corner_se.obj",
+   "source": "Sand_path_tr.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "ne",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "2.1.1.2.0.2.-3",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 38280,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 58,
+   "name": "sand_path_corner_nw",
+   "obj": "obj/path/sand_path_corner_nw.obj",
+   "source": "Sand_path_tr.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "ne",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "2.1.1.2.0.2.-3",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 38544,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 59,
+   "name": "sand_path_corner_ne",
+   "obj": "obj/path/sand_path_corner_ne.obj",
+   "source": "Sand_path_tr.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "ne",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "1.2.2.1.0.2.-3",
+   "groups": [
+    {
+     "material": 25,
+     "offset": 38808,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 60,
+   "name": "river_border_edge_s",
+   "obj": "obj/cliff/river_border_edge_s.obj",
+   "source": "River_border_b.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    11,
+    44
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 1,
+    "name": "edge_s"
+   },
+   "signature": "3.4.1.0.1.2.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 39072,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 39336,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 39600,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 39864,
+     "count": 6
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 61,
+   "name": "river_border_edge_n",
+   "obj": "obj/cliff/river_border_edge_n.obj",
+   "source": "River_border_b.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    11,
+    44
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 11,
+    "name": "edge_n"
+   },
+   "signature": "0.1.4.3.1.2.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 40128,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 40392,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 40656,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 40920,
+     "count": 6
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 62,
+   "name": "river_border_edge_w",
+   "obj": "obj/cliff/river_border_edge_w.obj",
+   "source": "River_border_b.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    11,
+    44
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 5,
+    "name": "edge_w"
+   },
+   "signature": "1.3.0.4.1.2.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 41184,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 41448,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 41712,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 41976,
+     "count": 6
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 63,
+   "name": "river_border_edge_e",
+   "obj": "obj/cliff/river_border_edge_e.obj",
+   "source": "River_border_b.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "s",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    11,
+    44
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 7,
+    "name": "edge_e"
+   },
+   "signature": "4.0.3.1.1.2.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 42240,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 42504,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 42768,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 43032,
+     "count": 6
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 64,
+   "name": "river_border_c_small_corner_sw",
+   "obj": "obj/cliff/river_border_c_small_corner_sw.obj",
+   "source": "River_border_c_small.obj",
+   "category": "cliff",
+   "subcategory": "river_border_c_small",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    44,
+    11,
+    13
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 0,
+    "name": "corner_sw"
+   },
+   "signature": "0.6.1.0.1.3.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 43296,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 43560,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 43824,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 44352,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 65,
+   "name": "river_border_c_small_corner_se",
+   "obj": "obj/cliff/river_border_c_small_corner_se.obj",
+   "source": "River_border_c_small.obj",
+   "category": "cliff",
+   "subcategory": "river_border_c_small",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    44,
+    11,
+    13
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 2,
+    "name": "corner_se"
+   },
+   "signature": "6.0.0.1.1.3.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 44880,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 45144,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 45408,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 45936,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 66,
+   "name": "river_border_c_small_corner_nw",
+   "obj": "obj/cliff/river_border_c_small_corner_nw.obj",
+   "source": "River_border_c_small.obj",
+   "category": "cliff",
+   "subcategory": "river_border_c_small",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    44,
+    11,
+    13
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 10,
+    "name": "corner_nw"
+   },
+   "signature": "1.0.0.6.1.3.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 46464,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 46728,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 46992,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 47520,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 67,
+   "name": "river_border_c_small_corner_ne",
+   "obj": "obj/cliff/river_border_c_small_corner_ne.obj",
+   "source": "River_border_c_small.obj",
+   "category": "cliff",
+   "subcategory": "river_border_c_small",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    44,
+    11,
+    13
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 12,
+    "name": "corner_ne"
+   },
+   "signature": "0.1.6.0.1.3.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 48048,
+     "count": 6
+    },
+    {
+     "material": 44,
+     "offset": 48312,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 48576,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 49104,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 68,
+   "name": "rock_inner_ne",
+   "obj": "obj/prop/rock_inner_ne.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0016
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9984
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "3.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 49632,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 50160,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 69,
+   "name": "rock_inner_nw",
+   "obj": "obj/prop/rock_inner_nw.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0016,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9984,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "2.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 50688,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 51216,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 70,
+   "name": "rock_inner_se",
+   "obj": "obj/prop/rock_inner_se.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0016,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0016,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "2.3.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 51744,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 52272,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 71,
+   "name": "rock_inner_sw",
+   "obj": "obj/prop/rock_inner_sw.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0016
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0016
+    ]
+   },
+   "materials": [
+    10,
+    13
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "1.2.2.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 52800,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 53328,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 72,
+   "name": "rock_inner_ne_v2",
+   "obj": "obj/prop/rock_inner_ne_v2.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0016
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9984
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "3.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 53856,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 54384,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 73,
+   "name": "rock_inner_nw_v2",
+   "obj": "obj/prop/rock_inner_nw_v2.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0016,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9984,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "2.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 54912,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 55440,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 74,
+   "name": "rock_inner_se_v2",
+   "obj": "obj/prop/rock_inner_se_v2.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0016,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0016,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "2.3.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 55968,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 56496,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 75,
+   "name": "rock_inner_sw_v2",
+   "obj": "obj/prop/rock_inner_sw_v2.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0016
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0016
+    ]
+   },
+   "materials": [
+    10,
+    12
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "1.2.2.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 57024,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 57552,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 76,
+   "name": "rock_inner_ne_v3",
+   "obj": "obj/prop/rock_inner_ne_v3.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.002,
+     0,
+     -0.0016
+    ],
+    "max": [
+     0.998,
+     1,
+     0.9984
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "3.2.2.1.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 58080,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 58608,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 77,
+   "name": "rock_inner_nw_v3",
+   "obj": "obj/prop/rock_inner_nw_v3.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0016,
+     0,
+     0.002
+    ],
+    "max": [
+     0.9984,
+     1,
+     1.002
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "2.1.3.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 59136,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 59664,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 78,
+   "name": "rock_inner_se_v3",
+   "obj": "obj/prop/rock_inner_se_v3.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0016,
+     0,
+     -0.002
+    ],
+    "max": [
+     1.0016,
+     1,
+     0.998
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "2.3.1.2.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 60192,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 60720,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 79,
+   "name": "rock_inner_sw_v3",
+   "obj": "obj/prop/rock_inner_sw_v3.obj",
+   "source": "Rock_c.obj",
+   "category": "prop",
+   "subcategory": "rock",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.002,
+     0,
+     0.0016
+    ],
+    "max": [
+     1.002,
+     1,
+     1.0016
+    ]
+   },
+   "materials": [
+    10,
+    14
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "1.2.2.3.1.2.2",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 61248,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 61776,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 80,
+   "name": "rock_tall_inner_ne",
+   "obj": "obj/prop/rock_tall_inner_ne.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 62304,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 62832,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 63360,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 81,
+   "name": "rock_tall_inner_nw",
+   "obj": "obj/prop/rock_tall_inner_nw.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.3.2.2.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 63888,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 64416,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 64944,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 82,
+   "name": "rock_tall_inner_se",
+   "obj": "obj/prop/rock_tall_inner_se.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 65472,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 66000,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 66528,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 83,
+   "name": "rock_tall_inner_sw",
+   "obj": "obj/prop/rock_tall_inner_sw.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    13,
+    15
+   ],
+   "autotile": {
+    "set": "set3",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.1.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 67056,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 67584,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 68112,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 84,
+   "name": "rock_tall_inner_ne_v2",
+   "obj": "obj/prop/rock_tall_inner_ne_v2.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 68640,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 69168,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 69696,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 85,
+   "name": "rock_tall_inner_nw_v2",
+   "obj": "obj/prop/rock_tall_inner_nw_v2.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.3.2.2.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 70224,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 70752,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 71280,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 86,
+   "name": "rock_tall_inner_se_v2",
+   "obj": "obj/prop/rock_tall_inner_se_v2.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 71808,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 72336,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 72864,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 87,
+   "name": "rock_tall_inner_sw_v2",
+   "obj": "obj/prop/rock_tall_inner_sw_v2.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    12,
+    15
+   ],
+   "autotile": {
+    "set": "set4",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.1.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 73392,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 73920,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 74448,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 88,
+   "name": "rock_tall_inner_ne_v3",
+   "obj": "obj/prop/rock_tall_inner_ne_v3.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 74976,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 75504,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 76032,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 89,
+   "name": "rock_tall_inner_nw_v3",
+   "obj": "obj/prop/rock_tall_inner_nw_v3.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.3.2.2.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 76560,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 77088,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 77616,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 90,
+   "name": "rock_tall_inner_se_v3",
+   "obj": "obj/prop/rock_tall_inner_se_v3.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "1.2.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 78144,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 78672,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 79200,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 91,
+   "name": "rock_tall_inner_sw_v3",
+   "obj": "obj/prop/rock_tall_inner_sw_v3.obj",
+   "source": "Rock_tall_c.obj",
+   "category": "prop",
+   "subcategory": "rock_tall",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "decor",
+    "occluder",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     5,
+     1
+    ]
+   },
+   "materials": [
+    10,
+    14,
+    15
+   ],
+   "autotile": {
+    "set": "set5",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.1.2.3.1.2.1",
+   "groups": [
+    {
+     "material": 10,
+     "offset": 79728,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 80256,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 80784,
+     "count": 12
+    }
+   ],
+   "tris": 12
+  },
+  {
+   "id": 92,
+   "name": "sand_path_inner_ne",
+   "obj": "obj/path/sand_path_inner_ne.obj",
+   "source": "Sand_path_c.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "center",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    26,
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "2.1.1.2.0.9.13",
+   "groups": [
+    {
+     "material": 26,
+     "offset": 81312,
+     "count": 3
+    },
+    {
+     "material": 25,
+     "offset": 81444,
+     "count": 3
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 93,
+   "name": "sand_path_inner_nw",
+   "obj": "obj/path/sand_path_inner_nw.obj",
+   "source": "Sand_path_c.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "center",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    26,
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "1.2.2.1.0.9.13",
+   "groups": [
+    {
+     "material": 26,
+     "offset": 81576,
+     "count": 3
+    },
+    {
+     "material": 25,
+     "offset": 81708,
+     "count": 3
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 94,
+   "name": "sand_path_inner_se",
+   "obj": "obj/path/sand_path_inner_se.obj",
+   "source": "Sand_path_c.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "center",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    26,
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "1.2.2.1.0.9.13",
+   "groups": [
+    {
+     "material": 26,
+     "offset": 81840,
+     "count": 3
+    },
+    {
+     "material": 25,
+     "offset": 81972,
+     "count": 3
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 95,
+   "name": "sand_path_inner_sw",
+   "obj": "obj/path/sand_path_inner_sw.obj",
+   "source": "Sand_path_c.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": "center",
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    26,
+    25
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "2.1.1.2.0.9.13",
+   "groups": [
+    {
+     "material": 26,
+     "offset": 82104,
+     "count": 3
+    },
+    {
+     "material": 25,
+     "offset": 82236,
+     "count": 3
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 96,
+   "name": "river_border_inner_ne",
+   "obj": "obj/cliff/river_border_inner_ne.obj",
+   "source": "River_border_bl.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 3,
+    "name": "inner_ne"
+   },
+   "signature": "3.1.0.4.1.2.4",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 82368,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 82632,
+     "count": 3
+    },
+    {
+     "material": 44,
+     "offset": 82764,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 83028,
+     "count": 6
+    }
+   ],
+   "tris": 7
+  },
+  {
+   "id": 97,
+   "name": "river_border_inner_nw",
+   "obj": "obj/cliff/river_border_inner_nw.obj",
+   "source": "River_border_bl.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 4,
+    "name": "inner_nw"
+   },
+   "signature": "0.4.4.0.1.2.4",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 83292,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 83556,
+     "count": 3
+    },
+    {
+     "material": 44,
+     "offset": 83688,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 83952,
+     "count": 6
+    }
+   ],
+   "tris": 7
+  },
+  {
+   "id": 98,
+   "name": "river_border_inner_se",
+   "obj": "obj/cliff/river_border_inner_se.obj",
+   "source": "River_border_bl.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 8,
+    "name": "inner_se"
+   },
+   "signature": "0.3.3.2.1.2.4",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 84216,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 84480,
+     "count": 3
+    },
+    {
+     "material": 44,
+     "offset": 84612,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 84876,
+     "count": 6
+    }
+   ],
+   "tris": 7
+  },
+  {
+   "id": 99,
+   "name": "river_border_inner_sw",
+   "obj": "obj/cliff/river_border_inner_sw.obj",
+   "source": "River_border_bl.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "sw",
+   "tags": [
+    "cliff",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": {
+    "set": "set7",
+    "slot": 9,
+    "name": "inner_sw"
+   },
+   "signature": "3.0.1.4.1.2.4",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 85140,
+     "count": 6
+    },
+    {
+     "material": 13,
+     "offset": 85404,
+     "count": 3
+    },
+    {
+     "material": 44,
+     "offset": 85536,
+     "count": 6
+    },
+    {
+     "material": 11,
+     "offset": 85800,
+     "count": 6
+    }
+   ],
+   "tris": 7
+  },
+  {
+   "id": 100,
+   "name": "grass_center",
+   "obj": "obj/ground/grass_center.obj",
+   "source": "grass.obj",
+   "category": "ground",
+   "subcategory": "grass",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "floor",
+    "grass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    24
+   ],
+   "autotile": {
+    "set": "set0",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "2.1.1.2.0.1.0",
+   "groups": [
+    {
+     "material": 24,
+     "offset": 86064,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 101,
+   "name": "sand_path_center",
+   "obj": "obj/path/sand_path_center.obj",
+   "source": "Sand_path.obj",
+   "category": "path",
+   "subcategory": "sand_path",
+   "orientation": null,
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    26
+   ],
+   "autotile": {
+    "set": "set6",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 26,
+     "offset": 86328,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 102,
+   "name": "cliff_top_center",
+   "obj": "obj/ground/cliff_top_center.obj",
+   "source": "Sand_path.obj",
+   "category": "ground",
+   "subcategory": "cliff_top",
+   "orientation": null,
+   "tags": [
+    "cliff-top",
+    "flat",
+    "floor",
+    "stone"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    17
+   ],
+   "autotile": {
+    "set": "set1",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 17,
+     "offset": 86592,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 103,
+   "name": "sand_beah",
+   "obj": "obj/water/sand_beah.obj",
+   "source": "Sand_beah.obj",
+   "category": "water",
+   "subcategory": "sand_beah",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "water"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    8
+   ],
+   "autotile": null,
+   "signature": "1.2.2.1.0.2.-2",
+   "groups": [
+    {
+     "material": 8,
+     "offset": 86856,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 104,
+   "name": "r0_dirt_ground_center",
+   "obj": "obj/path/r0_dirt_ground_center.obj",
+   "source": "r0_dirtGround.obj",
+   "category": "path",
+   "subcategory": "r0_dirt_ground",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "floor",
+    "path",
+    "stone"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     1,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    22
+   ],
+   "autotile": {
+    "set": "set2",
+    "slot": 6,
+    "name": "center"
+   },
+   "signature": "2.1.1.2.0.1.0",
+   "groups": [
+    {
+     "material": 22,
+     "offset": 87120,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 105,
+   "name": "river",
+   "obj": "obj/unknown/river.obj",
+   "source": "River.obj",
+   "category": "unknown",
+   "subcategory": "river",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.5,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     1,
+     -1,
+     1
+    ]
+   },
+   "materials": [
+    32
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.1.-1",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 87384,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 106,
+   "name": "tall_grass",
+   "obj": "obj/plant/tall_grass.obj",
+   "source": "tall_grass.obj",
+   "category": "plant",
+   "subcategory": "tall_grass",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.125,
+     0
+    ],
+    "max": [
+     1,
+     0.625,
+     1
+    ]
+   },
+   "materials": [
+    20,
+    19,
+    21
+   ],
+   "autotile": null,
+   "signature": "3.1.1.3.1.2.-2",
+   "groups": [
+    {
+     "material": 20,
+     "offset": 87648,
+     "count": 6
+    },
+    {
+     "material": 19,
+     "offset": 87912,
+     "count": 6
+    },
+    {
+     "material": 21,
+     "offset": 88176,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 107,
+   "name": "tall_grass_light",
+   "obj": "obj/plant/tall_grass_light.obj",
+   "source": "Tall_grass_light.obj",
+   "category": "plant",
+   "subcategory": "tall_grass_light",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.125,
+     0
+    ],
+    "max": [
+     1,
+     0.5,
+     1
+    ]
+   },
+   "materials": [
+    41,
+    42,
+    21
+   ],
+   "autotile": null,
+   "signature": "3.1.1.3.1.2.2",
+   "groups": [
+    {
+     "material": 41,
+     "offset": 88440,
+     "count": 6
+    },
+    {
+     "material": 42,
+     "offset": 88704,
+     "count": 6
+    },
+    {
+     "material": 21,
+     "offset": 88968,
+     "count": 6
+    }
+   ],
+   "tris": 6
+  },
+  {
+   "id": 108,
+   "name": "r0_grass_decal01",
+   "obj": "obj/plant/r0_grass_decal01.obj",
+   "source": "r0_grassDecal01.obj",
+   "category": "plant",
+   "subcategory": "r0_grass_decal01",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "flat",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0313,
+     0
+    ],
+    "max": [
+     1,
+     0.0313,
+     1
+    ]
+   },
+   "materials": [
+    23
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 23,
+     "offset": 89232,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 109,
+   "name": "r0_anim_flower",
+   "obj": "obj/plant/r0_anim_flower.obj",
+   "source": "r0_animFlower.obj",
+   "category": "plant",
+   "subcategory": "r0_anim_flower",
+   "orientation": null,
+   "tags": [
+    "decor",
+    "flat",
+    "flower",
+    "occluder"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0313,
+     0
+    ],
+    "max": [
+     1,
+     0.0313,
+     1
+    ]
+   },
+   "materials": [
+    7
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.1.-2",
+   "groups": [
+    {
+     "material": 7,
+     "offset": 89496,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 110,
+   "name": "r0_bluff_rock_decal02",
+   "obj": "obj/cliff/r0_bluff_rock_decal02.obj",
+   "source": "r0_bluffRockDecal02.obj",
+   "category": "cliff",
+   "subcategory": "r0_bluff_rock_decal02",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.94,
+     0
+    ],
+    "max": [
+     1,
+     3.34,
+     0.5
+    ]
+   },
+   "materials": [
+    12,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.-4.-2",
+   "groups": [
+    {
+     "material": 12,
+     "offset": 89760,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 90024,
+     "count": 18
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 111,
+   "name": "r0_bluff_grass_decal02",
+   "obj": "obj/cliff/r0_bluff_grass_decal02.obj",
+   "source": "r0_bluffGrassDecal02.obj",
+   "category": "cliff",
+   "subcategory": "r0_bluff_grass_decal02",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.94,
+     0
+    ],
+    "max": [
+     1,
+     3.34,
+     0.5
+    ]
+   },
+   "materials": [
+    13,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.-4.-2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 90816,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 91080,
+     "count": 18
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 112,
+   "name": "mountain_face",
+   "obj": "obj/cliff/mountain_face.obj",
+   "source": "r0_bluffDirtDecal02.obj",
+   "category": "cliff",
+   "subcategory": "mountain_face",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.94,
+     0
+    ],
+    "max": [
+     1,
+     3.34,
+     0.5
+    ]
+   },
+   "materials": [
+    14,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.-4.-2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 91872,
+     "count": 6
+    },
+    {
+     "material": 15,
+     "offset": 92136,
+     "count": 18
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 113,
+   "name": "r0_bluff_grass_decal01",
+   "obj": "obj/cliff/r0_bluff_grass_decal01.obj",
+   "source": "r0_bluffGrassDecal01.obj",
+   "category": "cliff",
+   "subcategory": "r0_bluff_grass_decal01",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.08,
+     1.69,
+     0.045
+    ],
+    "max": [
+     2.96,
+     5.05,
+     1.005
+    ]
+   },
+   "materials": [
+    13,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 13,
+     "offset": 92928,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 93456,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 114,
+   "name": "r0_bluff_rock_decal01",
+   "obj": "obj/cliff/r0_bluff_rock_decal01.obj",
+   "source": "r0_bluffRockDecal01.obj",
+   "category": "cliff",
+   "subcategory": "r0_bluff_rock_decal01",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.08,
+     1.69,
+     0.045
+    ],
+    "max": [
+     2.96,
+     5.05,
+     1.005
+    ]
+   },
+   "materials": [
+    12,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 12,
+     "offset": 93984,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 94512,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 115,
+   "name": "cliff_face",
+   "obj": "obj/cliff/cliff_face.obj",
+   "source": "r0_bluffDirtDecal01.obj",
+   "category": "cliff",
+   "subcategory": "cliff_face",
+   "orientation": null,
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "tall"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.08,
+     1.69,
+     0.045
+    ],
+    "max": [
+     2.96,
+     5.05,
+     1.005
+    ]
+   },
+   "materials": [
+    14,
+    15
+   ],
+   "autotile": null,
+   "signature": "0.3.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 14,
+     "offset": 95040,
+     "count": 12
+    },
+    {
+     "material": 15,
+     "offset": 95568,
+     "count": 12
+    }
+   ],
+   "tris": 8
+  },
+  {
+   "id": 116,
+   "name": "r0_small_rock01",
+   "obj": "obj/unknown/r0_small_rock01.obj",
+   "source": "r0_smallRock01.obj",
+   "category": "unknown",
+   "subcategory": "r0_small_rock01",
+   "orientation": null,
+   "tags": [],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0214,
+     0.1464
+    ],
+    "max": [
+     1,
+     0.7286,
+     0.8536
+    ]
+   },
+   "materials": [
+    9
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.1.2.-2",
+   "groups": [
+    {
+     "material": 9,
+     "offset": 96096,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 117,
+   "name": "water_sand_center",
+   "obj": "obj/water/water_sand_center.obj",
+   "source": "WaterSand_c.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "center",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.3.3.1.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 96360,
+     "count": 24
+    },
+    {
+     "material": 39,
+     "offset": 97416,
+     "count": 24
+    },
+    {
+     "material": 37,
+     "offset": 98472,
+     "count": 6
+    }
+   ],
+   "tris": 18
+  },
+  {
+   "id": 118,
+   "name": "water_sand_s",
+   "obj": "obj/water/water_sand_s.obj",
+   "source": "WaterSand_b.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "s",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 1,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     1,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.2.3.2.1.0.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 98736,
+     "count": 12
+    },
+    {
+     "material": 39,
+     "offset": 99264,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 99792,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 119,
+   "name": "water_sand_center_v2",
+   "obj": "obj/water/water_sand_center_v2.obj",
+   "source": "WaterSand_c.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "center",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "3.1.1.3.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 100056,
+     "count": 24
+    },
+    {
+     "material": 39,
+     "offset": 101112,
+     "count": 24
+    },
+    {
+     "material": 37,
+     "offset": 102168,
+     "count": 6
+    }
+   ],
+   "tris": 18
+  },
+  {
+   "id": 120,
+   "name": "water_sand_s_v2",
+   "obj": "obj/water/water_sand_s_v2.obj",
+   "source": "WaterSand_b.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "s",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     1
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "3.1.2.2.1.0.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 102432,
+     "count": 12
+    },
+    {
+     "material": 39,
+     "offset": 102960,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 103488,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 121,
+   "name": "sea_water",
+   "obj": "obj/water/sea_water.obj",
+   "source": "sea_water.obj",
+   "category": "water",
+   "subcategory": "sea_water",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken",
+    "water"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": -0.25,
+   "bounds": {
+    "min": [
+     0,
+     -1.5,
+     0
+    ],
+    "max": [
+     1,
+     -1.5,
+     1
+    ]
+   },
+   "materials": [
+    36
+   ],
+   "autotile": null,
+   "signature": "1.2.2.1.0.0.1",
+   "groups": [
+    {
+     "material": 36,
+     "offset": 103752,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 122,
+   "name": "water_sand_s_v3",
+   "obj": "obj/water/water_sand_s_v3.obj",
+   "source": "WaterSand_b.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "s",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     1
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "2.2.1.3.1.0.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 104016,
+     "count": 12
+    },
+    {
+     "material": 39,
+     "offset": 104544,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 105072,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 123,
+   "name": "sea_water_transp",
+   "obj": "obj/water/sea_water_transp.obj",
+   "source": "sea_water_transp.obj",
+   "category": "water",
+   "subcategory": "sea_water_transp",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken",
+    "water"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 1,
+   "h": 1,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     -0.6875,
+     0
+    ],
+    "max": [
+     1,
+     -0.6875,
+     1
+    ]
+   },
+   "materials": [
+    35
+   ],
+   "autotile": null,
+   "signature": "1.2.2.1.0.1.0",
+   "groups": [
+    {
+     "material": 35,
+     "offset": 105336,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 124,
+   "name": "water_sand_center_v3",
+   "obj": "obj/water/water_sand_center_v3.obj",
+   "source": "WaterSand_c.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "center",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "3.1.1.3.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 105600,
+     "count": 24
+    },
+    {
+     "material": 39,
+     "offset": 106656,
+     "count": 24
+    },
+    {
+     "material": 37,
+     "offset": 107712,
+     "count": 6
+    }
+   ],
+   "tris": 18
+  },
+  {
+   "id": 125,
+   "name": "water_sand_s_v4",
+   "obj": "obj/water/water_sand_s_v4.obj",
+   "source": "WaterSand_b.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "s",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 1,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     1,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "2.3.2.1.1.0.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 107976,
+     "count": 12
+    },
+    {
+     "material": 39,
+     "offset": 108504,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 109032,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 126,
+   "name": "water_sand_center_v4",
+   "obj": "obj/water/water_sand_center_v4.obj",
+   "source": "WaterSand_c.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "center",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.3.3.1.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 109296,
+     "count": 24
+    },
+    {
+     "material": 39,
+     "offset": 110352,
+     "count": 24
+    },
+    {
+     "material": 37,
+     "offset": 111408,
+     "count": 6
+    }
+   ],
+   "tris": 18
+  },
+  {
+   "id": 127,
+   "name": "water_sand_sw",
+   "obj": "obj/water/water_sand_sw.obj",
+   "source": "WaterSand_bl.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "sw",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.5.1.1.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 111672,
+     "count": 15
+    },
+    {
+     "material": 39,
+     "offset": 112332,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 112860,
+     "count": 12
+    }
+   ],
+   "tris": 13
+  },
+  {
+   "id": 128,
+   "name": "water_sand_sw_v2",
+   "obj": "obj/water/water_sand_sw_v2.obj",
+   "source": "WaterSand_bl.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "sw",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "5.1.1.1.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 113388,
+     "count": 15
+    },
+    {
+     "material": 39,
+     "offset": 114048,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 114576,
+     "count": 12
+    }
+   ],
+   "tris": 13
+  },
+  {
+   "id": 129,
+   "name": "water_sand_sw_v3",
+   "obj": "obj/water/water_sand_sw_v3.obj",
+   "source": "WaterSand_bl.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "sw",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.1.1.5.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 115104,
+     "count": 15
+    },
+    {
+     "material": 39,
+     "offset": 115764,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 116292,
+     "count": 12
+    }
+   ],
+   "tris": 13
+  },
+  {
+   "id": 130,
+   "name": "water_sand_sw_v4",
+   "obj": "obj/water/water_sand_sw_v4.obj",
+   "source": "WaterSand_bl.obj",
+   "category": "water",
+   "subcategory": "water_sand",
+   "orientation": "sw",
+   "tags": [
+    "foam",
+    "multicell",
+    "sunken",
+    "surf"
+   ],
+   "biomes": [
+    "coast"
+   ],
+   "collision": "water",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5625,
+     0
+    ],
+    "max": [
+     3,
+     0.0625,
+     3
+    ]
+   },
+   "materials": [
+    38,
+    39,
+    37
+   ],
+   "autotile": null,
+   "signature": "1.1.5.1.1.4.2",
+   "groups": [
+    {
+     "material": 38,
+     "offset": 116820,
+     "count": 15
+    },
+    {
+     "material": 39,
+     "offset": 117480,
+     "count": 12
+    },
+    {
+     "material": 37,
+     "offset": 118008,
+     "count": 12
+    }
+   ],
+   "tris": 13
+  },
+  {
+   "id": 131,
+   "name": "cave_enter",
+   "obj": "obj/cave/cave_enter.obj",
+   "source": "CaveEnter.obj",
+   "category": "cave",
+   "subcategory": "cave_enter",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "entrance",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -0.91
+    ],
+    "max": [
+     5,
+     2,
+     2
+    ]
+   },
+   "materials": [
+    18,
+    12,
+    10,
+    17
+   ],
+   "autotile": null,
+   "signature": "1.2.2.2.1.3.0",
+   "groups": [
+    {
+     "material": 18,
+     "offset": 118536,
+     "count": 66
+    },
+    {
+     "material": 12,
+     "offset": 121440,
+     "count": 30
+    },
+    {
+     "material": 10,
+     "offset": 122760,
+     "count": 24
+    },
+    {
+     "material": 17,
+     "offset": 123816,
+     "count": 12
+    }
+   ],
+   "tris": 44
+  },
+  {
+   "id": 132,
+   "name": "cave_enter_grass",
+   "obj": "obj/cave/cave_enter_grass.obj",
+   "source": "CaveEnter_grass.obj",
+   "category": "cave",
+   "subcategory": "cave_enter_grass",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "entrance",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -0.91
+    ],
+    "max": [
+     5,
+     2,
+     2
+    ]
+   },
+   "materials": [
+    18,
+    12,
+    13,
+    10,
+    17
+   ],
+   "autotile": null,
+   "signature": "1.2.2.2.1.3.0",
+   "groups": [
+    {
+     "material": 18,
+     "offset": 124344,
+     "count": 66
+    },
+    {
+     "material": 12,
+     "offset": 127248,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 127776,
+     "count": 18
+    },
+    {
+     "material": 10,
+     "offset": 128568,
+     "count": 24
+    },
+    {
+     "material": 17,
+     "offset": 129624,
+     "count": 12
+    }
+   ],
+   "tris": 44
+  },
+  {
+   "id": 133,
+   "name": "cave_enter_grass_v2",
+   "obj": "obj/cave/cave_enter_grass_v2.obj",
+   "source": "CaveEnter_grass.obj",
+   "category": "cave",
+   "subcategory": "cave_enter_grass",
+   "orientation": null,
+   "tags": [
+    "cave",
+    "entrance",
+    "multicell",
+    "tall"
+   ],
+   "biomes": [
+    "cave"
+   ],
+   "collision": "door",
+   "w": 5,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -0.91
+    ],
+    "max": [
+     5,
+     2,
+     2
+    ]
+   },
+   "materials": [
+    18,
+    12,
+    14,
+    10,
+    17
+   ],
+   "autotile": null,
+   "signature": "1.2.2.2.1.3.0",
+   "groups": [
+    {
+     "material": 18,
+     "offset": 130152,
+     "count": 66
+    },
+    {
+     "material": 12,
+     "offset": 133056,
+     "count": 12
+    },
+    {
+     "material": 14,
+     "offset": 133584,
+     "count": 18
+    },
+    {
+     "material": 10,
+     "offset": 134376,
+     "count": 24
+    },
+    {
+     "material": 17,
+     "offset": 135432,
+     "count": 12
+    }
+   ],
+   "tris": 44
+  },
+  {
+   "id": 134,
+   "name": "r0_bridge_junction",
+   "obj": "obj/bridge/r0_bridge_junction.obj",
+   "source": "r0_bridgeJunction.obj",
+   "category": "bridge",
+   "subcategory": "r0_bridge_junction",
+   "orientation": null,
+   "tags": [
+    "bridge",
+    "multicell",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     0
+    ],
+    "max": [
+     3,
+     0,
+     3
+    ]
+   },
+   "materials": [
+    16
+   ],
+   "autotile": null,
+   "signature": "1.2.2.3.1.1.-2",
+   "groups": [
+    {
+     "material": 16,
+     "offset": 135960,
+     "count": 54
+    }
+   ],
+   "tris": 18
+  },
+  {
+   "id": 135,
+   "name": "r0_stair_left_bluff",
+   "obj": "obj/stairs/r0_stair_left_bluff.obj",
+   "source": "r0_stairLeftBluff.obj",
+   "category": "stairs",
+   "subcategory": "r0_stair_left_bluff",
+   "orientation": null,
+   "tags": [
+    "multicell",
+    "stairs",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 2,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.0016,
+     0,
+     -0.5
+    ],
+    "max": [
+     2,
+     5,
+     5.0008
+    ]
+   },
+   "materials": [
+    15,
+    12,
+    10,
+    40
+   ],
+   "autotile": null,
+   "signature": "2.2.1.2.1.1.2",
+   "groups": [
+    {
+     "material": 15,
+     "offset": 138336,
+     "count": 3
+    },
+    {
+     "material": 12,
+     "offset": 138468,
+     "count": 9
+    },
+    {
+     "material": 10,
+     "offset": 138864,
+     "count": 15
+    },
+    {
+     "material": 40,
+     "offset": 139524,
+     "count": 48
+    }
+   ],
+   "tris": 25
+  },
+  {
+   "id": 136,
+   "name": "r0_stair_mid_bluff",
+   "obj": "obj/stairs/r0_stair_mid_bluff.obj",
+   "source": "r0_stairMidBluff.obj",
+   "category": "stairs",
+   "subcategory": "r0_stair_mid_bluff",
+   "orientation": null,
+   "tags": [
+    "multicell",
+    "stairs",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 1,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.1464,
+     -0.1036
+    ],
+    "max": [
+     1,
+     5,
+     5
+    ]
+   },
+   "materials": [
+    40
+   ],
+   "autotile": null,
+   "signature": "1.1.2.3.1.2.10",
+   "groups": [
+    {
+     "material": 40,
+     "offset": 141636,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 137,
+   "name": "r0_stair_right_bluff",
+   "obj": "obj/stairs/r0_stair_right_bluff.obj",
+   "source": "r0_stairRightBluff.obj",
+   "category": "stairs",
+   "subcategory": "r0_stair_right_bluff",
+   "orientation": null,
+   "tags": [
+    "multicell",
+    "stairs",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 2,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -0.5
+    ],
+    "max": [
+     1.9984,
+     5,
+     5.0008
+    ]
+   },
+   "materials": [
+    15,
+    12,
+    10,
+    40
+   ],
+   "autotile": null,
+   "signature": "2.2.2.2.1.1.2",
+   "groups": [
+    {
+     "material": 15,
+     "offset": 142164,
+     "count": 3
+    },
+    {
+     "material": 12,
+     "offset": 142296,
+     "count": 9
+    },
+    {
+     "material": 10,
+     "offset": 142692,
+     "count": 15
+    },
+    {
+     "material": 40,
+     "offset": 143352,
+     "count": 48
+    }
+   ],
+   "tris": 25
+  },
+  {
+   "id": 138,
+   "name": "r0_stair_skinny_bluff",
+   "obj": "obj/stairs/r0_stair_skinny_bluff.obj",
+   "source": "r0_stairSkinnyBluff.obj",
+   "category": "stairs",
+   "subcategory": "r0_stair_skinny_bluff",
+   "orientation": null,
+   "tags": [
+    "multicell",
+    "stairs",
+    "tall"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 3,
+   "h": 5,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0008,
+     0,
+     -0.4984
+    ],
+    "max": [
+     2.9969,
+     5,
+     5.0016
+    ]
+   },
+   "materials": [
+    15,
+    12,
+    10,
+    40
+   ],
+   "autotile": null,
+   "signature": "2.2.2.2.1.2.1",
+   "groups": [
+    {
+     "material": 15,
+     "offset": 145464,
+     "count": 12
+    },
+    {
+     "material": 12,
+     "offset": 145992,
+     "count": 18
+    },
+    {
+     "material": 10,
+     "offset": 146784,
+     "count": 30
+    },
+    {
+     "material": 40,
+     "offset": 148104,
+     "count": 66
+    }
+   ],
+   "tris": 42
+  },
+  {
+   "id": 139,
+   "name": "r0_short_stair_w",
+   "obj": "obj/stairs/r0_short_stair_w.obj",
+   "source": "r0_shortStairLeft.obj",
+   "category": "stairs",
+   "subcategory": "r0_short_stair",
+   "orientation": "w",
+   "tags": [
+    "stairs"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.125,
+     0,
+     -0.5
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    40
+   ],
+   "autotile": null,
+   "signature": "3.0.4.1.1.1.-2",
+   "groups": [
+    {
+     "material": 40,
+     "offset": 151008,
+     "count": 48
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 140,
+   "name": "r0_short_stair",
+   "obj": "obj/stairs/r0_short_stair.obj",
+   "source": "r0_shortStair.obj",
+   "category": "stairs",
+   "subcategory": "r0_short_stair",
+   "orientation": null,
+   "tags": [
+    "stairs"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.1464,
+     -0.1036
+    ],
+    "max": [
+     1,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    40
+   ],
+   "autotile": null,
+   "signature": "1.1.2.3.1.2.-3",
+   "groups": [
+    {
+     "material": 40,
+     "offset": 153120,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 141,
+   "name": "r0_short_stair_e",
+   "obj": "obj/stairs/r0_short_stair_e.obj",
+   "source": "r0_shortStairRight.obj",
+   "category": "stairs",
+   "subcategory": "r0_short_stair",
+   "orientation": "e",
+   "tags": [
+    "stairs"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     -0.5
+    ],
+    "max": [
+     1.125,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    40
+   ],
+   "autotile": null,
+   "signature": "0.3.1.4.1.1.-2",
+   "groups": [
+    {
+     "material": 40,
+     "offset": 153648,
+     "count": 48
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 142,
+   "name": "r0_skinny_short_stair",
+   "obj": "obj/stairs/r0_skinny_short_stair.obj",
+   "source": "r0_skinnyShortStair.obj",
+   "category": "stairs",
+   "subcategory": "r0_skinny_short_stair",
+   "orientation": null,
+   "tags": [
+    "stairs"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "stairs",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.125,
+     0,
+     -0.5
+    ],
+    "max": [
+     1.125,
+     1,
+     1
+    ]
+   },
+   "materials": [
+    40
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.1.-2",
+   "groups": [
+    {
+     "material": 40,
+     "offset": 155760,
+     "count": 96
+    }
+   ],
+   "tris": 32
+  },
+  {
+   "id": 143,
+   "name": "grass_river_center",
+   "obj": "obj/ground/grass_river_center.obj",
+   "source": "Grass_river_c.obj",
+   "category": "ground",
+   "subcategory": "grass_river",
+   "orientation": "center",
+   "tags": [
+    "flat",
+    "floor",
+    "grass",
+    "multicell"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    24
+   ],
+   "autotile": null,
+   "signature": "1.0.5.1.0.4.8",
+   "groups": [
+    {
+     "material": 24,
+     "offset": 159984,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 144,
+   "name": "grass_river_center_v2",
+   "obj": "obj/ground/grass_river_center_v2.obj",
+   "source": "Grass_river_c.obj",
+   "category": "ground",
+   "subcategory": "grass_river",
+   "orientation": "center",
+   "tags": [
+    "flat",
+    "floor",
+    "grass",
+    "multicell"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    24
+   ],
+   "autotile": null,
+   "signature": "0.1.1.5.0.4.8",
+   "groups": [
+    {
+     "material": 24,
+     "offset": 160248,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 145,
+   "name": "grass_river_center_v3",
+   "obj": "obj/ground/grass_river_center_v3.obj",
+   "source": "Grass_river_c.obj",
+   "category": "ground",
+   "subcategory": "grass_river",
+   "orientation": "center",
+   "tags": [
+    "flat",
+    "floor",
+    "grass",
+    "multicell"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    24
+   ],
+   "autotile": null,
+   "signature": "5.1.1.0.0.4.8",
+   "groups": [
+    {
+     "material": 24,
+     "offset": 160512,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 146,
+   "name": "grass_river_center_v4",
+   "obj": "obj/ground/grass_river_center_v4.obj",
+   "source": "Grass_river_c.obj",
+   "category": "ground",
+   "subcategory": "grass_river",
+   "orientation": "center",
+   "tags": [
+    "flat",
+    "floor",
+    "grass",
+    "multicell"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": true,
+   "uvScale": 0.25,
+   "bounds": {
+    "min": [
+     0,
+     0,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    24
+   ],
+   "autotile": null,
+   "signature": "1.5.0.1.0.4.8",
+   "groups": [
+    {
+     "material": 24,
+     "offset": 160776,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 147,
+   "name": "river_border_center",
+   "obj": "obj/cliff/river_border_center.obj",
+   "source": "River_border_c.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": null,
+   "signature": "1.2.3.2.1.0.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 161040,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 161568,
+     "count": 12
+    },
+    {
+     "material": 44,
+     "offset": 162096,
+     "count": 12
+    },
+    {
+     "material": 11,
+     "offset": 162624,
+     "count": 12
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 148,
+   "name": "river_border_center_v2",
+   "obj": "obj/cliff/river_border_center_v2.obj",
+   "source": "River_border_c.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": null,
+   "signature": "1.2.2.3.1.0.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 163152,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 163680,
+     "count": 12
+    },
+    {
+     "material": 44,
+     "offset": 164208,
+     "count": 12
+    },
+    {
+     "material": 11,
+     "offset": 164736,
+     "count": 12
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 149,
+   "name": "river_border_center_v3",
+   "obj": "obj/cliff/river_border_center_v3.obj",
+   "source": "River_border_c.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": null,
+   "signature": "3.1.2.2.1.0.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 165264,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 165792,
+     "count": 12
+    },
+    {
+     "material": 44,
+     "offset": 166320,
+     "count": 12
+    },
+    {
+     "material": 11,
+     "offset": 166848,
+     "count": 12
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 150,
+   "name": "river_border_center_v4",
+   "obj": "obj/cliff/river_border_center_v4.obj",
+   "source": "River_border_c.obj",
+   "category": "cliff",
+   "subcategory": "river_border",
+   "orientation": "center",
+   "tags": [
+    "cliff",
+    "multicell",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -1,
+     0
+    ],
+    "max": [
+     2,
+     0,
+     2
+    ]
+   },
+   "materials": [
+    32,
+    13,
+    44,
+    11
+   ],
+   "autotile": null,
+   "signature": "2.3.1.2.1.0.2",
+   "groups": [
+    {
+     "material": 32,
+     "offset": 167376,
+     "count": 12
+    },
+    {
+     "material": 13,
+     "offset": 167904,
+     "count": 12
+    },
+    {
+     "material": 44,
+     "offset": 168432,
+     "count": 12
+    },
+    {
+     "material": 11,
+     "offset": 168960,
+     "count": 12
+    }
+   ],
+   "tris": 16
+  },
+  {
+   "id": 151,
+   "name": "river_bottom_rock",
+   "obj": "obj/prop/river_bottom_rock.obj",
+   "source": "River_bottom_rock.obj",
+   "category": "prop",
+   "subcategory": "river_bottom_rock",
+   "orientation": null,
+   "tags": [
+    "decor",
+    "flat",
+    "occluder",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.007,
+     -0.8125,
+     0.0385
+    ],
+    "max": [
+     0.993,
+     -0.8125,
+     1.0385
+    ]
+   },
+   "materials": [
+    33
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.2",
+   "groups": [
+    {
+     "material": 33,
+     "offset": 169488,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 152,
+   "name": "river_bottom_rock_small",
+   "obj": "obj/prop/river_bottom_rock_small.obj",
+   "source": "River_bottom_rock_small.obj",
+   "category": "prop",
+   "subcategory": "river_bottom_rock_small",
+   "orientation": null,
+   "tags": [
+    "decor",
+    "flat",
+    "occluder",
+    "rock",
+    "sunken"
+   ],
+   "biomes": [
+    "cave",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.293,
+     -0.8125,
+     0.3385
+    ],
+    "max": [
+     0.693,
+     -0.8125,
+     0.7385
+    ]
+   },
+   "materials": [
+    33
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.2",
+   "groups": [
+    {
+     "material": 33,
+     "offset": 169752,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 153,
+   "name": "river_wave",
+   "obj": "obj/unknown/river_wave.obj",
+   "source": "River_wave.obj",
+   "category": "unknown",
+   "subcategory": "river_wave",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     0
+    ],
+    "max": [
+     1,
+     -0.5,
+     1
+    ]
+   },
+   "materials": [
+    45
+   ],
+   "autotile": null,
+   "signature": "1.2.2.1.0.2.2",
+   "groups": [
+    {
+     "material": 45,
+     "offset": 170016,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 154,
+   "name": "river_wave_2",
+   "obj": "obj/unknown/river_wave_2.obj",
+   "source": "River_wave_2.obj",
+   "category": "unknown",
+   "subcategory": "river_wave_2",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0.5,
+     -0.5,
+     0
+    ],
+    "max": [
+     1.5,
+     -0.5,
+     1
+    ]
+   },
+   "materials": [
+    45
+   ],
+   "autotile": null,
+   "signature": "0.3.0.3.0.2.2",
+   "groups": [
+    {
+     "material": 45,
+     "offset": 170280,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 155,
+   "name": "river_wave_v2",
+   "obj": "obj/unknown/river_wave_v2.obj",
+   "source": "River_wave.obj",
+   "category": "unknown",
+   "subcategory": "river_wave",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     0
+    ],
+    "max": [
+     1,
+     -0.5,
+     1
+    ]
+   },
+   "materials": [
+    45
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.2",
+   "groups": [
+    {
+     "material": 45,
+     "offset": 170544,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 156,
+   "name": "river_wave_2_v2",
+   "obj": "obj/unknown/river_wave_2_v2.obj",
+   "source": "River_wave_2.obj",
+   "category": "unknown",
+   "subcategory": "river_wave_2",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     0.5
+    ],
+    "max": [
+     1,
+     -0.5,
+     1.5
+    ]
+   },
+   "materials": [
+    45
+   ],
+   "autotile": null,
+   "signature": "0.0.3.3.0.2.2",
+   "groups": [
+    {
+     "material": 45,
+     "offset": 170808,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 157,
+   "name": "river_light",
+   "obj": "obj/decal/river_light.obj",
+   "source": "River_light.obj",
+   "category": "decal",
+   "subcategory": "river_light",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "multicell",
+    "shadow",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 4,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     -0.0098,
+     -0.625,
+     0
+    ],
+    "max": [
+     3.5098,
+     -0.625,
+     1
+    ]
+   },
+   "materials": [
+    34
+   ],
+   "autotile": null,
+   "signature": "3.1.2.1.0.2.-1",
+   "groups": [
+    {
+     "material": 34,
+     "offset": 171072,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 158,
+   "name": "river_light_v2",
+   "obj": "obj/decal/river_light_v2.obj",
+   "source": "River_light.obj",
+   "category": "decal",
+   "subcategory": "river_light",
+   "orientation": null,
+   "tags": [
+    "flat",
+    "multicell",
+    "shadow",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 4,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.625,
+     -0.0098
+    ],
+    "max": [
+     1,
+     -0.625,
+     3.5098
+    ]
+   },
+   "materials": [
+    34
+   ],
+   "autotile": null,
+   "signature": "2.3.1.1.0.2.-1",
+   "groups": [
+    {
+     "material": 34,
+     "offset": 171600,
+     "count": 12
+    }
+   ],
+   "tris": 4
+  },
+  {
+   "id": 159,
+   "name": "r0_path_mark01",
+   "obj": "obj/path/r0_path_mark01.obj",
+   "source": "r0_pathMark01.obj",
+   "category": "path",
+   "subcategory": "r0_path_mark01",
+   "orientation": null,
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "multicell",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0313,
+     0
+    ],
+    "max": [
+     2,
+     0.0313,
+     2
+    ]
+   },
+   "materials": [
+    27
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 27,
+     "offset": 172128,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 160,
+   "name": "r0_path_mark02",
+   "obj": "obj/path/r0_path_mark02.obj",
+   "source": "r0_pathMark02.obj",
+   "category": "path",
+   "subcategory": "r0_path_mark02",
+   "orientation": null,
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "multicell",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0313,
+     0
+    ],
+    "max": [
+     2,
+     0.0313,
+     2
+    ]
+   },
+   "materials": [
+    28
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 28,
+     "offset": 172392,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 161,
+   "name": "grass_patch",
+   "obj": "obj/plant/grass_patch.obj",
+   "source": "GrassPatch.obj",
+   "category": "plant",
+   "subcategory": "grass_patch",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "flat",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.2,
+     0
+    ],
+    "max": [
+     1,
+     0.2,
+     1
+    ]
+   },
+   "materials": [
+    43
+   ],
+   "autotile": null,
+   "signature": "1.2.2.1.0.2.1",
+   "groups": [
+    {
+     "material": 43,
+     "offset": 172656,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 162,
+   "name": "grass_patch_half",
+   "obj": "obj/plant/grass_patch_half.obj",
+   "source": "GrassPatch-Half.obj",
+   "category": "plant",
+   "subcategory": "grass_patch_half",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "flat",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.2,
+     0.5
+    ],
+    "max": [
+     1,
+     0.2,
+     1.5
+    ]
+   },
+   "materials": [
+    43
+   ],
+   "autotile": null,
+   "signature": "0.0.3.3.0.2.1",
+   "groups": [
+    {
+     "material": 43,
+     "offset": 172920,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 163,
+   "name": "grass_patch_v2",
+   "obj": "obj/plant/grass_patch_v2.obj",
+   "source": "GrassPatch.obj",
+   "category": "plant",
+   "subcategory": "grass_patch",
+   "orientation": null,
+   "tags": [
+    "encounter",
+    "flat",
+    "foliage",
+    "occluder",
+    "tallgrass"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.2,
+     0
+    ],
+    "max": [
+     1,
+     0.2,
+     1
+    ]
+   },
+   "materials": [
+    43
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.1",
+   "groups": [
+    {
+     "material": 43,
+     "offset": 173184,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 164,
+   "name": "r0_path_mark03",
+   "obj": "obj/path/r0_path_mark03.obj",
+   "source": "r0_pathMark03.obj",
+   "category": "path",
+   "subcategory": "r0_path_mark03",
+   "orientation": null,
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0932,
+     0
+    ],
+    "max": [
+     1,
+     0.0932,
+     1
+    ]
+   },
+   "materials": [
+    29
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 29,
+     "offset": 173448,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 165,
+   "name": "r0_path_rocks",
+   "obj": "obj/path/r0_path_rocks.obj",
+   "source": "r0_pathRocks.obj",
+   "category": "path",
+   "subcategory": "r0_path_rocks",
+   "orientation": null,
+   "tags": [
+    "dirt",
+    "flat",
+    "floor",
+    "path"
+   ],
+   "biomes": [
+    "city",
+    "coast",
+    "forest",
+    "meadow"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0938,
+     0
+    ],
+    "max": [
+     1,
+     0.0938,
+     1
+    ]
+   },
+   "materials": [
+    30
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.0.2.-2",
+   "groups": [
+    {
+     "material": 30,
+     "offset": 173712,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 166,
+   "name": "r0_big_rock",
+   "obj": "obj/unknown/r0_big_rock.obj",
+   "source": "r0_bigRock.obj",
+   "category": "unknown",
+   "subcategory": "r0_big_rock",
+   "orientation": null,
+   "tags": [
+    "multicell"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "block",
+   "w": 2,
+   "h": 2,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.1679,
+     0.2929
+    ],
+    "max": [
+     2,
+     1.5821,
+     1.7071
+    ]
+   },
+   "materials": [
+    9
+   ],
+   "autotile": null,
+   "signature": "2.1.1.2.1.2.-2",
+   "groups": [
+    {
+     "material": 9,
+     "offset": 173976,
+     "count": 6
+    }
+   ],
+   "tris": 2
+  },
+  {
+   "id": 167,
+   "name": "r0_tree_big_pine",
+   "obj": "obj/tree/r0_tree_big_pine.obj",
+   "source": "r0_treeBigPine.obj",
+   "category": "tree",
+   "subcategory": "r0_tree_big_pine",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 3,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.0958,
+     0
+    ],
+    "max": [
+     3,
+     5.0264,
+     3
+    ]
+   },
+   "materials": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "autotile": null,
+   "signature": "2.2.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 0,
+     "offset": 174240,
+     "count": 12
+    },
+    {
+     "material": 1,
+     "offset": 174768,
+     "count": 6
+    },
+    {
+     "material": 2,
+     "offset": 175032,
+     "count": 6
+    },
+    {
+     "material": 3,
+     "offset": 175296,
+     "count": 6
+    }
+   ],
+   "tris": 10
+  },
+  {
+   "id": 168,
+   "name": "r0_pine_forest_enter",
+   "obj": "obj/tree/r0_pine_forest_enter.obj",
+   "source": "r0_pineForestEnter.obj",
+   "category": "tree",
+   "subcategory": "r0_pine_forest_enter",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 6,
+   "h": 4,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.12,
+     -0.2337
+    ],
+    "max": [
+     7,
+     4.26,
+     3.8463
+    ]
+   },
+   "materials": [
+    0,
+    1,
+    2,
+    3,
+    31
+   ],
+   "autotile": null,
+   "signature": "2.3.1.2.1.0.-2",
+   "groups": [
+    {
+     "material": 0,
+     "offset": 175560,
+     "count": 66
+    },
+    {
+     "material": 1,
+     "offset": 178464,
+     "count": 12
+    },
+    {
+     "material": 2,
+     "offset": 178992,
+     "count": 42
+    },
+    {
+     "material": 3,
+     "offset": 180840,
+     "count": 42
+    },
+    {
+     "material": 31,
+     "offset": 182688,
+     "count": 36
+    }
+   ],
+   "tris": 66
+  },
+  {
+   "id": 169,
+   "name": "r0_round_forest_enter",
+   "obj": "obj/tree/r0_round_forest_enter.obj",
+   "source": "r0_roundForestEnter.obj",
+   "category": "tree",
+   "subcategory": "r0_round_forest_enter",
+   "orientation": null,
+   "tags": [
+    "billboard",
+    "foliage",
+    "multicell",
+    "occluder",
+    "tall",
+    "tree"
+   ],
+   "biomes": [
+    "forest"
+   ],
+   "collision": "block",
+   "w": 6,
+   "h": 4,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     0.12,
+     -0.265
+    ],
+    "max": [
+     7,
+     4.26,
+     3.815
+    ]
+   },
+   "materials": [
+    4,
+    1,
+    5,
+    6,
+    31
+   ],
+   "autotile": null,
+   "signature": "2.3.1.2.1.0.-2",
+   "groups": [
+    {
+     "material": 4,
+     "offset": 184272,
+     "count": 66
+    },
+    {
+     "material": 1,
+     "offset": 187176,
+     "count": 12
+    },
+    {
+     "material": 5,
+     "offset": 187704,
+     "count": 42
+    },
+    {
+     "material": 6,
+     "offset": 189552,
+     "count": 42
+    },
+    {
+     "material": 31,
+     "offset": 191400,
+     "count": 36
+    }
+   ],
+   "tris": 66
+  },
+  {
+   "id": 170,
+   "name": "r0_wood_bridge",
+   "obj": "obj/bridge/r0_wood_bridge.obj",
+   "source": "r0_woodBridge.obj",
+   "category": "bridge",
+   "subcategory": "r0_wood_bridge",
+   "orientation": null,
+   "tags": [
+    "bridge",
+    "multicell",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 3,
+   "h": 1,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     0
+    ],
+    "max": [
+     3,
+     0,
+     1
+    ]
+   },
+   "materials": [
+    16
+   ],
+   "autotile": null,
+   "signature": "1.3.1.3.1.2.-2",
+   "groups": [
+    {
+     "material": 16,
+     "offset": 192984,
+     "count": 60
+    }
+   ],
+   "tris": 20
+  },
+  {
+   "id": 171,
+   "name": "bridge",
+   "obj": "obj/bridge/bridge.obj",
+   "source": "Bridge.obj",
+   "category": "bridge",
+   "subcategory": "bridge",
+   "orientation": null,
+   "tags": [
+    "bridge",
+    "multicell",
+    "sunken"
+   ],
+   "biomes": [
+    "any"
+   ],
+   "collision": "walk",
+   "w": 1,
+   "h": 3,
+   "globalUv": false,
+   "uvScale": 0,
+   "bounds": {
+    "min": [
+     0,
+     -0.5,
+     -0.5
+    ],
+    "max": [
+     1,
+     0,
+     3.5
+    ]
+   },
+   "materials": [
+    16
+   ],
+   "autotile": null,
+   "signature": "2.1.2.3.1.2.-2",
+   "groups": [
+    {
+     "material": 16,
+     "offset": 195624,
+     "count": 24
+    }
+   ],
+   "tris": 8
+  }
+ ]
+}

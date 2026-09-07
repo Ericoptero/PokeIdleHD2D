@@ -1,0 +1,157 @@
+{
+ "updatedMs": 0,
+ "wave": 0,
+ "seed": 1337,
+ "note": "Wave 0 (foundation) complete: core, asset pipeline, render pipeline, screenshot harness, seam tests. Every module below is a SEED written by the integrator, not a finished module.",
+ "baseline": {
+  "at": "2026-09-07",
+  "size": "1920x1080",
+  "scene": "demo-city",
+  "fps": 60,
+  "drawCalls": 159,
+  "triangles": 14594,
+  "programs": 9,
+  "consoleErrors": 0
+ },
+ "modules": {
+  "tiles": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [
+    "autotile sets beyond set0/set1/set3/set6 are unverified on screen"
+   ],
+   "lastShots": [
+    "docs/progress/_boot/sc-tiles.png"
+   ]
+  },
+  "terrain": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": [
+    "docs/progress/_boot/sc-terrain.png"
+   ]
+  },
+  "environment": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [
+    "washed out: exposure/ambient too high, fog too strong, contrast too low vs docs/refs"
+   ],
+   "lastShots": [
+    "docs/progress/_boot/sc-environment.png"
+   ]
+  },
+  "simulation": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [
+    "no player or follower sprite is drawn yet"
+   ],
+   "lastShots": []
+  },
+  "pokemon": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [
+    "sideA/sideB west-east assignment unverified (DECISIONS #4)",
+    "species.json snapshot not generated",
+    "no sprite rendering yet"
+   ],
+   "lastShots": []
+  },
+  "encounter": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "idle": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "offline": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "economy": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "collection": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "automation": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "ui": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  },
+  "city": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [
+    "no buildings yet (DECISIONS #3)",
+    "no NPCs",
+    "no night lamp emissives"
+   ],
+   "lastShots": [
+    "docs/progress/_boot/city-base.png"
+   ]
+  },
+  "hunts": {
+   "round": 0,
+   "score": null,
+   "status": "seeded",
+   "errors": 0,
+   "openIssues": [],
+   "lastShots": []
+  }
+ },
+ "coreRequests": [],
+ "gate": {
+  "wholeGame": null,
+  "blindJudges": []
+ }
+}

@@ -1,0 +1,28 @@
+# tree_shadow_v3
+newmtl tree1_b
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tree01_un.png
+map_d ../../tex/tree01_un.png
+
+newmtl Tree_round
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/Tree_round.png
+map_d ../../tex/Tree_round.png
+
+newmtl Tree_round_shadow
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 0.484
+illum 1
+map_Kd ../../tex/Tree_round_shadow.png
+map_d ../../tex/Tree_round_shadow.png
+

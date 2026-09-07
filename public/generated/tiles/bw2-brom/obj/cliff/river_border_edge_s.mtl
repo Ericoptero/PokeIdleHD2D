@@ -1,0 +1,37 @@
+# river_border_edge_s
+newmtl kawa_soko
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kawa_soko.png
+map_d ../../tex/kawa_soko.png
+
+newmtl gake1_1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake1_1.png
+map_d ../../tex/gake1_1.png
+
+newmtl gake01a2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake01a2.png
+map_d ../../tex/gake01a2.png
+
+newmtl kawa_fuchi_1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/kawa_fuchi_1.png
+map_d ../../tex/kawa_fuchi_1.png
+

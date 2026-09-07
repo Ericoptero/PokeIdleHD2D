@@ -1,0 +1,19 @@
+# bench_w
+newmtl isu
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/isu.png
+map_d ../../tex/isu.png
+
+newmtl h_kage
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/h_kage.png
+map_d ../../tex/h_kage.png
+

@@ -1,0 +1,19 @@
+# seaside3_lm67_corner_sw
+newmtl seaside3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/seaside3_lm67.png
+map_d ../../tex/seaside3_lm67.png
+
+newmtl lakep.1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 0.484
+illum 1
+map_Kd ../../tex/lakep_lm2.png
+map_d ../../tex/lakep_lm2.png
+

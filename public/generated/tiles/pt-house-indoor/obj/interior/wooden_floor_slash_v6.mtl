@@ -1,0 +1,10 @@
+# wooden_floor_slash_v6
+newmtl floor03
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/floor03.png
+map_d ../../tex/floor03.png
+

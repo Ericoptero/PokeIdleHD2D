@@ -1,0 +1,10 @@
+# r0_dirt_ground_center
+newmtl gake_michi
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/gake_michi.png
+map_d ../../tex/gake_michi.png
+

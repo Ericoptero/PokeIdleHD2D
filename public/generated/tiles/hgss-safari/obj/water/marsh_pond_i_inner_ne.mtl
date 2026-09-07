@@ -1,0 +1,10 @@
+# marsh_pond_i_inner_ne
+newmtl numa_f2c
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/numa_f2c.png
+map_d ../../tex/numa_f2c.png
+

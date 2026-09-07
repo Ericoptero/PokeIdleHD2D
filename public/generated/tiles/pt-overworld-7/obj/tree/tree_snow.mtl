@@ -1,0 +1,19 @@
+# tree_snow
+newmtl tshadow
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tshadow_lm2.png
+map_d ../../tex/tshadow_lm2.png
+
+newmtl tree04_2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/tree04_2_lm1.png
+map_d ../../tex/tree04_2_lm1.png
+

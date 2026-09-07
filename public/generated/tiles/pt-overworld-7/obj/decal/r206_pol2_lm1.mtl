@@ -1,0 +1,118 @@
+# r206_pol2_lm1
+newmtl r206_cy5c_lm2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy5c_lm2.png
+map_d ../../tex/r206_cy5c_lm2.png
+
+newmtl r206_cy2b_lm2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy2b_lm2.png
+map_d ../../tex/r206_cy2b_lm2.png
+
+newmtl r206_cy2_lm2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy2_lm2.png
+map_d ../../tex/r206_cy2_lm2.png
+
+newmtl r206_cy4b_lm2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy4b_lm2.png
+map_d ../../tex/r206_cy4b_lm2.png
+
+newmtl r206_cy4_lm3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy4_lm3.png
+map_d ../../tex/r206_cy4_lm3.png
+
+newmtl r206_cy5b_lm2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy5b_lm2.png
+map_d ../../tex/r206_cy5b_lm2.png
+
+newmtl r206_cy6_lm1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy6_lm1.png
+map_d ../../tex/r206_cy6_lm1.png
+
+newmtl r206_pol2_lm1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_pol2_lm1.png
+map_d ../../tex/r206_pol2_lm1.png
+
+newmtl r206_pol1_lm1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_pol1_lm1.png
+map_d ../../tex/r206_pol1_lm1.png
+
+newmtl h_kage_lm3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/h_kage_lm3.png
+map_d ../../tex/h_kage_lm3.png
+
+newmtl r206_cy6_lm1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/r206_cy6_lm1.png
+map_d ../../tex/r206_cy6_lm1.png
+
+newmtl lambert13
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/lambert13.png
+map_d ../../tex/lambert13.png
+
+newmtl lambert15
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+illum 1
+map_Kd ../../tex/lambert15.png
+map_d ../../tex/lambert15.png
+
