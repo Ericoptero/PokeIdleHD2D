@@ -60,7 +60,8 @@ placeholder, or a flat-shaded primitive is a bug, not a milestone.
 │   ├── automation/          §5.11 auto-hunt, auto-catch, auto-sell
 │   ├── ui/                  §5.12 HUD, panels, dialogue
 │   ├── city/                §5.13 demo city (lobby)
-│   └── hunts/               §5.14 demo hunt biomes
+│   ├── hunts/               §5.14 demo hunt biomes
+│   └── preview/             §5.15 asset viewer — INTEGRATOR ONLY
 ├── tools/
 │   ├── assets/              .pdsts → obj → catalog → runtime pack
 │   ├── shots/               headless screenshot + metrics harness
@@ -453,6 +454,14 @@ lit interior glow, a Mart, a plaza with a landmark, street lamps that come on at
 windows, and NPCs on scripted routes with dialogue. This is the scene most screenshots are
 taken of, and the one judged against `docs/refs/03` and `06`.
 
+### 5.15 `preview` — asset viewer (integrator only)
+`needs: ['tiles']`
+
+`/?showcase=preview&mode=<tileset>[&filter=<category|tag>][&focus=<model>]` lays every model
+of a generated tileset out on a checkerboard floor at a fixed pitch. It exists so an artist
+working on a building does not have to wait for a gameplay scene to place it, and so a
+critic can judge raw art with nothing else in frame. It is never part of the game.
+
 ### 5.14 `hunts` — the biomes
 `needs: ['terrain', 'encounter', 'environment']`
 
@@ -565,6 +574,12 @@ rejected by the critic on sight.
 - Pipeline: `.pdsts` → per-tile `.obj` + `.mtl` + textures → **classified catalog** →
   compact runtime pack. Stages are pure and re-runnable; `public/generated/` is a build
   product that is nevertheless committed so a clone runs with no extra steps.
+- **Buildings we author ourselves** (DECISIONS #3 — no PDSMS tileset has a Pokémon Center)
+  live in `assets/structures/<name>/` as `<name>.obj` + `.mtl` + textures + `meta.json`, and
+  `tools/assets/build-structures.js` emits them as a tileset named `structures` in exactly
+  the pack shape a `.pdsts` produces. A map author therefore places a Pokémon Center with
+  the same call that places a tree:
+  `tiles.find('structures', { category: 'building', name: 'pokemon_center' })`.
 
 ### 9.1 The tile catalog
 

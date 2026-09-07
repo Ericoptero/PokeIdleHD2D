@@ -29,10 +29,11 @@ import automation from './automation/index.js';
 import ui from './ui/index.js';
 import city from './city/index.js';
 import hunts from './hunts/index.js';
+import preview from './preview/index.js';
 
 const MODULES = [
   tiles, terrain, environment, pokemon, simulation, encounter,
-  economy, collection, idle, offline, automation, ui, city, hunts,
+  economy, collection, idle, offline, automation, ui, city, hunts, preview,
 ];
 
 const bootEl = document.getElementById('boot');

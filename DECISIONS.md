@@ -165,3 +165,25 @@ A sky pinned to the far plane by `gl_Position.z = gl_Position.w` fails a `LESS` 
 against a cleared depth buffer and silently never draws. The sky dome now renders at
 `renderOrder -1000` with `depthTest: false` and `depthWrite: false`, so it paints the
 background and everything else lands on top.
+
+---
+
+### 12 — 2026-09-07 — Authored buildings ship as a tileset named `structures`
+
+Rather than inventing a second asset path for the buildings we model ourselves,
+`tools/assets/build-structures.js` emits them into `public/generated/tiles/structures/` in
+exactly the pack shape `.pdsts` produces. `tiles.load('structures')` therefore needs no new
+code, and a Pokémon Center is placed by the same call as a tree.
+
+Source art lives in `assets/structures/<name>/` (`.obj` + `.mtl` + `*.png` + `meta.json`
+carrying footprint, collision, door cell and emissive material names). Blender exports Z-up,
+so `meta.swapYZ` defaults to true.
+
+---
+
+### 13 — 2026-09-07 — `src/preview/` exists so raw art can be reviewed without a scene
+
+An integrator-owned module that lays any generated tileset out on a checkerboard floor:
+`/?showcase=preview&mode=<slug>&filter=<category>`. The project's only accepted evidence is
+a screenshot somebody looked at, and without this an artist working on a building would have
+to wait for the city module to place it before seeing anything. It is never part of the game.
