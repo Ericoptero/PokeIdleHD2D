@@ -187,3 +187,28 @@ An integrator-owned module that lays any generated tileset out on a checkerboard
 `/?showcase=preview&mode=<slug>&filter=<category>`. The project's only accepted evidence is
 a screenshot somebody looked at, and without this an artist working on a building would have
 to wait for the city module to place it before seeing anything. It is never part of the game.
+
+### 14 — 2026-09-07 — Blind judging compares at the reference's own resolution, and the clock is frozen for every shot
+
+Two things that would otherwise quietly invalidate our own measurements.
+
+**Blind pairs.** The final gate (brief step 5) shows a judge two images labelled only A and
+B and asks which looks better. Our renders are 1920×1080; the Gamma Emerald stills are
+794×446 and 720×480. Putting those side by side leaks the answer before anyone looks at the
+picture — the bigger, sharper one is ours — and downscaling ours would smear a pixel-art
+frame whose whole point is a crisp grid. So `tools/judge/build.js` reads the reference's
+IHDR and captures our shot at *exactly* those dimensions: neither image is ever resampled.
+Which file becomes `A.png` comes from an FNV-1a hash of `round:pairId`, so the order is
+reproducible across a rebuild but carries no pattern a judge could learn; the answer key is
+written one directory *above* the packets so a judge pointed at a packet cannot read it.
+
+The city has no like-for-like reference — ref 06 is a Poké Center *interior*. It is judged
+against the nearest still (03, forest at night) and every report marks it `refIsNearest`, so
+that result is never quoted as if it were a like-for-like win.
+
+**Frozen clock.** `environment.tick` advances the time of day every simulation step, so two
+captures from the same URL a second apart are different pictures. ARCHITECTURE §6.3 promises
+the same URL gives the same pixels; that was false. `tools/shots/shoot.js` now sets
+`timeFrozen=1` unless a caller explicitly asks otherwise, which makes every screenshot in
+`docs/progress/` and every blind pair reproducible — and makes a diff between two rounds mean
+something.

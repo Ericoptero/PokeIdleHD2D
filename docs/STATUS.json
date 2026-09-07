@@ -20,7 +20,8 @@
    "status": "seeded",
    "errors": 0,
    "openIssues": [
-    "autotile sets beyond set0/set1/set3/set6 are unverified on screen"
+    "autotile sets beyond set0/set1/set3/set6 are unverified on screen",
+    "materials carry `emissive` from the MTL (`Ke`) but loadTileset ignores it, so Poke Center windows cannot light at night; needs emissiveMap + a setEmissiveScale(k) hook for environment's lamp ramp to drive"
    ],
    "lastShots": [
     "docs/progress/_boot/sc-tiles.png"
@@ -54,7 +55,8 @@
    "status": "seeded",
    "errors": 0,
    "openIssues": [
-    "no player or follower sprite is drawn yet"
+    "no player or follower sprite is drawn yet",
+    "seed inverts the brief: followerCell() returns trail[gap] for the Pokemon, i.e. the Pokemon walks BEHIND. The brief and ARCHITECTURE 5.4 say the active Pokemon LEADS and the trainer follows; camera focus stays on the trainer and tall-grass encounters trigger on the Pokemon's cell"
    ],
    "lastShots": []
   },
@@ -152,6 +154,20 @@
  "coreRequests": [],
  "gate": {
   "wholeGame": null,
-  "blindJudges": []
+  "blindJudges": [],
+  "blindJudging": {
+   "tool": "tools/judge/build.js + tools/judge/score.js",
+   "plan": "tools/judge/plan.json",
+   "rounds": [],
+   "note": "city has no like-for-like Gamma Emerald reference (06 is an interior); it is scored against 03 and flagged refIsNearest"
+  }
+ },
+ "integrator": {
+  "carried": [
+   "environment is the only shared visual dependency: never run its rewrite concurrently with another visual module's critique round, or the critic scores a black frame",
+   "before Wave B: full boot shot at / (not a showcase) + node tools/seams/run.js; showcases can all pass while the combined boot is broken",
+   "city must consume the authored `structures` tileset via tiles.find('structures', {category:'building'}) and register door markers on the cell south of model.door",
+   "hunts: coast shallows are set7 (walk_edge); sea/sea_border_* are the deep-water models"
+  ]
  }
 }

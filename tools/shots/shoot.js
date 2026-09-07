@@ -97,6 +97,9 @@ async function shootOnce(opts) {
   if (a.tod != null) params.set('tod', a.tod);
   if (a.seed != null) params.set('seed', a.seed);
   if (a.pixelScale != null) params.set('pixelScale', a.pixelScale);
+  // Freeze the clock by default: environment advances the time of day every sim step, so
+  // without this the same URL does not give the same pixels and ARCHITECTURE §6.3 is a lie.
+  if (a.extra?.timeFrozen === undefined) params.set('timeFrozen', '1');
   params.set('debug', a.debug ? '1' : '0');
   for (const [k, v] of Object.entries(a.extra ?? {})) params.set(k, v);
   const url = `${a.base}/?${params}`;
