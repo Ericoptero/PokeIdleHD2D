@@ -149,6 +149,26 @@
    "errors": 0,
    "openIssues": [],
    "lastShots": []
+  },
+  "props": {
+   "round": 1,
+   "score": null,
+   "status": "built, not yet seen on screen",
+   "errors": 0,
+   "openIssues": [
+    "not screenshotted in-engine yet: src/collection/index.js imports a showcase.js that does not exist, so the dev server returns 500 and every capture fails",
+    "hgss-overworld/water_rock and hgss-overworld/rock have water and grass baked into the sprite; the cylindrical wrap carries it up the body (DECISIONS #16)",
+    "76 triangles per revolved prop against 18 for AdAstra's bench_s \u2014 fine against the budget, first thing to cut if it tightens"
+   ],
+   "verified": {
+    "models": 15,
+    "triangles": 790,
+    "windingMismatches": 0,
+    "degenerateTriangles": 0,
+    "missingTextures": 0,
+    "method": "pack.bin parsed directly; each triangle's winding compared against its stored normal"
+   },
+   "lastShots": []
   }
  },
  "coreRequests": [],
