@@ -1,0 +1,19 @@
+# NO GIT LFS. This file used to route assets/**/*.png, docs/refs/*.png, docs/refs/*.gif and
+# docs/progress/*.png through `filter=lfs`, contradicting DECISIONS #8 and ARCHITECTURE §8,
+# which both say LFS is deferred until total asset weight passes 200 MB.
+#
+# It was inert only by accident: `git-lfs` is not installed on this machine (`git lfs` ->
+# "not a git command"), no `filter.lfs.clean` is configured, and the attribute was not marked
+# `required`, so git silently skipped the missing driver and committed the bytes plainly.
+# The hazard was the future: the day anyone installs git-lfs, every PNG already committed
+# stays plain while every new one becomes a pointer, and the two are indistinguishable in a
+# diff. Verified asset weight today: assets/overworld is 5.12 MB across 2,506 PNGs, plus a
+# 316 KB sprite atlas - three orders of magnitude under the migration trigger.
+#
+# Re-add the filter lines in the same commit that installs git-lfs and runs
+# `git lfs migrate import`, never before.
+
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.glb binary

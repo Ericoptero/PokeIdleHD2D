@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+coverage/
+out/
+shots/out/
+
+# packages/data/generated/ IS COMMITTED. DECISIONS #6: "PokeAPI is snapshotted at build
+# time into committed JSON. Never fetched at runtime." This file previously carried
+# `packages/data/generated/*.json`, which excluded the seven snapshot files that decision
+# exists to guarantee - a fresh clone would have had generated/index.ts importing JSON
+# that was not in the repo. Asserted by tools/seams/snapshot-committed.test.ts.
+#
+# What IS ignored is the raw HTTP cache the snapshot script writes: ~36 MB of PokeAPI
+# responses, reproducible from the network, and pure churn in a diff.
+packages/data/.cache/
+
+# TypeScript project-reference build output
+.tsbuild/
+*.tsbuildinfo
+.eslintcache
