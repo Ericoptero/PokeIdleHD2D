@@ -1,27 +1,32 @@
 {
  "updatedMs": 0,
- "wave": 0,
+ "wave": "A (incomplete)",
  "seed": 1337,
- "note": "Wave 0 (foundation) complete: core, asset pipeline, render pipeline, screenshot harness, seam tests. Every module below is a SEED written by the integrator, not a finished module.",
+ "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off \u2014 the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
-  "at": "2026-09-07",
+  "at": "2026-09-08",
   "size": "1920x1080",
   "scene": "demo-city",
   "fps": 60,
   "drawCalls": 159,
-  "triangles": 14594,
+  "triangles": 15000,
   "programs": 9,
-  "consoleErrors": 0
+  "consoleErrors": 0,
+  "shot": "docs/progress/_boot/wave-a-end.png",
+  "note": "demo city at noon. Real numbers, but the scene has no buildings, no NPCs and no characters yet."
  },
  "modules": {
   "tiles": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built, never critiqued",
    "errors": 0,
    "openIssues": [
     "autotile sets beyond set0/set1/set3/set6 are unverified on screen",
-    "materials carry `emissive` from the MTL (`Ke`) but loadTileset ignores it, so Poke Center windows cannot light at night; needs emissiveMap + a setEmissiveScale(k) hook for environment's lamp ramp to drive"
+    "materials carry `emissive` from the MTL (`Ke`) but loadTileset ignores it, so Poke Center windows cannot light at night; needs emissiveMap + a setEmissiveScale(k) hook for environment's lamp ramp to drive",
+    "autotiling, ground and props render correctly at noon; never critiqued, no score",
+    "lamp posts (AdAstra `light` category) render as pale featureless obelisks with no lamp head \u2014 visible in docs/progress/_boot/wave-a-end.png",
+    "materials carry `emissive` from the MTL (Ke) but loadTileset ignores it, so windows and lamps cannot light at night"
    ],
    "lastShots": [
     "docs/progress/_boot/sc-tiles.png"
@@ -38,12 +43,13 @@
    ]
   },
   "environment": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built, never critiqued",
    "errors": 0,
    "openIssues": [
-    "washed out: exposure/ambient too high, fog too strong, contrast too low vs docs/refs"
+    "washed out: exposure/ambient too high, fog too strong, contrast too low vs docs/refs",
+    "exposure/contrast rewrite landed and the plaza reads correctly at noon \u2014 but it was never critiqued, so it has no score"
    ],
    "lastShots": [
     "docs/progress/_boot/sc-environment.png"
@@ -61,14 +67,17 @@
    "lastShots": []
   },
   "pokemon": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built, never critiqued",
    "errors": 0,
    "openIssues": [
     "sideA/sideB west-east assignment unverified (DECISIONS #4)",
     "species.json snapshot not generated",
-    "no sprite rendering yet"
+    "no sprite rendering yet",
+    "DECISIONS #17 settled the trainer sheet: sideA is west, walk cycle is contact/stride/contact/stride \u2014 the open item from #4 is closed",
+    "one console error reproduces in `--showcase simulation`: THREE.WebGLProgram shader error, Material Name pokemon:sprite. Attributed by control runs; economy/city/pokemon showcases are clean",
+    "never critiqued, no score"
    ],
    "lastShots": []
   },
@@ -81,43 +90,48 @@
    "lastShots": []
   },
   "idle": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built; verifier never ran",
    "errors": 0,
    "openIssues": [],
    "lastShots": []
   },
   "offline": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built; verifier never ran",
    "errors": 0,
    "openIssues": [],
    "lastShots": []
   },
   "economy": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built; verifier never ran",
    "errors": 0,
    "openIssues": [],
    "lastShots": []
   },
   "collection": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built, never critiqued",
    "errors": 0,
-   "openIssues": [],
+   "openIssues": [
+    "built during the wave but its verifier never ran",
+    "no loadState() yet, so offline preserves its bytes but cannot restore it"
+   ],
    "lastShots": []
   },
   "automation": {
-   "round": 0,
+   "round": 1,
    "score": null,
-   "status": "seeded",
+   "status": "built, never critiqued",
    "errors": 0,
-   "openIssues": [],
+   "openIssues": [
+    "built during the wave but its verifier never ran"
+   ],
    "lastShots": []
   },
   "ui": {
@@ -199,5 +213,24 @@
    "city must consume the authored `structures` tileset via tiles.find('structures', {category:'building'}) and register door markers on the cell south of model.door",
    "hunts: coast shallows are set7 (walk_edge); sea/sea_border_* are the deep-water models"
   ]
+ },
+ "waveA": {
+  "dispatched": 28,
+  "completed": 3,
+  "failedOnSessionLimit": 25,
+  "completedModules": [
+   "offline",
+   "economy",
+   "idle"
+  ],
+  "criticsRun": 0,
+  "cutOffMidRound": [
+   "environment",
+   "tiles",
+   "pokemon",
+   "collection",
+   "automation"
+  ],
+  "durationMs": 3912779
  }
 }
