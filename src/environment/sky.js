@@ -9,15 +9,28 @@
 const DEG = Math.PI / 180;
 
 /**
+ * The fictional date the whole game is set on.
+ *
+ * Day 96 (early April at 36 N) puts the declination near +6 degrees, which gives:
+ *   sunrise 5.70   noon altitude 60 deg, shadows 0.6x height   sunset 18.29
+ *   golden hour 17.2-18.0, altitude 13 down to 5 deg, shadows 4x to 11x height
+ *
+ * A midsummer date (the previous default, day 140) put the sun 74 degrees up at noon, and a
+ * 74-degree sun leaves almost no shadow to read: every prop sat on a dark smudge and the
+ * frame went flat exactly when it should have been at its most legible. Early April keeps
+ * shadows visible at every hour without making noon look like late afternoon.
+ */
+export const DAY_OF_YEAR = 96;
+
+/**
  * @param {number} tod   hours, 0..24, 12 = solar noon
  * @param {number} latDeg fictional latitude, degrees north
- * @param {number} dayOfYear used for declination; defaults to a late-spring day so the
- *   default look is a generous, high sun.
+ * @param {number} dayOfYear used for declination; defaults to `DAY_OF_YEAR`.
  * @returns {{altitude:number, azimuth:number, dir:{x:number,y:number,z:number}, dayFraction:number}}
  *   `altitude` and `azimuth` are radians; azimuth is measured clockwise from north.
  *   `dir` points from the world toward the sun in engine axes (+x east, +y up, +z south).
  */
-export function solarPosition(tod, latDeg = 36, dayOfYear = 140) {
+export function solarPosition(tod, latDeg = 36, dayOfYear = DAY_OF_YEAR) {
   const lat = latDeg * DEG;
   // Cooper's equation for declination.
   const decl = 23.45 * DEG * Math.sin(2 * Math.PI * (284 + dayOfYear) / 365);
