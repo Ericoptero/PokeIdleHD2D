@@ -2526,25 +2526,25 @@ that the other image "has one committed light direction", "long soft cast shadow
 across the clearing", "the warm key actually interacts with geometry". All three wins were
 night scenes, where our moon key and lamp pools already do exactly that.
 
-The cause was not the renderer. It was astronomy. At latitude 36°N on day 96 the noon sun
-sits at **60° of elevation on an azimuth of 180° — due south** — and this camera looks north
-and never yaws. So at midday the key is directly behind the viewer, every shadow falls
-behind the object that casts it, and  at tod 12 changed **0.07%** of the
-frame. The lighting was physically correct and pictorially dead.
+The cause was not the renderer. It was astronomy. At latitude 36 degrees north on day 96 the
+noon sun sits at **60 degrees of elevation on an azimuth of 180 — due south** — and this
+camera looks north and never yaws. So at midday the key is directly behind the viewer, every
+shadow falls behind the object that casts it, and `--envNoShadow 1` at tod 12 changed
+**0.07%** of the frame. The lighting was physically correct and pictorially dead.
 
-No game does this. So  now takes an optional  and returns what should be
+No game does this. So `solarPosition` now takes an optional `look` and returns what should be
 *drawn* while still reporting the true position:
 
-  -  (38°) rotates the whole daily arc off the camera's axis. Our
-    fictional world's north simply is not the camera's north.
-  -  (46°) soft-caps the climb through  —
-    monotone, 0 at 0, never actually reaching the cap, and with no plateau at noon, so the
-    sun still rises and sets instead of parking overhead.
+  - `config.sunAzimuthOffset` (38 degrees) rotates the whole daily arc off the camera's axis.
+    Our fictional world's north simply is not the camera's north.
+  - `config.sunMaxElevation` (46 degrees) soft-caps the climb through
+    `MAX * (1 - exp(-alt / MAX))` — monotone, 0 at 0, never actually reaching the cap, and
+    with no plateau at noon, so the sun still rises and sets instead of parking overhead.
 
- keeps using the **true** altitude, so dawn, dusk, how long the day is and how
+`dayFraction` keeps using the **true** altitude, so dawn, dusk, how long the day is and how
 much light there is are all still physical; only the direction the shadows are thrown is
 art-directed. The sun still rises in the east and sets in the west.
 
-Measured, same URLs, before → after: shadows cover 0.07% → 1.44% of the frame at noon,
-2.29% → 6.80% at 08:00, and 4.73% → 16.38% at 17:30. 60 fps and zero console errors at every
-hour from 06:00 to 21:00, and night is unchanged.
+Measured, same URLs, before -> after: shadows cover 0.07% -> 1.44% of the frame at noon,
+2.29% -> 6.80% at 08:00, and 4.73% -> 16.38% at 17:30. 60 fps and zero console errors at
+every hour from 06:00 to 21:00, and night is unchanged.
