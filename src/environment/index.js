@@ -167,6 +167,9 @@ const BOUNCE_ELEVATION = 0.18;
  * the horizon takes zero diffuse off every up-facing surface, which is a black world; 0.06
  * is 3.4°, low enough that shadows still run 17× the caster's height.
  */
+/** Ceiling on the brightness the elevation soft-cap is allowed to hand back (DECISIONS #40). */
+const TILT_GAIN_MAX = 1.9;
+
 const KEY_ELEVATION_FLOOR = 0.06;
 
 /** Phase names carried on `tod:changed` (ARCHITECTURE §4). Pinned to the solar events. */
@@ -339,7 +342,21 @@ export default {
 
       three.sun.setDirection(sunDir.x, sunDir.y, sunDir.z);
       three.sun.light.color.copy(sunColor);
-      three.sun.light.intensity = look.sun;
+      // Lowering the sun to make it rake costs brightness, and that cost is not optional:
+      // a flat floor takes `sin(elevation)` of the key, so soft-capping 60 degrees down to
+      // 33.5 removed a third of the light on every horizontal surface in the game. The
+      // first cut of this change was measured at 19-28% lower mean luma at noon, and a
+      // blind round went 3/7 to 1/7 on it — the shadows arrived and the picture got duller,
+      // which is a bad trade.
+      //
+      // So the key is scaled back up by exactly the ratio the tilt took away, which leaves
+      // a horizontal surface as bright as the real sun would have made it while the shadows
+      // still rake. Clamped, because near sunrise and sunset the ratio runs away and the
+      // grazing hours are supposed to be dim.
+      const trueY = Math.sin(Math.max(0, solar.trueAltitude ?? solar.altitude));
+      const shownY = Math.sin(Math.max(0.02, solar.altitude));
+      const tiltGain = night ? 1 : Math.min(TILT_GAIN_MAX, Math.max(1, trueY / Math.max(shownY, 1e-3)));
+      three.sun.light.intensity = look.sun * tiltGain;
 
       // A grazing sun rakes across every surface and needs a bigger normal offset than a
       // sun overhead; one fixed bias either acnes at dusk or peter-pans at noon. These are
@@ -423,7 +440,7 @@ export default {
       // directional fill gives it the sine of its elevation.
       const keyY = Math.max(0, sunDir.y);
       for (const ch of ['r', 'g', 'b']) {
-        const key = sunColor[ch] * look.sun * keyY;
+        const key = sunColor[ch] * look.sun * tiltGain * keyY;
         const fill = look.hemiSky[ch] * look.hemi
           + look.ambientColor[ch] * look.ambient
           + look.bounceColor[ch] * (noFills ? 0 : look.bounce) * BOUNCE_ELEVATION

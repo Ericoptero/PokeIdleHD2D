@@ -2548,3 +2548,20 @@ art-directed. The sun still rises in the east and sets in the west.
 Measured, same URLs, before -> after: shadows cover 0.07% -> 1.44% of the frame at noon,
 2.29% -> 6.80% at 08:00, and 4.73% -> 16.38% at 17:30. 60 fps and zero console errors at
 every hour from 06:00 to 21:00, and night is unchanged.
+
+Round 2 of the blind judging then went **1 of 7**, down from 3 of 7, and the whole-game
+critic named why: the tilt "was bought partly by dimming — noon mean luma down 19-28% and
+p99 down about 20 points". That is arithmetic, not bad luck. A flat floor takes
+`sin(elevation)` of the key, so soft-capping 60 degrees down to 33.5 removed a third of the
+light from every horizontal surface in the game. The shadows arrived and the picture got
+duller, which is a bad trade and my fault.
+
+So the key is now scaled back up by exactly the ratio the tilt took away —
+`sin(trueAltitude) / sin(shownAltitude)`, clamped at 1.9 because near sunrise and sunset the
+ratio runs away and the grazing hours are meant to be dim. A horizontal surface ends up as
+bright as the real sun would have made it while the shadows still rake.
+
+Measured on the meadow, HUD masked, against the state *before* any of this: noon keeps its
+p99 at 153 and lifts max from 175 to 199 (reference 04 is 199), 08:00 goes p99 146/max 176
+to 151/211, and 17:30 holds at 137/195 — all while shadow coverage stays at 20x its old
+value. Strictly brighter or equal at every hour, with the shadows kept.
