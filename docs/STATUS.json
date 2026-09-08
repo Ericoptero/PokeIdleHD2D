@@ -762,6 +762,13 @@
     "topic": "hunts' critic: 'NO HIGHLIGHT RANGE ANYWHERE \u2014 highest p99 across 41 shots is 152.2'",
     "verdict": "DOES NOT REPRODUCE after the fix rounds. Measured now at tod 12: forest, cave, meadow and coast all reach p99 234, against reference 01 at 148 and 04 at 181; the city reaches 234 at noon and 210 at golden hour. No core tone-mapping change was made, because the measurement does not support one.",
     "whatIsRealInstead": "night crush, and it is one biome's. Percentage of pixels below luma 8 at tod 21: forest 48.93%, coast 9.14%, meadow 6.14%, cave 0.20%, against reference 03-forest-voxel-night.png at 10.5%. Environment's night ramp matches the reference in open biomes; the forest canopy's own occlusion stacks on top of it. This confirms the hunts fix agent's re-attribution rather than the critic's original filing."
+   },
+   {
+    "topic": "coast: the shoreline staircase with no surf (hunts' open issue #8)",
+    "verdict": "CONFIRMED, still present after the round-2 fix, and the cause is now pinned. Cropped the deep/shallow boundary at 2x: long axis-aligned runs meeting at right angles with no transition tile of any kind, while the sand/grass boundary one band below it scallops correctly because it is autotiled.",
+    "cause": "`deep = water.clone().shrink(3)` is an erosion, and eroding by 3 removes every one-cell feature, so the deep-water region is a SMOOTHED copy of the coastline \u2014 which quantised onto the grid is a clean staircase. The deep region is then laid as flat cells with no border family, so its edge is blocky whatever shape it has.",
+    "triedAndReverted": "fraying the deep edge after the erosion (ragged 0.5 / period 3, despeckle 4). It makes it worse: without border tiles, every frayed cell is another hard rectangle, so the edge goes from a straight staircase to floating dark-blue blocks. Looked at it, reverted it.",
+    "theActualFix": "bw2-adastra ships a complete 13-slot `walk_edge` family \u2014 corners, edges and inner corners \u2014 tagged `foam` and `surf`, and it is not being used on this boundary at all. The model named `sea` has no border family, so the deep water can only ever be blocky on its own; the foam belongs to the shallows and should ring the wadeable region on BOTH its edges, against the land and against the deep. That is hunts/biomes/coast.js's to make."
    }
   ]
  },
