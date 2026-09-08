@@ -1,6 +1,6 @@
 {
  "updatedMs": 0,
- "wave": "B complete; C (environment) running",
+ "wave": "C complete (environment 6 -> 7 -> 7, did not pass)",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off \u2014 the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
@@ -80,17 +80,60 @@
    ]
   },
   "environment": {
-   "round": 1,
-   "score": null,
-   "status": "built, never critiqued",
+   "round": 3,
+   "score": 7,
+   "status": "3 rounds run; 7/10 against a bar of 8.5",
    "errors": 0,
    "openIssues": [
-    "washed out: exposure/ambient too high, fog too strong, contrast too low vs docs/refs",
-    "exposure/contrast rewrite landed and the plaza reads correctly at noon \u2014 but it was never critiqued, so it has no score"
+    "THE SUN SHADOW MAP DEGENERATES INTO A CASTER-LESS FRAME-WIDE SLAB AT EXACTLY THE LOW-SUN HOURS (07:00, 08:00, 17:30) -- defect #4's core complaint, unfixed. Measured on the same lawn pixel (high-street framing, x=60 y=250) with and without --envNoShadow: tod 7 -> 95/95, tod 8 -> 111/35, tod 9 -> a correct house-shaped wedge, tod 12 -> 119/119, tod 17.5 -> 100/28. That is NOT monotone in sun altitude, and a caster shadow can only lengthen as the sun drops, so this is not a caster shadow. crops/diff-sm-hs-7.png (17.09% of pixels), crops/diff-sm-hs-8.png (13.90%) and crops/diff-shadowmap-hs-17.5.png (28.71%) contain only huge straight-edged trapezoids and full-width bands with no building, roof, awning, bench or lamp silhouette; crops/diff-sm-hs-21.png and crops/sw-9.png contain correct ones. First place to look: src/environment/index.js:346-348 -- `normalBias = 0.026 + 0.055*graze*graze` and `bias = -0.0005 - 0.0006*graze` -- the shadow map's behaviour is not monotone in graze. Confirm by shooting --tod 8 with normalBias pinned to the tod-9 value; if the slab becomes a house shadow, that curve is the cause. (Note --envNoShadow costs 235 -> 150 draw calls, so it removes the whole pass, not just the map.)",
+    "OVERLAPPING SHADOWS MULTIPLY TO LITERAL BLACK. castShadows.js blends `blendSrc: DstColorFactor, blendDst: ZeroFactor` -- a pure multiply -- on top of the shadow map's own multiply, so two shadows compound rather than take a min. Golden-hour plaza paving inside a stacked shadow measures rgb(0,0,10) against lit paving rgb(151,99,76); every sprite's ink outline goes to exactly (0,0,0) (crops/mask-black-17.5.png). Ref 04 golden hour has 0.00% pure-black pixels and only 0.06% below L=8; ours are 2.47% and 9.24%. Clamp the combined shadow to the authored shadowMul floor instead of letting two multiplies stack.",
+    "NIGHT CRUSHES 7.58% OF THE FRAME TO EXACTLY (0,0,0) -- ref 03 is 0.88%, r2 was 4.29%. crops/mask-black-21.png shows it is structural, not incidental: the whole shaded facet of every roof, the alley between the two buildings, and the lawn west of the townhouses (grass sample there reads rgb(1,1,1)). Defect #1's 'hue crushed out' is only half fixed -- lit regions keep hue, shaded regions have no value left to carry any. Ref 03 gets its depth from a wide value range inside saturated colour (meanSat 0.854, lumP1 1.2, P99 158.4); ours gets it by clipping (meanSat 0.647). Give the night fill a non-zero floor per channel.",
+    "SPRITES ARE NOT GROUNDED AT NOON. The planar projection's length goes to zero as the sun rises, so at 12:00 --envNoCast changes only 0.56% of pixels and the sole grounding left is a contact blob so weak it is invisible at 1:1 (crops/snivy-12.png: the Snivy has a faint mauve smudge under it and nothing else). Every trainer and Pokemon reads as a sticker on the paving. Ref 03's Poochyena carry a hard dark shadow even directly beneath them. Floor the projected run so it never collapses below a compact ellipse, or restore a stronger contact blob under the projection.",
+    "SPRITE CAST SHADOWS READ AS SMUDGES, NOT SILHOUETTES. `uSoft` ramps to 0.9 + 1.9 = 2.8 atlas texels across a 5-tap cross, then `smoothstep(0.18, 0.66)` -- at 17:30 crops/diff-nocast-17.5.png shows featureless horizontal lozenges with holes in them where a Pokemon should be recognisable. Ref 03's Poochyena shadow keeps ears and legs. Cut uSoft by ~3x at the feet and let the widening do the work, or tighten the smoothstep window.",
+    "GOLDEN HOUR IS UNDER-EXPOSED AGAINST THE REFERENCE, and got darker this round. meanVal 0.377, lumP50 51.9, lumP1 0.0 against ref 04's 0.530 / 64.2 / 26.3. Ref 04 is a hot, luminous, fully-lifted frame with nothing crushed; ours reads as dusk. r2 measured 0.447 -- this is a regression, and r2's city-17.5.png is the better picture of the two.",
+    "BROAD HORIZONTAL LIGHT/DARK BANDING ACROSS THE LAWN at 07:00, 08:00 and 17:30 (crops/sw-7.png, sw-8.png, sw-17.5.png) that survives --envNoShadow at tod 7, so it is a terrain/tile lighting seam rather than a shadow. It reads as corduroy stripes on the grass and is the single most 'programmer art' thing in the daytime frames.",
+    "A HAIRLINE PURE-BLACK STROKE TRACES THE BOUNDARY OF EVERY SHADOW THAT IS CORRECT. Visible on the house shadow in crops/sw-9.png and around the townhouse shadow in crops/nwh-21.png -- a 1 px depth-test seam where the comparison flips. It announces the shadow as a rendering artifact rather than as light.",
+    "NO RIM OR KICKER ON ANY SPRITE AT ANY HOUR. crops/nighttrainer-21.png: the trainer stands beside a lit lamp, takes the pool's warmth uniformly across his whole card, and has no moon-side edge and no lamp-side edge. Ref 03's Poochyena and its flowers both carry a bright top-lit face against the dark. A cheap alpha-edge kicker driven off the key direction would buy more than anything else on this list at night.",
+    "AT GOLDEN HOUR THE SUN-FACING ROOF FACET TAKES A FLAT SATURATED ORANGE THAT OVERRIDES THE MATERIAL'S OWN ALBEDO. On the NW townhouse in hs-17.5.png the left facet is pure orange while the roof plane beside it is brick brown, split by a razor seam with no gradient -- the roof reads as two decals, not one lit form. The main roof plane meanwhile barely moves between 08:00 (216,86,55) and 17:30 (216,70,24), so the dominant surface reads unlit while the small facet reads over-lit.",
+    "LAMP POSTS READ AS DESATURATED STICKS WITH NO LIT/SHADE SIDE, AND ARE OVER-BRIGHT AT NIGHT. Shaft pixel at (679,340): rgb(165,147,136) at 08:00, rgb(117,80,67) at 17:30 -- a dull brown-grey while the path beside it is a saturated warm orange (crops/hslamp-17.5.png) -- and rgb(205,165,131) at 21:00, which makes a 2 m post the brightest large surface in the night frame after the bulbs themselves and reads as self-illuminated."
    ],
+   "verified": {
+    "at": "2026-09-08",
+    "round": 3,
+    "budgetShot": "docs/progress/environment/r3/budget-1080.png",
+    "size": "1920x1080",
+    "scene": "demo-city, tod 21 (the worst hour: 14 registered bulbs, 12 of them holding a PointLight)",
+    "fps": 60,
+    "p95ms": 16.8,
+    "drawCalls": 235,
+    "triangles": 19056,
+    "programs": 21,
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "shots": 123,
+    "allShots": "123 harness captures taken this round in docs/progress/environment/r3/, every one 60 fps, p95 16.7-16.8 ms, <=21 programs and 0 console errors. Two console warnings in the whole set, both on the hunts cross-module shots and both emitted by hunts itself (tiles.find by name, DECISIONS #6). The projected sprite shadows cost exactly +1 draw call and +1 program against ?envNoCast=1.",
+    "cityRegression": "docs/progress/environment/r3/x-tiles-ground-21.png, x-hunts-12/21.png, x-pokemon-12.png and boot-noon.png: every other module's showcase and the plain boot page still render at 60 fps with 0 errors. tiles' catalog mode at 21 is unchanged pixel-for-pixel from round 2 (its stage is mostly off-map void).",
+    "fixed": [
+     "sprite cast shadows - src/environment/castShadows.js projects each character's own silhouette flat onto the ground along the sun's azimuth. Not the shadow map: a camera-facing card is edge-on to a sun 90 degrees off the camera (17:30, the longest-shadow hour), and a card re-billboarded to face the light crosses its own receiver plane and self-shadows half of every sprite. garden-8.png against ab-nocast-garden-8.png is the same frame one URL flag apart - the trainer, Snivy and Tepig go from no shadow at all to three long ones.",
+     "the shadow's depth and colour are now DERIVED, not authored: apply() computes fill/(fill+key) per channel from the lights it has just written and hands it to the projected shadows, so a character's shadow matches the shadow map's at every hour by construction. At noon it is (0.083, 0.133, 0.229) - blue, because the fill is.",
+     "golden-hour hue collapse: circular hue concentration R at 17:30 fell 0.861 -> 0.567 (round 1 was 0.803), green share 6.3% -> 19.4%, blue 2.1% -> 9.1%. The blue roof's lit hip went from hue 64 sat 0.09 (grey-cyan) to hue 203 sat 0.24.",
+     "the whole-day warm drift: gain was a display-space multiply of (1.00, 0.918, 0.786) at 17:20 and (1.00, 0.909, 0.767) at 07:12 - a 21-23% blue cut over every pixel of the finished frame. Every keyframe's gain is now within 2% of white. circR 08:00 0.704 -> 0.510 (round 1 0.535), noon 0.468 -> 0.339, night 0.332 -> 0.230.",
+     "shadows are deepest when the sun is lowest, which is the right way round: shadowed/lit ground 17:30 0.557 -> 0.347, 08:00 0.477 -> 0.378, noon 0.347 -> 0.372, 21:00 0.432 -> 0.307. Measured as the shadow LAYER (city-<tod>.png against ns-<tod>.png, the same URL with ?envNoShadow=1), not from hand-picked boxes.",
+     "subjects no longer sink below their own ground at a low sun: the camera-axis fill moved from 38 to 10.4 degrees above the horizon, which takes a sprite card from 0.975/0.62 against the floor to 0.758/0.180, so the fill could be tripled while the light reaching the floor fell. Trainer at 17:30 as a fraction of noon 0.714 against his paving's 0.764 - a ratio of 0.93, where round 2 was 0.722 against 0.879, a ratio of 0.82.",
+     "lamp pool cores no longer reach daylight: paving inside a pool at 21:00 is 0.63x the same box at noon (round 2: 0.99x), and the flowers under the near lamp keep saturation 0.47 instead of clipping.",
+     "the lamp's point light sits inside the lantern's globe (0.26 down, 0.34 toward the camera) and falls off at decay 1.5 rather than 2, so it models the fixture it hangs on instead of only flooding the floor - a pool of a given brightness now costs 13x at the post instead of 19x.",
+     "?envNoCast=1 joins the verification toggles, so every ratio above was measured from a pair of captures one URL parameter apart."
+    ]
+   },
    "lastShots": [
-    "docs/progress/_boot/sc-environment.png"
-   ]
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/city-8.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/city-12.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/city-17.5.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/city-21.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/hs-8.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/critic3/hs-12.png"
+   ],
+   "pass": false
   },
   "simulation": {
    "round": 2,
@@ -297,7 +340,8 @@
    "from": "city",
    "want": "environment.lamps.add({ point:false }) \u2014 a glow-only bulb that never claims a slot in the 8-light pool",
    "why": "lamps.update() hands the pool to the eight bulbs nearest the camera focus, by distance alone. A lit window wants a glow quad and a small wall wash; a street lamp wants the ground pool. Today registering more than a couple of windows near the camera silently takes the PointLights away from the street lamps, so the city registers exactly two lit doorways and no window bulbs at all.",
-   "state": "open"
+   "state": "implemented",
+   "closedBy": "environment r2 - lamps.add({ point:false }) exists and is verified in the running page (a point:false bulb at the camera focus claims no PointLight; a normal bulb two cells away takes env:lamp0; the pool stays at 8). Not yet CALLED by any scene, so city still has to pass the flag for its windows before the frame changes. DECISIONS #31h."
   },
   {
    "from": "city",
@@ -309,7 +353,8 @@
    "from": "city",
    "want": "environment: a readable dusk between golden hour and night",
    "why": "tod 19.1 (environment's own 'dusk' preset) already renders as dark as tod 21.5; the last light in the sky is gone by 18.5. docs/progress/city/r1/golden.png (17.3) and dusk.png (19.1) are two hours apart and look like different scenes; dusk.png and night.png are 2.4 hours apart and look identical. The lamp ramp is fine \u2014 it is the sky and the key that fall off a cliff.",
-   "state": "open"
+   "state": "done",
+   "closedBy": "environment r2 - the dusk keyframes were rebuilt and the day/night key floor unified; DECISIONS #31g"
   },
   {
    "from": "city",
@@ -339,6 +384,48 @@
    "from": "tiles",
    "want": "for the integrator: simulation's `variety: 0` showcase workaround (DECISIONS #29) can be retired",
    "why": "It was added because the per-cell UV phase tore AdAstra's 4x4 global grass pattern at every cell edge. tiles round 2 phases a globally-mapped tile by its own 4x4 block instead, so the pattern stays continuous inside a block and only the repeat is broken - measured in docs/progress/tiles/r2/hedge-close-12.png at 3x the game zoom and ground-12.png at mid distance. simulation should re-shoot with the workaround removed before it is deleted.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "core/render.js: expose the shadow softness. `PCFSoftShadowMap` has a fixed kernel and `light.shadow.radius` is ignored by it; a VSM or a PCSS tap count that environment could set per hour would let a low sun have a soft penumbra and a noon sun a hard one.",
+   "why": "Round 2 fixed a shadow's depth and colour (it carries the fill's hue instead of going to black) but not its edge, and every shadow in the game is still a razor line at 2048/56 = 0.027 world units per texel. docs/refs/01 and 03 both show soft-edged shadows. This is the last visible gap between our frame and theirs, and the type of shadow map is core's.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "core/render.js: read `config.shadowNormalBias` / `config.shadowBias` every frame in makeSunShadow.update(), instead of only at construction.",
+   "why": "A grazing sun needs a much bigger normal offset than an overhead one. environment already computes the per-hour value and writes it straight onto `three.sun.light.shadow`, which works, but it means the config keys are decorative and a second writer (the debug overlay, a future tuner) would be silently overridden.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "tiles: call `environment.lamps.add()` from the tiles showcase's `lamps` and `catalog` modes.",
+   "why": "tiles-lamps-21.png shows four street lamps whose glass blooms and whose ground is untouched, and that frame was cited by two critics as 'a lit lamp casts no light pool'. The pool is real and demonstrable in the city (ab-pool-21.png) - tiles' own stage simply never registers a bulb, so environment has nothing to light. One call per lamp cell, the same three lines src/environment/showcase.js already uses.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "tiles: the 22-degree normal floor can be relaxed now, and should be re-measured rather than removed.",
+   "why": "DECISIONS #30a clamps every normal to 22 deg above the horizon because a vertical face took hemisphere fill only. Round 2 added two directional fills: an anti-sun `bounce` at 20 deg (a wall turned away from the key takes 0.94 of it) and a camera-axis `camFill` at 38 deg. A vertical face now has two real sources with direction, which is the condition the clamp was working around. ab-fills-off-8.png against city-8.png is the measurement of what the fills are worth on exactly those surfaces.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "a rim/Fresnel term the environment can drive - either a shared material onBeforeCompile hook every module's materials pass through, or a rim pass in core/render.js's composite driven from the depth/normal buffers it already renders",
+   "why": "Round 3's ranked note 4 is 'night away from lamps has no accent - it needs a rim/specular term on silhouettes' (docs/refs/03 sells its whole night on rim light along the fence posts). Every material in the frame is a MeshLambertMaterial owned by tiles and pokemon, and Lambert has no view-dependent term at all: no light I can add from environment produces a rim, because a back light gives a camera-facing card dot(N,L) < 0. This is the last defect in the night frame that environment cannot reach from its own folder.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "expose shadow.radius / a PCF radius on the sun light, or switch the shadow map type per preset",
+   "why": "core sets PCFSoftShadowMap in makeRenderer and its filter width is fixed, so tile and building shadows have a constant penumbra whatever the sun's elevation and whatever the distance from the contact point. The critic's note 3 asks for the opposite ('shrink the PCF radius near the contact point'). The projected sprite shadows in src/environment/castShadows.js do contact-harden, which makes the mismatch between the two shadow kinds visible in the same frame.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "core/render.js should read config.shadowBias and config.shadowNormalBias every frame instead of once in makeSunShadow",
+   "why": "environment recomputes both from the sun's elevation every apply() (a grazing sun needs roughly three times the normal offset a noon sun does) and has to write them straight onto three.sun.light.shadow to make them take effect. That works but it means two owners for the same two numbers.",
    "state": "open"
   }
  ],
@@ -372,6 +459,18 @@
    "environment: drive tiles.setEmissiveScale(k) from the dusk curve, and put a small warm point light on each city lamp marker. Handed to Wave C.",
    "city: replace the hard-coded LAMP_MODEL name table with tiles.find(slug, {category:'light', orientation:'w'}) now that tiles derives orientation from geometry.",
    "props: re-cut pt-forest__hedge and pt-overworld-7__hedge \u2014 both render as a pale grey blob a third of a cell across with a blue rim."
+  ],
+  "integratorFindings": [
+   {
+    "topic": "the low-sun 'caster-less shadow slab', environment's #1 open issue",
+    "hypothesisTested": "the ortho shadow box is a fixed +/-28 square, so at 10 degrees of elevation a 56-unit ground strip projects to ~322 units in the light's basis and the scene falls outside the shadow frustum, clamping to a full-frame slab",
+    "verdict": "DISPROVEN. Driving config.shadowExtent 56 -> 100 -> 160 changes shadow coverage on the high-street framing at tod 8 by 14.3% -> 14.8% -> 15.3% of pixels, under one point. The darkening is not shadow-map frustum clamping and the rewrite that assumed it was has been reverted.",
+    "measuredFacts": [
+     "with --envNoShadow the shadow accounts for 17.4% of pixels at tod 7, 14.3% at tod 8, 28.4% at tod 17.5 on --preset high-street \u2014 plausible coverage, not a frame-wide slab, so whatever the critic saw is localised",
+     "src/tiles/instanced.js:246 already excludes flat and decal tiles from casting, so the ground is not the caster",
+     "next suspects, untested: shadowSide (three casts from the opposite face for FrontSide materials, which bit this project once already on the ground tiles), the bias/normalBias pair at src/environment/index.js:271-272 against a grazing sun, and InstancedMesh bounding spheres in the shadow pass"
+    ]
+   }
   ]
  },
  "waveA": {
@@ -445,5 +544,28 @@
    }
   },
   "note": "All three critics ran and none passed: simulation 6, city 6, tiles 6.5 against a pass bar of 8.5. Every module is inside budget (60fps, 0 console errors). Two independent critics traced their worst remaining defects to `environment`, which is why Wave C runs it alone."
+ },
+ "waveC": {
+  "module": "environment",
+  "dispatched": 6,
+  "completed": 6,
+  "failed": 0,
+  "scores": [
+   6,
+   7,
+   7
+  ],
+  "finalScore": 7,
+  "pass": false,
+  "fps": 60,
+  "drawCalls": 235,
+  "consoleErrors": 0,
+  "fixed": [
+   "night is no longer a flat blue-black multiply: a real moon key with its own azimuth and tint, a moon disc and stars in the sky shader, and moon shadows from lamp posts and sprites",
+   "street lamps put warm pools on the ground AND light characters standing in them (verified by an --envNoPool A/B)",
+   "roof facets track the sun's azimuth instead of holding a static wedge (Pokemon Center left facet rgb(97,0,0) at 08:00 -> rgb(245,77,12) at 17:30)",
+   "the 'one orange' half of golden hour: circular hue concentration at 17:30 went 0.882 -> 0.610; mart roof H201/H240, grass H72-76, hedges H333 all survive",
+   "sprite cast shadows exist and rotate with the sun (--envNoCast moves 6.03% of pixels at 08:00, 9.69% at 17:30) for +1 draw call"
+  ]
  }
 }
