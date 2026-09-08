@@ -30,7 +30,7 @@ export const DAY_OF_YEAR = 96;
  *   `altitude` and `azimuth` are radians; azimuth is measured clockwise from north.
  *   `dir` points from the world toward the sun in engine axes (+x east, +y up, +z south).
  */
-export function solarPosition(tod, latDeg = 36, dayOfYear = DAY_OF_YEAR) {
+export function solarPosition(tod, latDeg = 36, dayOfYear = DAY_OF_YEAR, look = null) {
   const lat = latDeg * DEG;
   // Cooper's equation for declination.
   const decl = 23.45 * DEG * Math.sin(2 * Math.PI * (284 + dayOfYear) / 365);
@@ -49,12 +49,30 @@ export function solarPosition(tod, latDeg = 36, dayOfYear = DAY_OF_YEAR) {
     if (hourAngle > 0) azimuth = 2 * Math.PI - azimuth;   // afternoon: west of south
   }
 
-  // azimuth 0 = north (-z), pi/2 = east (+x)
-  const x = Math.sin(azimuth) * cosAlt;
-  const z = -Math.cos(azimuth) * cosAlt;
-  const y = Math.sin(altitude);
+  // The true altitude decides the *day*: dawn, dusk and how much light there is are all
+  // driven by where the sun really is, so they stay physical.
+  const dayFraction = Math.max(0, sinAlt);
 
-  return { altitude, azimuth, dir: { x, y, z }, dayFraction: Math.max(0, sinAlt) };
+  // What gets *drawn*, though, is bent by the two art-direction knobs (see DECISIONS #33).
+  // The offset rotates the arc off the camera's axis; the elevation is soft-capped by
+  // `MAX · (1 − e^(−alt/MAX))`, which is monotone, holds 0 at 0, never reaches the cap and
+  // has no plateau at noon — so the sun still climbs and sinks, it just never gets overhead.
+  let shownAz = azimuth;
+  let shownAlt = altitude;
+  if (look) {
+    shownAz = azimuth + (look.azimuthOffset ?? 0);
+    const max = look.maxElevation ?? 0;
+    if (max > 0 && altitude > 0) shownAlt = max * (1 - Math.exp(-altitude / max));
+  }
+
+  const shownCosAlt = Math.cos(shownAlt);
+  // azimuth 0 = north (-z), pi/2 = east (+x)
+  const x = Math.sin(shownAz) * shownCosAlt;
+  const z = -Math.cos(shownAz) * shownCosAlt;
+  const y = Math.sin(shownAlt);
+
+  return { altitude: shownAlt, azimuth: shownAz, trueAltitude: altitude, trueAzimuth: azimuth,
+    dir: { x, y, z }, dayFraction };
 }
 
 /**

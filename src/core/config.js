@@ -43,6 +43,23 @@ export const DEFAULTS = {
   // --- world ----------------------------------------------------------------
   /** Fictional latitude used to place the sun; keeps shadows physically plausible. */
   latitude: 36,
+  /**
+   * Two knobs that bend the *rendered* sun away from the real one, for a reason four blind
+   * judges found independently (docs/judge/r1): at 36N the noon sun sits at 60 degrees of
+   * elevation on an azimuth of 180 — due south — and this camera looks north and never
+   * yaws. So at midday the key is directly behind the viewer and every shadow hides behind
+   * the object that casts it: `--envNoShadow 1` at tod 12 changes 0.07% of the frame. The
+   * physics is right and the picture is flat, and every A/B we lost was lost on the same
+   * sentence, that the other image "has one committed light direction".
+   *
+   * `sunAzimuthOffset` rotates the whole daily arc so the key rakes across the frame rather
+   * than sitting behind the camera — our fictional world's north simply is not the camera's
+   * north. `sunMaxElevation` soft-caps how high it climbs, so a midday shadow still has a
+   * length worth drawing. Both are art direction, not astronomy, and the sun still rises in
+   * the east, sets in the west, and swings its shadows the right way round the day.
+   */
+  sunAzimuthOffset: 38,
+  sunMaxElevation: 46,
   tod: 10.5,
   /** Real seconds per in-game hour. 60 => a full day in 24 minutes. */
   secondsPerGameHour: 60,

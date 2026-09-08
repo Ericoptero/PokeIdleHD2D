@@ -303,7 +303,10 @@ export default {
       'lift', 'gain']);
 
     function apply() {
-      const solar = solarPosition(tod, config.latitude, DAY_OF_YEAR);
+      const solar = solarPosition(tod, config.latitude, DAY_OF_YEAR, {
+        azimuthOffset: (config.sunAzimuthOffset ?? 0) * (Math.PI / 180),
+        maxElevation: (config.sunMaxElevation ?? 0) * (Math.PI / 180),
+      });
       const base = blendPreset(tod, PRESETS[biome] ?? PRESETS.meadow);
       look = applyWeather(base, weather);
       for (const [k, v] of Object.entries(overrides)) if (k in look) look[k] = v;
@@ -454,7 +457,10 @@ export default {
         return true;
       },
       sun() {
-        const s = solarPosition(tod, config.latitude, DAY_OF_YEAR);
+        const s = solarPosition(tod, config.latitude, DAY_OF_YEAR, {
+          azimuthOffset: (config.sunAzimuthOffset ?? 0) * (Math.PI / 180),
+          maxElevation: (config.sunMaxElevation ?? 0) * (Math.PI / 180),
+        });
         return {
           azimuth: s.azimuth, altitude: s.altitude,
           direction: { x: sunDir.x, y: sunDir.y, z: sunDir.z },
