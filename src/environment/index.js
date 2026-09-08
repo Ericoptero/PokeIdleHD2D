@@ -103,16 +103,76 @@ void main() {
  * declares, and none of these belong in the shipped tunables.
  *
  *   ?envNoShadow=1   the sun/moon stops casting — is that dark quad a shadow or a decal?
+ *   ?envNoConeBend=1 the night key goes back on the moon's raw antipode azimuth, so the
+ *                    shadow is behind its caster again — the control for DECISIONS #46a.
  *   ?envNoPool=1     lamp point lights off
  *   ?envNoDecal=1    lamp ground pools off
  *   ?envNoFills=1    bounce + camFill off
  *   ?envNoCast=1     projected sprite shadows off — is that shadow the character's own?
+ *   ?envNoShadowClamp=1  a projected shadow stops asking the shadow map whether the sun had
+ *                    already left this ground — how much of the black was compounding?
+ *   ?envDumpCasters=1 `window.__ENVCASTERS__()` lists every object the shadow pass will
+ *                    rasterise, with the `side`/`shadowSide`/`alphaTest` that decide what
+ *                    shape its shadow is.
+ *   ?envCasterOff=tree,pine   drop named objects out of the shadow pass — the bisection that
+ *                    answers "what casts that slab?" (round 6: it is the trees).
+ *   ?envBiasMul=N / ?envNormalBiasMul=N   sweep the shadow bias pair.
+ *   ?envMinElevDeg=N  raise the key's elevation floor, so the shadow run is capped at
+ *                    `cot(N)` caster-heights. Measured and NOT shipped — see DECISIONS #48.
+ *   ?envShadowIntensity=N  how much of the shadow map's shadow is applied (three's
+ *                    `LightShadow.intensity`). Also measured and not shipped.
+ *   ?envTune=contrast:1.12,lift:0x2a2f3c   the grade, from the URL.
  *
  * Every one defaults to the shipping behaviour, so a normal load is unaffected.
  */
 function devFlag(name) {
   try { return new URLSearchParams(location.search).get(name) === '1'; } catch { return false; }
 }
+
+/**
+ * The numeric half of the same idea. A boolean flag answers "is this term responsible?";
+ * a multiplier answers "how much of it, and does more of it help?" — which is the question
+ * the shadow bias pair needs, because a bias that is too small acnes and one that is too
+ * large peter-pans, and only a sweep tells you which side of that you are on.
+ *
+ *   ?envBiasMul=8  ?envNormalBiasMul=8   scale the depth / normal offsets written per frame
+ */
+function devNum(name, fallback) {
+  try {
+    const v = new URLSearchParams(location.search).get(name);
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  } catch { return fallback; }
+}
+
+/**
+ * `?envTune=contrast:1.12,lift:0x2a2f3c` — the whole grade, from the URL.
+ *
+ * `environment.tune()` already exists for this (ARCHITECTURE §5.3), but the screenshot
+ * harness has no hook that reaches a module API, so tuning by hand meant editing
+ * `presets.js` once per variant — which is a code change per data point, and a code change
+ * cannot be A/B'd against itself in the same minute. Values starting `0x` are colours; the
+ * rest are numbers. Applied last, over the preset and the weather, exactly like `tune()`.
+ */
+function urlTune() {
+  try {
+    const v = new URLSearchParams(location.search).get('envTune');
+    if (!v) return null;
+    const out = {};
+    for (const pair of v.split(',')) {
+      const [k, raw] = pair.split(':');
+      if (!k || raw == null) continue;
+      out[k.trim()] = raw.trim().startsWith('0x') ? new THREE.Color(Number(raw)) : Number(raw);
+    }
+    return Object.keys(out).length ? out : null;
+  } catch { return null; }
+}
+
+/** `?envBiasMul` / `?envNormalBiasMul` — the shadow-bias sweep. 1 is the shipping rig. */
+const URL_TUNE = urlTune();
+const BIAS_MUL = devNum('envBiasMul', 1);
+const SHADOW_INTENSITY = devNum('envShadowIntensity', 1);
+const NORMAL_BIAS_MUL = devNum('envNormalBiasMul', 1);
 
 /** Set by `init`, read by `frame`. One environment per page, so one reference is enough. */
 let activeFx = null;
@@ -169,8 +229,90 @@ const BOUNCE_ELEVATION = 0.18;
  */
 /** Ceiling on the brightness the elevation soft-cap is allowed to hand back (DECISIONS #40). */
 const TILT_GAIN_MAX = 1.9;
+/**
+ * Floor on the same ratio, and it is 1 unless `?envMinElevDeg` is raising the key.
+ *
+ * #40's rule is `key *= sin(trueAltitude) / sin(shownAltitude)`: whatever the tilt does to
+ * `dot(N, L)` on a horizontal surface, the key intensity undoes. It was clamped at 1 because
+ * the only thing that had ever moved `shownAltitude` was the soft *cap*, which lowers it, so
+ * the ratio was never below 1 and the clamp cost nothing. The `envMinElevDeg` sweep moves it
+ * the other way, and with the clamp still at 1 a shorter shadow would also be a brighter
+ * frame and the sweep would be measuring two things at once. It stays at 1 when the flag is
+ * off, because at sunset `trueAltitude` is clamped to 0 and the ratio with it, and a floor
+ * below 1 there would take 55 % of the key off the sunset frame.
+ */
+const MIN_ELEV_DEG = devNum('envMinElevDeg', 0);
+const KEY_ELEVATION_FLOOR = MIN_ELEV_DEG > 0 ? Math.sin(MIN_ELEV_DEG * (Math.PI / 180)) : 0.06;
+const TILT_GAIN_MIN = MIN_ELEV_DEG > 0 ? 0.35 : 1;
 
-const KEY_ELEVATION_FLOOR = 0.06;
+/**
+ * Half-angle of the cone, measured from due north, in which a shadow is hidden behind the
+ * card that casts it (DECISIONS #46a). It is the same 38 degrees `config.sunAzimuthOffset`
+ * bends the sun by, because it is the same fact: this camera looks north, so a shadow that
+ * runs due north runs straight up-screen behind its own caster.
+ */
+const HIDDEN_CONE = 38 * (Math.PI / 180);
+
+/**
+ * Pushes the *night* key's azimuth out of that cone.
+ *
+ * DECISIONS #40 bent the sun by a constant +38 degrees, which clears the cone at the two
+ * moments the source crosses the meridian — solar noon and solar midnight — and nowhere
+ * else. The shadow azimuth sweeps continuously through the whole day, so it still passes
+ * through due north twice: around 10:30 for the sun and around 22:00 for the moon. The
+ * moon's pass is the one three modules filed, because it is four and a half hours wide
+ * (19:30 to past midnight) and it covers `tod 21`, the hour every night frame is shot at:
+ * at 21 the shadow's lateral component is 0.29 and its run 1.7, so it reads as a dark halo
+ * stuck to the sprite rather than as a shadow lying on the ground.
+ *
+ * The remap is `sign(a) * 90 * (|a| / 90) ^ P` on the shadow's azimuth `a` measured from
+ * due north. It is monotone, continuous, fixes 0 and +/-90, and steepens near 0, so the
+ * source still sweeps the sky in the right direction and at the right speed while spending
+ * far less of the night behind the caster. It cannot *remove* the pass — a shadow that
+ * swings from one side of a caster to the other has to go behind it once, and any
+ * continuous function of the azimuth has to cross the cone — so this compresses the window
+ * from about 4.7 game-hours to about 1.0 (computed, not shot: `|a| < 38 deg` becomes
+ * `|a| < 7.7`; the shot is the `?envNoConeBend=1` A/B at tod 21).
+ *
+ * The **day is deliberately untouched**. Its arc is the one DECISIONS #40 paid for with a
+ * blind round, and noon, 08:00 and 17:30 are the frames every other module has tuned
+ * against; re-bending them to fix a night defect is a trade nobody asked for.
+ */
+const NIGHT_AZ_POWER = 0.35;
+
+function pushOutOfCone(x, z) {
+  // The shadow runs away from the light. Azimuth measured clockwise from north, signed so
+  // that 0 is straight up-screen (hidden) and +/-90 is straight across it (fully visible).
+  const sx = -x, sz = -z;
+  const h = Math.hypot(sx, sz);
+  if (h < 1e-6) return { x, z };
+  const a = Math.atan2(sx / h, -sz / h);
+  const mag = Math.abs(a);
+  // Beyond 90 degrees the shadow already runs toward the camera and is never hidden; the
+  // remap is mirrored there so it stays monotone across the whole circle instead of
+  // folding back on itself.
+  const t = mag <= Math.PI / 2 ? mag : Math.PI - mag;
+  const bent = (Math.PI / 2) * Math.pow(t / (Math.PI / 2), NIGHT_AZ_POWER);
+  const outMag = mag <= Math.PI / 2 ? bent : Math.PI - bent;
+  const out = Math.sign(a || 1) * outMag;
+  // Back to a direction *toward* the light, which is the shadow's azimuth turned 180.
+  const la = out + Math.PI;
+  return { x: Math.sin(la) * h, z: -Math.cos(la) * h };
+}
+
+/**
+ * How bright one practical is, at the point it lights, relative to everything that is not
+ * that practical. `practicalMul = fill / (fill + lamp)`, so 1.15 puts an indoor character's
+ * shadow at about 0.47 — half the light gone, not all of it.
+ *
+ * The alternative was to reuse the sun's `shadowMul` indoors, and that is exactly what round
+ * 3 shipped: the cave preset runs a key of 5.20 against a hemisphere of 0.50, so the ratio
+ * lands near 0.09 and every character stamped a near-black dart on the floor. A lantern is
+ * not the sky. It also matters that this is per channel: the bulbs are warm and the fill is
+ * not, so the blue channel loses least and the shadow comes out cooler than the floor, which
+ * is what a warm light on a cool room actually does.
+ */
+const PRACTICAL_KEY_RATIO = 0.95;
 
 /** Phase names carried on `tod:changed` (ARCHITECTURE §4). Pinned to the solar events. */
 function phaseOf(t) {
@@ -195,6 +337,56 @@ export default {
     const noFills = devFlag('envNoFills');
     const lampDev = { noPool: devFlag('envNoPool'), noDecal: devFlag('envNoDecal') };
     if (noShadow) three.sun.light.castShadow = false;
+
+    /**
+     * `?envDumpCasters=1` — every object the shadow pass will actually rasterise, with the
+     * three properties that decide *which face* of it lands in the depth buffer. three.js
+     * renders a `FrontSide` material into the shadow map as `BackSide` unless the material
+     * names its own `shadowSide`, so a single-sided card is culled out of the map entirely
+     * and a single-sided box casts from its far wall. Guessing which of those a tile is
+     * costs a round; reading it costs a URL.
+     */
+    /**
+     * `?envCasterOff=lake,tall_grass` — drop named objects out of the shadow pass so the
+     * question "which caster is that slab?" is answered by bisection instead of by staring.
+     * Matching is a substring of the object's name, which is the tile model id, so one term
+     * takes out a whole tile family.
+     */
+    const casterOff = (() => {
+      try {
+        const v = new URLSearchParams(location.search).get('envCasterOff');
+        return v ? v.split(',').map((t) => t.trim()).filter(Boolean) : null;
+      } catch { return null; }
+    })();
+    if (casterOff) {
+      // The scene is built after `environment.init` (it needs `terrain`, which needs
+      // `tiles`), so this has to run on a frame rather than now.
+      const applyCasterOff = () => {
+        scene.traverse((o) => {
+          if (o.castShadow && casterOff.some((t) => (o.name || '').includes(t))) o.castShadow = false;
+        });
+      };
+      setTimeout(applyCasterOff, 1500);
+      setTimeout(applyCasterOff, 4000);
+    }
+
+    if (devFlag('envDumpCasters')) {
+      window.__ENVCASTERS__ = () => {
+        const rows = [];
+        scene.traverse((o) => {
+          if (!o.castShadow || !o.isObject3D || !o.geometry) return;
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          rows.push({
+            name: o.name || o.type, kind: o.isInstancedMesh ? `instanced x${o.count}` : o.type,
+            visible: o.visible, frustumCulled: o.frustumCulled,
+            bs: o.geometry.boundingSphere ? +o.geometry.boundingSphere.radius.toFixed(2) : null,
+            mats: mats.filter(Boolean).map((m) => `${m.name || m.type}:side=${m.side}:shadowSide=${m.shadowSide}`
+              + `:alphaTest=${m.alphaTest}:transparent=${m.transparent}:map=${m.map ? 'y' : 'n'}:type=${m.type}`),
+          });
+        });
+        return rows;
+      };
+    }
 
     // --- sky dome ----------------------------------------------------------
     const skyUniforms = {
@@ -271,6 +463,9 @@ export default {
     // `apply()` computes that once, below, and hands it over.
     const castFx = makeCastShadows(THREE, scene);
     const noCast = devFlag('envNoCast');
+    const noClamp = devFlag('envNoShadowClamp');
+    /** `?envNoConeBend=1` — put the night key back on the moon's raw antipode azimuth. */
+    const noConeBend = devFlag('envNoConeBend');
 
     // --- state -------------------------------------------------------------
     let tod = ((Number(config.tod) % 24) + 24) % 24;
@@ -294,9 +489,24 @@ export default {
      * is paint, and the difference is entirely in this number being a vec3.
      */
     const shadowMul = { r: 0.2, g: 0.24, b: 0.34 };
+    /**
+     * What a shadow cast by a *practical* keeps, per channel — the indoor counterpart of
+     * `shadowMul`, and deliberately a much shallower number.
+     *
+     * `shadowMul` is `fill / (fill + key)` and in the cave preset the key is 5.20 against a
+     * hemisphere of 0.50, so it lands near black. That is the right depth for a shaft of
+     * daylight and quite wrong for a lantern six cells away in a room that is already lit by
+     * four more of them: what a bulb removes is one bulb's worth, not the whole sky. So this
+     * is `fill / (fill + lamp)` with the lamp sized as a fraction of the fill, which puts the
+     * depth near a half and — because the bulbs are warm and the fill is not — leaves the
+     * shadow *cooler* than the floor around it without any second colour being authored.
+     */
+    const practicalMul = { r: 0.5, g: 0.5, b: 0.5 };
+    /** 0..1. 1 = sealed interior: no sun, no sun shadow, practicals do the modelling. */
+    let enclosed = 0;
     /** Look keys `tune()` may override; anything else in a tune patch goes to config. */
     const LOOK_SCALARS = new Set(['sun', 'sunSize', 'hemi', 'ambient', 'bounce', 'camFill',
-      'fogDensity', 'fogBoost',
+      'enclosed', 'fogDensity', 'fogBoost',
       'exposure', 'contrast', 'saturation', 'bloom', 'bloomThreshold', 'vignette', 'grain',
       'haze', 'stars', 'lamps']);
     /** Colour-valued look keys. Kept apart from the scalars because `tune({ lift: 0x241a10 })`
@@ -313,6 +523,7 @@ export default {
       const base = blendPreset(tod, PRESETS[biome] ?? PRESETS.meadow);
       look = applyWeather(base, weather);
       for (const [k, v] of Object.entries(overrides)) if (k in look) look[k] = v;
+      if (URL_TUNE) for (const [k, v] of Object.entries(URL_TUNE)) if (k in look) look[k] = v;
 
       // Direction from the world *toward* the light. Once the sun is down the moon takes
       // over: it sits opposite, is far dimmer and much cooler, so there is always something
@@ -328,7 +539,13 @@ export default {
       // moon is 30° up on its own and the floor does nothing at all.
       const night = solar.altitude < -0.035;
       if (night) {
-        sunDir.set(-solar.dir.x, Math.max(KEY_ELEVATION_FLOOR, -solar.dir.y), -solar.dir.z).normalize();
+        // The moon is the sun's antipode, so `sunAzimuthOffset` arrives on it already; what
+        // it does not do is keep the moon's *shadow* off the camera axis at any hour but
+        // midnight. `pushOutOfCone` is the fix, and it is night-only on purpose — see the
+        // note on NIGHT_AZ_POWER.
+        const m = noConeBend ? { x: -solar.dir.x, z: -solar.dir.z }
+          : pushOutOfCone(-solar.dir.x, -solar.dir.z);
+        sunDir.set(m.x, Math.max(KEY_ELEVATION_FLOOR, -solar.dir.y), m.z).normalize();
       } else {
         sunDir.set(solar.dir.x, Math.max(KEY_ELEVATION_FLOOR, solar.dir.y), solar.dir.z).normalize();
       }
@@ -355,7 +572,9 @@ export default {
       // grazing hours are supposed to be dim.
       const trueY = Math.sin(Math.max(0, solar.trueAltitude ?? solar.altitude));
       const shownY = Math.sin(Math.max(0.02, solar.altitude));
-      const tiltGain = night ? 1 : Math.min(TILT_GAIN_MAX, Math.max(1, trueY / Math.max(shownY, 1e-3)));
+      const tiltGain = night ? 1
+        : Math.min(TILT_GAIN_MAX, Math.max(TILT_GAIN_MIN, trueY / Math.max(shownY, 1e-3)));
+      // `TILT_GAIN_MIN` is 1 on the shipping path, so this is `Math.max(1, ratio)` as it was.
       three.sun.light.intensity = look.sun * tiltGain;
 
       // A grazing sun rakes across every surface and needs a bigger normal offset than a
@@ -363,10 +582,11 @@ export default {
       // written straight onto the light because core reads config for them only once, at
       // construction (see the coreRequest in this module's report).
       const graze = 1 - Math.max(0, Math.min(1, sunDir.y));
-      const normalBias = 0.026 + 0.055 * graze * graze;
-      const bias = -0.0005 - 0.0006 * graze;
+      const normalBias = (0.026 + 0.055 * graze * graze) * NORMAL_BIAS_MUL;
+      const bias = (-0.0005 - 0.0006 * graze) * BIAS_MUL;
       three.sun.light.shadow.normalBias = normalBias;
       three.sun.light.shadow.bias = bias;
+      three.sun.light.shadow.intensity = SHADOW_INTENSITY;
       config.set({ shadowNormalBias: normalBias, shadowBias: bias });
 
       hemi.color.copy(look.hemiSky);
@@ -448,6 +668,31 @@ export default {
         shadowMul[ch] = Math.max(0.03, fill / Math.max(1e-4, fill + key));
       }
 
+      // --- indoors, the sun is not the light ------------------------------
+      // A sealed cave drew hard-edged near-black darts that swung with a daily arc under a
+      // rock ceiling; two separate blind rounds filed it and one judge called it "geometry
+      // corruption". The preset says whether the room has a sky over it (`enclosed`), and a
+      // scene may override that through `setEnclosure` without environment ever having to
+      // know a biome's name. The directional key stays — it is the preset's warm shaft, and
+      // it still models geometry — but it stops *casting*, and the practicals take over.
+      enclosed = Math.max(0, Math.min(1, overrides.enclosed ?? look.enclosed ?? 0));
+      const wantsShadow = !noShadow && enclosed < 0.5;
+      if (three.sun.light.castShadow !== wantsShadow) three.sun.light.castShadow = wantsShadow;
+
+      // The colour of a practical's shadow, taken from the bulbs actually registered so a
+      // blue cave crystal and a warm lantern do not share one authored number.
+      const bulbs = lamps.list();
+      let lr = 0, lg = 0, lb = 0;
+      for (const L of bulbs) { lr += L.color.r; lg += L.color.g; lb += L.color.b; }
+      const nb = bulbs.length || 1;
+      const lampCol = { r: lr / nb || 1, g: lg / nb || 1, b: lb / nb || 1 };
+      const lampMax = Math.max(lampCol.r, lampCol.g, lampCol.b) || 1;
+      for (const ch of ['r', 'g', 'b']) {
+        const fill = Math.max(0.02, look.hemiSky[ch] * look.hemi + look.ambientColor[ch] * look.ambient);
+        const lamp = (lampCol[ch] / lampMax) * fill * PRACTICAL_KEY_RATIO;
+        practicalMul[ch] = Math.max(0.22, fill / (fill + lamp));
+      }
+
       const p = phaseOf(tod);
       if (p !== phase) { phase = p; bus.emit('tod:changed', { tod, phase }); }
     }
@@ -512,6 +757,30 @@ export default {
       biome: () => biome,
       weather: () => ({ ...weather }),
       phase: () => phaseOf(tod),
+      /**
+       * Declare that the camera is under a roof (ARCHITECTURE §5.3 — environment owns the
+       * sun). A scene that builds its own cave mouth or a shop interior calls this; it does
+       * not have to be a whole biome and environment never has to know a biome's name. The
+       * preset supplies the default (`cave` and `interior` are 1, everything outdoors 0), so
+       * a map that says nothing still behaves correctly.
+       *
+       * At 1 the directional key stops casting a shadow — an interior lit by a sun that is
+       * not in the room is the "geometry corruption" two blind rounds filed — and the
+       * projected character shadows are thrown by the registered practicals instead.
+       *
+       * @param {number|boolean|null} v  0..1, or null to hand the key back to the preset.
+       * @returns {number} the enclosure now in force
+       */
+      setEnclosure(v) {
+        if (v === null || v === undefined) delete overrides.enclosed;
+        else overrides.enclosed = Math.max(0, Math.min(1, Number(v) || 0));
+        apply();
+        return enclosed;
+      },
+      /** 0 = open sky, 1 = sealed interior. What the sun's shadow is actually doing. */
+      enclosure: () => enclosed,
+      /** The multiplier a practical's shadow lays down indoors — the indoor `shadow()`. */
+      practicalShadow: () => ({ ...practicalMul }),
       presets: () => Object.keys(PRESETS),
       weathers: () => [...WEATHERS],
       /** The blended look actually in force — the debug overlay and the critic read this. */
@@ -556,7 +825,18 @@ export default {
         if (!config.timeFrozen) fxTime += dt;
         lamps.update(look?.lamps ?? 0, fxTime, focus, lampDev);
         weatherFx.update(look?.particles, tmpFog, fxTime, focus);
-        castFx.update(sunDir, shadowMul, noShadow ? 0 : 1, noCast);
+        // Indoors `?envNoShadow=1` must change nothing: the sun already casts no shadow
+        // there, and these shadows are the room's lanterns, not the sun's. Outdoors it is
+        // still the flag that answers "is that dark quad a shadow or a decal?".
+        castFx.update({
+          sunDir,
+          shade: enclosed >= 0.5 ? practicalMul : shadowMul,
+          strength: (noShadow && enclosed < 0.5) ? 0 : 1,
+          off: noCast,
+          practicals: enclosed >= 0.5 ? lamps.nearest(focus, 4) : null,
+          keyLight: three.sun.light,
+          noClamp,
+        });
       },
     };
     api.dispose = () => { activeFx = null; lamps.dispose(); weatherFx.dispose(); castFx.dispose(); };

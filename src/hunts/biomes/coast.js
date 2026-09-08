@@ -14,7 +14,10 @@
  * and it is the one biome where sky at the top of the frame is correct.
  */
 
-import { Field, valueNoise, fbm2, warpedFbm, scatterSpaced, clamp01, snug } from '../compose.js';
+import {
+  Field, valueNoise, fbm2, warpedFbm, scatterSpaced, clamp01, snug, mixTint, wildCells,
+  laneNear,
+} from '../compose.js';
 import { distanceField } from './forest.js';
 
 export const COAST = {
@@ -27,16 +30,22 @@ export const COAST = {
   h: 54,
   weather: null,
   presets: {
-    shore: { marker: 'shore', distance: 30, dir: 2 },
-    dunes: { marker: 'dunes', distance: 30, dir: 2 },
-    point: { marker: 'point', distance: 30, dir: 2 },
-    sea: { marker: 'sea', distance: 34, dir: 2 },
-    wide: { marker: 'shore', distance: 46, dir: 2 },
-    close: { marker: 'shore', distance: 16, dir: 2 },
+    shore: { marker: 'shore', distance: 30 },
+    dunes: { marker: 'dunes', distance: 30 },
+    point: { marker: 'point', distance: 30 },
+    sea: { marker: 'sea', distance: 34 },
+    wide: { marker: 'shore', distance: 46 },
+    close: { marker: 'shore', distance: 16 },
     /** The judge plan asks every biome for `route`; here it is the strand along the bay. */
-    route: { marker: 'shore', distance: 26, dir: 2 },
+    route: { marker: 'shore', distance: 26 },
   },
   showcaseDefault: 'shore',
+  /**
+   * The strand runs east-west, which is why this is the one biome three blind rounds said
+   * read correctly: the party files across the frame instead of up it. Everything else in
+   * `hunts` is now built to do the same.
+   */
+  walk: { route: 'e16 n2 e10 s2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 /** Where the sea's surface sits, so the deep water is flush with the shallows sheet. */
@@ -89,8 +98,28 @@ export function buildCoast(draft, ctx, palette, rng, log) {
   water.bits.set(dryland.clone().invert().bits);
   water.despeckle(6);
 
-  // The wet band: two cells of shallows along the whole shore, deep water beyond it.
-  const deep = water.clone().shrink(3);
+  // The wet band: the wadeable shallows along the whole shore, deep water beyond it.
+  //
+  // `shrink(3)` is an **erosion**, and the arithmetic matters twice. It removes every feature
+  // narrower than three cells, so the deep-water region is a *smoothed copy* of the coastline
+  // — which is why round 2's drop-off read as a second clean staircase running parallel to
+  // the first. And because the erosion is 8-connected, every deep cell is Chebyshev 4 or more
+  // from land, so **no shallows cell ever touches both land and deep**: the 13-slot blob
+  // palette below never has to draw an isthmus, which it cannot do. Both facts are why the
+  // band stays three cells at its narrowest even where the noise thins it.
+  const shoreDist = distanceField(water.clone().invert(), W, H, 12);
+  const deep = new Field(W, H, (cx, cz) => water.get(cx, cz)
+    // A drop-off that is a constant offset from the coast is the coast again. Varying the
+    // band from three cells to seven on a low-frequency lattice makes the two lines
+    // different lines: a shallow shelf across the bay, a short steep one off the point.
+    && shoreDist[cz * W + cx] > 3 + valueNoise(cx, cz, seed ^ 0x4b19, 9) * 4);
+  const eroded = water.clone().shrink(3);
+  // `Field.shrink` counts outside the map as empty, so without this the top three rows of
+  // open sea come back as *shallows* and the far edge of the frame ends in a pale band with
+  // foam on it — a beach at the horizon.
+  eroded.union(new Field(W, H, (cx, cz) => cz < 3 && water.get(cx, cz) && shoreDist[cz * W + cx] > 4));
+  deep.intersect(eroded);
+  deep.despeckle(10);
   const shallows = water.clone().subtract(deep);
 
   // ------------------------------------------------------------------ ground
@@ -115,21 +144,68 @@ export function buildCoast(draft, ctx, palette, rng, log) {
     skip: (cx, cz, kase) => kase === 'center',
   });
 
-  // The shallows and their surf line, resolved against the *whole* water body so the foam
-  // lands on the real coastline and nowhere else — but the sheet itself stops at the drop-off
-  // so the deep water is not floored with ankle-deep sand. Skipping the underlay as well as
-  // the centre is what leaves `sea`'s own bed uncovered.
-  palette.draw(draft, 'set7', water, {
+  // ------------------------------------------------------------------- surf
+  //
+  // **The foam is resolved against the shallows, not against the whole sea, and that one
+  // change is the whole of "the shoreline is a bare staircase with no surf".**
+  //
+  // `set7 walk_edge` ships a complete 13-slot family and every one of its border slots is
+  // tagged `foam`/`surf`; only slot 6, `walkable_water_center`, is the flat wadeable sheet.
+  // Round 2 solved that family over the *whole* water body, so the only boundary it ever saw
+  // was water-against-land: the foam ringed the beach, and the drop-off — the far edge of the
+  // band, where the wadeable water meets the deep — was resolved as `center` on every cell,
+  // because from the whole body's point of view those cells are interior. So the deep water
+  // ended at a hard grid step with nothing on it, twice, one step apart.
+  //
+  // Solving the same family over the **annulus** gives it two boundaries instead of one, and
+  // it draws surf on both: against the land and against the deep. The model named `sea` has
+  // no border family at all, so this is the only foam the tileset can put on that edge, and
+  // the erosion above guarantees the annulus is never thinner than the three cells the blob
+  // palette needs to resolve an inside and an outside on the same cell.
+  //
+  // The underlay still goes down over the whole annulus so no border slot's partial ramp
+  // leaves a hole with the sky showing through (DECISIONS #28a).
+  //
+  // **The surf is tinted apart from the water it sits in, because the art is quiet.**
+  // `sea_zanami2` — the texture on all twelve border slots — is not a white breaker: it is a
+  // pale-blue wash (96,168,208 at its outer edge) fading to the shallows' own blue, with a
+  // *ragged transparent cutout* along the last two rows that lets whatever is under it show
+  // through. Dumped from the PNG, because on a dark background it reads as a white foam strip
+  // and it is not one. Laid at full brightness next to `sea_asase02` (the wadeable centre) the
+  // two are within a few luma of each other and the surf line disappears at any camera
+  // distance a critic actually shoots.
+  //
+  // `tint` is an instanced *multiply*, so it can only darken — the surf cannot be made
+  // brighter, but the body of the shallows can be taken down, and that is the same contrast.
+  // The underlay goes down at the body's tint too, so the ragged cutout at the wave's lip
+  // reads against deeper water instead of against itself.
+  const SHALLOW_BODY = 0xa9c6dc;
+  palette.draw(draft, 'set7', shallows, {
     underlay: true, collision: 'shallow', layer: 2, tags: ['water', 'shallow'],
-    skip: (cx, cz, kase) => deep.get(cx, cz) && (kase === 'center' || kase === 'underlay'),
+    tint: (cx, cz, kase) => ((kase === 'center' || kase === 'underlay')
+      ? mixTint(SHALLOW_BODY, 0x8fb2cc, fbm2(cx, cz, seed ^ 0x77e1, 6, 0.4),
+        { jitter: 4, cx, cz, seed: seed ^ 0x1c4d })
+      : 0xffffff),
   });
 
   // The deep, flush with the shallows sheet: `sea`'s surface is authored 0.3125 above its
   // placement, so it goes down at −0.9625 and its two planes land at −0.65 and −1.4625.
+  //
+  // Tinted off a low-frequency field rather than laid flat. `sea`'s texture is one dash glyph
+  // and every cell draws the same one, so an untinted sheet is that glyph on a visible ~11px
+  // lattice — the critic measured the pitch. A slow swell in the tint (and a cooler, deeper
+  // blue the further out it is) breaks the lattice without touching the art, and it is the
+  // one thing that reads as depth on a flat quad.
   if (seaDeep) {
+    const SEA_NEAR = 0xbfe4f2;
+    const SEA_FAR = 0x5a86c4;
     deep.forEach((cx, cz) => {
+      const d = clamp01((shoreDist[cz * W + cx] - 3) / 7);
+      const swell = fbm2(cx * 0.8, cz * 1.6, seed ^ 0x2f7a, 7, 0.45);
       draft.place(seaDeep, cx, cz, {
         y: SHALLOW_Y - SEA_SURFACE_DY, collision: 'water', layer: 3, tags: ['water', 'deep'],
+        tint: mixTint(SEA_NEAR, SEA_FAR, clamp01(d * 0.75 + swell * 0.35),
+          { jitter: 4, cx, cz, seed: seed ^ 0x51c3 }),
       });
     });
   }
@@ -180,12 +256,26 @@ export function buildCoast(draft, ctx, palette, rng, log) {
     const tall = tallGrass.filter((m) => (m.bounds?.max?.[1] ?? 0) > 0.55);
     const low = tallGrass.filter((m) => (m.bounds?.max?.[1] ?? 0) > 0.3 && (m.bounds?.max?.[1] ?? 0) <= 0.55);
     const flat = tallGrass.filter((m) => (m.bounds?.max?.[1] ?? 0) <= 0.3);
+  // Tall grass is **tinted down**, and this is a contrast note rather than a colour one.
+  // `ue_grass` is a 0.6-tall block of bright, fully-lit green: laid over the lawn at full
+  // brightness a patch comes out *lighter* than the ground around it, which is backwards —
+  // denser vegetation shades itself — and a dozen of them next to each other read as flat
+  // poster paint with a hard edge, which is what the critic called "literal rectangles".
+  // Taking it down to ~0.85 with a per-cell wobble puts the patch under the lawn in value,
+  // so the edge is a change in shade rather than a change in poster, and no two neighbouring
+  // cells land on exactly the same green.
+  const grassTint = (cx, cz) => mixTint(0xb6c8a4, 0xe2ecd6, fbm2(cx, cz, seed ^ 0x6ac1, 4, 0.5),
+    { jitter: 6, cx, cz, seed: seed ^ 0x33f7 });
     const core = dunes.clone().shrink(1);
     dunes.forEach((cx, cz) => {
       const inCore = core.get(cx, cz);
       const pool = inCore && tall.length ? tall : (flat.length ? flat : (low.length ? low : tall));
       const model = palette.pick(pool, cx, cz);
-      if (model) draft.place(model, cx, cz, { collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'] });
+      if (model) {
+        draft.place(model, cx, cz, {
+          collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'], tint: grassTint(cx, cz),
+        });
+      }
     });
   }
 
@@ -291,22 +381,51 @@ export function buildCoast(draft, ctx, palette, rng, log) {
     }
   }
 
+  // **Markers go through `laneNear`, like every other biome's.** Coast was the one map that
+  // still called `draft.mark` bare, on the reasoning that a strand is open ground and an
+  // east leg walks anywhere on it. It is not: `scrub`, the boulders and the shallows put
+  // blocked cells on the strand, and probed on the shipped seed-1337 map the `point` marker
+  // (50, 18) was blocked at `cx + 3` and `sea` at `cx − 2` — so two of the four framings
+  // walked into a rock, had the step dropped silently by `makeScriptedRoute`, and filed
+  // north. That is the defect three blind A/B rounds named, still shipping in the biome the
+  // judges said read correctly.
+  const bounds = { x0: 13, x1: W - 14, z0: 13, z1: H - 9 };
+  const mark = (name, cx, cz, opts = {}) => {
+    const at = laneNear(draft, cx, cz, { maxR: 7, bounds, ...opts });
+    draft.mark(name, at.cx, at.cz);
+    return at;
+  };
   const shoreCx = 26;
-  draft.spawn = { cx: shoreCx, cz: Math.round(shoreAt(shoreCx)) + 6, dir: 2 };
-  draft.mark('shore', shoreCx, Math.round(shoreAt(shoreCx)) + 8);
+  draft.spawn = { cx: shoreCx, cz: Math.round(shoreAt(shoreCx)) + 6, dir: 3 };
+  // `close` frames this marker at distance 16, which is four cells of ground south of the
+  // focus, so the skirt is asked for here and nowhere else on this map.
+  mark('shore', shoreCx, Math.round(shoreAt(shoreCx)) + 8, { south: 4 });
   // Clamped rather than offset blindly: adding the noise term to `shoreAt` moved this marker
   // to cz 46 of 54, inside the nine cells the framing arithmetic needs clear of the south
   // edge, and the selftest caught it before a shot did.
-  draft.mark('dunes', 16, Math.min(H - 10, Math.round(shoreAt(16)) + 13));
-  draft.mark('point', 50, Math.round(shoreAt(50)) + 9);
-  draft.mark('sea', 34, Math.round(shoreAt(34)) + 4);
+  mark('dunes', 16, Math.min(H - 10, Math.round(shoreAt(16)) + 13));
+  mark('point', 50, Math.round(shoreAt(50)) + 9);
+  mark('sea', 34, Math.round(shoreAt(34)) + 4);
   draft.mark('spawn', draft.spawn.cx, draft.spawn.cz);
+
+  // --------------------------------------------------------- the wild Pokemon
+  //
+  // In the dune grass above the strand — the one cover on this map — gathered around the
+  // framings a critic shoots, `shore` first because `route` uses it.
+  const wild = wildCells(rng.fork('wild'), {
+    w: W, h: H, seed,
+    markers: ['shore', 'dunes', 'point', 'sea'].map((n) => draft.marker(n)),
+    radius: 10, per: 3, spacing: 4.2,
+    accept: (cx, cz) => dunes.get(cx, cz) && draft.collisionAt(cx, cz) === 'walk'
+      && !track.get(cx, cz),
+  });
 
   return {
     stats: {
       water: water.count(), deep: deep.count(), shallows: shallows.count(),
-      track: track.count(), props: propPlacements.length,
+      track: track.count(), props: propPlacements.length, wild: wild.length,
     },
     extras: propPlacements.length ? [{ tileset: 'props', placements: propPlacements }] : [],
+    wild,
   };
 }

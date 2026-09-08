@@ -177,16 +177,26 @@ export const TALL_GRASS = [
 /**
  * Street lamps, and which way each one's head points.
  *
- * **This is the fix for the "pale featureless obelisk" in `docs/progress/_boot/wave-a-end.png`,
- * and it is a placement bug, not an asset bug.** AdAstra ships one lamp in four rotations
- * (`lamp_h` head south, `_v2` north, `_v3` west, `_v4` east); the head is a cobra-head
- * lantern on a horizontal arm reaching a full cell sideways. The camera's yaw is fixed, so
- * the south and north variants point their arm straight at or away from the lens and
- * foreshorten into a featureless wedge. The east/west pair shows the arm in profile and
- * reads as a street lamp. Verified in `preview` — see DECISIONS #25.
+ * **The lamp is `structures`' authored `street_lamp`, not AdAstra's `lamp_h`.** Round 2 read
+ * the obelisk as a placement bug and rotated its way out of the foreshortening; two
+ * whole-game passes and a blind judge then all named the same thing first, and from close
+ * range they were right about the cause. `slamp03.png` is 16x32 with **ten** colours — a
+ * flat blue-grey swatch — and AdAstra's `lamp_h` is two alpha-tested cards wearing it, so
+ * however it is turned it is a plain grey pole with a flat lozenge on top: no bulb, no
+ * housing, no fixture. There is no rotation of nothing that becomes something.
  *
- * So the city only ever places `'e'` (`lamp_h_v4`) and `'w'` (`lamp_h_v3`), heads pointing
- * *across* the street they light.
+ * `tiles.find('structures', { category: 'light', subcategory: 'street_lamp' })` is the
+ * replacement: 64 triangles of real geometry, a post with cast collar rings and lit/shaded
+ * columns, a three-box cobra arm, and a cowled head whose lens is its own material with
+ * `Ke 0.9`, so it lights at dusk exactly the way the Centre's windows do (DECISIONS #25d)
+ * without the city knowing the hour.
+ *
+ * It ships in **one** flavour — the arm reaching east — so `head` is served by a quarter
+ * turn rather than by a fourth model: `lampRotFor()` derives the turn from the model's own
+ * `orientation` against the letter asked for here. `'e'` and `'w'` remain the only two
+ * letters used, and that half of DECISIONS #25 still holds: the camera's yaw is fixed, so a
+ * north- or south-pointing arm foreshortens down its own post and hides the silhouette that
+ * is the whole point of the new art.
  *
  * **And they are never placed in opposing pairs.** That was the round-1 mistake and it was
  * worse than the obelisk it replaced: an `'e'` lamp at cx 30 with a `'w'` lamp at cx 33 puts
@@ -335,24 +345,84 @@ export const WINDOW_GLOWS = {
 };
 
 /**
- * The lamp's bulb, derived from the model's own bounds rather than written down.
+ * Which quarter turn puts a model's overhang on the compass point asked for.
  *
- * A lamp is 1x1 but its arm reaches into the neighbouring cell, so exactly one of the four
- * bounds extents falls outside [0, 1] — that is the direction the head hangs in, and the
- * bulb sits half a cell short of the far end, a little below the top of the post.
+ * `tiles` derives `model.orientation` from the model's own bounds against its footprint
+ * (`overhangOf`, DECISIONS #25a), and `InstancedWorld.composeMatrix` turns a placement by
+ * `-rot * 90°` about +Y — which sends **east to south to west to north** as `rot` counts up.
+ * So the turn is a subtraction on that cycle, and nothing here has to know that the authored
+ * lamp happens to ship arm-east: re-export it pointing north and every lamp still lands the
+ * way `LAMPS` asks for.
  *
- * @param {{bounds:{min:number[], max:number[]}}} model
- * @param {number} cx @param {number} cz
+ * @param {{orientation?:string|null}} model
+ * @param {'n'|'s'|'e'|'w'} head  which way the arm should overhang
+ * @returns {0|1|2|3}
  */
-export function bulbOf(model, cx, cz) {
+const ROT_CYCLE = ['e', 's', 'w', 'n'];
+export function lampRotFor(model, head) {
+  const from = ROT_CYCLE.indexOf(model?.orientation ?? 'e');
+  const to = ROT_CYCLE.indexOf(head);
+  if (from < 0 || to < 0) return 0;
+  return /** @type {0|1|2|3} */ ((to - from + 4) & 3);
+}
+
+/**
+ * Where a model's own geometry sits once the placement has turned it, in world space.
+ *
+ * `composeMatrix` rotates about the **footprint centre** and then stands that centre on the
+ * cells, which for a 1x1 piece is exactly "spin the model about the middle of its cell".
+ * Reproduced here rather than shared, because `tiles` exposes the matrix only through the
+ * instanced world it has already built and a light has to be registered from the same
+ * numbers the mesh was placed with or the glow floats off the lamp.
+ */
+function rotateInCell(px, pz, cx, cz, rot, w = 1, h = 1) {
+  const r = rot & 3;
+  const t = -r * Math.PI * 0.5;
+  const cos = Math.round(Math.cos(t)), sin = Math.round(Math.sin(t));
+  const halfW = w / 2, halfH = h / 2;
+  // A quarter turn swaps the footprint's extents, so the centre the turn happens about is
+  // the *turned* footprint's centre — exactly what `composeMatrix` does with `rot & 1`.
+  const ox = px - halfW, oz = pz - halfH;
+  return {
+    x: cx + ((r & 1) ? halfH : halfW) + (ox * cos + oz * sin),
+    z: cz + ((r & 1) ? halfW : halfH) + (-ox * sin + oz * cos),
+  };
+}
+
+/**
+ * The lamp's bulb — the centre of the piece of geometry that actually lights.
+ *
+ * Not the model's bounds. The old heuristic ("half a cell short of the far end, a little
+ * below the top") was fitted to AdAstra's card and is 0.26 west and 0.19 high of the
+ * authored fixture's lens, which is a quarter of a cell of daylight between the glow quad
+ * and the thing it is supposed to be coming out of. The pack says which materials emit
+ * (`emissiveMaterials`, the same list `tiles` ramps at dusk), and each material is its own
+ * geometry group with its own bounding sphere, so the lens's centre is a lookup rather than
+ * a guess — and it moves with the art if the art is re-cut.
+ *
+ * @param {object} tileset  the loaded tileset (`tiles.get('structures')`)
+ * @param {object} model    the lamp model
+ * @param {number} cx @param {number} cz @param {0|1|2|3} rot
+ */
+export function bulbOf(tileset, model, cx, cz, rot = 0) {
+  const mats = tileset?.pack?.materials;
+  const emissive = new Set(model?.emissiveMaterials ?? []);
+  for (const g of model?.groups ?? []) {
+    const full = mats?.[g.materialId]?.name ?? '';
+    if (!emissive.has(full.split(':').pop())) continue;
+    const c = g.geometry?.boundingSphere?.center;
+    if (!c) continue;
+    const p = rotateInCell(c.x, c.z, cx, cz, rot, model.w ?? 1, model.h ?? 1);
+    return { x: p.x, y: c.y, z: p.z };
+  }
+  // No emissive group — an unlit post, or a pack that predates the convention. The bulb goes
+  // at the far end of whatever the model overhangs, a little below its top.
   const b = model?.bounds;
   if (!b) return { x: cx + 0.5, y: 3.35, z: cz + 0.5 };
   const axis = (min, max) => (max > 1 ? max - 0.5 : (min < 0 ? min + 0.5 : 0.5));
-  return {
-    x: cx + axis(b.min[0], b.max[0]),
-    y: b.max[1] - 0.22,
-    z: cz + axis(b.min[2], b.max[2]),
-  };
+  const p = rotateInCell(axis(b.min[0], b.max[0]), axis(b.min[2], b.max[2]),
+    cx, cz, rot, model.w ?? 1, model.h ?? 1);
+  return { x: p.x, y: b.max[1] - 0.22, z: p.z };
 }
 
 // --- the cast ---------------------------------------------------------------

@@ -29,6 +29,23 @@
  *      the range before `contrast` pulled it down again, and no lamp could ever make a
  *      highlight. Night `gain` is near white now and `exposure` carries the hour instead.
  *
+ * Round 6 found the arithmetic error that had been hiding under all four of those, and it
+ * is worth stating precisely because two rounds already "fixed" it and did not:
+ *
+ *   5. **`lift` is authored as a display-space hex and delivered as a linear one.** It goes
+ *      through `new THREE.Color(hex)`, and `THREE.ColorManagement` is on, so `0x191c28`
+ *      arrives at the shader as `(0.0097, 0.0116, 0.0212)` — display `(2.5, 3.0, 5.4)/255`,
+ *      not the `(25, 28, 40)` the hex reads as. Meanwhile `contrast` is a gain about 0.5, so
+ *      it has a crush point at `0.5 - 0.5/contrast`: at the night's 1.22 that is
+ *      **0.0902**, or 23/255. Every night lift this project has ever shipped has been an
+ *      order of magnitude *inside* its own crush point, so the frame had no floor at all and
+ *      "raise the lift" moved nothing. Measured on the shipped night frames: `city-21` was
+ *      4.58 % of the frame at exactly rgb(0,0,0), plus 0.43 % at rgb(25,0,0) and 0.38 % at
+ *      rgb(0,0,50) — single-channel pixels, which is what `saturation` above 1 does to a
+ *      dark pixel once `contrast` has clamped the other two channels to zero.
+ *      The night, blue-hour and golden-hour lifts are now sized against the crush point and
+ *      `exposure` / `saturation` pay for the midtone and the colour the bigger offset costs.
+ *
  * `fogBoost` multiplies the fog colour in *linear* space and may exceed 1. Distance then
  * glows and crosses the bloom threshold on its own, which is what gives docs/refs/04 its
  * hot horizon — the 45° camera never actually shows the sky, so all "air" must come from
@@ -93,6 +110,14 @@ function key(hour, o) {
     bloom: o.bloom, bloomThreshold: o.bloomThreshold,
     vignette: o.vignette ?? 0.3, grain: o.grain ?? 0.016,
     haze: o.haze ?? 0.35, stars: o.stars ?? 0,
+    /**
+     * 0 = open sky, 1 = a roof over the camera. Read by index.js: at 1 the directional key
+     * stops casting and the registered practicals throw the character shadows instead. It
+     * lives on the keyframe rather than in a `biome === 'cave'` test so that a scene can
+     * declare a roofed *part* of an outdoor map through `environment.setEnclosure()` and
+     * nothing here has to know a biome's name.
+     */
+    enclosed: o.enclosed ?? 0,
     /** Warm practical lights (street lamps, windows) ramp on with this. */
     lamps: o.lamps ?? 0,
   };
@@ -114,15 +139,18 @@ const OUTDOOR = [
   key(0.0, {
     zenith: 0x081026, horizon: 0x111e40, ground: 0x04060c,
     hemiSky: 0x74829a, hemiGround: 0x322f2c, ambientColor: 0x3e4458,
-    sunTint: 0xd4dcee, sun: 2.80, sunSize: 0.010,
-    hemi: 0.74, ambient: 0.054,
+    sunTint: 0xb2c4e6, sun: 3.50, sunSize: 0.010,
+    hemi: 0.60, ambient: 0.054,
     bounce: 0.24, bounceColor: 0x78809a,
     camFill: 0.20, camFillColor: 0xb6c0d8,
     fog: 0x080d1a, fogDensity: 0.0170, fogBoost: 0.30,
-    exposure: 0.285, contrast: 1.24, saturation: 1.34,
-    bloom: 0.85, bloomThreshold: 2.6,
+    // Round 6: `exposure` down and `saturation` up pay for the much larger `lift` below, so
+    // the frame gets its floor back without getting its midtones lifted with it. See the
+    // `lift` note — the old 0x191c28 was not a floor at all, it was 2.5/255.
+    exposure: 0.26, contrast: 1.22, saturation: 1.34,
+    bloom: 1.15, bloomThreshold: 0.85,
     vignette: 0.46, grain: 0.020, haze: 0.18, stars: 1.0, lamps: 1.0,
-    lift: 0x0c0d14, gain: 0xfdfdff,
+    lift: 0x3a3f52, gain: 0xfdfdff,
   }),
   // ── astronomical → civil twilight, the sky lifts before the sun ───────────────────────
   key(4.9, {
@@ -136,7 +164,7 @@ const OUTDOOR = [
     exposure: 0.375, contrast: 1.14, saturation: 1.42,
     bloom: 0.75, bloomThreshold: 2.2,
     vignette: 0.42, grain: 0.019, haze: 0.42, stars: 0.55, lamps: 1.0,
-    lift: 0x0b0c12, gain: 0xfeffff,
+    lift: 0x2c3040, gain: 0xfeffff,
   }),
   // ── sunrise: the sun is on the horizon, everything vertical catches it ────────────────
   key(5.75, {
@@ -147,10 +175,10 @@ const OUTDOOR = [
     bounce: 1.25, bounceColor: 0xffbe8e,
     camFill: 1.10, camFillColor: 0xd8d6e2,
     fog: 0x9c6244, fogDensity: 0.0088, fogBoost: 0.95,
-    exposure: 0.525, contrast: 1.25, saturation: 1.38,
+    exposure: 0.50, contrast: 1.25, saturation: 1.46,
     bloom: 0.55, bloomThreshold: 1.6,
     vignette: 0.36, grain: 0.017, haze: 0.78, stars: 0.10, lamps: 0.6,
-    lift: 0x120d06, gain: 0xfffaf3,
+    lift: 0x242a3a, gain: 0xfffaf3,
   }),
   // ── early morning: long shadows, air still cool ───────────────────────────────────────
   key(7.2, {
@@ -161,10 +189,10 @@ const OUTDOOR = [
     bounce: 0.90, bounceColor: 0xffd0ab,
     camFill: 0.95, camFillColor: 0xdee2f0,
     fog: 0xa89279, fogDensity: 0.0082, fogBoost: 0.98,
-    exposure: 0.465, contrast: 1.30, saturation: 1.36,
+    exposure: 0.445, contrast: 1.30, saturation: 1.44,
     bloom: 0.4, bloomThreshold: 0.95,
     vignette: 0.32, grain: 0.015, haze: 0.55, stars: 0, lamps: 0.02,
-    lift: 0x0e0b06, gain: 0xfffbf6,
+    lift: 0x1e2230, gain: 0xfffbf6,
   }),
   // ── mid morning ───────────────────────────────────────────────────────────────────────
   key(9.4, {
@@ -175,10 +203,10 @@ const OUTDOOR = [
     bounce: 0.62, bounceColor: 0xffe6ce,
     camFill: 0.42, camFillColor: 0xdfe9f6,
     fog: 0x8fb4d8, fogDensity: 0.0064, fogBoost: 1.02,
-    exposure: 0.435, contrast: 1.33, saturation: 1.50,
+    exposure: 0.42, contrast: 1.33, saturation: 1.58,
     bloom: 0.32, bloomThreshold: 1.05,
     vignette: 0.29, grain: 0.014, haze: 0.34, stars: 0, lamps: 0,
-    lift: 0x06060a, gain: 0xfffefb,
+    lift: 0x1a1e2a, gain: 0xfffefb,
   }),
   // ── noon: the flattest hour. Keep the fill blue and small or it turns to milk. ─────────
   // The fills are deliberately tiny here: at noon nothing is starved of key except a
@@ -193,10 +221,10 @@ const OUTDOOR = [
     bounce: 0.40, bounceColor: 0xf6efdf,
     camFill: 0.34, camFillColor: 0xdfe9f6,
     fog: 0x86aeda, fogDensity: 0.0056, fogBoost: 1.0,
-    exposure: 0.355, contrast: 1.32, saturation: 1.64,
+    exposure: 0.341, contrast: 1.32, saturation: 1.70,
     bloom: 0.3, bloomThreshold: 1.15,
     vignette: 0.28, grain: 0.013, haze: 0.26, stars: 0, lamps: 0,
-    lift: 0x050508, gain: 0xfffffe,
+    lift: 0x161a26, gain: 0xfffffe,
   }),
   // ── afternoon: warms and saturates before the golden hour proper ──────────────────────
   key(15.4, {
@@ -207,10 +235,10 @@ const OUTDOOR = [
     bounce: 0.78, bounceColor: 0xffdfbb,
     camFill: 0.62, camFillColor: 0xdfe7f4,
     fog: 0x9fb6cf, fogDensity: 0.007, fogBoost: 1.05,
-    exposure: 0.44, contrast: 1.28, saturation: 1.46,
+    exposure: 0.425, contrast: 1.28, saturation: 1.54,
     bloom: 0.38, bloomThreshold: 1.0,
     vignette: 0.30, grain: 0.014, haze: 0.42, stars: 0, lamps: 0,
-    lift: 0x060609, gain: 0xfffdfa,
+    lift: 0x1a1e2a, gain: 0xfffdfa,
   }),
   // ── golden hour (docs/refs/04): long warm key, warm bounce, cool sky ───────────────────
   // The sun is 9.6 degrees up here, so a flat ground takes `dot(N,L) = 0.17` of it and is
@@ -226,10 +254,16 @@ const OUTDOOR = [
     bounce: 0.95, bounceColor: 0xffc086,
     camFill: 1.15, camFillColor: 0xe0dae0,
     fog: 0xc08a62, fogDensity: 0.0070, fogBoost: 0.90,
-    exposure: 0.425, contrast: 1.31, saturation: 1.42,
+    // Round 6: the warm `lift 0x120d07` was the golden hour's own version of the cave's
+    // one-hue bug (#46b). It delivered (0.0060, 0.0040, 0.0021) against a crush point of
+    // 0.1183, so every shadow in the frame had blue clamped to zero and red held up by the
+    // lift: a golden hour whose shade could only be orange. The lift is cool and above the
+    // crush now, `exposure` pays for the midtones it would otherwise have raised, and
+    // `saturation` pays for the colour the bigger lift washes out.
+    exposure: 0.40, contrast: 1.31, saturation: 1.50,
     bloom: 0.5, bloomThreshold: 1.8,
     vignette: 0.33, grain: 0.015, haze: 0.78, stars: 0, lamps: 0.10,
-    lift: 0x120d07, gain: 0xfffbf5,
+    lift: 0x242a3a, gain: 0xfffbf5,
   }),
   // ── sunset: the disc is on the horizon, the ground barely catches it ──────────────────
   key(18.3, {
@@ -240,10 +274,10 @@ const OUTDOOR = [
     bounce: 0.95, bounceColor: 0xffb076,
     camFill: 1.20, camFillColor: 0xd8d2e0,
     fog: 0xb05a30, fogDensity: 0.0092, fogBoost: 0.95,
-    exposure: 0.435, contrast: 1.26, saturation: 1.38,
+    exposure: 0.41, contrast: 1.26, saturation: 1.46,
     bloom: 0.6, bloomThreshold: 1.6,
     vignette: 0.37, grain: 0.017, haze: 0.90, stars: 0, lamps: 0.30,
-    lift: 0x120d07, gain: 0xfff9f2,
+    lift: 0x242a3a, gain: 0xfff9f2,
   }),
   // ── blue hour: the warm key is gone, the sky is the only source ───────────────────────
   key(19.1, {
@@ -257,21 +291,22 @@ const OUTDOOR = [
     exposure: 0.46, contrast: 1.14, saturation: 1.40,
     bloom: 0.85, bloomThreshold: 1.4,
     vignette: 0.43, grain: 0.019, haze: 0.55, stars: 0.35, lamps: 1.0,
-    lift: 0x0a0b11, gain: 0xfeffff,
+    // Crush point at contrast 1.14 is 0.0614; the old 0x0a0b11 delivered 0.0031.
+    lift: 0x2c3040, gain: 0xfeffff,
   }),
   // ── night proper (docs/refs/03) ───────────────────────────────────────────────────────
   key(20.6, {
     zenith: 0x091230, horizon: 0x13204a, ground: 0x05070e,
     hemiSky: 0x74829a, hemiGround: 0x322f2c, ambientColor: 0x40465a,
-    sunTint: 0xd4dcee, sun: 2.85, sunSize: 0.010,
-    hemi: 0.74, ambient: 0.054,
+    sunTint: 0xb2c4e6, sun: 3.50, sunSize: 0.010,
+    hemi: 0.60, ambient: 0.054,
     bounce: 0.24, bounceColor: 0x78809a,
     camFill: 0.20, camFillColor: 0xb6c0d8,
     fog: 0x090e1c, fogDensity: 0.0166, fogBoost: 0.32,
-    exposure: 0.29, contrast: 1.24, saturation: 1.34,
-    bloom: 0.85, bloomThreshold: 2.6,
+    exposure: 0.26, contrast: 1.22, saturation: 1.34,
+    bloom: 1.15, bloomThreshold: 0.85,
     vignette: 0.46, grain: 0.020, haze: 0.22, stars: 0.95, lamps: 1.0,
-    lift: 0x0c0d14, gain: 0xfdfdff,
+    lift: 0x3a3f52, gain: 0xfdfdff,
   }),
 ];
 
@@ -303,43 +338,118 @@ export const PRESETS = {
    * Canopy: less sky reaches the floor, the bounce that does is green, and the air between
    * the trunks is thick. This is the docs/refs/03 look at night.
    */
-  forest: tinted(OUTDOOR, (k) => ({
-    hemiSky: pull(k.hemiSky, 0x37703a, 0.34),
-    hemiGround: pull(k.hemiGround, 0x16260f, 0.6),
-    hemi: k.hemi * 0.78,
-    // A tree is two crossed upright cards (#29), so under a canopy almost every lit surface
-    // is *vertical* and a hemisphere that has been cut to 0.78 to sell the shade reaches
-    // none of it. The camera-axis fill does, and it is the only source in the rig that points
-    // at the face the player is actually looking at.
-    camFill: k.camFill * 1.55,
-    bounce: k.bounce * 1.15,
-    fogDensity: k.fogDensity * 1.75,
-    fog: pull(k.fog, isDark(k) ? 0x0b1a10 : 0x33502a, 0.5),
-    fogBoost: k.fogBoost * (isDark(k) ? 0.85 : 0.95),
-    saturation: k.saturation * 1.05,
-    haze: Math.min(1, k.haze + 0.12),
-    vignette: Math.min(0.62, k.vignette + 0.08),
-  })),
+  forest: tinted(OUTDOOR, (k) => {
+    /**
+     * ── Round 5: a canopy is an argument about the *sky*, and at night there isn't one ──
+     * Every multiplier below used to apply at every hour, and at night they compounded into
+     * a flat multiply over the whole frame: `forest-21` measured mean 20.4 / p95 43 / 25.8%
+     * of the frame under luma 8 while `meadow-21`, the same OUTDOOR night keyframes with no
+     * tint at all, measured mean 40.4 — so the two biomes had no shared lighting language at
+     * the same hour, which is what `hunts` filed. docs/refs/03 is a *night* forest and its
+     * path is the brightest thing in the picture (p95 129.5, max 217): what makes it read as
+     * night is the ratio between the path and the black under the trees, not the average.
+     *
+     * The canopy argument is "less sky reaches the floor". At noon the sky is the second
+     * source and cutting it is most of the look. At 21:00 the sky is already three stops
+     * down and cutting it again just removes the picture — so at night the fill goes *up*
+     * (which is what the shade under a canopy actually looks like: it is filled by the
+     * ground and the trunks around it, not by the sky), the fog thins back toward the
+     * outdoor night, and the extra vignette comes off a frame that is already dark at the
+     * edges. The daytime numbers are untouched — `forest-12` is the frame nobody filed.
+     */
+    const dark = isDark(k);
+    return {
+      hemiSky: pull(k.hemiSky, 0x37703a, dark ? 0.22 : 0.34),
+      hemiGround: pull(k.hemiGround, 0x16260f, dark ? 0.38 : 0.6),
+      hemi: k.hemi * (dark ? 1.30 : 0.78),
+      // A tree is two crossed upright cards (#29), so under a canopy almost every lit surface
+      // is *vertical* and a hemisphere that has been cut to 0.78 to sell the shade reaches
+      // none of it. The camera-axis fill does, and it is the only source in the rig that points
+      // at the face the player is actually looking at.
+      camFill: k.camFill * (dark ? 2.4 : 1.55),
+      bounce: k.bounce * (dark ? 1.7 : 1.15),
+      fogDensity: k.fogDensity * (dark ? 1.05 : 1.75),
+      fog: pull(k.fog, dark ? 0x16291d : 0x33502a, dark ? 0.42 : 0.5),
+      fogBoost: k.fogBoost * (dark ? 1.35 : 0.95),
+      exposure: k.exposure * (dark ? 1.30 : 1),
+      contrast: k.contrast * (dark ? 1.02 : 1),
+      saturation: k.saturation * (dark ? 0.96 : 1.05),
+      haze: Math.min(1, k.haze + 0.12),
+      vignette: dark ? k.vignette : Math.min(0.62, k.vignette + 0.08),
+    };
+  }),
 
   /**
    * No sky at all. A cave is lit by its openings and by whatever glows down there, so the
    * key is a warm shaft, the fill is almost nothing, and the far dark is the subject.
+   *
+   * ── Round 5: the room was one hue, and every number here was pushing it that way ──────
+   * Three modules filed the same note and `hunts` measured it: mean saturation 0.93-0.94 on
+   * every cave frame against docs/refs/02's 0.194 and refs/04's 0.773, and a luma spread
+   * flatter than any other scene in the game. `?envNoShadow=1` produced a byte-identical
+   * PNG, so it was never the shadows — it was this table. Four terms, in order of how much
+   * each contributed (each was shot on its own before they were combined):
+   *
+   *   `fogDensity 0.040` — at a 45 degree pitch the visible floor runs 15-30 world units
+   *     out, and exp(-0.04 * 20) = 0.45, so **more than half of the average pixel was the
+   *     fog colour** rather than the surface under it. Outdoor day runs 0.0056-0.0092. At
+   *     0.016 the far tray still fades but the rock keeps its own albedo.
+   *   `fog 0x4a2f18 x fogBoost 1.35` — and that colour was a saturated orange. Every pixel
+   *     was therefore lerped toward one orange, which is the definition of one hue. The fog
+   *     is a cool slate now: the room's *air* is the cool half of the frame and the lamps
+   *     are the warm half, so there are two hues in the picture without a second light.
+   *   `lift 0x1a1208` — a warm floor under the display range. It is why the cave measured
+   *     `pureBlack 0.00` and `belowL8 0.00`: no pixel in a cave could be dark, or neutral.
+   *   `saturation 1.30` on top of all of that.
+   *
+   * `sun` stays high and warm and still does not cast (`enclosed: 1`, DECISIONS #43) — it
+   * is the shaft from the openings, and it is the only thing separating a floor from a wall
+   * in here, so cutting it was tried and measured *flatter*, not less muddy.
    */
   cave: OUTDOOR.map((k) => ({
     ...k,
-    skyZenith: c(0x03040a), skyHorizon: c(0x090b14), skyGround: c(0x030407),
-    ground: c(0x040509),
-    hemiSky: c(0x5c6a94), hemiGround: c(0x2e2418), ambientColor: c(0x6a5a58),
-    sunTint: c(0xffd8ac), sun: 5.20, sunSize: 0.02,
-    hemi: 0.50, ambient: 0.060,
+    // The 45 degree camera never frames the dome, but everything the *map* does not cover
+    // does show it, and a cave map ends at its own tray. At 0x03040a that boundary read as
+    // a hole punched in the frame the moment the fog stopped being thick enough to hide it
+    // (it is why the old preset could run `fogDensity 0.040` and never notice). Pitched at
+    // the fog's own colour, a little darker, the same boundary reads as air going back.
+    skyZenith: c(0x1b2030), skyHorizon: c(0x272d3e), skyGround: c(0x141721),
+    ground: c(0x141721),
+    hemiSky: c(0x7d92bd), hemiGround: c(0x35343a), ambientColor: c(0x646c82),
+    sunTint: c(0xffd0a0), sun: 5.20, sunSize: 0.02,
+    hemi: 1.10, ambient: 0.082,
     // Explicit, because `...k` would otherwise inherit the outdoor hour's fills, and those
     // are sized against an outdoor `sun`/`exposure` this preset replaces wholesale.
-    bounce: 0.30, bounceColor: c(0xff9c50), camFill: 0.26, camFillColor: c(0xffcfa4),
-    fog: c(0x4a2f18), fogDensity: 0.040, fogBoost: 1.35,
-    exposure: 0.80, contrast: 1.14, saturation: 1.30,
-    bloom: 1.00, bloomThreshold: 1.10,
-    vignette: 0.52, grain: 0.020, haze: 0.95, stars: 0, lamps: 1.0,
-    lift: c(0x1a1208), gain: c(0xffeeda),
+    bounce: 0.30, bounceColor: c(0xff9c50), camFill: 0.26, camFillColor: c(0xbfc8e0),
+    fog: c(0x39415a), fogDensity: 0.019, fogBoost: 1.05,
+    // `contrast` is a gain about 0.5, so it has a crush point: everything under
+    // `0.5 - 0.5/contrast` of the display range becomes literally 0. At the old 1.14 that
+    // was 15.7/255, and the old warm `lift 0x1a1208` cleared it on red (26) and *not* on
+    // blue (8) — which is the whole of the one-hue reading, arithmetically: every unlit
+    // pixel in the cave had its blue channel clamped to zero and its red held up by the
+    // lift, so the room could only ever be orange. The lift is cool now and clears the
+    // crush on all three channels.
+    // Round 6: `exposure` 1.00 -> 1.20 replaces the highlight that the raised bloom
+    // threshold below gives up, and it is what `hunts` asked for by a different route —
+    // unlit rock is dark rather than exactly (0,0,0).
+    exposure: 1.20, contrast: 1.20, saturation: 1.42,
+    // The only lights in the room are the practicals, so they are the only thing that can
+    // make a highlight — every blind round has said our frames have none. Round 5 set the
+    // threshold at 0.72 to get one, and it worked; what it also did was halo every character
+    // in the room. Measured: a lit sprite's face and a lamp's ground pool sit at *the same*
+    // HDR value in here (both drop out of the bloom between threshold 1.8 and 2.4), so no
+    // threshold separates them — the choice is which one to keep. At 0.72 the trainer under
+    // the west lamp is a cream blob with no outline, no eye and no mouth; at 1.80 the
+    // silhouette, the eye, the mouth and the shirt are all back, and the lamp pools still
+    // glow. The 9 levels of p99 that costs are bought back by `exposure` above.
+    bloom: 1.30, bloomThreshold: 1.80,
+    // Measured, not taste: at 0.38 the frame's own corners sampled rgb(0,0,9) with a lift of
+    // 0x0e1119 under them, and a quarter of `belowL8` was the vignette rather than the
+    // scene. Neither cave reference has a dark corner in it.
+    vignette: 0.20, grain: 0.020, haze: 0.55, stars: 0, lamps: 1.0,
+    lift: c(0x0b1122), gain: c(0xfff2e2),
+    // There is no sky in here. See `key()`'s note on `enclosed`.
+    enclosed: 1,
   })),
 
   /** Open water: more airborne salt, a cooler bounce off the sea, a paler distance. */
@@ -378,11 +488,12 @@ export const PRESETS = {
     bloom: 0.55, bloomThreshold: 1.10,
     vignette: 0.30, grain: 0.014, haze: 0.20, stars: 0, lamps: 1.0,
     lift: c(0x140f08), gain: c(0xfff6ea),
+    enclosed: 1,
   })),
 };
 
 const LERP_FIELDS = ['sun', 'sunSize', 'hemi', 'ambient', 'bounce', 'camFill',
-  'fogDensity', 'fogBoost',
+  'enclosed', 'fogDensity', 'fogBoost',
   'exposure', 'contrast', 'saturation', 'bloom', 'bloomThreshold', 'vignette', 'grain',
   'haze', 'stars', 'lamps'];
 const COLOR_FIELDS = ['skyZenith', 'skyHorizon', 'skyGround', 'ground', 'hemiSky',

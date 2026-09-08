@@ -1,7 +1,7 @@
 /**
  * The tiles gauntlet.
  *
- * Four modes, all deterministic (ARCHITECTURE §6):
+ * Modes, all deterministic (ARCHITECTURE §6):
  *
  *   ?showcase=tiles                  every autotile set as a labelled blob, one glance
  *   ?showcase=tiles&mode=set3        one set: the blob, plus each of its 13 cases stamped
@@ -12,6 +12,9 @@
  *   ?showcase=tiles&mode=lamps       the four street-lamp variants at the game camera, plus
  *                                    the same row again on a night ramp — the emissive proof
  *   ?showcase=tiles&mode=ground      a bare lawn and a path, for judging tiling repetition
+ *   ?showcase=tiles&mode=trees       every 2x2 tree alone on a lawn, then the same three
+ *                                    packed into a copse, plus a lamp — the only mode where
+ *                                    an upright billboard's silhouette stands against nothing
  *
  * It builds its placements itself rather than through `terrain.MapDraft`: `tiles` declares
  * `needs: []`, so its own proof has to stand up while terrain is being edited.
@@ -104,6 +107,7 @@ export async function showcaseTiles(mode, ctx) {
   if (mode === 'variants') return variantsMode(ctxs);
   if (mode === 'lamps' || mode === 'light') return lampsMode(ctxs);
   if (mode === 'ground') return groundMode(ctxs);
+  if (mode === 'trees' || mode === 'wood') return treesMode(ctxs);
   if (chosen) return singleSetMode(ctxs, chosen);
   return overviewMode(ctxs);
 }
@@ -621,4 +625,71 @@ function groundMode({ ctx, tiles, ts, overlay, lawn }) {
 
   finish(ctx, tiles, stage, 'showcase:tiles:ground');
   frameStage(ctx, stage, { pad: 0 });
+}
+
+// --- mode: the trees, one at a time -------------------------------------------------------
+
+/**
+ * The mode the blind judges' forest complaints have to be settled in.
+ *
+ * A wood is the worst place to debug a tree: every crown overlaps its neighbour's, so a
+ * card that is drawn wrong is indistinguishable from a card that is merely behind
+ * something. This stands each 2x2 tree alone on open lawn with four clear cells around it,
+ * at the game camera, so the *silhouette* is readable — trunk, canopy, root decal and the
+ * order they stack in — and then repeats the three of them packed at the spacing `hunts`
+ * actually plants at, so a fix can be judged on an isolated object and on a mass in the
+ * same frame. One `lamp_h` stands at the end of the row on paving for the same reason.
+ */
+function treesMode({ ctx, tiles, ts, overlay, lawn }) {
+  const trees = ['tree', 'round_tree', 'darker_pine', 'big_tree_dark']
+    .map((n) => tiles.byName(SLUG, n)).filter(Boolean);
+  const lamp = tiles.find(SLUG, { category: 'light', orientation: 'w' })[0]
+    ?? tiles.find(SLUG, { category: 'light' })[0];
+  const paving = tiles.byName(SLUG, 'stone_path_center') ?? tiles.byName(SLUG, 'grass_path_center');
+
+  const PITCH = 6;
+  const stage = new Stage(PITCH * trees.length + 10, 18);
+  stage.fillGround(lawn, 10);
+
+  // Row one: one tree per column, four cells of clear lawn between crowns.
+  trees.forEach((m, i) => {
+    const cx = 2 + i * PITCH, cz = 3;
+    stage.place(m, cx, cz, { layer: 2 });
+    overlay.add([m.name, `${m.tris} tris  y ${m.bounds.min[1].toFixed(2)}..${m.bounds.max[1].toFixed(2)}`],
+      cx + m.w / 2, topOf(m, 0) + 0.5, cz + m.h / 2, 'case');
+  });
+
+  // Row two: the copse. `hunts` packs 2x2 crowns at 1.85 cells with overlap allowed
+  // (DECISIONS #36b), so this is that spacing on a fixed lattice — the mass, not the object.
+  const copse = trees.slice(0, 3);
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 6; c++) {
+      const m = copse[(r * 2 + c * 3) % copse.length];
+      stage.place(m, 2 + c * 3, 10 + r * 2, { layer: 2 });
+    }
+  }
+
+  if (lamp && paving) {
+    const cx = stage.w - 4;
+    for (let cz = 2; cz < 6; cz++) stage.setGround(cx, cz, paving);
+    stage.place(lamp, cx, 4, { layer: 2 });
+    overlay.add([lamp.name, `${lamp.tris} tris  slamp03 16x32`],
+      cx + 0.5, topOf(lamp, 0) + 0.5, 4.5, 'case');
+  }
+
+  overlay.panel([
+    'the trees, alone and in a mass',
+    '',
+    ...trees.map((m) => `${pad(m.name, 15)}${pad(`${m.tris} tris`, 9)}`
+      + `y ${m.bounds.min[1].toFixed(2)}..${m.bounds.max[1].toFixed(2)}  `
+      + `${m.groups.length} materials`),
+    '',
+    'an AdAstra tree is two upright cards crossing at the cell centre plus',
+    'horizontal canopy slices, one material per layer (DECISIONS #22). The',
+    'cards carry the whole tree — trunk at the bottom, crown at the top — so',
+    'they are the only geometry in the set that can show a V flip.',
+  ], { corner: 'bottom-left' });
+
+  finish(ctx, tiles, stage, 'showcase:tiles:trees');
+  frameStage(ctx, stage, { pad: 1, lift: -1 });
 }

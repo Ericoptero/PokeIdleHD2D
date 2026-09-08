@@ -1,19 +1,24 @@
 /**
- * The two worlds the terrain draft cannot carry, plus the lights.
+ * The worlds the terrain draft cannot carry, plus the lights.
  *
  * A `Placement` is `{ modelId, cx, cz, … }` and `tiles.buildInstances()` resolves that id
  * against **one** tileset, so a Pokemon Center (id 2 of `structures`) put through the
  * AdAstra draft would draw AdAstra's model 2 — a path corner — and the building would
- * simply never appear. So the authored buildings and the adapted props get their own
- * `InstancedWorld` each, built from the same `layout.js` the map reserved its cells from.
- * Two extra worlds cost about twenty draw calls between them, against a budget of 1500.
+ * simply never appear. So the authored buildings, the authored street lamps, the adapted
+ * props and the square's paving get an `InstancedWorld` each, built from the same
+ * `layout.js` the map reserved its cells from. Four worlds cost about two dozen draw calls
+ * between them, against a budget of 1500.
+ *
+ * The lamps are their own world rather than sharing the buildings' even though they share
+ * the buildings' tileset, because `castShadow` is a per-world flag and a lamp must not cast
+ * — see the block that builds them.
  *
  * Lights live here too, because a lamp post and its bulb have to be placed from the same
  * numbers or the glow floats off the lamp.
  */
 
 import {
-  PLOTS, PROPS, LAMPS, WINDOW_GLOWS, PLAZA_STONE, PAVING, bulbOf, plotModel,
+  PLOTS, PROPS, LAMPS, WINDOW_GLOWS, PLAZA_STONE, PAVING, bulbOf, lampRotFor, plotModel,
 } from './layout.js';
 import { repaint } from './recolor.js';
 
@@ -83,7 +88,7 @@ export async function dressCity(ctx) {
   const { log } = ctx;
   const scene = ctx.three.scene;
   const worlds = [];
-  const stats = { structures: 0, props: 0, paving: 0, lamps: 0, glows: 0, meshes: 0, triangles: 0 };
+  const stats = { structures: 0, posts: 0, props: 0, paving: 0, lamps: 0, filaments: 0, glows: 0, meshes: 0, triangles: 0 };
   /** @type {(() => void)|null} */
   let undoRepaint = null;
 
@@ -111,6 +116,53 @@ export async function dressCity(ctx) {
       stats.triangles += world.stats.triangles;
       stats.roofsUnshadowed = unshadowRoofs(tiles.get('structures'), world);
     }
+  }
+
+  // --- the street lamps -----------------------------------------------------
+  // The lamp is `structures`' authored `street_lamp` (see `LAMPS` in layout.js), so it comes
+  // from the same pack as the buildings — and it still gets its **own** instanced world, for
+  // one reason: `castShadow: false`.
+  //
+  // At 21:00 every lamp threw a hard-edged black silhouette of its own post and head across
+  // the grass beside it, and because the head hangs a cell out on the arm its shadow landed
+  // clear of the post's streak as a detached black lozenge — the "floating black rectangles"
+  // two whole-game passes named in the same breath as the lamp art itself
+  // (`docs/progress/city/r3/n21-highstreet.png` is the same framing without them).
+  //
+  // Half of that artifact was AdAstra's baked `kage_out` quad, and `tiles` already drops it
+  // (`dropBakedShadowDecals`, DECISIONS #44): probing the running page for the old lamp found
+  // one mesh per model, `lamp_h_v4#0`, not the two its groups would give. So the half that
+  // remained is this geometry's own entry in the sun's shadow map, and the flag is all of it.
+  //
+  // Refusing it is defensible rather than merely convenient. A street lamp is the one object
+  // in the scene that is *itself* a light source at the hour the artifact appears, so a hard
+  // moon-cast silhouette of it reads as a mistake before you even measure how black it is.
+  // What is given up is the post's own daylight shadow, and the job that shadow does — saying
+  // the post meets the ground — is already done by the generated contact quad, which is soft,
+  // is under the base at every hour, and was measured at noon before this line went in:
+  // `docs/progress/city/r3/n12-lampfoot.png` frames two posts standing on open grass, and the
+  // lawn inside the quad reads `rgb(31,108,28)` against `rgb(88,154,84)` three cells away —
+  // about a third off, over a soft-edged disc two and a half cells across. Same trade as
+  // `unshadowRoofs` above, taken at construction instead of after it.
+  const lampModel = structures
+    ? tiles.find('structures', { category: 'light', subcategory: 'street_lamp' })[0]
+    : null;
+  if (structures && !lampModel) {
+    log.warn('city: `structures` has no street_lamp — the town is unlit');
+  }
+  if (lampModel) {
+    const placements = LAMPS.map((lamp) => ({
+      modelId: lampModel.id, cx: lamp.cx, cz: lamp.cz, y: 0,
+      // One authored flavour, arm east; `head` is served by a quarter turn derived from the
+      // model's own overhang rather than from a table of four model names.
+      rot: lampRotFor(lampModel, lamp.head),
+    }));
+    const world = tiles.buildInstances(scene, 'structures', placements,
+      { name: 'city:lamps', variety: 0, castShadow: false });
+    worlds.push(world);
+    stats.posts = placements.length;
+    stats.meshes += world.stats.meshes;
+    stats.triangles += world.stats.triangles;
   }
 
   // --- the adapted props ----------------------------------------------------
@@ -173,9 +225,15 @@ export async function dressCity(ctx) {
   if (isLive(env) && env.lamps && typeof env.lamps.add === 'function') {
     env.lamps.clear();
 
-    for (const lamp of LAMPS) {
-      const model = tiles.find('bw2-adastra', { category: 'light', orientation: lamp.head })[0];
-      const b = bulbOf(model, lamp.cx, lamp.cz);
+    // No lamp model means no posts were built, so registering their bulbs would light eleven
+    // patches of empty pavement.
+    for (const lamp of (lampModel ? LAMPS : [])) {
+      // The bulb is the centre of the *lit lens group* under the same quarter turn the mesh
+      // was placed with, not a guess off the model's bounds — the authored fixture's lens
+      // sits at (1.32, 3.45, 0.50) in model space and the old heuristic put the glow a
+      // quarter of a cell west of it and a fifth of a unit high. See `bulbOf`.
+      const b = bulbOf(tiles.get('structures'), lampModel, lamp.cx, lamp.cz,
+        lampRotFor(lampModel, lamp.head));
       env.lamps.add({
         x: b.x, y: b.y, z: b.z,
         // Sodium, not tungsten: the reference stills read distinctly orange against the
@@ -197,6 +255,39 @@ export async function dressCity(ctx) {
         color: 0xffb166, intensity: 2.0, radius: 12, size: 0.85,
       });
       stats.lamps++;
+
+      // The filament, and it is a *second* bulb on purpose rather than a whiter first one.
+      //
+      // The comment above promises "a white filament inside an orange glare" and the glare
+      // half is true, but the core is not white: the quad's peak is `3.2 * intensity *
+      // colour`, and 0xffb166 through AgX comes out rgb(255,214,170) — warm all the way in.
+      // With AdAstra's card that did not show, because its own emissive block was an
+      // untextured `f8f8f8` swatch and the glow was landing on top of it; the authored
+      // fixture's lens is amber, so replacing the art took the white core away with the
+      // programmer art and the night frame's peak luminance fell 247 -> 220. That is a
+      // measured loss of highlight (`node tools/shots/regress.js`, `city/high-street/21`).
+      //
+      // Whitening the lamp itself is the wrong way back: `colour` also paints the ground
+      // pool (`0.205 * intensity + 0.035` in `environment/lamps.js`) and the halo, and a
+      // critic has already named the plaza heads for reading "pale WHITE, not the 0xffb166
+      // sodium the code specifies". So the sodium bulb keeps every one of its numbers and a
+      // near-white one a quarter its width is stacked at the same point: `point: false` so
+      // it never takes one of the eight PointLight slots, `pool: false` so it paints no
+      // second decal on the pavement, additively blended into the same quad mesh as the
+      // others — no extra draw call, no extra program. What it changes is the middle
+      // sixteenth of the glare, which is exactly where a filament is.
+      //
+      // 2.2 is measured, not chosen: `city/high-street/21` max reads 220 with no filament,
+      // 233 at 1.0, 238 at 1.5 and **243 at 2.2**, against the 247 the programmer-art card
+      // used to reach — inside the gate's tolerance of 4 — while `mean` moves +0.11,
+      // `over200Pct` −0.03 and `saturation` −0.0003. The core stays a quarter of the quad
+      // wide at every one of those, so what the number buys is how white the middle goes,
+      // not how much of the frame is bright.
+      env.lamps.add({
+        x: b.x, y: b.y, z: b.z,
+        color: 0xfff0d8, intensity: 2.2, size: 0.22, point: false, pool: false,
+      });
+      stats.filaments++;
     }
 
     if (structures) {
@@ -212,8 +303,9 @@ export async function dressCity(ctx) {
     }
   }
 
-  log.info(`city dressing: ${stats.structures} buildings, ${stats.props} props, ` +
-    `${stats.paving} paving, ${stats.lamps} lamps + ${stats.glows} lit windows, ` +
+  log.info(`city dressing: ${stats.structures} buildings, ${stats.posts} lamp posts, ` +
+    `${stats.props} props, ${stats.paving} paving, ${stats.lamps} bulbs ` +
+    `(+${stats.filaments} filaments) + ${stats.glows} lit windows, ` +
     `${stats.meshes} meshes, ${Math.round(stats.triangles / 1000)}k tris`);
 
   return {

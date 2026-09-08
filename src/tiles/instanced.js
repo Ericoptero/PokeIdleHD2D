@@ -86,6 +86,38 @@ export function footprint(model, rot = 0) {
 }
 
 /**
+ * The yaw a placement is actually *drawn* at, once half its geometry has been thrown away.
+ *
+ * `dropEdgeOnTwins` (DECISIONS #41b) collapses the X-facing half of a crossed foliage
+ * billboard because the camera's yaw is fixed forever and that card can only ever rasterise
+ * as a 1–2 px smear. The half it keeps is the Z-facing one — which is camera-facing at
+ * `rot 0` and `rot 2`, and **edge-on at `rot 1` and `rot 3`**. So a tree the map turned a
+ * quarter took the drop on the card the camera was about to see and rendered as a bare
+ * trunk with a few leaves clinging to it (`docs/progress/tiles/r4/00-rotate-before.png`,
+ * the `tree 2x2` row: rot 0 and rot 2 are full crowns, rot 1 and rot 3 are slivers).
+ *
+ * The fix is to test the placement's own yaw instead of assuming one. A quarter turn of a
+ * *crossed billboard* carries no information — both cards hold the same picture, which is
+ * the 80 %-coverage clause `dropEdgeOnTwins` already checks — so snapping the odd turns to
+ * the even one loses nothing that was ever visible, while the 180° component is kept
+ * because it mirrors the crown and that is real variety.
+ *
+ * Two guards. The snap is refused on a non-square footprint, because `rot & 1` swaps a
+ * model's extents and un-swapping them would move the tile off the cells the map reserved.
+ * And the effective yaw is computed here and passed to `composeMatrix` — `p.rot` itself is
+ * never written back, because `terrain/draft.js` and `simulation/surface.js` read it for
+ * the collision footprint and must keep seeing what the author asked for.
+ *
+ * @param {{twinDropped?:string, w?:number, h?:number}} model
+ * @param {number} rot
+ */
+export function cameraFacingRot(model, rot) {
+  if (model?.twinDropped !== 'x') return rot;
+  if ((model.w ?? 1) !== (model.h ?? 1)) return rot;
+  return rot & 2;
+}
+
+/**
  * @typedef {Object} Placement
  * @property {number} modelId  tile model id within the tileset
  * @property {number} cx       cell x (west→east)
@@ -168,6 +200,16 @@ function blotch(x, z, salt) {
  * The AdAstra artists agreed: twelve of the set's models ship a hand-painted `kage_out` or
  * `h_kage` blob under them. Those keep theirs — a second one on top would double the density —
  * and everything else that stands up off the ground gets a generated one.
+ *
+ * **That sentence was not true of the code until round 4.** `wantsContactShadow` never
+ * excluded a model that ships a baked blob, so for all twelve of them both were drawn, and
+ * the baked one is the harder picture of the two. `kage_out.png` decoded is an 8x8 sheet
+ * holding exactly two levels — a 6x6 interior of `rgb(29,33,34)` at alpha 0.48 inside a
+ * one-texel border of `rgb(56,60,60)` at 0.25 — and `h_kage.png` is two levels split across
+ * a row with no border on any side at all. Neither has a gradient in it: at the game camera
+ * they are dark rectangles with a single hard step, which is a critic's "floating black
+ * rectangles" almost exactly. `dropBakedShadowDecals` below is that comment finally being
+ * implemented; `?kage=1` puts the baked blobs back for the A/B.
  */
 const CONTACT_CATEGORIES = new Set(['tree', 'plant', 'prop', 'light', 'fence', 'building', 'roof']);
 const CONTACT_MIN_HEIGHT = 0.45;
@@ -194,6 +236,19 @@ function wantsContactShadow(model) {
   return !!b && (b.max[1] - b.min[1]) >= CONTACT_MIN_HEIGHT;
 }
 
+/**
+ * Whether this (model, group) is a baked shadow the generated pass is about to replace.
+ *
+ * Only where the replacement actually happens: a world built with `contact: 0` (an interior
+ * with no ground under it) keeps every baked blob it ships, because taking the picture away
+ * and drawing nothing in its place is strictly worse than a hard rectangle.
+ */
+function dropBakedShadowDecals(model, group, contact, keepBaked) {
+  return !keepBaked && contact > 0
+    && !!group.material?.userData?.shadowDecal
+    && wantsContactShadow(model);
+}
+
 function varies(model) {
   return (model.autotile == null || model.tags.includes('autotile-center'))
     && (model.w ?? 1) === 1 && (model.h ?? 1) === 1
@@ -209,14 +264,17 @@ export class InstancedWorld {
    * @param {object} tileset  the loaded tileset from tiles/index.js
    * @param {Placement[]} placements
    * @param {{name?:string, castShadow?:boolean, receiveShadow?:boolean, variety?:number,
-   *          contact?:number}} [opts]
+   *          contact?:number, keepBaked?:boolean}} [opts]
    *   `variety` is 0..1 and scales the per-cell ground variation (quarter turns, texture
    *   phase and a tonal jitter). 0 reproduces the old, visibly tiled lawn.
    *   `contact` is 0..1 and scales the generated contact shadows; 0 turns them off, which is
    *   what an indoor scene with no ground under it wants.
+   *   `keepBaked` draws the tileset's own hand-painted `kage` shadow quads as well as the
+   *   generated ones — the round-3 behaviour, kept only for the A/B (`?kage=1`).
    */
   constructor(T, parent, tileset, placements,
-    { name = 'world', castShadow = true, receiveShadow = true, variety = 1, contact = 1 } = {}) {
+    { name = 'world', castShadow = true, receiveShadow = true, variety = 1, contact = 1,
+      keepBaked = false } = {}) {
     this.tileset = tileset;
     this.group = new THREE.Group();
     this.group.name = name;
@@ -230,6 +288,10 @@ export class InstancedWorld {
       const model = tileset.byId.get(p.modelId);
       if (!model) { this.stats.skipped++; continue; }
       for (let gi = 0; gi < model.groups.length; gi++) {
+        if (dropBakedShadowDecals(model, model.groups[gi], contact, keepBaked)) {
+          this.stats.bakedShadowsDropped = (this.stats.bakedShadowsDropped ?? 0) + 1;
+          continue;
+        }
         const key = `${p.modelId}:${gi}`;
         let b = buckets.get(key);
         if (!b) buckets.set(key, (b = { model, groupIndex: gi, items: [] }));
@@ -268,7 +330,7 @@ export class InstancedWorld {
       for (let i = 0; i < items.length; i++) {
         const p = items[i];
         const rot = spin && p.rot === undefined ? (hash2(p.cx, p.cz, 11) * 4) | 0 : (p.rot ?? 0);
-        this.constructor.composeMatrix(_m, p, model, rot);
+        this.constructor.composeMatrix(_m, p, model, cameraFacingRot(model, rot));
         mesh.setMatrixAt(i, _m);
         if (p.tint !== undefined && p.tint !== 0xffffff) needsColor = true;
       }

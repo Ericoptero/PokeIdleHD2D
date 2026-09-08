@@ -385,6 +385,29 @@ export function makeLamps(THREE, scene, groundAt) {
     list: () => lamps.slice(),
 
     /**
+     * The `n` bulbs that matter most around `focus`, as plain
+     * `{ x, y, z, power }` — what `castShadows` needs to throw a character's shadow away
+     * from the lantern nearest its own feet instead of away from a sun that is not in the
+     * room. Ranked by `intensity / (1 + d²)` rather than by distance, so a bright brazier
+     * eight cells off still beats a dim crystal six cells off, which is what the eye does.
+     *
+     * @param {{x:number,z:number}} focus
+     * @param {number} [n]
+     */
+    nearest(focus, n = 4) {
+      if (!lamps.length) return [];
+      const fx = focus?.x ?? 0, fz = focus?.z ?? 0;
+      return lamps
+        .map((L) => {
+          const dx = L.x - fx, dz = L.z - fz;
+          return { L, w: L.intensity / (1 + dx * dx + dz * dz) };
+        })
+        .sort((a, b) => b.w - a.w)
+        .slice(0, n)
+        .map(({ L }) => ({ x: L.x, y: L.y, z: L.z, power: L.intensity }));
+    },
+
+    /**
      * @param {number} on     0..1 ramp from the time-of-day preset
      * @param {number} time   seconds, for the flicker
      * @param {THREE.Vector3} focus  camera focus; the point-light pool follows the nearest

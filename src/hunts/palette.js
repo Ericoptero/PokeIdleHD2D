@@ -16,6 +16,36 @@
 /** The registry's null object answers every property with a function — this is the tell. */
 export const isLive = (api) => !!api && api.__missing === undefined;
 
+/**
+ * **The quarter turns that put `bw2-adastra`'s `set0` transition on the outside of a path.**
+ *
+ * Pass it as `draw`'s `rotate` on any region drawn with that set. It is a workaround for an
+ * asset defect and it is written down here, once, rather than in each biome, because it is a
+ * property of the *pack* and not of any map.
+ *
+ * What the defect is, measured in pixels on the shipped seed-1337 forest at 1920x1080
+ * (`docs/progress/hunts/r5/road-before.png` against `docs/progress/hunts/r5/road-after.png`): the trail's cell field
+ * is three cells wide, and it drew as a **294 px band split into three tan runs by two grass
+ * ribbons** — because `edge_w` and `edge_e` come out of the pack mirrored about their own
+ * centre, so the strip of grass the artist drew on the tile's *outer* edge is stamped on its
+ * *inner* one. The band's outer edges met the lawn with no transition at all and the
+ * transition ran down the middle of the road twice. Three rounds of this module's own header
+ * claimed the trail was solved; this is what it actually looked like.
+ *
+ * `rot 2` is a 180-degree turn, which is a horizontal mirror *and* a vertical one — and a
+ * vertical mirror is a no-op on a vertical strip of grass, so the turn is exactly the
+ * correction those two cases need and nothing more. The four outer and four inner corner
+ * cases are deliberately **not** turned: their art is diagonal, a quarter turn moves it to
+ * the wrong diagonal, and they are a handful of cells at the trail's meander steps against
+ * the ~200 cells of straight run that the two edge cases are. Shot both ways and looked at
+ * before choosing (`docs/progress/hunts/r5/`).
+ *
+ * The real fix belongs in the exporter, where one rule covers every slot of every pack, and
+ * is filed as a coreRequest against `tools/assets` — the same place DECISIONS #41a and the
+ * `tiles` roof-sign defect already point.
+ */
+export const SET0_OUTWARD = { edge_w: 2, edge_e: 2 };
+
 export function makePalette(tiles, slug, log) {
   const missing = [];
 
@@ -71,7 +101,7 @@ export function makePalette(tiles, slug, log) {
   function draw(draft, setId, field, opts = {}) {
     const info = set(setId);
     if (!info) return 0;
-    const { underlay, y0, outsideIsFilled, skip, tint, ...place } = opts;
+    const { underlay, y0, outsideIsFilled, skip, tint, rotate, ...place } = opts;
     const covered = field.count();
     const solved = tiles.autotile.solvePlacements(slug, setId, field.occupancy(), field.w, field.h, {
       underlay: underlay ?? !!info.underlay,
@@ -93,8 +123,16 @@ export function makePalette(tiles, slug, log) {
       // that has to be one colour — which is how the cave came out "essentially every pixel
       // fully saturated in one hue" (DECISIONS #37).
       const t = typeof tint === 'function' ? tint(p.cx, p.cz, p.case) : tint;
+      // `rotate` is the caller's chance to turn a solved case a quarter or half turn.
+      // It exists for one reason and it is not decoration: bw2-adastra's `set0` transition
+      // slots come out of the pack **mirrored about their own centre**, so the strip of grass
+      // the artist drew on the tile's *outer* edge lands on its *inner* one — which draws a
+      // three-cell trail as three tan runs split by two grass ribbons (DECISIONS #49). The
+      // asset fix belongs in the exporter and is filed as a coreRequest; until then a biome
+      // that knows its set is mirrored can say so here, in one place, per case.
+      const r = typeof rotate === 'function' ? rotate(p.case, p.cx, p.cz) : rotate;
       draft.place(model, p.cx, p.cz, {
-        ...place, y: p.y, rot: p.rot, claim: false, ...(t === undefined ? {} : { tint: t }),
+        ...place, y: p.y, rot: (r ?? p.rot) & 3, claim: false, ...(t === undefined ? {} : { tint: t }),
       });
       placed++;
     }

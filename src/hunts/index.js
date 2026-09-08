@@ -26,6 +26,24 @@ export const BIOMES = [
 
 const byId = (id) => BIOMES.find((b) => b.id === id) ?? BIOMES[0];
 
+/**
+ * How the party walks when nothing says otherwise: **east**, and only a few tiles in.
+ *
+ * `dir` is `core/dir.js`'s EAST. Every biome overrides `route` with a leg its own map can
+ * actually walk (see each `biomes/*.js`), but the direction is not a per-biome taste call:
+ * a party walking north files straight up the screen under a camera whose yaw never
+ * changes, so each sprite stands in front of the one behind it and the only thing the
+ * camera can see of the trainer is the back of the cap — a cream lozenge with no face on
+ * it. That is the single defect all three blind A/B rounds named. Walking east strings the
+ * queue out left-to-right across the frame: nobody occludes anybody, and the trainer shows
+ * the side of the sheet that has a face, a brim and two arms on it.
+ */
+const DEFAULT_WALK = { route: 'e12', tiles: 3, subTicks: 7, dir: 3 };
+
+/** How many wild Pokemon a biome stands up, and how they are chosen. */
+const WILD_CAP = 11;          // MAX_NPCS is 32 and `city` uses a dozen of them
+const WILD_SPECIES_CAP = 6;   // one atlas sheet each; the rest are repeats
+
 export default {
   id: 'hunts',
   needs: ['terrain', 'encounter', 'environment'],
@@ -47,11 +65,114 @@ export default {
     let extraWorlds = [];
     let currentId = null;
 
+    /** @type {number[]} the wild Pokemon standing in this map's grass, by NPC id. */
+    let wildIds = [];
+
     function disposeExtras() {
       for (const w of extraWorlds) w.dispose?.();
       extraWorlds = [];
     }
     bus.on('world:unloaded', disposeExtras);
+
+    /** Takes the wild Pokemon off the map. Called before every re-entry, so they never stack. */
+    function clearWild() {
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.removeNpc === 'function') {
+        for (const id of wildIds) sim.removeNpc(id);
+      }
+      wildIds = [];
+    }
+    bus.on('world:unloaded', clearWild);
+
+    /**
+     * Stands wild Pokemon in the biome's own grass.
+     *
+     * The whole-game critic's headline: *"not one wild Pokemon appears in any of the sixteen
+     * hunt frames across four biomes and four hours; the city plaza has more creatures in it
+     * than the hunting grounds do."* A hunting ground with nothing to hunt is the brief's
+     * headline feature missing from the one place it is supposed to be.
+     *
+     * Three seams, and no fourth:
+     *
+     *  - **which species** is `encounter.tablesFor(biome, tod)` — the same weighted table the
+     *    idle loop rolls against, so what is standing in the grass at 21:00 is what you would
+     *    actually meet there at 21:00. It comes back weight-expanded (`tables.js`), so a
+     *    uniform pick from it is the weighted pick;
+     *  - **where** is the biome's own build report: each `biomes/*.js` returns `wild`, a list
+     *    of cells inside its encounter grass and clear of the route the party walks;
+     *  - **how it is drawn** is `simulation.spawnNpc`, which stages through `pokemon`'s sprite
+     *    field — one InstancedMesh for the whole cast, so eleven creatures cost zero extra
+     *    draw calls and pick up contact shadows and the idle animation for free.
+     *
+     * They **stand** rather than wander, and that is a composition call with a measurement
+     * behind it. A wandering NPC advances with the party — `advanceTo(3, 7)` is 22 sim ticks,
+     * which is 4.4 tiles at `walkSecondsPerTile` 0.25 — so a creature placed two cells off the
+     * lane can be anywhere within four of it by the time the shutter opens, and in
+     * `coast-route-21` one walked onto the trainer's head. Standing keeps every one of them
+     * exactly where `wildCells` put it, which is the placement this module can actually
+     * reason about. They still animate: `poseWalker` gives a stationary Pokemon the idle
+     * shuffle off simulated time.
+     *
+     * The atlas is built **before** the spawn loop rather than by it. `Cast.sync` awaits
+     * `pokemon.sprites.prepare` internally, so spawning eleven NPCs one at a time would leave
+     * real async work outstanding when `__READY__` flips, and a screenshot could catch the
+     * field half-populated — a determinism hole that shows up as a shot that differs from
+     * itself. Preparing every sheet first leaves `Cast.sync` with nothing but microtasks.
+     */
+    async function spawnWild(biome) {
+      clearWild();
+      const sim = ctx.get('simulation');
+      const pokemon = ctx.get('pokemon');
+      if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
+      if (!isLive(pokemon) || typeof pokemon.species !== 'function') return 0;
+      const cells = built.get(biome.id)?.wild ?? [];
+      if (!cells.length) return 0;
+
+      const env = ctx.get('environment');
+      const tod = (isLive(env) && typeof env.getTimeOfDay === 'function')
+        ? env.getTimeOfDay() : (ctx.config.tod ?? 12);
+      const encounter = ctx.get('encounter');
+      const table = (isLive(encounter) && typeof encounter.tablesFor === 'function')
+        ? (encounter.tablesFor(biome.id, tod) ?? []) : [];
+      if (!table.length) {
+        log.warn(`hunts/${biome.id}: encounter has no table at tod ${tod} — the grass stays empty`);
+        return 0;
+      }
+
+      // Seeded off the biome *and the hour*, so the same URL gives the same creatures and a
+      // different hour gives the nocturnal ones. Never `Math.random` (ARCHITECTURE §2.5).
+      const rng = ctx.rng.fork(`hunts/wild/${biome.id}/${Math.round(tod * 4)}`);
+      /** A short cast, so a frame reads as a place with animals in it rather than a zoo. */
+      const roster = [];
+      for (let i = 0; i < WILD_SPECIES_CAP * 4 && roster.length < WILD_SPECIES_CAP; i++) {
+        const s = pokemon.species(table[rng.int(0, table.length - 1)]);
+        if (s && !roster.some((r) => r.name === s.name)) roster.push(s);
+      }
+      if (!roster.length) return 0;
+
+      const n = Math.min(WILD_CAP, cells.length);
+      // At most one shiny, and usually none. One is a reward for looking; two in a frame is a
+      // bug report. Both rolls are seeded, so whether this map has one is a property of the
+      // seed and the hour rather than of when the shutter opened.
+      const shinyAt = rng.next() < 0.35 ? rng.int(0, n - 1) : -1;
+      const picked = cells.slice(0, n).map((c, i) => ({
+        ...c, species: roster[i % roster.length], shiny: i === shinyAt,
+      }));
+
+      await pokemon.sprites?.prepare?.(picked.map((p) => ({ species: p.species, shiny: p.shiny })));
+
+      for (const p of picked) {
+        const npc = sim.spawnNpc({
+          species: p.species, shiny: p.shiny, cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
+          // Named, because `simulation` forks its wander stream off the name: an unnamed NPC
+          // keys off an incrementing id, so adding one more would reshuffle the walk of every
+          // creature already on the map.
+          name: `wild/${biome.id}/${p.cx},${p.cz}`,
+        });
+        if (npc) wildIds.push(npc.id);
+      }
+      return wildIds.length;
+    }
 
     for (const biome of BIOMES) {
       terrain.register(`hunt-${biome.id}`, async (draft, c) => {
@@ -65,8 +186,38 @@ export default {
       });
     }
 
+    /**
+     * Stands the party on a marker, pointed the way this biome walks, and — under a frozen
+     * clock — a few tiles into that walk so the queue is caught mid-stride.
+     *
+     * **This is the only staging path, and that is the whole of the "everyone still faces
+     * north" bug.** Round 2 fixed `showcase.js` to freeze with `advanceTo` (tiles) instead
+     * of `advanceSteps` (sim ticks) and then left this function calling `advanceSteps(7)` —
+     * and `hunts.preset()` runs *after* the showcase, on every single capture, because the
+     * harness applies `--preset` through `__HOOKS__.setPreset`. Seven sim ticks is 0.35 s,
+     * which at `walkSecondsPerTile` 0.25 is **1.4 tiles**: the teleport reset the queue, the
+     * lead took one step, and the trainer and the whole party behind it were still standing
+     * in the pose `Line.place` laid them in. Probed on the running page before the change:
+     * coast's `route` framing reported `steps: 1, distance: 1.2` with the lead at `dir: 3`
+     * and every other walker at `dir: 2`, which is exactly the frame three blind rounds
+     * called "the back of the trainer's cap".
+     *
+     * `Line.place` lays the *whole* queue along `dir` at the teleport, so a route that
+     * starts east needs only two or three tiles of walk to be strung out east-west with
+     * every sprite clear of the one behind it — the long `tiles` counts were compensating
+     * for a north leg that had to be walked off first.
+     */
+    function stageWalk(sim, biome, spec = {}) {
+      const walk = { ...DEFAULT_WALK, ...(biome.walk ?? {}), ...(spec.walk ?? {}) };
+      // `walk` first, `teleport` second: `placePlayer` resets the route it finds, so setting
+      // the route after the teleport would start it from wherever the last one left off.
+      if (typeof sim.walk === 'function') sim.walk(walk.route, { loop: true });
+      return walk;
+    }
+
     /** Where a preset stands the party, and how far back the camera sits for it. */
-    function stage(marker, { distance, dir = 2, offset = null } = {}) {
+    function stage(marker, spec = {}) {
+      const { distance, offset = null } = spec;
       const draft = terrain.draft();
       const m = draft?.marker(marker);
       if (!m) {
@@ -76,16 +227,16 @@ export default {
       }
       if (distance != null) ctx.config.set({ cameraDistance: distance });
       const sim = ctx.get('simulation');
+      const biome = byId(currentId ?? 'forest');
       // The camera follows the trainer every frame (DECISIONS #27), so a framing that only
       // moves the rig is undone before the shutter — `city` learned this as #28j. Move the
       // party, and the rig follows it.
       if (isLive(sim) && typeof sim.teleport === 'function') {
-        sim.teleport(m.cx, m.cz, m.dir ?? dir);
-        // A teleport parks the queue on cell centres in a dead-straight line. Under the
-        // harness's frozen clock, walk it a few fixed steps so it is caught mid-stride and
-        // strung out along the route — the same trick, and the same reason, as #26d.
-        if (ctx.config.timeFrozen && typeof sim.advanceSteps === 'function') {
-          sim.advanceSteps(7);
+        const walk = stageWalk(sim, biome, spec);
+        sim.teleport(m.cx, m.cz, m.dir ?? spec.dir ?? walk.dir ?? 3);
+        if (ctx.config.timeFrozen) {
+          if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
+          else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(walk.tiles * 5);
           sim.freeze(true);
         }
         if (offset && typeof sim.frameOffset === 'function') sim.frameOffset(offset[0], offset[1]);
@@ -150,6 +301,11 @@ export default {
           for (const light of built.get(biome.id)?.lights ?? []) env.lamps.add(light);
         }
 
+        // The grass gets its animals before the party is stood in it, so the sprite atlas is
+        // built once for the whole cast — party and wildlife together — rather than rebuilt
+        // eleven more times behind a `__READY__` that has already flipped.
+        const wild = await spawnWild(biome);
+
         const draft = terrain.draft();
         const spawn = draft?.spawn ?? { cx: biome.w >> 1, cz: biome.h >> 1, dir: 2 };
         const sim = ctx.get('simulation');
@@ -161,7 +317,20 @@ export default {
         // Not in a showcase. Sim time is frozen for every capture, so a toast never expires
         // and sits in the corner of all 29 frames — over the near ground a critic reads.
         if (!ctx.config.showcase) bus.emit('ui:toast', { text: `Hunting ${biome.name}`, kind: 'info' });
+        // The shipped-map assertion, run on every entry so it cannot go stale: a failure is a
+        // console warning the screenshot harness records in the JSON beside every PNG.
+        const audit = api.audit(biome.id);
+        log.info(`hunts: ${biome.name} — ${wild} wild Pokemon in the grass, `
+          + `${audit.checked} framings audited${audit.ok ? ' clean' : `, ${audit.fails.length} SHORT`}`);
         return handle;
+      },
+
+      /** The wild Pokemon standing in the current map, for the selftest and the debug probe. */
+      wild() {
+        const sim = ctx.get('simulation');
+        if (!isLive(sim) || typeof sim.npcs !== 'function') return [];
+        const mine = new Set(wildIds);
+        return sim.npcs().filter((n) => mine.has(n.id));
       },
 
       /**
@@ -173,9 +342,24 @@ export default {
         const biome = byId(currentId ?? 'forest');
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name));
         if (literal) {
+          // **Staged exactly like a named preset, and that is not tidiness.** A critic points
+          // the camera at a cell with `--preset "26,34"` — it is how the cave's pale card was
+          // found — and the old branch teleported facing `2` and walked nothing, so every
+          // literal framing reproduced the one defect three blind rounds named: the queue
+          // stacked on a north-facing column with the back of the cap toward the camera.
           const sim = ctx.get('simulation');
-          if (isLive(sim) && typeof sim.teleport === 'function') sim.teleport(+literal[1], +literal[2], 2);
-          else ctx.three.rig?.setFocus?.(+literal[1] + 0.5, 0, +literal[2] + 0.5, true);
+          const cx = +literal[1], cz = +literal[2];
+          if (isLive(sim) && typeof sim.teleport === 'function') {
+            const walk = stageWalk(sim, biome, {});
+            sim.teleport(cx, cz, walk.dir ?? 3);
+            if (ctx.config.timeFrozen) {
+              if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
+              else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(walk.tiles * 5);
+              sim.freeze(true);
+            }
+          } else {
+            ctx.three.rig?.setFocus?.(cx + 0.5, terrain.height(cx, cz), cz + 0.5, true);
+          }
           return true;
         }
         const spec = (biome.presets ?? {})[name];
@@ -189,6 +373,58 @@ export default {
       markers() {
         const draft = terrain.draft();
         return draft ? [...draft.markers.entries()].map(([k, v]) => ({ name: k, ...v })) : [];
+      },
+
+      /**
+       * **Checks every framing of the loaded biome against the map that actually shipped.**
+       *
+       * `src/hunts/selftest.js` cannot do this and says so in its own output: it builds
+       * against a stub tileset *and* off a different RNG stream, so its maps are not these
+       * maps. It reported 279/279 green for a round in which three shipped framings still
+       * filed north, which is worse than having no selftest, because a green one is trusted.
+       *
+       * This runs on the real `MapDraft`, after the real `tiles` pack has decided every
+       * model's real footprint, and it asserts the two things a framing has to have:
+       *
+       *  - **the lane.** `Line.place` lays the queue from `cx − 5`, and `advanceTo(3, 7)`
+       *    walks the lead to `cx + 6.4` — stepping into `cx + 7`. Every cell of
+       *    `cx − 5 … cx + 8` must be passable eastward or `makeScriptedRoute` drops a step
+       *    in silence and the whole queue turns north;
+       *  - **one height across it**, because two walkers on either side of a terrace lip is
+       *    the `cave --preset close` frame in which the trainer was cut off at the waist.
+       *
+       * A failure is a `log.warn`, and the screenshot harness records `consoleWarnings` in
+       * every shot's JSON — so a clean shot log *is* the shipped-map assertion, and a dirty
+       * one names the preset, the cell and the blocked offset.
+       *
+       * @returns {{ok:boolean, checked:number, fails:object[]}}
+       */
+      audit(id = currentId) {
+        const biome = byId(id ?? 'forest');
+        const draft = terrain.draft();
+        const fails = [];
+        if (!draft) return { ok: false, checked: 0, fails: [{ preset: '*', why: 'no map loaded' }] };
+        let checked = 0;
+        for (const [name, spec] of Object.entries(biome.presets ?? {})) {
+          const m = draft.marker(spec.marker ?? name);
+          if (!m) { fails.push({ preset: name, why: `no marker "${spec.marker ?? name}"` }); continue; }
+          checked++;
+          const y0 = draft.heightAt(m.cx, m.cz);
+          const span = [];
+          for (let dx = -5; dx <= 8; dx++) {
+            const ok = draft.passable(m.cx + dx, m.cz, 3)
+              && Math.abs(draft.heightAt(m.cx + dx, m.cz) - y0) <= 0.26;
+            span.push(ok ? '.' : 'X');
+          }
+          if (span.includes('X')) {
+            fails.push({ preset: name, at: `${m.cx},${m.cz}`, span: span.join(''), why: 'lane' });
+          }
+        }
+        for (const f of fails) {
+          log.warn(`hunts/${biome.id}: preset "${f.preset}" ${f.why} `
+            + `${f.at ? `at ${f.at} — cx-5..cx+8 is ${f.span}` : ''}`);
+        }
+        return { ok: !fails.length, checked, fails };
       },
     };
     return api;

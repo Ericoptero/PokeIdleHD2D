@@ -1,0 +1,243 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=city&tod=12&seed=1&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/judge/r1/.captures/city-day.png",
+ "size": [
+  720,
+  480
+ ],
+ "preset": "high-street",
+ "tod": 12,
+ "ok": true,
+ "presetApplied": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 234,
+ "triangles": 19044,
+ "programs": 20,
+ "geometries": 142,
+ "textures": 79,
+ "internal": [
+  240,
+  160
+ ],
+ "output": [
+  720,
+  480
+ ],
+ "seed": 1,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 85.5,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 4.1,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 43.5,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 595.5
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 613.4000000059605
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "structures",
+    "models": 3
+   },
+   "t": 617.2999999821186
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 5143,
+    "meshes": 102
+   },
+   "t": 639.5999999940395
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "pt-overworld-7",
+    "models": 369
+   },
+   "t": 761.4000000059605
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 762.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 763.2999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "tags": []
+   },
+   "t": 763.2999999821186
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 530
+   },
+   "t": 977.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "dir": 2,
+    "running": false
+   },
+   "t": 986.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "tags": []
+   },
+   "t": 986.4000000059605
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 17.1,
+    "drawCalls": 234,
+    "tris": 19044
+   },
+   "t": 1012.4000000059605
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 234,
+    "tris": 19044
+   },
+   "t": 2028.9000000059605
+  }
+ ],
+ "ms": 2849
+}

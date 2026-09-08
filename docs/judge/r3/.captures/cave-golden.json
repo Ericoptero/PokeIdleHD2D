@@ -1,0 +1,318 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=hunts&mode=cave&tod=17.5&seed=1&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/judge/r3/.captures/cave-golden.png",
+ "size": [
+  794,
+  446
+ ],
+ "preset": null,
+ "tod": 17.5,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 210,
+ "triangles": 11378,
+ "programs": 22,
+ "geometries": 111,
+ "textures": 26,
+ "internal": [
+  264,
+  148
+ ],
+ "output": [
+  794,
+  446
+ ],
+ "seed": 1,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 99,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 4,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 50.3,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.7,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.3,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 543.4000000059605
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 697
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-cave",
+    "models": 84
+   },
+   "t": 738.6999999880791
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "hunt-cave",
+    "w": 56,
+    "h": 54,
+    "biome": "cave",
+    "placements": 3065,
+    "meshes": 104
+   },
+   "t": 764.2999999821186
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 765.1999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 43,
+    "dir": 2,
+    "running": false
+   },
+   "t": 766
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 41,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 766.0999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 42,
+    "dir": 2,
+    "running": false
+   },
+   "t": 766.7999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 40,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 766.7999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 41,
+    "dir": 2,
+    "running": false
+   },
+   "t": 766.7999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 39,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 766.7999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 38,
+    "dir": 2,
+    "running": false
+   },
+   "t": 767.1999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 36,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 767.1999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 37,
+    "dir": 2,
+    "running": false
+   },
+   "t": 767.1999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 35,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 767.1999999880791
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 368
+   },
+   "t": 895.1999999880791
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 895.2999999821186
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 27,
+    "drawCalls": 209,
+    "tris": 11370
+   },
+   "t": 1016.6999999880791
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 210,
+    "tris": 11378
+   },
+   "t": 2031.9000000059605
+  }
+ ],
+ "ms": 2783
+}

@@ -3626,3 +3626,439 @@ matrix report no movement at all, so any delta the gate prints is real.
 It measures with the HUD masked (`hudRows`), which is not a detail. Measuring with the cream
 panels in frame reads p99 234 where the scene itself reaches 150, and that is exactly how I
 came to tell the user that a real, repeatedly-filed defect "did not reproduce".
+
+---
+
+### 48 — 2026-09-08 — The lamps were the art, not the rotation; a fixture in `structures` cannot go through the AdAstra draft; and taking a lamp out of the shadow map costs the frame one highlight
+
+**The lamp.** DECISIONS #25 read the "pale featureless obelisk" as a placement bug and fixed
+it by rotation: AdAstra ships `lamp_h` in four turns, the north/south pair foreshortens down
+the fixed camera axis, so the city placed only `_v3`/`_v4`. That was true and it was not
+enough. Two whole-game passes and a blind judge then named the lamps *first*, from close
+range, in the same words — "a plain grey untextured pole with a flat lozenge head, no bulb,
+no housing, no fixture detail". Checked: `slamp03.png` is 16x32 and holds **ten** colours, a
+flat blue-grey swatch, and `lamp_h` is two alpha-tested cards wearing it. There is no
+rotation of nothing that becomes something.
+
+The town now stands `structures`' authored `street_lamp`
+(`tiles.find('structures', { category: 'light', subcategory: 'street_lamp' })`): 64 triangles,
+two materials, a post with cast collar rings, a three-box cobra arm, and a cowled head whose
+lens is its own material at `Ke 0.9`, so `tiles` ramps it at dusk the way it ramps a Poke
+Center window and the city never learns the hour.
+
+Three things had to move with it.
+
+*It cannot go through the terrain draft.* A `Placement` names a model id and
+`buildInstances` resolves it against exactly one tileset, so a `structures` id put through the
+`bw2-adastra` draft would draw AdAstra's model 3. `map.js` therefore **reserves** the lamp
+cells — collision, tag, marker — exactly as it already reserves the plots and the props, and
+`structures.js` builds the posts. It deliberately does **not** set `draft.occupied`, because
+`draft.scatter` draws from the seeded stream only *after* its occupancy test: claiming one
+more cell shifts every draw after it and re-rolls the whole lawn. `place()` never claimed a
+1x1 cell either, so this is byte-for-byte what the AdAstra lamp did.
+
+*One flavour, so `head` is a quarter turn.* The authored model overhangs east only.
+`lampRotFor()` subtracts the model's own derived `orientation` from the letter `LAMPS` asks
+for on the cycle `composeMatrix` actually turns through (`e -> s -> w -> n` as `rot` counts
+up), so re-exporting the art pointing north would still land every lamp correctly.
+
+*The bulb is the lens, not a guess off the bounds.* The old `bulbOf` heuristic ("half a cell
+short of the far end, a little below the top") was fitted to AdAstra's card and lands 0.26
+west and 0.19 above the authored lens. The pack says which materials emit
+(`emissiveMaterials`) and each material is its own geometry group with its own bounding
+sphere, so the lens centre — `(1.32, 3.45, 0.50)` in model space, confirmed by probing the
+running page — is a lookup, turned by the same `rot` the mesh was placed with.
+
+**The black rectangles beside each lamp** were two artifacts wearing one silhouette, and only
+one of them was still there. The baked `kage_out` decal is already dropped by
+`dropBakedShadowDecals` (DECISIONS #44) — probing the scene for the old lamp found
+`lamp_h_v4#0` and no `#1`, i.e. one mesh where its two groups would give two. What remained is
+the lamp's own entry in the sun's shadow map: at 21:00 the post drew a hard streak across the
+grass and the head, hanging a cell out on the arm, dropped a *detached* black lozenge clear of
+it. The lamps are now their own `InstancedWorld` (`city:lamps`) purely so they can carry
+`castShadow: false` at construction. Net zero draw calls — two leave `map:demo-city`, two
+arrive. A street lamp is the one object in the scene that is itself a light source at the hour
+the artifact appears; and the daylight shadow it gives up was only saying "the post meets the
+ground", which the generated contact quad already says softly and at every hour: in
+`docs/progress/city/r3/n12-lampfoot.png` the lawn inside the quad reads `rgb(31,108,28)`
+against `rgb(88,154,84)` three cells away, over a soft disc two and a half cells across.
+
+**What it cost, measured.** Isolated with a contemporaneous A/B — the reverted files back in
+`src/city/`, `regress.js --only city`, then the new ones — because three other modules were
+being edited while this round ran and the twelve-frame gate cannot tell whose delta is whose.
+The reverted state reproduced `docs/baseline.json` exactly (0/0/0 on all three city rows), so
+everything below is this change and nothing else:
+
+| row | metric | before | after |
+| --- | --- | --- | --- |
+| `city/high-street/21` | max | 247 | 243 |
+| `city/high-street/21` | belowL8Pct | 23.20 | 22.68 |
+| `city/high-street/21` | pureBlackPct | 5.446 | 5.183 |
+| `city/high-street/17.5` | max | 230 | 221 |
+| `city/plaza/12` | — | all metrics inside tolerance | |
+
+Both `max` losses are the same fact: **the programmer art was the brightest thing in the
+frame.** At 21:00 the 247 was `slamp03`'s untextured `f8f8f8` block, which `tiles` derives an
+emissive of 1.0 for because the material is used only by `light` models; at 17:30 the 230 was
+that same flat lozenge catching the low sun at (562,181), and with it gone the frame's peak
+falls back to the HUD panel's own 221. Losing a white swatch is the fix, not a side effect.
+
+The night half is worth recovering anyway, and it is recovered *without* whitening the lamp.
+`environment/lamps.js` says a sodium lamp is "a small white filament inside a large orange
+glare"; the glare half was true and the core was not, because the glow quad's peak is
+`3.2 * intensity * colour` and `0xffb166` through AgX comes out `rgb(255,214,170)` — warm all
+the way in. Making the lamp itself whiter would repaint the ground pool and the halo with it,
+which is the "heads render pale WHITE, not the 0xffb166 sodium the code specifies" the round-2
+critic already filed. So each lamp registers a **second** bulb at the same point: `0xfff0d8`,
+`size 0.22` against the sodium bulb's 0.85, `point: false` so it never takes one of the eight
+`PointLight` slots and `pool: false` so it paints no second decal. It rides the same quad mesh
+— no extra draw call, no extra program. Swept and measured: max 220 with no filament, 233 at
+intensity 1.0, 238 at 1.5, **243 at 2.2**, while `mean` moves +0.11 and `over200Pct` −0.03.
+
+**Two things left open, neither of them this module's.**
+
+*The away-side faces go to zero in daylight.* The post's shaded column measures `rgb(0,0,8)`
+and the head's `rgb(24,1,1)` at noon, while `post.png`'s darkest texel is `(74,74,70)`, every
+vertex colour is white and every normal is an axis-aligned unit. It survives `castShadow:
+false` **and** `receiveShadow: false` on the world, so it is not the shadow map, and it
+reproduces in `?showcase=preview&mode=structures&filter=light` with no city code in the frame.
+Note that `preview` declares `needs: ['tiles']` and boots **without** `environment`, so the
+preview repro does *not* prove it is the hemisphere fill — it is either that or `tiles`'
+material setup for an authored pack, and I could not discriminate from inside `city`. Filed
+for whichever owns it, with the pixel values above. Same family as the critic's "trees render
+near-black". At the game camera it is a six-pixel column on a post, so it ships.
+
+*`lamps.nearest()` does not filter `point: false`.* `update()` does — line 436, `.filter((o)
+=> lamps[o.i].point)` — but `nearest(focus, n)` ranks every registered bulb by
+`intensity / (1 + d²)`, and the filament outranks the sodium bulb it is stacked on (2.2 to
+2.0). `environment/index.js:825` asks for `nearest(focus, 4)` to aim character shadows, so a
+scene with filaments would get two lamps' worth of answers where it asked for four. It is
+**latent, not live**: that call is gated on `enclosed >= 0.5` and the `city` preset is
+`enclosed: 0`, so nothing in this town reaches it today. Filed as a coreRequest — `nearest()`
+should skip `point: false` bulbs exactly as the point-light pool does — and recorded here
+because the next scene to register a decorative bulb indoors will hit it silently.
+
+### 49 — 2026-09-08 — A Poisson radius of 1.75 can only make crowns *touch*; the trail's transition was stamped twice down the middle of the road; and the only honest measurement in a tree three agents are editing is a control taken minutes apart
+
+`hunts`, round 5. The brief was one thing — **make the wood read as a wood** — with a hard
+constraint: a higher score and **zero regressions on `tools/shots/regress.js`**, because the
+three rounds before this one each fixed their brief and broke something they were not looking
+at (6.5 → 6 → 5.5).
+
+**1. The plantation was arithmetic, not taste.**
+
+Four rounds of this file drove the tree scatter off `canopyAt`, as `spacing = 3.1 −
+canopyAt·1.35`, and `canopyAt` clamps to 1 — so the radius bottomed out at **1.75**.
+`scatterSpaced` rejects a pair on `dx² + dz² < r²`, and the smallest lattice distance above
+1.75 is **2**. A 2×2 model at pitch 2 has a footprint that *abuts* its neighbour and can never
+overlap it, so every crown in the deep wood was ringed by its own cell of lit floor with its
+own root decal under it and its own separate cast shadow — which is, word for word, what the
+critic read off the pixels, at "a constant 415-430px pitch across five columns" and "roughly 5
+rows x 9 columns of the same crown silhouette".
+
+Two changes, both measurable rather than argued:
+
+* **A separate field.** `packAt` is the packing radius; `canopyAt` stays the floor shade.
+  They could never be tuned apart while they were one function: any attempt to close the
+  canopy repainted every ground tile in the map at the same time.
+* **A floor of 0.95 and a linear range to 3.3**, driven by its own period-7 `stand` field
+  rather than by the same lobes that shade the floor. Below 1 the cell next door is legal;
+  below √2 the diagonal is. Measured on the shipped seed-1337 map by building it both ways —
+  the file reverted to its round-4 behaviour and built again, not inferred from the spacing
+  formula: nearest-neighbour distance between trees **2.00 / 2.00 / 2.00** (min / p25 / p50)
+  → **1.00 / 1.41 / 1.41**, trees 399 → 681, and the share of crown-covered cells covered by
+  *two* crowns **18.1 % → 52.8 %**. Triangles 24 924 → 31 056, draw calls
+  unchanged at 86 (they are instances of models the map already used), 60 fps.
+* **`distToPath` is out of the packing entirely.** A ride is a two-cell gap that already
+  carries its own treeless verge — 2-4 cells north, 5-10 south — and thinning the wood for
+  four *more* cells behind that verge is what made the tree line the row of lollipops the
+  `route` framing is a picture of. The verge extents are untouched; they are what bought the
+  night crush in #45 and they were not this round's lever.
+* **The clearing edge thins over 7 cells, not 4**, and that number was chosen against the
+  gate rather than by eye: at /4 the golden-hour frame regressed `belowL8Pct` 5.19 → 6.68 and
+  `p99` 132 → 126, because every crown added near an opening throws a long low-sun shadow
+  across the one part of the frame that has light in it. At /7 the deep mass is unchanged and
+  the frame is inside tolerance.
+
+Two smaller pieces of the same complaint. **The crowns are no longer all at one yaw**: half
+are placed at `rot 2`, hashed off the cell. The odd quarter turns are deliberately unused —
+these are crossed billboards and `dropEdgeOnTwins` (#41b) throws the X-facing card away, so
+`rot 1` and `rot 3` render as a bare trunk, which is the sliver `cameraFacingRot` exists to
+snap away; `rot 2` keeps the card the camera sees and mirrors the picture on it. And **the
+3×3 crown is checked on all nine cells**, not on three corners: `wood` is `open.invert()`
+after a `ragged` pass, so one-cell notches exist, and a big crown straddling one wrote
+`collision: 'block'` onto a cell the rest of the file believed was open — the exact shape of
+bug that shows up a round later as a party walking north.
+
+**The front rank keeps its trunks whatever the canopy does, so something has to stand in
+front of them.** A cell one row south draws about 53 px lower at this camera, the root decal
+is ~40 px tall and a `hedge1` is ~64, so a bush in *front* of the tree line covers only the
+bottom dozen pixels of the trunk behind it — a bush on the *same cell* shares the trunk's base
+and occludes the whole decal. Both rows are now scattered (`face` at 1.35, `skirt` at 2.2),
+and the skirt excludes `lane` outright rather than trusting a distance test, because a
+`block` hedge in the walk is a framing whose east leg `makeScriptedRoute` drops in silence.
+
+**2. The trail was a divided road, and it is a pack defect, not a composition one.**
+
+The critic: *"a 294px band (~5 cells) split into three tan runs by two grass ribbons"*, in
+both forest and meadow, at every hour. Round 1's header claimed this was solved. It was not,
+and the reason it survived four rounds is that the field is innocent: `path` is **three cells
+wide** (four at the meander steps, from `closeCorners`), and `solvePlacements` emits nothing
+outside the field, so the brief's own hypothesis — border slots painting the grass cells
+outside the field — is ruled out in the source.
+
+What is actually wrong is that `bw2-adastra`'s `set0` `edge_w` and `edge_e` come out of the
+pack **mirrored about their own centre**: the strip of grass the artist drew on the tile's
+*outer* edge is stamped on its *inner* one. So a three-cell trail draws as
+`tan | ribbon | tan | ribbon | tan` with its outer edges meeting the lawn at a bare seam, and
+the transition running down the middle of the road twice. Scanned off the shipped frame at
+1920×1080: tan 77 px, green 12, tan 76, green 15, tan 76.
+
+The fix that ships is `SET0_OUTWARD` in `hunts/palette.js` plus a `rotate` option on
+`palette.draw`: `rot 2` on those two cases and nothing else. A 180° turn is a horizontal
+mirror *and* a vertical one, and a vertical mirror is a no-op on a vertical strip of grass, so
+the turn is exactly the correction those cases need. The four outer and four inner corners are
+**not** turned — their art is diagonal, a quarter turn moves it to the wrong diagonal, and
+they are a handful of cells at the meander steps against ~200 cells of straight run. Shot
+three ways (all cases at `rot 2`; a full per-case table of 0/1/2/3; the two edges only) and
+looked at before choosing: `docs/progress/hunts/r5/`. Applied in `forest` and `meadow`, which
+are the two the critic named; `coast`'s track has the same defect and is left for next round.
+
+The real fix belongs in the exporter, where one rule covers every slot of every pack, and is
+filed as a coreRequest — the same address as #41a and the `tiles` roof-sign defect.
+
+**3. What the gate can and cannot attribute when three agents share a tree.**
+
+`regress.js` was clean at 0/0/0 when this round started. Half an hour later it reported six
+regressions, two of them on `city/high-street` — a frame in which the shot JSON says
+`hunts:skipped`, i.e. this module is not even initialised. `src/city/*` and
+`src/environment/index.js` had mtimes from *one minute* before that run.
+
+So the only honest measurement is a **control taken minutes apart under the same drift**:
+`src/hunts` reverted to its session-start behaviour, `regress.js --only hunts`, restored,
+`--only hunts` again. Both halves, all seven hunts rows:
+
+* `cave/12`, `coast/12`, `meadow/12`, `meadow/21` — **every metric identical to three
+  decimals.** The meadow road fix moves **5.77 %** of the pixels in its judged frame and does
+  not move one metric, because swapping a green ribbon inside the band for a green fringe
+  outside it preserves the histogram. That is the ideal shape for a change like this.
+* `forest/12` — mean −0.16, `belowL8Pct` −0.018.
+* `forest/17.5` — mean −2.58 (tol 4, no direction), `p99` −4.00 (tol 4, at the boundary and
+  not flagged), `belowL8Pct` +0.546 (tol 0.8).
+* `forest/21` — `belowL8Pct` +0.556 (tol 0.8), `pureBlackPct` +0.075 (tol 0.5).
+
+**Zero REGRESSED rows on this module's own frames, controlled.** The remaining cost is
+physics and is stated rather than hidden: at golden hour, a mask of the sub-luma-8 pixels
+(`docs/progress/hunts/r5/mask-below-luma8-17.5.png`) is mostly the *unlit halves of the crowns themselves*, so +70 %
+crowns buys +0.55 points of crush. `mean` and `p99` fall for the same reason — more of the
+frame is mid-green canopy and less of it is sunlit lawn.
+
+Two knobs were tried and rejected with numbers rather than dropped quietly: cutting the tree
+count back (681 → 666 → 606) moves `belowL8Pct` at 17.5 by 0.005, so the crush is not a
+function of how many trees there are but of *which cells* are wood — the `distToOpenings`
+ramp, which is why that is where the tuning went. And `FLOOR_SHADE` was left alone in both
+directions: darkening it can only push `belowL8Pct` up, and lightening it to buy margin would
+undo the one thing the brief asked for.
+
+**Two selftest checks now stand behind all of this** (310 → 315), because "denser" is not
+something a screenshot can be diffed on a round later: the canopy must interlock on more than
+40 % of its covered cells (round 4 measures 18.1 there, round 5 measures 52.8 — both built
+through the same stub, so the threshold sits between two measurements rather than at a round
+number), the median nearest-neighbour distance must be under 1.9 (round 4's was 2.00 at the
+minimum, the first quartile and the median alike, which is what a lattice is in numbers), the crowns
+must not all be at one yaw, and `palette.draw` must pass `rotate` through — because if it ever
+stops, the road silently goes back to being divided and nothing says so.
+
+### 50 — 2026-09-08 — `lift` is authored in one colour space and delivered in another, which is why two rounds of "raise the lift" moved nothing; and the caster-less slabs are trees
+
+Every number below is 1280x720 with `hudRows: 60`, the same reduction `tools/shots/regress.js`
+uses, and every before/after was shot **in the same minute on the same tree** — `city`,
+`tiles` and `hunts` were all editing while this round ran, and `docs/baseline.json` had
+already drifted under them before I touched anything (see (e)).
+
+**(a) The crush point is real, and the lift that was supposed to clear it was ten times too
+small. This is the round's main finding.**
+
+`core/render.js` composites `agx(scene * exposure) -> *gain + lift -> saturation -> contrast`,
+and `contrast` is `(x - 0.5) * c + 0.5`, a gain about 0.5. So it has a crush point at
+`0.5 - 0.5/contrast` — at the night's 1.22 that is **0.0902**, or 23/255 — and everything
+under it clamps to zero. #46 got that far. What #46 missed is where the lift actually lands:
+`presets.js` authors it as a hex, `key()` runs it through `new THREE.Color(hex)`, and
+`THREE.ColorManagement` is on, so the hex is converted **sRGB -> linear** on the way in.
+`lift: 0x191c28` does not deliver `(25, 28, 40)/255`. It delivers `(0.0097, 0.0116, 0.0212)`,
+which is `(2.5, 3.0, 5.4)/255`. Every night lift this project has shipped has been an order of
+magnitude *inside* its own crush point, which is why #46 raising `0x0c0d14 -> 0x191c28` and
+calling the floor fixed did not move `belowL8` at all.
+
+The symptom is not "the night is dark", it is **single-channel pixels**. Histogramming the
+shipped `city-21` PNG by exact RGB: 4.58 % of the frame at exactly rgb(0,0,0), 1.34 % at
+(1,1,1), then 0.43 % at **rgb(25,0,0)**, 0.39 % at (24,0,0), 0.38 % at **rgb(0,0,50)**,
+0.37 % at (0,0,49). `forest-21` is the same shape with green surviving: 8.42 % pure black then
+a ladder of **rgb(0,k,0)** for k = 1..9. That is `saturation` above 1 pushing the two weaker
+channels of a dark pixel below the crush point and `contrast` clamping them to zero — the
+exact mechanism #46 diagnosed for the cave, running in every night and golden-hour frame in
+the game.
+
+Fixed by sizing the lift against the crush point and paying for it: the two deep-night keys go
+`lift 0x191c28 -> 0x3a3f52` with `exposure 0.288 -> 0.26` (so the midtone an offset would
+otherwise raise stays put) and `saturation 1.22 -> 1.34` (so the colour a bigger offset washes
+out comes back). Blue hour and astronomical twilight get the lift only. The golden hour was the
+same bug with a **warm** lift, which is #46(b)'s one-hue cave verbatim: `0x120d07` delivers
+`(0.0060, 0.0040, 0.0021)` under a crush point of 0.1183, so a golden-hour shadow had blue
+clamped to zero and red held up by the lift and could only ever be orange. It is
+`0x242a3a` now, cool, with `exposure 0.425 -> 0.40` and `saturation 1.42 -> 1.50`. The five
+day keys got the same treatment at a quarter of the size.
+
+Measured, shipped preset against the same-minute control:
+
+| frame | belowL8 | pure black | p99 | max | mean |
+| --- | --- | --- | --- | --- | --- |
+| `city-21` | 15.31 -> **11.11** | 4.22 -> **0.76** | 136 -> **148** | 241 -> **250** | 40.7 -> 45.2 |
+| `forest-21` (vs baseline) | 18.37 -> **11.45** | 7.31 -> **1.78** | 84 -> **90** | 161 | 37.6 -> 44.3 |
+| `meadow-21` (vs baseline) | 8.08 -> **4.92** | 3.01 -> **0.74** | 68 -> **74** | 161 | 38.2 -> 45.4 |
+| `forest-17.5` | 9.54 -> **3.84** | 1.52 -> **0.07** | 129 -> 131 | 221 | 34.8 -> 38.8 |
+| `city-17.5` | 5.29 -> **3.23** | 1.32 -> **0.59** | 138 -> 141 | 221 | 58.7 -> 61.5 |
+| docs/refs/03 (night) | 9.82 | 0.68 | 159 | 217 | 45.2 |
+
+`forest-21` at mean 44.3 / `belowL8` 11.4 / pure black 1.78 is the closest any frame in this
+project has been to `03-forest-voxel-night.png` (45.2 / 9.8 / 0.68). The references were
+measured with the same reducer and are worth writing down: ref 02 `belowL8` 0.00 / black 0.00,
+ref 04 0.05 / 0.00, ref 03 9.82 / 0.68. Ref 01 reads 17.2 % black and that is its letterbox,
+not its picture.
+
+**(b) `pushOutOfCone` was not making city night worse. The crush was, and the bend was being
+blamed for it.**
+
+The critic isolated the bend with the flag it shipped and measured `city-21` at 24.75 %
+`belowL8` / 5.10 % black against `?envNoConeBend=1`'s 17.01 / 3.97 — seven points, which is
+what this round was told to fix or default off. With the crush fixed, the same A/B on the same
+scene in the same minute is `belowL8` **11.11 / 8.99** and pure black **0.76 / 0.41**. The
+bend's cost is **2.13 points**, not 7.7, and on `meadow-21` the bend is now the *better* of the
+two (4.92 against 5.66). Seven of those nine points were never the azimuth: they were dark
+pixels that the bend moved from one side of the crush point to the other, on a frame whose
+floor was ten times below that point.
+
+So the bend stays on. It is buying the thing three rounds of judges filed — at `tod 21` the
+party's shadows lie east of their feet instead of haloing them, which
+`docs/progress/environment/r6/forest-21.png` shows and `city-21-nobend.png` is the control for.
+What is still open is the residual: the bent moon throws the high street's own buildings across
+the path, and the frames that pay for it are the ones with tall casters. The untried fix, for
+whoever takes it: feed the bent azimuth **only** to `castShadows.js`, which is the only thing
+that can shadow a sprite (#33), and leave the shadow map and the Lambert term on the raw moon.
+That is two light directions in one frame and it should be measured, not assumed.
+
+**(c) The cave's bloom halos every character in the room, and no threshold separates a lit
+sprite from a lamp.**
+
+#46 dropped the cave's `bloomThreshold` to 0.72 to buy the highlight every blind round had
+asked for, and it worked — and it also made the trainer under the west lamp a cream blob with
+no outline, no eye and no mouth. Diffing `cave-12` at threshold 0.72 against 3.2 is 27.5 % of
+the frame and the mask is **every sprite in the room wearing a halo**, not the lamps.
+
+The threshold cannot fix it, and the measurement says why: a lit sprite's face and a lamp's
+ground pool leave the bloom at the *same* threshold. Sweeping 0.72 / 0.90 / 1.10 / 1.30 / 1.80
+/ 2.40 / 3.20 moves `over200Pct` 1.244 -> 1.126 -> 1.032 -> 0.964 -> 0.873 -> 0.835 -> 0.821,
+against 0.812 with the bloom off entirely — so by 2.4 there is no bloom left, and the sprite is
+only readable from about 1.8 up. They are the same brightness; the choice is which one to keep,
+and it is the sprite.
+
+Shipped: `bloomThreshold 0.72 -> 1.80` with `bloom` held at 1.30, and `exposure 1.00 -> 1.20`
+to buy back the highlight the threshold gives up. `cave-12`, baseline -> shipped: p99
+206 -> **204**, max 248 -> 248, `over200` 1.244 -> 1.175, `belowL8` **1.913 -> 0.073**, pure
+black 0.00 both, mean 59.97 -> 64.89. The highlight is held inside the gate's tolerance and the
+sprites are back; `docs/progress/environment/r6/cave-12.png` is the frame. The `exposure` lift
+is also `hunts`'s round-4 request arriving by a different route — unlit rock in there is dark
+rather than exactly (0,0,0), and `belowL8` 0.073 sits between ref 02's 0.00 and ref 04's 0.05.
+
+**(d) The caster-less slabs are the town's trees, and both fixes for them cost more than they
+are worth. Measured, and not shipped.**
+
+Four rounds have called `crops/diff-hs-17.5.png` "giant straight-edged trapezoids with no
+caster", and the integrator disproved the obvious cause (`shadowExtent` 56 -> 100 -> 160 moves
+coverage under a point). It is none of the three untested suspects either. `?envDumpCasters=1`
+lists all 83 shadow casters in the high street with their `side` / `shadowSide` / `alphaTest`:
+every tree material is `alphaTest 0.35`, `transparent: false`, with a map, so the shadow pass
+*is* cutting the leaf silhouette, and no ground tile is a caster at all, so the lawn cannot be
+self-shadowing. `?envCasterOff=tree,pine` removes **100 %** of the slabs and leaves a clean
+lawn with the buildings' and lamp posts' own shadows on it
+(`docs/progress/environment/r6/city-17.5-nocaster-tree.png`). They are 117 real tree instances,
+standing just outside the frame, raked by a shown sun altitude of **8.64 degrees** at `tod 17.5`
+— a shadow run of **6.6x** the caster's height, and 16.6x at 18:00 where the elevation floor
+binds. The canopy's own gaps stretched 6.6x are the corduroy. `?envNormalBiasMul=20` also
+removes them, which is what sent three rounds looking for acne: at a grazing sun a normal offset
+of 1.5 units displaces the shadow lookup **8.8 units laterally**, which is wider than the band.
+
+Two fixes were built and measured and both are worse than the defect:
+
+*Cap the shadow run by raising the key's elevation floor* (`?envMinElevDeg`, with the #40 tilt
+gain unclamped below 1 so flat-ground brightness is held — verified: at 17.5 the ground takes
+`0.2419 * 20 * 0.688 = 3.329` against the old `0.1503 * 20 * 1.107 = 3.328`). At 14 degrees the
+city lawn is clean and `city-17.5` gains p99 141 -> 160 for a mean of 61.5 -> 70.5. The same
+flag costs `forest-17.5` **mean 38.8 -> 64.8** — the wood's entire dusk is those long shadows,
+and shortening them turns 17:30 into midday.
+
+*Make the grazing-hour shadow shallower* (`?envShadowIntensity`, three's
+`LightShadow.intensity`). At 0.7 `city-17.5` `belowL8` goes 3.23 -> 2.15 and `forest-17.5` goes
+3.29 -> 0.64 — and `docs/progress/environment/r6` has the frame that killed it: a flat green
+forest at 17:30 with no golden hour left in it, mean 41 -> 60.
+
+Both flags default to the shipping rig and are byte-identical when off (`TILT_GAIN_MIN` is 1
+unless `envMinElevDeg` is set — it has to be, because at sunset `trueAltitude` clamps to 0 and
+a floor below 1 there would take 55 % of the key off the sunset frame). The next round's
+options, in the order I would try them: ask `city` to move the tree line, or give the shadow a
+distance-from-caster falloff, which is a core shader change and not a preset one.
+
+**(e) `docs/baseline.json` had already drifted before this round started, and half of one
+headline number is not mine.**
+
+The gate reported `city/high-street/21` `belowL8` 23.2 -> 11.11. Shooting the same frame with
+`src/environment/` alone reverted, in the same minute, reads **15.31** — so 7.9 of those 12.1
+points were somebody else's edit to `src/city/` between the baseline being accepted at 16:02
+and my first shot, and 4.2 are mine. Same story with the round's one REGRESSED row,
+`city/high-street/17.5 max 230 -> 221`: I measured max **221** on that frame at 16:20 with an
+environment that was still byte-identical to the baseline's (the only code I had added was
+multiply-by-one), and `src/city/{layout,map,structures}.js` were written at 16:16, 16:17 and
+16:18. It is not environment's. In the other direction, the same control says `forest-17.5` had
+drifted from `belowL8` 5.19 to **9.54** and `city-17.5` from 4.13 to 5.29 under other modules
+before I started, and this round takes both below where the baseline had them.
+
+One caution for whoever reverts a module to attribute a number: `git checkout -- src/<module>/`
+goes to **HEAD**, not to the baseline, and on this tree HEAD is a round behind every visual
+module. Doing it threw away round 5's uncommitted `environment` and briefly measured the
+*round-4* look (`cave-12` at saturation 0.932, `forest-21` at mean 16.3) — restored from a
+copy taken first, which is the only reason this note is not an apology.
+
+**Postscript, same round — the control in (a) and (e) was the wrong tree, and the correction
+runs the other way.**
+
+Caught in review. `git checkout -- src/environment/` goes to **HEAD**, and on this tree HEAD is
+`environment` as of round *four*; the paragraph at the end of (e) says exactly that and then the
+table in (a) and the split in (e) use those round-4 shots as the "before" anyway. They are not a
+control for this round — they are a control for the last two rounds put together, which
+under-credits this one and mis-credits `city`. The right controls were already in this round's
+own logs: three frames shot on the round-5 preset **after** `src/city/{layout,map,structures}.js`
+were written at 16:16-16:18 and **before** any preset change here (16:20 and 16:30). Corrected:
+
+| frame, round-5 preset -> shipped | belowL8 | pure black | p99 | max | mean |
+| --- | --- | --- | --- | --- | --- |
+| `city-21` | 22.69 -> **11.11** | 5.19 -> **0.76** | 142 -> **148** | 220 -> **250** | 38.7 -> 45.2 |
+| `city-17.5` | 4.11 -> **3.23** | 0.86 -> **0.59** | 138 -> 141 | 221 -> 221 | 58.9 -> 61.5 |
+| `forest-17.5` | 5.91 -> **3.84** | 0.26 -> **0.07** | 129 -> 131 | 221 -> 221 | 36.0 -> 38.8 |
+
+So `city-21`'s 12.1 points of `belowL8` are **11.6 mine and about 0.5 somebody else's**, not the
+4.2 / 7.9 the body claims, and `forest-17.5` and `city-17.5` had drifted far less than the
+round-4 comparison made it look. The `max 230 -> 221` attribution is unaffected and stands: it
+rests on the 16:20 shot, which was round-5 preset plus multiply-by-one, and on the mtimes.
+
+Two other numbers in this entry come from the same wrong control and should be read as
+round-4-to-now rather than as this round's work: `forest-17.5` "drifted from 5.19 to 9.54" and
+`city-17.5` "from 4.13 to 5.29" in (e). Against the real control the drift was 5.19 -> 5.91 and
+4.13 -> 4.11.
+
+**And the frame `hunts` actually asked about.** (c) claimed the cave `exposure` lift answered
+their round-4 request by a different route, on the strength of `cave-12` alone. Their
+measurement was the *pool* framing — `docs/progress/hunts/r4/cave-pool-12` measured **27.29 %**
+of the frame at exactly rgb(0,0,0) under the round-3 environment. Shot now, shipped preset:
+`?showcase=hunts&mode=cave&preset=pool` reads **pure black 0.000 %** at `tod 12` and **0.000 %**
+at `tod 21`, with `belowL8` 0.34 and 1.61 and p50 24 and 23. Unlit rock in there is dark without
+being nothing, which is the request as they wrote it.

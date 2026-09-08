@@ -20,7 +20,7 @@
  *    `cave_exit` is the lit mouth.
  */
 
-import { Field, valueNoise, fbm2, scatterSpaced, walkableNear, clamp01, mixTint } from '../compose.js';
+import { Field, valueNoise, fbm2, scatterSpaced, walkableNear, laneNear, clamp01, mixTint, wildCells } from '../compose.js';
 
 export const CAVE = {
   id: 'cave',
@@ -31,24 +31,33 @@ export const CAVE = {
   h: 54,
   weather: null,
   presets: {
-    chamber: { marker: 'chamber', distance: 30, dir: 2 },
-    mouth: { marker: 'mouth', distance: 30, dir: 2 },
-    pool: { marker: 'pool', distance: 28, dir: 2 },
-    terrace: { marker: 'terrace', distance: 30, dir: 2 },
+    chamber: { marker: 'chamber', distance: 30 },
+    mouth: { marker: 'mouth', distance: 30 },
+    pool: { marker: 'pool', distance: 28 },
+    terrace: { marker: 'terrace', distance: 30 },
     // 46 was a picture of nothing: at that distance the hall is a flat brown rectangle with
     // three light dots in it and a party four pixels tall. At 34 the party and the room's
     // walls read again. Aimed at the terrace because docs/refs/04 is entirely one bank of
     // rock stepping up behind another — though looked at, this framing shows the hall more
     // than it shows the step, so it is better than it was rather than right.
-    wide: { marker: 'terrace', distance: 34, dir: 2 },
-    close: { marker: 'pool', distance: 16, dir: 2 },
+    wide: { marker: 'terrace', distance: 34 },
+    // Its own marker, not `pool`'s: at `distance` 16 the near half of the frame is 4.3 cells
+    // of ground, and `pool` stood one cell north of a terrace lip. See `mark('close', …)`.
+    close: { marker: 'close', distance: 16 },
     // `tools/judge/plan.json` shoots `preset: 'route'` for the cave pair and no biome
     // defined one, so it was silently falling back with `presetApplied: false`. The
     // reference is docs/refs/02, a walked cave gallery: the corridor between the hall and
     // the pool, with rock on both sides.
-    route: { marker: 'chamber', distance: 26, dir: 2 },
+    route: { marker: 'gallery', distance: 26 },
+    gallery: { marker: 'gallery', distance: 30 },
   },
-  showcaseDefault: 'chamber',
+  showcaseDefault: 'gallery',
+  /**
+   * East along the gallery. See `biomes/forest.js` for why every biome walks east; in a cave
+   * it matters twice over, because the rooms are joined by corridors and a corridor a party
+   * files *up* is a corridor the camera sees one sprite in.
+   */
+  walk: { route: 'e14 s2 e8 n2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 /** A rounded room. Rooms plus the corridors between them is a cave; noise is a sponge. */
@@ -103,11 +112,47 @@ export function buildCave(draft, ctx, palette, rng, log) {
   const floor = new Field(W, H);
   room(floor, MOUTH[0], MOUTH[1], 5.5, 4, seed ^ 0x11);
   room(floor, HALL[0], HALL[1], 8.5, 5.5, seed ^ 0x22);
-  room(floor, POOL[0], POOL[1], 6.5, 5, seed ^ 0x33);
+  // **Wider east-west than round 3's 6.5, and the reason is the framing rather than the
+  // geology.** Two of the cave's eight presets are aimed at this room, and every framing in
+  // this module stands the party on a clear east-west lane thirteen cells long (`laneNear`).
+  // A room thirteen cells across cannot hold one *and* a body of water, so round 3's marker
+  // was pushed out into the hall and the `pool` framing was a picture of the hall. At 8.5 by
+  // 5.5 the water sits in the north of the room and the strand along its south is the lane.
+  room(floor, POOL[0], POOL[1], 8.5, 5.5, seed ^ 0x33);
   room(floor, DEEP[0], DEEP[1], 6.5, 4.5, seed ^ 0x44);
   corridor(floor, MOUTH, HALL, 1.9, seed ^ 0x55);
   corridor(floor, HALL, POOL, 1.7, seed ^ 0x66);
   corridor(floor, HALL, DEEP, 2.0, seed ^ 0x77);
+  // **The gallery**: one long east-west working, drifting a few cells as it runs, cut across
+  // the south of the hall.
+  //
+  // It is the map's answer to the defect all three blind A/B rounds named. Round 2's chambers
+  // were joined on a rough north-south diagonal, so an east leg in the route walked into rock,
+  // `makeScriptedRoute` dropped it silently, and the party filed up the screen with each
+  // sprite hidden behind the one in front and nothing in frame but the back of the trainer's
+  // cap. A gallery is also what docs/refs/02 actually is — a walked passage with rock either
+  // side — so this is the reference's own composition rather than a concession to the camera.
+  const GALLERY = { a: [5, 38], b: [51, 34] };
+  corridor(floor, GALLERY.a, GALLERY.b, 2.1, seed ^ 0x99);
+  const galleryAt = (cx) => Math.round(GALLERY.a[1]
+    + (GALLERY.b[1] - GALLERY.a[1]) * clamp01((cx - GALLERY.a[0]) / (GALLERY.b[0] - GALLERY.a[0])));
+
+  /**
+   * **Where the water goes, decided before anything is allowed to eat it.**
+   *
+   * Round 3 cut the pool last — `pool.intersect(floor.shrink(2))` after the outcrops and the
+   * terrace had already been subtracted from `floor` — and on the shipped seed-1337 map that
+   * left `pool.count() === 0`. Two framings (`pool` and `close`) are aimed at a body of water
+   * that is not in the map, the cold bulb sitting *in* it lights bare rock, and the module's
+   * own build report said so in a field nobody read. A region other regions are allowed to
+   * carve into is not a region; it is a leftover. So the pool's footprint is declared here
+   * and both carvers are told to keep off it.
+   */
+  const poolTarget = new Field(W, H, (cx, cz) => {
+    const dx = (cx + 0.5 - POOL[0]) / 5.6, dz = (cz + 0.5 - (POOL[1] - 1.5)) / 3.0;
+    return dx * dx + dz * dz < 0.85 + valueNoise(cx, cz, seed ^ 0x9a, 4) * 0.3;
+  });
+  const poolKeepOut = poolTarget.clone().grow(3);
 
   // Outcrops *inside* the rooms. A chamber whose floor is one unbroken sheet reads as a
   // warehouse: what makes rock read as rock is a silhouette interrupting the floor at the
@@ -123,6 +168,12 @@ export function buildCave(draft, ctx, palette, rng, log) {
     room(outcrops, ox, oz, rx, rx * 0.72, seed ^ (ox * 31 + oz));
   }
   outcrops.intersect(floor.clone().shrink(3));
+  // Never *in* the gallery. An outcrop dropped in a two-cell passage is a plug: the east leg
+  // is blocked, dropped, and the walk turns north again — which is the whole fault this
+  // corridor exists to fix. `Line.place` also lays the entire queue along the walk direction
+  // at the teleport, so the row needs about eleven clear cells around the marker, not two.
+  outcrops.subtract(new Field(W, H, (cx, cz) => Math.abs(cz - galleryAt(cx)) <= 2));
+  outcrops.subtract(poolKeepOut);
   floor.subtract(outcrops);
   floor.despeckle(6);
   // The rim of the map is always rock, so no frame ever ends in the void.
@@ -139,14 +190,13 @@ export function buildCave(draft, ctx, palette, rng, log) {
     return (a || b) && valueNoise(cx, cz, seed ^ 0x88, 5) > 0.18;
   });
   terrace.intersect(floor.clone().shrink(1));
+  terrace.subtract(new Field(W, H, (cx, cz) => Math.abs(cz - galleryAt(cx)) <= 3));
+  terrace.subtract(poolKeepOut);
   terrace.despeckle(8);
   floor.subtract(terrace);
 
   // ---------------------------------------------------------------- the pool
-  const pool = new Field(W, H, (cx, cz) => {
-    const dx = (cx + 0.5 - POOL[0]) / 5.2, dz = (cz + 0.5 - POOL[1]) / 3.6;
-    return dx * dx + dz * dz < 0.85 + valueNoise(cx, cz, seed ^ 0x9a, 4) * 0.3;
-  });
+  const pool = poolTarget.clone();
   pool.intersect(floor.clone().shrink(2));
   // No `closeCorners` here, on purpose: filling the diagonal notches of a *water* region
   // squares it off into a swimming pool. The palette has all four inner-corner slots, so a
@@ -163,18 +213,41 @@ export function buildCave(draft, ctx, palette, rng, log) {
   // get a few warm glows to walk towards. `environment`'s cave preset runs `lamps: 1.0` at
   // every hour, so these are on at noon and at midnight alike, which is correct: nothing
   // down here knows what time it is.
+  //
+  // **The numbers are sized against `environment/lamps.js`, not guessed.** Read off that
+  // file: the `PointLight` reach is clamped to `POOL_REACH` 3.9 world units whatever
+  // `radius` says, the painted ground pool reaches `min(4.2, radius * 0.42)`, and its
+  // strength is `min(1, 0.205 * intensity + 0.035)`. So a bulb at `radius 9, intensity 0.9`
+  // — round 2's — paints a pool 3.8 cells across at a fifth of full strength, which is a
+  // smudge; the same bulb at `radius 11, intensity 5` paints the full 4.2 cells at full
+  // strength. Round 2 asked for wide, dim light and got neither: the room took its colour
+  // from the preset's warm fog and every lamp was a dot in it.
   const lights = [
-    { x: MOUTH[0] + 0.5, z: MOUTH[1] - 4.5, y: 3.2, color: 0xbfd8ff, intensity: 1.8, radius: 15, size: 0.02 },
-    { x: MOUTH[0] + 0.5, z: MOUTH[1] - 0.5, y: 2.2, color: 0xa8c6f0, intensity: 0.9, radius: 12, size: 0.02 },
-    { x: HALL[0] + 4.5, z: HALL[1] - 1.5, y: 1.9, color: 0xff9a4a, intensity: 0.9, radius: 10, size: 0.34 },
-    // Low, bright and *visible*: the pool read as "a pane of dirty glass over a pit" because
-    // its only light was a dim invisible bulb 1.5 units above it. A glowing source sitting on
-    // the water at 0.8 lights the sheet from close range and puts an orb in the frame, which
-    // is the one cold thing in a room the environment preset fogs warm-brown end to end.
-    { x: POOL[0] + 0.5, z: POOL[1] + 0.5, y: 0.8, color: 0x63c8ff, intensity: 2.6, radius: 11, size: 0.55 },
-    { x: POOL[0] - 4.5, z: POOL[1] + 3.5, y: 1.4, color: 0x7ce0ff, intensity: 0.85, radius: 9, size: 0.3 },
-    { x: DEEP[0] + 1.5, z: DEEP[1] + 0.5, y: 2.0, color: 0xffb060, intensity: 0.95, radius: 11, size: 0.36 },
-    { x: 22.5, z: 30.5, y: 1.7, color: 0xff8c3a, intensity: 0.8, radius: 9, size: 0.30 },
+    // The mouth: cold daylight falling in, and the one place in the map that is not lit by
+    // something burning.
+    { x: MOUTH[0] + 0.5, z: MOUTH[1] - 4.5, y: 3.2, color: 0xbfd8ff, intensity: 5.0, radius: 11, size: 0.02 },
+    { x: MOUTH[0] + 0.5, z: MOUTH[1] - 0.5, y: 2.2, color: 0xa8c6f0, intensity: 3.4, radius: 10, size: 0.02 },
+    // The warm family: lamps somebody left burning. Fewer and brighter than round 2's seven
+    // dim ones, so each is a pool with dark between rather than a wash.
+    { x: HALL[0] + 4.5, z: HALL[1] - 1.5, y: 1.9, color: 0xff9a4a, intensity: 5.0, radius: 11, size: 0.34 },
+    { x: DEEP[0] + 1.5, z: DEEP[1] + 0.5, y: 2.0, color: 0xffb060, intensity: 4.6, radius: 10, size: 0.36 },
+    { x: 22.5, z: 30.5, y: 1.7, color: 0xff8c3a, intensity: 4.2, radius: 10, size: 0.30 },
+    // **The cold family, and it is the fix for "one hue".**
+    //
+    // Round 2's cave measured mean saturation 0.971 against docs/refs/02's 0.194 and luma sd
+    // 15.4 against ref04's 37.9 — the flattest scene in the game, essentially every pixel the
+    // same fully-saturated orange. No single thing caused it: `environment`'s cave preset
+    // fogs warm-brown at density 0.040 with `saturation: 1.30` on top, and *every* light in
+    // the room was warm, so fog, key and albedo all pulled the same way and the grade had no
+    // second hue to separate. A grade that multiplies saturation by 1.30 is an amplifier —
+    // put a real blue in the frame and it comes back stronger — so glowworm light down the
+    // gallery and a cold seep in the deep chamber is worth more than any amount of tinting.
+    { x: POOL[0] + 0.5, z: POOL[1] + 0.5, y: 0.8, color: 0x63c8ff, intensity: 5.2, radius: 11, size: 0.55 },
+    { x: POOL[0] - 4.5, z: POOL[1] + 3.5, y: 1.4, color: 0x7ce0ff, intensity: 4.4, radius: 10, size: 0.30 },
+    { x: 14.5, z: 37.5, y: 1.5, color: 0x6fd0ff, intensity: 5.0, radius: 11, size: 0.26 },
+    { x: 31.5, z: 36.5, y: 1.6, color: 0x8fe2ff, intensity: 4.8, radius: 11, size: 0.24 },
+    { x: 45.5, z: 34.5, y: 1.5, color: 0x63c8ff, intensity: 5.0, radius: 11, size: 0.26 },
+    { x: DEEP[0] - 3.5, z: DEEP[1] + 3.5, y: 1.3, color: 0x7fd8ff, intensity: 4.4, radius: 10, size: 0.28 },
   ];
 
   // --------------------------------------------------------- the floor's hue
@@ -190,25 +263,59 @@ export function buildCave(draft, ctx, palette, rng, log) {
   // lighting alone cannot: the far gallery goes slate, the lit floor stays sandstone, and
   // the boundary between them is the falloff rather than a cell edge. The rock top is graded
   // harder than the floor because it is further from every bulb and reads as the far dark.
-  const COOL_FLOOR = 0x5f6672;
+  // Bluer than round 2's slate, and the falloff is *shorter*. `reach` used the bulb's full
+  // radius, and with seven bulbs of radius 9-15 in a 56x54 room that is 1.0 nearly
+  // everywhere: the cool end of the ramp was mixed in on almost no cell and the whole floor
+  // took `WARM_FLOOR`, which is white — i.e. the albedo grade was a no-op and the room was
+  // whatever hue the fog is. Two thirds of the radius puts the far gallery and the corners
+  // genuinely on the cold albedo, which is the second hue the frame did not have.
+  //
+  // **Both ends of that ramp were too far out, and each end shipped as its own defect.**
+  // The cold end of the *rock* was 0x1f2740, a near-black navy: multiplied into an already
+  // dim rock top it left the ground around every room at luma 0, and the `pool` framing
+  // measured **27.3 % of the frame at exactly black** against `docs/refs/02-cave-tilemap.png`
+  // at 0.00 % and `04-cave-golden-hour.png` at 0.06 %. Rock in shadow is slate, not a hole in
+  // the map. The cold *chill* end was 0xbcdcf6 at weight 0.85, which is a near-white wash: it
+  // is what the critic saw as *"a pale grey slab with no rock texture in the cave's west
+  // quarter"* — a glowworm bulb painting a full-strength pale blue rectangle across a floor
+  // texture that has almost no contrast of its own to survive it. Both are pulled in: the
+  // dark end lifts to a slate that still reads as unlit, the pale end drops to a blue that
+  // still reads as cold, and the second hue the round-3 note was chasing survives both.
+  const COOL_FLOOR = 0x46566e;
   const WARM_FLOOR = 0xffffff;
-  const COOL_ROCK = 0x333a4c;
+  const COOL_ROCK = 0x6c7691;
   const WARM_ROCK = 0xfff4e6;
   /** 1 where a bulb reaches, 0 in the far dark. Smoothstepped so it is not a disc. */
   function reach(cx, cz) {
     let best = 0;
     for (const L of lights) {
       const dx = cx + 0.5 - L.x, dz = cz + 0.5 - L.z;
-      const t = clamp01(1 - Math.sqrt(dx * dx + dz * dz) / (L.radius * 1.05));
+      const t = clamp01(1 - Math.sqrt(dx * dx + dz * dz) / (L.radius * 0.62));
       const v = t * t * (3 - 2 * t) * clamp01(L.intensity * 0.9);
       if (v > best) best = v;
     }
     return best;
   }
-  const floorTint = (cx, cz) => mixTint(COOL_FLOOR, WARM_FLOOR, reach(cx, cz),
-    { jitter: 5, cx, cz, seed: seed ^ 0x2c9f });
-  const rockTint = (cx, cz) => mixTint(COOL_ROCK, WARM_ROCK, reach(cx, cz) * 0.85,
-    { jitter: 5, cx, cz, seed: seed ^ 0x71a3 });
+  /** How cold the nearest source is, so a floor lit by glowworms is not painted sandstone. */
+  function chill(cx, cz) {
+    let best = 0, cold = 0;
+    for (const L of lights) {
+      const dx = cx + 0.5 - L.x, dz = cz + 0.5 - L.z;
+      const t = clamp01(1 - Math.sqrt(dx * dx + dz * dz) / (L.radius * 0.62));
+      const v = t * t * (3 - 2 * t) * clamp01(L.intensity * 0.9);
+      if (v > best) { best = v; cold = ((L.color & 0xff) > ((L.color >> 16) & 0xff)) ? 1 : 0; }
+    }
+    return best * cold;
+  }
+  const CHILL_FLOOR = 0x9cc2e6;
+  const floorTint = (cx, cz) => mixTint(
+    mixTint(COOL_FLOOR, WARM_FLOOR, reach(cx, cz)), CHILL_FLOOR, chill(cx, cz) * 0.55,
+    { jitter: 7, cx, cz, seed: seed ^ 0x2c9f },
+  );
+  const rockTint = (cx, cz) => mixTint(
+    mixTint(COOL_ROCK, WARM_ROCK, reach(cx, cz) * 0.85), 0x7f9ab8, chill(cx, cz) * 0.35,
+    { jitter: 7, cx, cz, seed: seed ^ 0x71a3 },
+  );
 
   // ------------------------------------------------------------- the drawing
   //
@@ -321,25 +428,62 @@ export function buildCave(draft, ctx, palette, rng, log) {
 
   // Markers are snapped onto ground a walker can stand on. A framing that teleports the
   // party onto rock collapses the queue onto one cell, which reads as a rendering bug.
-  const mark = (name, cx, cz) => {
-    const at = walkableNear(draft, cx, cz, 10);
+  // Markers are snapped onto a cell with a **clear east-west lane** through it, not merely
+  // onto standable ground: see `laneNear`. A marker in a two-cell passage stacks the queue on
+  // one tile and turns the walk north, which is the fault the gallery exists to fix, and the
+  // selftest asserts the lane on every preset in every biome.
+  const bounds = { x0: 13, x1: W - 14, z0: 13, z1: H - 9 };
+  const mark = (name, cx, cz, opts = {}) => {
+    const at = laneNear(draft, cx, cz, { maxR: 9, bounds, ...opts });
     draft.mark(name, at.cx, at.cz);
     return at;
   };
   const spawnAt = walkableNear(draft, MOUTH[0], MOUTH[1] + 1, 10);
-  draft.spawn = { cx: spawnAt.cx, cz: spawnAt.cz, dir: 2 };
+  draft.spawn = { cx: spawnAt.cx, cz: spawnAt.cz, dir: 3 };
   mark('mouth', MOUTH[0], MOUTH[1] + 2);
   mark('chamber', HALL[0], HALL[1] + 5);
-  mark('pool', POOL[0] - 1, POOL[1] + 8);
+  // On the pool's own south strand, so the water is in the upper half of both framings that
+  // aim here rather than twelve cells behind the camera.
+  mark('pool', POOL[0] - 2, POOL[1] + 4, { south: 2 });
+  /**
+   * **`close` has its own marker now, and that is the second regression this round undoes.**
+   *
+   * It used to borrow `pool` at `distance` 16, which is 6.8 cells of ground north of the
+   * focus and **4.3 south**. The pool marker sat one cell north of the eastern terrace's
+   * lip, so those 4.3 cells were a metre-high step: the trainer was cut off at the waist,
+   * the lead's feet vanished into the riser, and the bottom third of the frame was the flat
+   * dark top of the rock below (docs/progress/hunts/r4/base/cave-close-12.png). A tight
+   * framing is the one that cannot survive a wall in its near half, so it gets the widest,
+   * flattest floor in the map — the middle of the hall, under two of the warm bulbs — and
+   * asks `laneNear` for five cells of same-height ground to the south.
+   */
+  mark('close', HALL[0], HALL[1] + 1, { south: 5 });
   mark('terrace', 20, 33);   // over the western terrace, and clear of the exit
   mark('deep', DEEP[0] + 2, DEEP[1] + 9);
+  // The gallery west of the hall, so walking east arrives under the room's own lights with
+  // rock on both sides — docs/refs/02's framing exactly.
+  const mGallery = mark('gallery', 20, galleryAt(20));
   mark('spawn', draft.spawn.cx, draft.spawn.cz);
+
+  // --------------------------------------------------------- the wild Pokemon
+  //
+  // There is no grass down here, so every walkable cell is an encounter cell and the wildlife
+  // stands wherever the floor is — off the gallery itself, so it is beside the party's route
+  // rather than in it.
+  const wild = wildCells(rng.fork('wild'), {
+    w: W, h: H, seed, markers: [mGallery, draft.marker('chamber'), draft.marker('pool'),
+      draft.marker('deep'), draft.marker('mouth')],
+    radius: 10, per: 3, spacing: 3.6,
+    accept: (cx, cz) => walkable.get(cx, cz) && draft.collisionAt(cx, cz) === 'walk'
+      && Math.abs(cz - galleryAt(cx)) > 1,
+  });
 
   return {
     stats: {
       floor: floor.count(), terrace: terrace.count(), pool: pool.count(), rock: rock.count(),
-      lights: lights.length, stalactitesAvailable,
+      lights: lights.length, stalactitesAvailable, wild: wild.length,
     },
     lights,
+    wild,
   };
 }

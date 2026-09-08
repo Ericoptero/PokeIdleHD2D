@@ -6,49 +6,25 @@
  *
  * Two things it has to get right beyond "load the map":
  *
- *  - **The party is in frame.** A hunt is the lead Pokemon walking the grass with the
- *    trainer behind it; every reference still we are scored against has characters in it.
- *  - **The same URL gives the same pixels.** A scripted route is a pure function of how
- *    many sim steps have run, and the steps between page load and shutter are wall-clock
- *    luck. So under `config.timeFrozen` — which the screenshot harness sets for every
- *    capture (DECISIONS #14) — the cast is advanced a fixed number of steps and then
- *    frozen, which also catches it mid-stride instead of parked on a cell centre.
+ *  - **The party is in frame, walking east, with wildlife around it.** A hunt is the lead
+ *    Pokemon walking the grass with the trainer behind it and something to hunt in it; every
+ *    reference still we are scored against has characters in it.
+ *  - **The same URL gives the same pixels.** A scripted route is a pure function of how many
+ *    sim steps have run, and the steps between page load and shutter are wall-clock luck. So
+ *    under `config.timeFrozen` — which the screenshot harness sets for every capture
+ *    (DECISIONS #14) — the cast is advanced a fixed number of tiles and then frozen.
+ *
+ * **All of that staging now lives in one place: `stage()` in `index.js`.** It used to live in
+ * two, and the second copy silently undid the first. This file froze the party with
+ * `advanceTo` (which counts tiles); `hunts.preset()` then teleported the party again and
+ * froze it with `advanceSteps(7)` (which counts 1/20 s sim ticks — 1.4 tiles), and the
+ * harness applies `--preset` on *every* capture. So every shot in the module was taken 1.4
+ * tiles into the route with the queue still in its teleport pose, which is why three blind
+ * rounds in a row saw the back of the trainer's cap no matter what the route string said.
+ * There is one staging path now and it is `stage()`.
  */
 
 import { isLive } from './palette.js';
-
-/** How the party is walking when the shutter opens, per biome. */
-/**
- * Every route tries to end walking **east**, and it does not yet succeed everywhere.
- *
- * Three rounds of blind A/B judging against the Gamma Emerald stills named the same tell in
- * our frames every time: "the protagonist's head is a blank cream oval with no face". The
- * art is not at fault — assets/trainer/hero.png is a 24-frame BW sheet with a face, a cap
- * brim, arms and a red-and-white outfit. Walking north points the camera at the back of the
- * cap, which under a 45-degree pitch is a featureless lozenge, and the party files up-screen
- * so each sprite hides the one behind it. `coast` is the one biome the critics said read
- * correctly, and it is the one whose route starts east.
- *
- * Asking for an east leg is not enough on its own, and this is worth knowing before anyone
- * tries it again: `makeScriptedRoute` skips any direction the world says is impassable and
- * moves on to the next in the list, silently. The forest, meadow and cave paths run
- * north-south, so an `e` leg is walked into trees, dropped, and the route wraps back to `n`.
- * Probed on the running page — every walker still reports `dir: 2` (north) with these
- * routes. The fix is a genuine east-west leg in the biome maps, which is map authoring, not
- * a route string.
- *
- * `tiles` is a count of *completed tiles*, and it has to be, which is the other half of the
- * bug. The old code froze with `advanceSteps`, which counts sim ticks — at 0.25 s per tile
- * that is fifteen ticks each, so `advanceSteps(23)` moved the party one and a half tiles and
- * left every route still on its first leg. `coast` read correctly for the one reason that it
- * *starts* east. `advanceTo` counts tiles, so these land where they say they do.
- */
-const WALKS = {
-  forest: { route: 'n12 e10', tiles: 18, subTicks: 7 },
-  meadow: { route: 'n8 e12', tiles: 15, subTicks: 7 },
-  cave: { route: 'n6 e10', tiles: 12, subTicks: 7 },
-  coast: { route: 'e10 n4 e6', tiles: 8, subTicks: 7 },
-};
 
 export async function showcaseHunt(mode, ctx, biomes) {
   const { log, config } = ctx;
@@ -60,35 +36,38 @@ export async function showcaseHunt(mode, ctx, biomes) {
   }
 
   await hunts.enter(biome.id);
-  stageParty(ctx, biome);
 
   // A default framing per biome, so a bare `?showcase=hunts&mode=cave` already shows the
-  // thing the mode is about. `--preset` overrides it after `__READY__`.
+  // thing the mode is about. `--preset` re-runs the same path after `__READY__`.
   const first = biome.showcaseDefault ?? Object.keys(biome.presets ?? {})[0];
   if (first) hunts.preset(first);
+  else stageAtSpawn(ctx, biome);
 
   const stats = hunts.stats(biome.id);
   if (stats?.missing?.length) log.warn(`hunts/${biome.id}: unmatched tile queries — ${stats.missing.join(' ')}`);
   log.info(`hunts showcase: ${biome.name} (${biome.w}x${biome.h}, ${biome.tileset})`,
     stats?.stats ? JSON.stringify(stats.stats) : '');
+  const wild = hunts.wild?.() ?? [];
+  log.info(`hunts showcase: ${wild.length} wild Pokemon staged`);
   if (config.timeFrozen) log.info('hunts: cast staged and frozen for a reproducible frame');
 }
 
 /**
- * Walks the party a fixed distance into the map and freezes it there.
+ * The fallback for a biome with no presets at all: walk the party off its spawn so the queue
+ * is strung out rather than parked in a line on cell centres.
  *
- * Deliberately *not* in `enter()`: `/` and other modules' showcases call `enter`, and a
- * scene that stops another module's simulation as a side effect of being entered is the
- * kind of action at a distance that is impossible to find later (DECISIONS #26d).
+ * Deliberately *not* folded into `enter()`: `/` and other modules' showcases call `enter`,
+ * and a scene that stops another module's simulation as a side effect of being entered is
+ * the kind of action at a distance that is impossible to find later (DECISIONS #26d).
  */
-export function stageParty(ctx, biome) {
+export function stageAtSpawn(ctx, biome) {
   const sim = ctx.get('simulation');
   if (!isLive(sim) || typeof sim.walk !== 'function') return false;
-  const walk = WALKS[biome.id] ?? { route: 'e8', tiles: 6, subTicks: 7 };
+  const walk = biome.walk ?? { route: 'e12', tiles: 3, subTicks: 7 };
   sim.walk(walk.route, { loop: true });
   if (!ctx.config.timeFrozen) return true;
   if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
-  else sim.advanceSteps(walk.tiles * 15);
+  else sim.advanceSteps(walk.tiles * 5);
   sim.freeze(true);
   return true;
 }

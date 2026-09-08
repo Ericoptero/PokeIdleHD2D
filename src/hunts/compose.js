@@ -313,6 +313,54 @@ export function scatterSpaced(rng, { rect, spacing = 3, tries = 1, accept = () =
 }
 
 /**
+ * Where a biome stands its wild Pokemon.
+ *
+ * The whole-game critic's headline was that *nothing lives in the hunting grounds* — "not
+ * one wild Pokemon appears in any of the sixteen hunt frames across four biomes and four
+ * hours; the city plaza has more creatures in it than the hunting grounds do." Scattering
+ * them evenly over the map does not fix that, because a camera at `distance` 27 sees about
+ * 25 cells of a 64-cell map: an even scatter puts most of the wildlife outside every frame
+ * that is ever shot, and the judged frame stays empty.
+ *
+ * So the scatter is gathered **around the markers**, `per` creatures each, nearest first,
+ * with no cell used twice. The caller passes its markers in judging order — the framing the
+ * blind A/B shoots first — because `hunts` takes only the first `WILD_CAP` of the list.
+ *
+ * @param {{next:() => number, shuffle:Function}} rng a `ctx.rng.fork` stream
+ * @param {{w:number, h:number, markers:{cx:number,cz:number}[], radius?:number, per?:number,
+ *          spacing?:number, seed?:number, accept:(cx:number,cz:number)=>boolean}} opts
+ * @returns {{cx:number, cz:number, dir:number}[]}
+ */
+export function wildCells(rng, { w, h, markers, radius = 11, per = 3, spacing = 4.5, seed = 0, accept }) {
+  const all = scatterSpaced(rng, { rect: { x: 2, z: 2, w: w - 4, h: h - 4 }, spacing, accept });
+  const out = [];
+  const taken = new Set();
+  for (const m of markers) {
+    if (!m) continue;
+    const near = [];
+    for (let i = 0; i < all.length; i++) {
+      if (taken.has(i)) continue;
+      // **Never in the lane.** Every framing teleports the party onto the marker and walks it
+      // east along that row, so a creature standing on it ends up clipped through the
+      // trainer — which reads as a rendering fault, not as wildlife. Two rows of clearance
+      // is the width of the walk plus the sprite's own ground depth.
+      if (Math.abs(all[i][1] - m.cz) <= 2 && all[i][0] > m.cx - 7 && all[i][0] < m.cx + 9) continue;
+      const d = Math.max(Math.abs(all[i][0] - m.cx), Math.abs(all[i][1] - m.cz));
+      if (d <= radius) near.push([i, d]);
+    }
+    // A stable sort on the scatter's own order, so the list is a pure function of the seed.
+    near.sort((a, b) => a[1] - b[1]);
+    for (const [i] of near.slice(0, per)) {
+      taken.add(i);
+      // Facing is seeded off the cell rather than off draw order, so adding a creature
+      // somewhere else on the map cannot turn this one around.
+      out.push({ cx: all[i][0], cz: all[i][1], dir: Math.floor(noise2(all[i][0], all[i][1], seed ^ 0x5ee1) * 4) & 3 });
+    }
+  }
+  return out;
+}
+
+/**
  * Blends two 0xRRGGBB tints and adds a small per-cell dither.
  *
  * The dither is not decoration. A tint that varies smoothly still lands on a *cell*, so a
@@ -369,6 +417,86 @@ export function walkableNear(draft, cx, cz, maxR = 8) {
     }
   }
   return { cx, cz };
+}
+
+/**
+ * The nearest cell with a **clear east-west lane** through it — the marker rule this module
+ * learned the hard way.
+ *
+ * Every camera framing teleports the party onto a marker and then walks it east (see
+ * `hunts/index.js`), and two things have to be true of that row or the frame goes back to
+ * being the one three blind A/B rounds rejected. `Line.place` lays the whole queue along the
+ * walk direction at the teleport, so with `followerGapTiles` 2 and four members the tail sits
+ * five cells behind the marker and the lead two ahead: a blocked cell in that span collapses
+ * two walkers onto one tile. And `makeScriptedRoute` drops an impassable step *silently*, so
+ * a blocked cell ahead does not stall the walk — it turns it north, with nothing in the
+ * console to say so.
+ *
+ * `walkableNear` only promises the marker itself is standable. This promises the lane.
+ *
+ * **`ahead` is 8, and the 6 it used to be is why three shipped framings still filed north.**
+ * The arithmetic, measured on the running page rather than remembered: `Line.place` puts the
+ * lead at `cx + 2`, and `advanceTo(3, 7)` runs 22 sim ticks, which at `walkSecondsPerTile`
+ * 0.25 is 4.4 tiles — so the lead ends at `cx + 6.4`, *stepping into* `cx + 7`. A lane
+ * checked only to `cx + 6` therefore certified a row whose next cell is rock; the step is
+ * dropped silently by `makeScriptedRoute`, the route falls through to its next heading, and
+ * the queue turns north with nothing in the console. Probed before this change: the cave's
+ * `pool` marker at (35, 25) is clear across `cx − 5 … cx + 6` and blocked at both `cx + 7`
+ * and `cx + 8`, and the lead reported `dir 2` on `--preset pool` and `--preset close`. Eight
+ * is the seven the walk needs plus one cell of margin.
+ *
+ * **`south` is the second half, and it is the `cave --preset close` regression.** The camera
+ * sits south of its focus, so the cells *towards the viewer* are the bottom of the frame. A
+ * marker one cell north of a terrace lip put the party on the lip: the trainer was cut off
+ * at the waist, the lead's feet vanished into it, and the bottom third of the frame was the
+ * flat dark top of the rock below. `passable` alone cannot see that, because a lip is two
+ * walkable cells at different heights. So the lane also asks for `south` cells of walkable
+ * ground below the marker, and for the whole span — lane and skirt — to be at **one
+ * height**: no walker stands on a different level from the one in front of it, and nothing
+ * within the frame's near half is a wall.
+ *
+ * @param {{inside:Function, passable:Function, heightAt:Function}} draft
+ * @param {{back?:number, ahead?:number, south?:number, maxR?:number,
+ *          bounds?:{x0:number,x1:number,z0:number,z1:number}}} [opts]
+ */
+export function laneNear(draft, cx, cz, {
+  back = 5, ahead = 8, south = 0, maxR = 8, bounds = null,
+} = {}) {
+  const inRange = (x, z) => !bounds
+    || (x >= bounds.x0 && x <= bounds.x1 && z >= bounds.z0 && z <= bounds.z1);
+  const level = (x, z) => (typeof draft.heightAt === 'function' ? draft.heightAt(x, z) : 0);
+  const clear = (x, z) => {
+    const y0 = level(x, z);
+    for (let dx = -back; dx <= ahead; dx++) {
+      if (!draft.passable(x + dx, z, 3)) return false;
+      if (Math.abs(level(x + dx, z) - y0) > 0.26) return false;
+    }
+    // The skirt the camera looks across. Checked on the *lane's* cells, not just the
+    // marker's column, because a lip that starts one cell east is still in the near half.
+    for (let dz = 1; dz <= south; dz++) {
+      for (let dx = -2; dx <= 3; dx++) {
+        if (!draft.passable(x + dx, z + dz, 0)) return false;
+        if (Math.abs(level(x + dx, z + dz) - y0) > 0.26) return false;
+      }
+    }
+    return true;
+  };
+  if (inRange(cx, cz) && clear(cx, cz)) return { cx, cz };
+  for (let r = 1; r <= maxR; r++) {
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const x = cx + dx, z = cz + dz;
+        if (draft.inside(x, z) && inRange(x, z) && clear(x, z)) return { cx: x, cz: z };
+      }
+    }
+  }
+  // Nothing in range satisfies the whole contract. Relax the *skirt* first — a framing with
+  // a lip in the far corner of its near half is a worse picture, but a framing whose queue is
+  // stacked on one cell facing north is the defect three blind rounds named, so the lane and
+  // the level come first and the skirt is what gives.
+  if (south > 0) return laneNear(draft, cx, cz, { back, ahead, south: 0, maxR, bounds });
+  return walkableNear(draft, cx, cz, maxR);
 }
 
 export { clamp01, lerp, smooth };

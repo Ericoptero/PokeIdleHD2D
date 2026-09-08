@@ -18,9 +18,11 @@
  */
 
 import {
-  Field, fbm2, valueNoise, warpedFbm, scatterSpaced, clamp01, snug, walkableNear,
+  Field, fbm2, valueNoise, warpedFbm, scatterSpaced, clamp01, snug, walkableNear, laneNear,
+  wildCells, mixTint,
 } from '../compose.js';
 import { distanceField } from './forest.js';
+import { SET0_OUTWARD } from '../palette.js';
 
 export const MEADOW = {
   id: 'meadow',
@@ -31,17 +33,25 @@ export const MEADOW = {
   h: 60,
   weather: null,
   presets: {
-    brook: { marker: 'brook', distance: 30, dir: 2 },
-    bridge: { marker: 'bridge', distance: 22, dir: 2 },
-    fence: { marker: 'fence', distance: 30, dir: 2 },
-    grass: { marker: 'grass', distance: 30, dir: 2 },
-    copse: { marker: 'copse', distance: 32, dir: 2 },
-    wide: { marker: 'brook', distance: 46, dir: 2 },
-    close: { marker: 'grass', distance: 16, dir: 2 },
-    /** The judge plan asks every biome for `route`; here it is the track and the crossing. */
-    route: { marker: 'bridge', distance: 26, dir: 2 },
+    brook: { marker: 'brook', distance: 30 },
+    bridge: { marker: 'bridge', distance: 22 },
+    fence: { marker: 'fence', distance: 30 },
+    grass: { marker: 'grass', distance: 30 },
+    copse: { marker: 'copse', distance: 32 },
+    wide: { marker: 'brook', distance: 46 },
+    close: { marker: 'grass', distance: 16 },
+    /** The judge plan asks every biome for `route`; here it is the farm lane east of the gate. */
+    route: { marker: 'lane', distance: 26 },
+    lane: { marker: 'lane', distance: 30 },
   },
-  showcaseDefault: 'brook',
+  showcaseDefault: 'lane',
+  /**
+   * East along the lane. See `biomes/forest.js` for why every biome walks east: a party
+   * filing north under a fixed-yaw camera hides itself behind itself and shows the camera
+   * nothing but the back of the trainer's cap, which is the one defect all three blind A/B
+   * rounds named.
+   */
+  walk: { route: 'e16 n2 e10 s2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 export function buildMeadow(draft, ctx, palette, rng, log) {
@@ -83,8 +93,51 @@ export function buildMeadow(draft, ctx, palette, rng, log) {
 
   // --------------------------------------------------------------- the track
   const trackAt = (cz) => Math.round(29 + Math.sin(cz * 0.06 + 1.1) * 2.5);
-  const track = new Field(W, H, (cx, cz) => Math.abs(cx - trackAt(cz)) <= 1 && !brook.get(cx, cz));
+  /**
+   * **Three cells at the crossing, one everywhere else.**
+   *
+   * The crossing has to be three: `bridge_v2` is one cell wide, and a three-cell road necked
+   * down to one plank and back reads as a fault in the map rather than as a bridge (that is
+   * why three planks go down side by side below). But the *rest* of it does not — a farm
+   * track between a gate and a ford is a rut, and painting forty rows of it three cells wide
+   * is most of why the meadow's judged frame measured 17.0 % bare tan against
+   * `docs/refs/01-forest-tilemap-frame.png`'s 0.1 %. So the width is a function of distance
+   * to the water: full where the deck is, one rut where nothing but feet go.
+   */
+  const brookRow = Math.round(brookAt(trackAt(30)));
+  const trackHalf = (cz) => (Math.abs(cz - brookRow) <= 7 ? 1 : 0);
+  const track = new Field(W, H, (cx, cz) => Math.abs(cx - trackAt(cz)) <= trackHalf(cz)
+    && !brook.get(cx, cz));
   track.despeckle(3).closeCorners();
+
+  // ---------------------------------------------------------------- the lane
+  //
+  // The farm lane, running **east-west** and meeting the north-south track at a crossroads.
+  //
+  // It is here for the camera, not for the farm. A party walking north files straight up the
+  // screen under a camera whose yaw never changes: each sprite covers the one behind it and
+  // all the camera ever sees of the trainer is the back of the cap, which at a 45-degree
+  // pitch is a cream lozenge with no face on it. Three blind A/B rounds named that and
+  // nothing else. The meadow is open ground and an east leg is *walkable* anywhere in it, but
+  // a party striding across a trackless field reads as lost; a lane gives the walk a reason
+  // and the eye a line, which is the same note the critic wrote about the fence.
+  //
+  // Unioned into `track` before `distToTrack`, so the tall grass thins off it and the dirt
+  // auto-tiles against the lawn exactly as the north-south track already does.
+  //
+  // **One cell of rut, not three.** Round 3's lane was three cells wide over half its length
+  // and it ran the full width of the map, which took the meadow's judged frame from 10.0 %
+  // bare tan pixels to 17.0 % against `docs/refs/01-forest-tilemap-frame.png`'s 0.1 % — the
+  // frame stopped being a farm and started being a road junction. A cart track is one rut
+  // wide and widens only where something had to pass something else, so that is what it is:
+  // one cell, opening to three on about a fifth of its length. The *walk* does not care —
+  // the meadow is open lawn and `passable` everywhere along the row either way — so this is
+  // paint, and paint is exactly what the regression was.
+  const LANE_Z = 33;
+  const laneAt = (cx) => Math.round(LANE_Z + Math.sin(cx * 0.048 + 1.4) * 1.2 + Math.sin(cx * 0.019 + 0.7) * 0.8);
+  const lane = new Field(W, H, (cx, cz) => cx >= 1 && cx < W - 1
+    && Math.abs(cz - laneAt(cx)) <= (valueNoise(cx, 0, seed ^ 0x5c81, 15) > 0.79 ? 1 : 0));
+  track.union(lane).closeCorners();
 
   // ----------------------------------------------------------------- the copse
   const copse = new Field(W, H, (cx, cz) => cz < 7 + valueNoise(cx, 0, seed ^ 0x33aa, 9) * 5);
@@ -102,7 +155,11 @@ export function buildMeadow(draft, ctx, palette, rng, log) {
     underlay: true, collision: 'water', layer: 2, tags: ['water'],
   });
 
-  palette.draw(draft, 'set0', track, { collision: 'walk', layer: 1, tags: ['path'] });
+  // `SET0_OUTWARD` puts the grass transition on the outside of the track rather than twice
+  // down the middle of it — the same pack defect the forest's trail had, and the critic
+  // measured it in both biomes. See `hunts/palette.js`.
+  palette.draw(draft, 'set0', track, { collision: 'walk', layer: 1, tags: ['path'],
+    rotate: (kase) => SET0_OUTWARD[kase] ?? 0 });
   if (dirtPatch.length) {
     track.forEach((cx, cz) => {
       if (valueNoise(cx, cz, seed ^ 0x915, 3) < 0.2) {
@@ -138,13 +195,27 @@ export function buildMeadow(draft, ctx, palette, rng, log) {
   patches.subtract(brook).subtract(track).subtract(copse);
   // Core and edge, as in the wood: standing blades in the middle, flat decals on the rim, so
   // a patch fades into the field instead of ending in a wall of identical 0.6-tall cubes.
+  // Tall grass is **tinted down**, and this is a contrast note rather than a colour one.
+  // `ue_grass` is a 0.6-tall block of bright, fully-lit green: laid over the lawn at full
+  // brightness a patch comes out *lighter* than the ground around it, which is backwards —
+  // denser vegetation shades itself — and a dozen of them next to each other read as flat
+  // poster paint with a hard edge, which is what the critic called "literal rectangles".
+  // Taking it down to ~0.85 with a per-cell wobble puts the patch under the lawn in value,
+  // so the edge is a change in shade rather than a change in poster, and no two neighbouring
+  // cells land on exactly the same green.
+  const grassTint = (cx, cz) => mixTint(0xb6c8a4, 0xe2ecd6, fbm2(cx, cz, seed ^ 0x6ac1, 4, 0.5),
+    { jitter: 6, cx, cz, seed: seed ^ 0x33f7 });
   const patchCore = patches.clone().shrink(1);
   patches.forEach((cx, cz) => {
     const core = patchCore.get(cx, cz);
     const pool = core && tallTall.length ? tallTall
       : (core && tallLow.length ? tallLow : (tallFlat.length ? tallFlat : tallGrass));
     const model = palette.pick(pool, cx, cz);
-    if (model) draft.place(model, cx, cz, { collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'] });
+    if (model) {
+      draft.place(model, cx, cz, {
+        collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'], tint: grassTint(cx, cz),
+      });
+    }
   });
 
   // ------------------------------------------------------------------ flowers
@@ -257,20 +328,45 @@ export function buildMeadow(draft, ctx, palette, rng, log) {
     }
   }
 
-  const mark = (name, cx, cz) => { const a = walkableNear(draft, cx, cz, 10); draft.mark(name, a.cx, a.cz); return a; };
+  const bounds = { x0: 13, x1: W - 14, z0: 13, z1: H - 9 };
+  const mark = (name, cx, cz) => {
+    const a = laneNear(draft, cx, cz, { maxR: 8, bounds });
+    draft.mark(name, a.cx, a.cz);
+    return a;
+  };
   const spawnAt = walkableNear(draft, trackAt(H - 10), H - 10, 10);
-  draft.spawn = { cx: spawnAt.cx, cz: spawnAt.cz, dir: 2 };
+  draft.spawn = { cx: spawnAt.cx, cz: spawnAt.cz, dir: 3 };
   mark('brook', bridgeAt?.cx ?? trackAt(30), (bridgeAt?.cz ?? 24) + 8);
   mark('bridge', bridgeAt?.cx ?? trackAt(30), (bridgeAt?.cz ?? 24) + 6);
   mark('fence', 20, FENCE_Z + 6);
-  mark('grass', 46, 34);
+  const mGrass = mark('grass', 46, laneAt(46));
   mark('copse', 30, 19);
+  // The lane **well** west of the crossroads. Round 3 put it at 22, six cells from the
+  // north-south track, and the camera follows the trainer — which after three tiles of walk
+  // stands within a cell of the junction, so the judged frame was a road crossing another
+  // road with the farm behind it. At 16 the party ends its walk with the track still seven
+  // cells east: the junction is a destination at the edge of frame instead of the subject,
+  // and the middle of the picture is the meadow the biome is named for.
+  const mLane = mark('lane', 16, laneAt(16));
   mark('spawn', draft.spawn.cx, draft.spawn.cz);
+
+  // --------------------------------------------------------- the wild Pokemon
+  //
+  // In the tall grass, off the lane, gathered around the framings that get shot — `lane`
+  // first, because that is the marker `route` uses.
+  const mBrook = draft.marker('brook');
+  const wild = wildCells(rng.fork('wild'), {
+    w: W, h: H, seed, markers: [mLane, mGrass, mBrook, draft.marker('fence')],
+    radius: 10, per: 3, spacing: 4.2,
+    accept: (cx, cz) => patches.get(cx, cz) && draft.collisionAt(cx, cz) === 'walk'
+      && !track.get(cx, cz) && distToTrack[cz * W + cx] > 1.5,
+  });
 
   return {
     stats: {
-      brook: brook.count(), track: track.count(), tallGrass: patches.count(),
-      hedges: laid, copse: copseCells.length,
+      brook: brook.count(), track: track.count(), lane: lane.count(),
+      tallGrass: patches.count(), hedges: laid, copse: copseCells.length, wild: wild.length,
     },
+    wild,
   };
 }

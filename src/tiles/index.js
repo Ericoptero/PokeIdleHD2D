@@ -11,8 +11,10 @@ import { makeAutotiler, armsOf } from './autotile.js';
 import { InstancedWorld, footprint } from './instanced.js';
 import {
   ALPHA, alphaProfile, materialGeometryRoles, emissiveStrength, makeGlowTexture,
-  liftNormalsAboveHorizon, rewindDownwardFaces, makeMaterial,
-  liftNormalsInShader, applyShaderPatches,
+  liftNormalsAboveHorizon, rewindDownwardFaces, uprightUvToImageOrder, dropEdgeOnTwins,
+  makeMaterial,
+  liftNormalsInShader, makeFoliagePatch, foliageHueScales, applyShaderPatches,
+  FOLIAGE_LIT_KNEE_DEG, FOLIAGE_LIT_NIGHT_LIFT,
 } from './materials.js';
 
 const STRIDE = 11;            // px py pz nx ny nz u v r g b
@@ -84,6 +86,25 @@ async function loadTileset(slug, { log }) {
   // over, and after the lift there is no negative Y left for it to find.
   const rewound = rewindDownwardFaces(pack, wholeBuffer, STRIDE);
   const lifted = liftNormalsAboveHorizon(wholeBuffer, STRIDE);
+  // Third and independent of both: the pack's upright faces carry V top-down (DS/DirectX)
+  // and three uploads bottom-up, so every tall card was sampling upside down. Horizontal
+  // faces are left alone — see the function, and DECISIONS #24 for what a global flip costs.
+  const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+  const uvFixed = params.get('uvright') === '0' ? 0 : uprightUvToImageOrder(pack, wholeBuffer, STRIDE);
+  // Fourth: half of every crossed billboard pair is edge-on to a camera that never yaws, and
+  // draws a pale pole through the crown plus a hard shadow wedge across its own twin.
+  const twins = params.get('crossed') === '1' ? 0 : dropEdgeOnTwins(pack, wholeBuffer, STRIDE);
+  const foliageMode = params.get('foliage');
+  const harmonise = foliageMode !== '0';
+  // `?foliage=knee` is the round-3 build exactly: every sheet scale pinned to 1 *and* the
+  // light-side ceiling off, leaving only the per-texel knee #41c shipped. Pinning the scales
+  // alone would have been a flag that says "round 3" and renders something else.
+  const roundThree = foliageMode === 'knee';
+  const sheetScales = harmonise && !roundThree;
+  const foliageBand = params.has('foliageBand') ? Number(params.get('foliageBand')) : undefined;
+  // `?foliageLit=<deg>` moves the ceiling on the lit colour; `?foliageLit=0` removes it.
+  const foliageLit = roundThree ? 0
+    : params.has('foliageLit') ? Number(params.get('foliageLit')) : undefined;
 
   const loader = new THREE.TextureLoader();
   /**
@@ -113,14 +134,31 @@ async function loadTileset(slug, { log }) {
 
   const roles = materialGeometryRoles(pack, wholeBuffer, STRIDE);
   const profiles = textures.map((t) => alphaProfile(t?.image));
+  // One wood, not two (DECISIONS #44a): no foliage sheet's median hue may sit more than a
+  // few degrees above the set's own foliage median. Measured off the decoded texels, so a
+  // pack authored bluer than AdAstra is closed against itself.
+  // The light-side ceiling is one uniform object shared by every foliage material, so the
+  // night ramp below moves all of them with a single assignment. Pinned and left alone when
+  // the URL names a value, so `?foliageLit=` stays an honest control.
+  const litPinned = foliageLit !== undefined;
+  const litRef = { value: litPinned ? (foliageLit > 0 ? foliageLit : 0) : FOLIAGE_LIT_KNEE_DEG };
+  const foliage = sheetScales
+    ? foliageHueScales(profiles, roles, foliageBand === undefined ? {} : { band: foliageBand })
+    : { scales: new Float64Array(pack.materials.length).fill(1), ceiling: NaN, median: NaN, moved: [] };
 
   /** @type {{material:THREE.Material, base:number}[]} materials that can be made to glow. */
   const emissives = [];
   const materials = pack.materials.map((m, i) => {
     const mat = makeMaterial(m, textures[i], profiles[i], roles[i], i);
     // Every lit tile material carries the elevation clamp; an unlit decal has no normal to
-    // clamp, so it is left with no patch and no cache key of its own.
-    if (mat.isMeshLambertMaterial) applyShaderPatches(mat, [liftNormalsInShader]);
+    // clamp, so it is left with no patch and no cache key of its own. A foliage sheet carries
+    // the hue knee on top of it, which is what makes `darker_pine` the same wood as the tree
+    // beside it (see `makeFoliagePatch`) — and only a foliage sheet, so the pond and
+    // the sea keep their blue.
+    const patches = [];
+    if (mat.isMeshLambertMaterial) patches.push(liftNormalsInShader);
+    if (harmonise && roles[i]?.tags.has('foliage')) patches.push(makeFoliagePatch(foliage.scales[i], litRef));
+    applyShaderPatches(mat, patches);
     const glow = emissiveStrength(pack, roles, i);
     if (glow > 0 && textures[i]) {
       // An authored set (`structures`) paints a window on its own sheet and means all of it;
@@ -198,7 +236,12 @@ async function loadTileset(slug, { log }) {
 
   log.info(`tileset "${slug}": ${models.length} models, ${materials.length} materials `
     + `(${softCount} soft, ${decalCount} decal, ${emissives.length} emissive), `
-    + `${lifted} normals lifted, ${rewound} faces rewound`);
+    + `${lifted} normals lifted, ${rewound} faces rewound, ${uvFixed} upright uvs righted, ${twins} edge-on twins dropped`
+    + (foliage.moved.length
+      ? `, foliage median ${foliage.median.toFixed(1)} deg -> ceiling ${foliage.ceiling.toFixed(1)}, `
+        + `${foliage.moved.length} sheets scaled (`
+        + foliage.moved.map((m) => `${pack.materials[m.index].image} ${m.median.toFixed(0)}x${m.scale.toFixed(3)}`).join(', ') + ')'
+      : ''));
 
   /** Materials cloned downstream (the global-UV patch) that must follow the glow ramp. */
   const clones = new Set();
@@ -219,6 +262,13 @@ async function loadTileset(slug, { log }) {
       for (const e of emissives) e.material.emissiveIntensity = gain * e.base;
       for (const c of clones) {
         if (c.userData.emissiveBase) c.emissiveIntensity = gain * c.userData.emissiveBase;
+      }
+      // The foliage light-side ceiling rides the same ramp, because it corrects a *daylight*
+      // mechanism (a warm key against a blue fill splitting hue by value) and there is no warm
+      // key at 21:00. One shared uniform object, so this is the whole update. See
+      // `FOLIAGE_LIT_NIGHT_LIFT` for the four-way measurement that chose the lift.
+      if (!litPinned) {
+        litRef.value = FOLIAGE_LIT_KNEE_DEG + Math.min(1, emissiveScale) * FOLIAGE_LIT_NIGHT_LIFT;
       }
       return emissives.length;
     },
@@ -275,6 +325,8 @@ export default {
     const urlQuery = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
     const varietyDefault = urlQuery.has('variety') ? Number(urlQuery.get('variety')) || 0 : 1;
     const contactDefault = urlQuery.has('contact') ? Number(urlQuery.get('contact')) || 0 : 1;
+    /** `?kage=1` restores the tileset's own hand-painted shadow quads for the A/B. */
+    const keepBakedDefault = urlQuery.get('kage') === '1';
     /** Set the first time anyone calls setEmissiveScale; the auto ramp then stops. */
     let emissiveDriven = false;
     let lastAutoTod = null;
@@ -446,7 +498,7 @@ export default {
         const ts = loaded.get(slug);
         if (!ts) throw new Error(`tiles.buildInstances: tileset "${slug}" is not loaded`);
         return new InstancedWorld(ctx.THREE ?? THREE, scene, ts, placements,
-          { variety: varietyDefault, contact: contactDefault, ...opts });
+          { variety: varietyDefault, contact: contactDefault, keepBaked: keepBakedDefault, ...opts });
       },
 
       InstancedWorld,

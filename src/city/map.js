@@ -297,14 +297,23 @@ export async function buildCityMap(draft, ctx) {
     draft.autotile(tiles, 'set9', (cx, cz) => fenceCells.has(`${cx},${cz}`),
       { collision: 'block', layer: 7, tags: ['fence'] });
   }
+  // --- the lamps' ground ----------------------------------------------------
+  // Reserved, not placed, for the same reason the buildings are: the lamp is `structures`'
+  // authored `street_lamp` now, and a `Placement` names a model id that `buildInstances`
+  // resolves against exactly one tileset — put through this AdAstra draft it would draw
+  // AdAstra's model 3. `structures.js` stands the posts up from these same cells.
+  //
+  // `occupied` is deliberately **not** set, unlike the plots and the props above, and that is
+  // a determinism call rather than an oversight. `draft.scatter` draws from the seeded stream
+  // only *after* its occupancy test (`terrain/draft.js`), so reserving one more cell here
+  // shifts every random draw after it and re-rolls the whole lawn — a hundred decals and two
+  // patches of tall grass move so that a lamp post stops standing on a pebble. `place()` never
+  // claimed a 1x1 cell either, so this is exactly what the AdAstra lamp did; the post is
+  // `block` for walkers and open to decor, as before.
   for (const lamp of LAMPS) {
-    // `orientation` is which way the lamp's arm overhangs its own cell, derived by `tiles`
-    // from the model's bounds (DECISIONS #25a). Asking for it by compass letter is what lets
-    // this stay a query rather than four hard-coded model names.
-    const model = tiles.find(slug, { category: 'light', orientation: lamp.head })[0];
-    if (!model) { log.warn(`city: no street lamp with its arm to the ${lamp.head}`); break; }
     if (!draft.inside(lamp.cx, lamp.cz)) continue;
-    draft.place(model, lamp.cx, lamp.cz, { collision: 'block', layer: 7, tags: ['streetlamp'] });
+    draft.setCollision(lamp.cx, lamp.cz, 'block');
+    draft.addTag(lamp.cx, lamp.cz, 'streetlamp');
     draft.mark(`lamp:${lamp.cx},${lamp.cz}`, lamp.cx, lamp.cz, { kind: 'lamp', head: lamp.head });
   }
   for (const b of BENCHES) {

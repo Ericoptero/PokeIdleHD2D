@@ -7,7 +7,8 @@
  *
  *     kage_out   8x8    a 0.25 / 0.48 shadow blob under a lamp or a hedge
  *     h_kage     8x8    the same under a tree
- *     ki02c     32x32   the horizontal canopy slice that makes a 10-triangle tree a volume
+ *     ki02c     32x32   the horizontal slice at a tree's foot (y 0.19 — the root ring, not
+ *                          the canopy: `tree`'s canopy slices are ki02bx at 1.63 and ki02dx at 3.72)
  *     kusa_ec3  16x16   the soft outer fringe of a grass border
  *     mori01s   32x16   the forest floor wash
  *     dansa01a  16x16   the shading on a step
@@ -98,6 +99,345 @@ export function liftNormalsInShader(shader) {
 liftNormalsInShader.key = 'nlift';
 
 /**
+ * One wood, not two: the foliage hue knee.
+ *
+ * A blind panel, twice: "the left third uses a teal-blue tree set butted against a green one
+ * so the forest reads as two mismatched tilesets rather than one place", and "the blue-teal
+ * conifers vs green round crowns form two colour populations that never blend". It is worth
+ * saying which of the three it could have been, because the answer decides where the fix
+ * goes. It is not a tint — nothing tints these instances. It is not model selection either,
+ * or not only: `hunts` plants three trees and dropping one would leave a thinner wood, not a
+ * unified one. It is the **material**, and it is measurable. Mean hue of the non-bark texels
+ * of every foliage sheet AdAstra ships, in degrees:
+ *
+ *   ki03ax 153   ki03bx 164   ki03dx 133      round_tree, the green population
+ *   ki02ax 155   ki02bx 170   ki02dx 141      tree, the same population
+ *   plant01 150  kusa_ec1 113                 hedge and tuft, greener still
+ *   ki02DARKax 178  ki02DARKbx 194  ki02DARKdx 164     darker_pine — 25 to 30 degrees out
+ *
+ * `ki02DARKbx` at 194 is a cyan, and it is the horizontal canopy slice, so it is the layer
+ * that faces the sun and comes back the brightest thing on the tree. Sampled off the render
+ * rather than the sheet, `darker_pine`'s crown has a 90th-percentile hue of 208 against
+ * `round_tree`'s 171: two populations, exactly as described.
+ *
+ * So foliage gets a **knee**, in the fragment shader, on the sampled map alone: hue below
+ * 140 degrees is untouched, hue above it is compressed by 0.30 toward the knee. 194 becomes
+ * 156, 178 becomes 151, and `round_tree`'s own 164 becomes 147 — the outlier is pulled into
+ * the population and the population closes up slightly behind it. Saturation and value are
+ * not touched at all, so `darker_pine` stays the darker, duller tree it is named for and the
+ * canopy keeps every bit of its own modelling; only the *hue* stops disagreeing.
+ *
+ * 150/0.40 was shot first and was not enough: on the render, `darker_pine`'s crown still sat
+ * at a median hue of 173 against `round_tree`'s 150, and the wood still read as conifers of
+ * one colour among crowns of another. At 140/0.30 the same measurement is 164 against 149,
+ * and the three-way stack of no-knee / 150 / 140 at the same URL is what chose it.
+ *
+ * Bark is out of range by construction (a trunk is 15-70 degrees), and so is everything else
+ * in the set worth protecting: the patch is applied only to materials whose models are tagged
+ * `foliage`, which is what keeps it off `ike01`, `sea_mizu1` and every other blue in the pack.
+ *
+ * `?foliage=0` turns it off for the A/B.
+ *
+ * ---
+ *
+ * **Round 4: the knee half-closed it, and a knee cannot close the rest.** A blind judge said
+ * so again — "two mismatched tilesets rather than one place" — and the render agrees: on
+ * `?showcase=tiles&mode=trees` at noon, `darker_pine`'s crown measures a median hue of 160.6
+ * and a 90th percentile of 180.0, against `round_tree`'s 137.5 and 157.1. A 23-degree gap at
+ * both ends.
+ *
+ * The knee cannot take it further without taking the wood with it, because a knee is a
+ * *per-texel* rule: tightening it enough to move `ki02DARKbx` also flattens `ki03ax`'s own
+ * 127-to-169 range, which is the crown's modelling. The disagreement is not between texels,
+ * it is between **sheets** — so the second instrument is per sheet.
+ *
+ * Re-measured off the shipped PNGs, in the *linear* space the fragment shader works in (the
+ * numbers above are the sRGB ones from round 3 and read a few degrees high), median hue of
+ * each foliage sheet's own non-bark texels:
+ *
+ *   ue_grass01  98   kusa_ec1 118   ki03dx 128   plant01 130   ki02dx 131
+ *   ki03ax 138   ki02ax 143   ki03bx 152   ki02DARKdx 157   ki02bx 162
+ *   ki02DARKax 176   ki02DARKbx 200   **ki02c 226**
+ *
+ * `ki02c` is the largest outlier by a distance — 226 degrees, a flat blue 83 off the
+ * population, and shared by all five trees — **and it turns out not to matter**, which is
+ * worth writing down because it looked like the find. It is the horizontal slice at the
+ * tree's *foot* (y 0.19, two triangles over the 2x2 footprint), its linear median value is
+ * **0.021**, and at a 45-degree camera the trunk and crown stand on top of it. Isolated with
+ * `?foliageBand=74` against `?foliageBand=90` — the only pair of ceilings that moves `ki02c`
+ * and nothing else — it changes **0 pixels of 2 073 600** in `mode=trees` and **0 subpixels
+ * of 6 220 800** in the forest. It is scaled anyway, because a rule with an exception carved
+ * for one sheet is worse than a rule, but it is not what closed the gap.
+ *
+ * The sheets that actually move the crowns are `ki02DARKax` 176, `ki02DARKbx` 200 and
+ * `ki02DARKdx` 157 — `darker_pine`'s whole set — plus `ki02bx` 162 and `ki03bx` 152, the
+ * mid-canopy slices of `tree` and `round_tree`.
+ *
+ * So each foliage sheet gets a **hue scale about the bark floor**, computed at load from its
+ * own decoded texels and delivered as one uniform: no sheet's median may sit more than
+ * `FOLIAGE_BAND_DEG` above the set's own texel-weighted median (143 in AdAstra, so a ceiling
+ * of 151), and a sheet above the ceiling is scaled down about `FOLIAGE_HUE_FLOOR` until its
+ * median lands on it. Scaling, not translating, is what makes it safe: 90 degrees is the
+ * bark/leaf boundary, the map is monotone, and nothing above the floor can be pushed below it
+ * — a translation would have turned `ki02c`'s brown half orange.
+ *
+ * What it costs and what it keeps. A sheet at or under the ceiling is scaled by exactly 1.0
+ * and is *bit*-identical: `ki03ax`, `ki03dx`, `ki02ax`, `ki02dx`, `plant01`, every `kusa`
+ * tuft and both `ue_grass` sheets never move, so the tall grass stays as green as it was and
+ * `round_tree` is untouched by this pass. Only six sheets scale, and each keeps its own
+ * internal spread in proportion. Saturation and value are still not touched at all, so
+ * `darker_pine` is still the darker, duller tree it is named for — which is the difference a
+ * wood is *supposed* to have between two species.
+ *
+ * The knee then runs after the scale on what is left of the tails, unchanged at 140/0.30.
+ *
+ * `?foliage=knee` restores the round-3 behaviour (knee only, every scale pinned to 1) and
+ * `?foliageBand=<deg>` moves the ceiling, so both halves are one variable apart on one URL.
+ */
+const FOLIAGE_KNEE_DEG = 140;
+const FOLIAGE_SQUASH = 0.3;
+
+/**
+ * The hue below which a foliage texel is bark, root or ground, and is never touched.
+ *
+ * A trunk runs 15-70 degrees and the yellowest leaf in the set (`ue_grass01`) is 98, so 90 is
+ * a boundary with a real gap on both sides. It is also the fixed point of the scale, which is
+ * what makes the scale safe rather than merely gentle.
+ */
+export const FOLIAGE_HUE_FLOOR = 90;
+
+/** How far above the set's own foliage median a single sheet's median may sit. */
+export const FOLIAGE_BAND_DEG = 8;
+
+/**
+ * The remaining half, and it is not in the sheets at all: **dark foliage goes blue in this
+ * rig, and the two tree species differ in value.**
+ *
+ * With the per-sheet ceiling in, `darker_pine`'s crown still measured 155.6 against
+ * `round_tree`'s 137.5, and pushing the ceiling further stopped helping — band 8, band 0 and
+ * band -8 are three shots that look the same (`docs/progress/tiles/r4/ab/trees-band*.png`).
+ * Bucketing the same crowns by brightness says why. Both trees ride the *same* curve:
+ *
+ *              darkest 15%      mid          brightest 15%
+ *   round_tree   158.1 hue      137.3         120.9
+ *   darker_pine  170.7          155.6         108.6
+ *
+ * A lit pixel takes the warm key and comes back yellow-green; a shaded one takes the blue
+ * hemisphere fill and comes back cyan. `darker_pine`'s sheets are 40 % darker than
+ * `round_tree`'s (linear medians 0.141/0.105/0.266 against 0.246/0.162/0.479), so more of its
+ * crown sits in the half of that curve where everything is blue. The species difference in
+ * *value* is being converted into a difference in *hue* by the lighting.
+ *
+ * Lifting `darker_pine`'s value was tried on paper and refused: it erases the one thing the
+ * model is named for, and any rule general enough to lift it also lifts `ki02c` — median
+ * linear value 0.021 — by a factor of seven. The honest fix is to stop the *shade* from
+ * turning cyan, which is a ceiling on the hue of the **lit** colour, applied to foliage and
+ * nothing else, after the lights have run and before the tonemap. It costs the shaded side
+ * of `round_tree` exactly as much as `darker_pine`'s, which is the point: it is not a species
+ * correction, it is the rig's blue-in-shade coming off both of them.
+ *
+ * `?foliageLit=0` turns this half off on its own.
+ */
+export const FOLIAGE_LIT_KNEE_DEG = 132;
+
+/**
+ * How far the light-side ceiling lifts once the sun is down, and why it has to lift at all.
+ *
+ * The ceiling corrects a *daylight* mechanism — a warm key against a blue fill splitting hue
+ * by value — and at night there is no warm key, so the same number is too aggressive. It was
+ * measured rather than assumed, on `?showcase=hunts&mode=forest&tod=21`, over one crown box
+ * and one lawn box:
+ *
+ *   knee   crown p10 / p50 / p90   crown pixels at exactly hue 120   lawn p50
+ *   off      129.1 / 151.8 / 178.6            4.6 %                   142.2
+ *   132      120.0 / 120.0 / 136.8           **51.3 %**               131.6
+ *   144      126.0 / 141.8 / 158.3            7.5 %                   142.2
+ *   150      128.8 / 146.8 / 165.0            4.6 %                   142.2
+ *
+ * At 132 the night canopy **collapses**: half its coloured pixels land on one hue, because a
+ * night frame is dark and 8-bit hue is coarsely quantised down there, and the ceiling pushes a
+ * whole mass of pixels onto the `r == b` boundary. It also leaves the trees *greener* than the
+ * lawn they stand on, which is the same "two tilesets" read at the other end of the clock.
+ * At 144 the crown's median lands on the lawn's own (141.8 against 142.2), the cyan tail still
+ * comes down from 178.6 to 158.3, and the quantisation spike is back near its 4.6 % baseline.
+ *
+ * Turning the ceiling *off* at night was the other candidate and is worse: `lit OFF` above is
+ * a p90 of 178.6, which is the blue-teal conifer the whole round exists to remove, standing in
+ * a wood at 142.
+ */
+export const FOLIAGE_LIT_NIGHT_LIFT = 12;
+const FOLIAGE_LIT_SQUASH = 0.35;
+
+/**
+ * Hue rewriting as one GLSL function, so the map-side and light-side rules cannot drift.
+ *
+ * `scale` is the per-sheet compression about `FOLIAGE_HUE_FLOOR` and `knee`/`squash` the
+ * per-pixel one above it. A colour the rules leave alone is returned *unchanged* rather than
+ * round-tripped through HSV, so a sheet scaled by 1.0 with the knee off is bit-identical to
+ * carrying no patch at all.
+ */
+const FOLIAGE_FN_GLSL = `
+vec3 pokeFoliageHue( vec3 c, float scale, float knee, float squash ) {
+	float mx = max( c.r, max( c.g, c.b ) );
+	float mn = min( c.r, min( c.g, c.b ) );
+	float d = mx - mn;
+	if ( d <= 1e-4 ) return c;
+	float h0;
+	if ( mx == c.r ) h0 = mod( ( c.g - c.b ) / d, 6.0 );
+	else if ( mx == c.g ) h0 = ( c.b - c.r ) / d + 2.0;
+	else h0 = ( c.r - c.g ) / d + 4.0;
+	h0 *= 60.0;
+	float h = h0 > ${FOLIAGE_HUE_FLOOR.toFixed(1)}
+		? ${FOLIAGE_HUE_FLOOR.toFixed(1)} + ( h0 - ${FOLIAGE_HUE_FLOOR.toFixed(1)} ) * scale
+		: h0;
+	if ( knee > 0.0 && h > knee ) h = knee + ( h - knee ) * squash;
+	if ( abs( h - h0 ) < 1e-4 ) return c;
+	float hp = h / 60.0;
+	float x = d * ( 1.0 - abs( mod( hp, 2.0 ) - 1.0 ) );
+	vec3 rgb = hp < 1.0 ? vec3( d, x, 0.0 )
+		: hp < 2.0 ? vec3( x, d, 0.0 )
+		: hp < 3.0 ? vec3( 0.0, d, x )
+		: hp < 4.0 ? vec3( 0.0, x, d )
+		: hp < 5.0 ? vec3( x, 0.0, d ) : vec3( d, 0.0, x );
+	return rgb + ( mx - d );
+}
+`;
+
+/** (a) the per-sheet ceiling and (b) the per-texel knee, on the sampled map. */
+const FOLIAGE_MAP_GLSL = `
+	diffuseColor.rgb = pokeFoliageHue( diffuseColor.rgb, uFoliageScale,
+		${FOLIAGE_KNEE_DEG.toFixed(1)}, ${FOLIAGE_SQUASH.toFixed(3)} );
+`;
+
+/** (c) the ceiling on the *lit* colour, which is where the rig's blue-in-shade lands. */
+const FOLIAGE_LIT_GLSL = `
+	gl_FragColor.rgb = pokeFoliageHue( gl_FragColor.rgb, 1.0, uFoliageLitKnee,
+		${FOLIAGE_LIT_SQUASH.toFixed(3)} );
+`;
+
+/**
+ * The foliage patch, carrying one sheet's own hue scale.
+ *
+ * The scale is a **uniform**, not a baked constant, and that is the whole reason the program
+ * count does not move: every foliage material compiles the identical source and
+ * `customProgramCacheKey` answers the identical `'foliage'`, so three links one program and
+ * each material keeps its own `uFoliageScale`. Baking the number into the GLSL instead would
+ * have cost one program per distinct sheet — six more in `bw2-adastra` alone, against the
+ * 60 ARCHITECTURE §7 budgets.
+ *
+ * `onBeforeCompile` runs *before* three resolves `#include`, so the hook is always the
+ * include line and not the body behind it — the first cut of this patched
+ * `diffuseColor *= sampledDiffuseColor;`, silently matched nothing, and rendered a perfect
+ * null result that reads exactly like "the fix did not help".
+ *
+ * @param {number} scale  1 leaves the sheet bit-identical; below 1 pulls it to the floor
+ * @param {number|{value:number}} [litKnee]  the ceiling on the lit colour, in degrees; 0 turns
+ *   that half off. Pass the *same object* to every material of a tileset and one write to
+ *   `.value` ramps all of them (`setEmissiveScale` does exactly that).
+ */
+export function makeFoliagePatch(scale, litKnee = FOLIAGE_LIT_KNEE_DEG) {
+  // One uniform *object*, deliberately shared by every material this ref is handed to, so the
+  // night ramp writes `.value` once and every foliage sheet in the tileset — including the
+  // clones `attachUvOffset` makes, which re-run this same closure — follows. A number is
+  // wrapped so a caller that wants a fixed ceiling (`?foliageLit=`) still gets one.
+  const litRef = typeof litKnee === 'object' && litKnee
+    ? litKnee : { value: litKnee > 0 ? litKnee : 0 };
+  const patch = (shader) => {
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>',
+        `#include <common>\nuniform float uFoliageScale;\nuniform float uFoliageLitKnee;${FOLIAGE_FN_GLSL}`)
+      // The map side runs on the sampled texture times a white `diffuse`; the instance tint
+      // arrives later in `color_fragment` and is left to do its own job.
+      .replace('#include <map_fragment>', `#include <map_fragment>${FOLIAGE_MAP_GLSL}`)
+      // The light side runs on `gl_FragColor` the instant the lights have finished with it —
+      // still linear, before `tonemapping_fragment`, `colorspace_fragment` and the fog.
+      .replace('#include <opaque_fragment>', `#include <opaque_fragment>${FOLIAGE_LIT_GLSL}`);
+    shader.uniforms.uFoliageScale = { value: scale > 0 ? scale : 1 };
+    shader.uniforms.uFoliageLitKnee = litRef;
+  };
+  patch.key = 'foliage';
+  return patch;
+}
+
+/**
+ * One foliage sheet's median hue, in the linear space the fragment shader sees.
+ *
+ * `alphaProfile` has already decoded the PNG through a canvas, so this is a second pass over
+ * bytes that are in hand. sRGB is undone first because the shader reads a `SRGBColorSpace`
+ * texture and works on linear values, and hue is *not* invariant under the transfer function
+ * — measured on the sheet in gamma space, `ki02DARKbx` reads 194 and in linear 200.
+ *
+ * Nearly-clear texels are excluded (a soft edge is mostly the colour of whatever is behind
+ * it), and so is anything below the bark floor, so the number describes the leaves alone.
+ *
+ * @returns {{median:number, texels:number}|null}
+ */
+export function foliageHueMedian(profile) {
+  const { data, w, h } = profile ?? {};
+  if (!data || !w || !h) return null;
+  const srgbToLinear = (v) => (v <= 10.31475 ? v / 3294.6 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  const hues = [];
+  for (let i = 0; i < w * h * 4; i += 4) {
+    if (data[i + 3] < 64) continue;
+    const r = srgbToLinear(data[i]), g = srgbToLinear(data[i + 1]), b = srgbToLinear(data[i + 2]);
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (mx < 1e-4 || d / mx < 0.15) continue;                 // grey: it has no hue to move
+    let deg;
+    if (mx === r) deg = ((g - b) / d % 6 + 6) % 6;
+    else if (mx === g) deg = (b - r) / d + 2;
+    else deg = (r - g) / d + 4;
+    deg *= 60;
+    if (deg < FOLIAGE_HUE_FLOOR || deg > 260) continue;       // bark below, nothing above
+    hues.push(deg);
+  }
+  if (!hues.length) return null;
+  hues.sort((a, b) => a - b);
+  return { median: hues[hues.length >> 1], texels: hues.length };
+}
+
+/**
+ * The per-sheet hue scale for every material in a pack — 1 for all but the outliers.
+ *
+ * The ceiling is derived from the set itself rather than named as a constant, so a pack whose
+ * foliage is authored bluer or yellower than AdAstra's is closed against *its own* population
+ * and not against AdAstra's. It is the texel-weighted median of the foliage sheets' medians
+ * (143.0 in `bw2-adastra`) plus `band`; a sheet at or under it is left at exactly 1.0.
+ *
+ * @param {Array} profiles  one `alphaProfile` per material, index-aligned with the pack
+ * @param {Array} roles     one `materialGeometryRoles` entry per material
+ * @param {{band?:number}} [opts]
+ * @returns {{scales:Float64Array, ceiling:number, median:number, moved:{index:number,
+ *           median:number, scale:number}[]}}
+ */
+export function foliageHueScales(profiles, roles, { band = FOLIAGE_BAND_DEG } = {}) {
+  const scales = new Float64Array(profiles.length).fill(1);
+  /** @type {{index:number, median:number, texels:number}[]} */
+  const sheets = [];
+  for (let i = 0; i < profiles.length; i++) {
+    if (!roles[i]?.tags?.has('foliage')) continue;
+    const m = foliageHueMedian(profiles[i]);
+    if (m) sheets.push({ index: i, median: m.median, texels: m.texels });
+  }
+  const out = { scales, ceiling: NaN, median: NaN, moved: [] };
+  if (!sheets.length) return out;
+
+  // Texel-weighted so a 36-texel grass tuft does not out-vote a 902-texel canopy.
+  const weighted = [];
+  for (const s of sheets) for (let k = 0; k < s.texels; k++) weighted.push(s.median);
+  weighted.sort((a, b) => a - b);
+  out.median = weighted[weighted.length >> 1];
+  out.ceiling = out.median + band;
+
+  for (const s of sheets) {
+    if (s.median <= out.ceiling) continue;
+    const scale = (out.ceiling - FOLIAGE_HUE_FLOOR) / (s.median - FOLIAGE_HUE_FLOOR);
+    scales[s.index] = scale;
+    out.moved.push({ index: s.index, median: s.median, scale });
+  }
+  return out;
+}
+
+/**
  * Composes shader patches onto one material.
  *
  * `Material.clone()` copies neither `onBeforeCompile` nor `customProgramCacheKey`, and
@@ -144,14 +484,19 @@ export function alphaProfile(image) {
 }
 
 /**
- * Every group in the pack that draws with material `id`, and the Y extent of its geometry.
+ * Every group in the pack that draws with material `id`, the Y extent of its geometry, and
+ * the union of the categories and tags of the models that use it.
+ *
  * A material used only by paper-thin groups is a decal: it lies on the ground, it must not
  * write depth, and it must not cast a shadow of its own — a shadow casting a shadow is how
- * you get a second, harder shadow beside the first.
+ * you get a second, harder shadow beside the first. The tag union is the other question this
+ * answers: which sheets are *foliage*, which is what the hue knee is allowed to touch and
+ * `ike01` is not.
  */
 export function materialGeometryRoles(pack, floats, stride) {
   const roles = pack.materials.map(() => ({
-    flatOnly: true, maxY: -Infinity, minY: Infinity, groups: 0, categories: new Set(),
+    flatOnly: true, maxY: -Infinity, minY: Infinity, groups: 0,
+    categories: new Set(), tags: new Set(),
   }));
   for (const m of pack.models) {
     if (m.empty || !m.groups) continue;
@@ -160,6 +505,7 @@ export function materialGeometryRoles(pack, floats, stride) {
       if (!r) continue;
       r.groups++;
       r.categories.add(m.category);
+      for (const t of m.tags ?? []) r.tags.add(t);
       let lo = Infinity, hi = -Infinity;
       const start = g.offset / 4;
       for (let i = 0; i < g.count; i++) {
@@ -229,6 +575,198 @@ export function rewindDownwardFaces(pack, floats, stride) {
     }
   }
   return flipped;
+}
+
+/**
+ * The pack stores V top-down on upright faces, and three.js uploads a texture bottom-up.
+ *
+ * A `.pdsts` carries DS texture coordinates, which are measured *down* from the image's top
+ * row — the DirectX convention. `pack.bin` reproduces them verbatim, so on `tree`'s upright
+ * card `v = 0` is at `y = 4.50` (the crown) and `v = 1` at `y = 0.19` (the foot of the
+ * trunk). `THREE.TextureLoader` uploads with `flipY = true`, which puts image row 0 at
+ * `v = 1`. The two conventions cancel on nothing and every upright face in the set has been
+ * sampling **upside down** since the first tileset loaded.
+ *
+ * Only the trees could ever show it. A cliff, a hedge and a rock face are all texture the
+ * artist drew to read either way up, and a horizontal tile is untouched by a V flip in the
+ * first place; but `ki02ax` is a whole conifer with a brown trunk at the bottom of the sheet
+ * and a pale spire at the top, so inverted it renders as *a flat brown rectangle floating
+ * over the canopy with a thin pale pole hanging out underneath it* — which is, word for
+ * word, what three separate blind judging panels wrote about our forest.
+ *
+ * The correction cannot be `flipY = false`. The horizontal slices carry the same convention
+ * in the other axis — `ki02c`'s root decal has `v` largest at `z = 0`, so under `flipY = true`
+ * the image's top row lands to the **north**, which is correct and is why every auto-tiled
+ * edge in the game has passed round after round. Flipping the upload inverts all of those
+ * north-for-south; that is exactly the export-side flip DECISIONS #24 had to take back.
+ *
+ * So it is done per triangle, at load, and only where the sign says so:
+ *
+ *   - geometric normal (from the positions, not the stored ones — `rewindDownwardFaces` has
+ *     already negated some of those) with `|ny| < 0.5`: an upright face, not a floor, not a
+ *     stair tread;
+ *   - `dv/dy < 0` across the triangle: V running *against* height, which is the inverted
+ *     convention. Faces that already run with height are left alone — `plant01`'s hedge
+ *     (v 0→1 over y) and `saku`'s fence rail (v 1→3) do, and they render correctly today.
+ *
+ * The flip is a mirror about the triangle's own V span, `v' = (vmin + vmax) - v`, so a
+ * quad's two triangles mirror about the same value and the seam between them cannot move.
+ *
+ * Measured over `bw2-adastra`: 608 of its 2402 triangles; 154 of `structures`' 236; and it
+ * fires in all fifteen shipped packs, because every one of them came through the same
+ * exporter. `tools/seams/` has no eye, so the proof is the pair
+ * `docs/progress/tiles/r3/02-trees-before.png` / `12-trees-after-vfix.png`.
+ *
+ * @returns {number} triangles corrected
+ */
+export function uprightUvToImageOrder(pack, floats, stride) {
+  let fixed = 0;
+  for (const m of pack.models) {
+    if (m.empty || !m.groups) continue;
+    for (const g of m.groups) {
+      const start = g.offset / 4;
+      for (let t = 0; t + 3 <= g.count; t += 3) {
+        const o0 = start + t * stride, o1 = o0 + stride, o2 = o1 + stride;
+        const ax = floats[o1] - floats[o0], ay = floats[o1 + 1] - floats[o0 + 1],
+          az = floats[o1 + 2] - floats[o0 + 2];
+        const bx = floats[o2] - floats[o0], by = floats[o2 + 1] - floats[o0 + 1],
+          bz = floats[o2 + 2] - floats[o0 + 2];
+        const ny = az * bx - ax * bz;
+        const len = Math.hypot(ay * bz - az * by, ny, ax * by - ay * bx);
+        if (!len || Math.abs(ny / len) >= 0.5) continue;          // floor, tread or slope
+
+        // dv/dy over the triangle, by least squares on two edges. A quad's triangles agree,
+        // so the test cannot split one card in half.
+        const dy1 = floats[o1 + 1] - floats[o0 + 1], dv1 = floats[o1 + 7] - floats[o0 + 7];
+        const dy2 = floats[o2 + 1] - floats[o0 + 1], dv2 = floats[o2 + 7] - floats[o0 + 7];
+        const denom = dy1 * dy1 + dy2 * dy2;
+        if (denom < 1e-9) continue;                               // no height: nothing to flip
+        if ((dy1 * dv1 + dy2 * dv2) / denom >= 0) continue;       // already runs with height
+
+        let lo = Infinity, hi = -Infinity;
+        for (const o of [o0, o1, o2]) {
+          const v = floats[o + 7];
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+        const sum = lo + hi;
+        for (const o of [o0, o1, o2]) floats[o + 7] = sum - floats[o + 7];
+        fixed++;
+      }
+    }
+  }
+  return fixed;
+}
+
+/**
+ * One of a crossed billboard pair is permanently edge-on, and it is the one facing X.
+ *
+ * An AdAstra tree is two upright cards crossing at the cell centre plus horizontal canopy
+ * slices (DECISIONS #22): for `tree` those are the plane `x = 1` (normal -X) and the plane
+ * `z = 1` (normal -Z), both carrying the *same* material and the *same* whole-tree picture.
+ * The camera's yaw is fixed forever (ARCHITECTURE §2.7), so the X-facing card is
+ * perpendicular to the view in every frame this game will ever draw. It contributes three
+ * things and all of them are damage:
+ *
+ *   - it rasterises as a 1-2 px vertical smear of canopy running from *above* the crown to
+ *     *below* the roots — the "conifer spires poke through as thin pale vertical poles" a
+ *     blind panel named;
+ *   - it is lit off a normal pointing east while its twin is lit off one pointing south, so
+ *     the smear stays a different colour from the tree it is standing in (DECISIONS #29);
+ *   - and it casts a full-height shadow across its own twin, which is the hard black wedge
+ *     down the middle of every crown in `docs/progress/tiles/r3/12-trees-after-vfix.png`.
+ *
+ * Dropping it is not a general "remove X-facing cards" rule, which would delete every
+ * north-south fence panel, every house wall and every hedge side in the set — a first cut of
+ * this predicate did exactly that, and the count is what caught it: 440 triangles in
+ * `pt-overworld-7` alone. The test is the *crossed pair*, and all five clauses earn their
+ * keep: the model is tagged `billboard`+`foliage`; the material is `bothFaces`; there is
+ * exactly one X plane and one Z plane among its upright cards; each plane falls strictly
+ * *inside* the other's extent, so two parallel walls of a box and an L of two walls meeting
+ * at a corner are both excluded; and the surviving twin covers at least 80 % of the dropped
+ * card's height, so it is really carrying the same picture.
+ *
+ * Measured over all fifteen shipped packs it collapses **10** triangles in `bw2-adastra` —
+ * one card each on `tree`, `round_tree`, `darker_pine`, `big_tree_dark` and `big_tree_dark_v2`
+ * — 6 in `bw-overworld`, 10 in `bw2-brom` and none anywhere else. The four forest entrances
+ * are outside it on purpose: they carry several cards per plane, are not a crossed pair, and
+ * keep every one.
+ *
+ * The triangle is collapsed to a point rather than spliced out of the buffer: the groups are
+ * byte ranges shared with every InstancedMesh that draws the model, so a zero-area triangle
+ * is the cheap edit — no fragments, no shadow, no re-indexing, and `?crossed=1` puts it back
+ * for the A/B.
+ *
+ * @returns {number} triangles collapsed
+ */
+export function dropEdgeOnTwins(pack, floats, stride) {
+  let dropped = 0;
+  for (const m of pack.models) {
+    if (m.empty || !m.groups) continue;
+    // Foliage only, and by the classifier's own words. A house wall group holds four upright
+    // faces in one material and would match any looser "there is an X card and a Z card"
+    // test; so would a fence cross, whose two rails are both meant to be seen. Measured
+    // across all fifteen shipped packs, this predicate selects trees, forest entrances and
+    // `tree_mush` and nothing else.
+    const tags = m.tags ?? [];
+    if (!tags.includes('billboard') || !tags.includes('foliage')) continue;
+
+    for (const g of m.groups) {
+      if (!pack.materials[g.material]?.bothFaces) continue;      // a card is drawn both sides
+      const start = g.offset / 4;
+      const planar = (o0, o1, o2, k) =>
+        Math.abs(floats[o0 + k] - floats[o1 + k]) < 1e-3 && Math.abs(floats[o0 + k] - floats[o2 + k]) < 1e-3;
+
+      /** @type {{t:number, at:number, lo:number, hi:number, yLo:number, yHi:number}[]} */
+      const xc = [], zc = [];
+      for (let t = 0; t + 3 <= g.count; t += 3) {
+        const o0 = start + t * stride, o1 = o0 + stride, o2 = o1 + stride;
+        let yLo = Infinity, yHi = -Infinity;
+        for (const o of [o0, o1, o2]) {
+          yLo = Math.min(yLo, floats[o + 1]); yHi = Math.max(yHi, floats[o + 1]);
+        }
+        if (yHi - yLo < 0.5) continue;                            // not an upright card
+        const span = (k) => {
+          let lo = Infinity, hi = -Infinity;
+          for (const o of [o0, o1, o2]) { lo = Math.min(lo, floats[o + k]); hi = Math.max(hi, floats[o + k]); }
+          return [lo, hi];
+        };
+        if (planar(o0, o1, o2, 0)) xc.push({ t, at: floats[o0], span: span(2), yLo, yHi });
+        else if (planar(o0, o1, o2, 2)) zc.push({ t, at: floats[o0 + 2], span: span(0), yLo, yHi });
+      }
+      if (!xc.length || !zc.length) continue;
+
+      // Exactly one plane each, and they have to actually cross: the X card's plane strictly
+      // inside the Z card's own X extent and the other way round. Two parallel walls of a box
+      // fail the first test; an L of two walls meeting at a corner fails the second.
+      const one = (cards) => cards.every((c) => Math.abs(c.at - cards[0].at) < 1e-3);
+      if (!one(xc) || !one(zc)) continue;
+      const zx = [Math.min(...zc.map((c) => c.span[0])), Math.max(...zc.map((c) => c.span[1]))];
+      const xz = [Math.min(...xc.map((c) => c.span[0])), Math.max(...xc.map((c) => c.span[1]))];
+      const inside = (v, [lo, hi]) => v > lo + 1e-3 && v < hi - 1e-3;
+      if (!inside(xc[0].at, zx) || !inside(zc[0].at, xz)) continue;
+
+      // …and carry the same picture: the twin has to cover at least 80 % of the card's height.
+      const zY = [Math.min(...zc.map((c) => c.yLo)), Math.max(...zc.map((c) => c.yHi))];
+      const xY = [Math.min(...xc.map((c) => c.yLo)), Math.max(...xc.map((c) => c.yHi))];
+      if (zY[1] - zY[0] < (xY[1] - xY[0]) * 0.8) continue;
+
+      for (const c of xc) {
+        const o0 = start + c.t * stride;
+        for (const o of [o0 + stride, o0 + stride * 2]) {
+          floats[o] = floats[o0]; floats[o + 1] = floats[o0 + 1]; floats[o + 2] = floats[o0 + 2];
+        }
+        dropped++;
+      }
+      // The model now has one card and it lies in the Z plane, so it is only camera-facing
+      // while the placement's own yaw is even. Recorded here rather than re-derived, and
+      // read by `InstancedWorld` (see `cameraFacingRot`) — a quarter-turned tree was losing
+      // exactly the card a quarter turn makes camera-facing. Not set under `?crossed=1`,
+      // because this function does not run at all then and the A/B keeps all four turns.
+      m.twinDropped = 'x';
+    }
+  }
+  return dropped;
 }
 
 /**
@@ -376,6 +914,12 @@ export function makeMaterial(spec, map, profile, role, index) {
   }
   mat.userData.spec = spec;
   mat.userData.decal = decal;
+  // A *shadow* decal, specifically, and not every soft flat thing in the set. `kusa_ec3`
+  // (the soft outer fringe of a grass border), `mori01s` (the forest-floor wash) and
+  // `dansa01a` (the shading on a step) all classify as decals too, and all three are
+  // artwork the tile is supposed to have. The romaji is the discriminator ARCHITECTURE §9.1
+  // already blesses and `tools/assets/classify.js` already keys on: `kage` = shadow.
+  mat.userData.shadowDecal = decal && /kage/i.test(spec.image ?? spec.name ?? '');
   mat.userData.alphaClass = profile.cls;
   return mat;
 }
