@@ -251,7 +251,12 @@ export function makeRenderer({ container, config, log }) {
     if (!outW) return;
     renderer.info.reset();
     syncUniforms();
-    compositeMat.uniforms.uTime.value = (frameCount++ % 64) * 0.017;
+    // The grain phase advances per frame, so how many frames happened before a capture —
+    // which depends on the wall clock, not on the URL — changed the pixels. That broke
+    // ARCHITECTURE §6.3's "same URL, same pixels", which the harness relies on to make a
+    // diff between two rounds mean something. Frozen alongside everything else the harness
+    // freezes; grain still animates in normal play.
+    compositeMat.uniforms.uTime.value = config.timeFrozen ? 0 : (frameCount++ % 64) * 0.017;
 
     renderer.setRenderTarget(sceneRT);
     renderer.clear(true, true, true);

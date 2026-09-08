@@ -51,7 +51,18 @@ export const DEFAULTS = {
   // --- gameplay -------------------------------------------------------------
   walkSecondsPerTile: 0.25,
   runSecondsPerTile: 0.15,
-  followerGapTiles: 1,
+  /**
+   * Tiles between one walker in the conga line and the next.
+   *
+   * 2, not the Black & White 1, and the number is measured rather than preferred: a sprite
+   * is 16 texels per world unit stretched by 1/cos(45°) (DECISIONS #18), so a 32 px frame is
+   * an upright quad 2.83 units tall, which under a 45° pitch covers 2.83·sin(45°) = 2.0
+   * tiles of ground depth on screen. At a gap of 1 the walker in front covers the one behind
+   * it completely — and the one behind is the lead Pokémon, which is the thing the brief is
+   * about (docs/progress/simulation/r1/00-gap1-lead-hidden.png). BW could use 1 because its
+   * camera is nearly top-down; ours is not.
+   */
+  followerGapTiles: 2,
   offlineCapS: 12 * 3600,
   /** The floor of the offline efficiency curve — what an hour away is worth at the limit. */
   offlineEfficiency: 0.55,

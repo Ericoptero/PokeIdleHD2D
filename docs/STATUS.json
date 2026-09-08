@@ -1,6 +1,6 @@
 {
  "updatedMs": 0,
- "wave": "A (incomplete)",
+ "wave": "B complete; C (environment) running",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off \u2014 the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
@@ -17,20 +17,57 @@
  },
  "modules": {
   "tiles": {
-   "round": 1,
-   "score": null,
-   "status": "built, never critiqued",
+   "round": 2,
+   "score": 6.5,
+   "status": "round 2 done; critic scored 6.5/10, pass bar is 8.5",
    "errors": 0,
    "openIssues": [
-    "autotile sets beyond set0/set1/set3/set6 are unverified on screen",
-    "materials carry `emissive` from the MTL (`Ke`) but loadTileset ignores it, so Poke Center windows cannot light at night; needs emissiveMap + a setEmissiveScale(k) hook for environment's lamp ramp to drive",
-    "autotiling, ground and props render correctly at noon; never critiqued, no score",
-    "lamp posts (AdAstra `light` category) render as pale featureless obelisks with no lamp head \u2014 visible in docs/progress/_boot/wave-a-end.png",
-    "materials carry `emissive` from the MTL (Ke) but loadTileset ignores it, so windows and lamps cannot light at night"
+    "[TILES-OWNED, ROOT CAUSE, worst] Normals lifted to EXACTLY the horizon get zero diffuse from an overhead sun, so every vertical face is ambient-only and ambient is near zero. One defect, five symptoms: (a) lamps-close-12.png \u2014 the lamp post shaft is near-black navy over most of its length with an abrupt light/dark band partway down (the seam between vertices that were lifted and vertices that were already above horizon); (b) tree-close-12.png at tod 12 \u2014 the whole forest_entrance_front canopy is dark teal, only silhouette-edge leaves catch light, at NOON; (c) tree-close-12.png \u2014 2-4px pure-BLACK vertical streaks run top-to-bottom through the canopy at x approx 205/400/470/690/930/1150 (trunk side faces and edge-on cards); (d) catalog-12.png \u2014 bench_s and the hedge underside read as dark navy blobs; (e) lamps-17.5.png \u2014 all four posts and shades go dark purple with only the sun-facing sliver lit. FIX: lift affected normals to a minimum elevation of ~15-25 degrees above horizon, or re-derive them from face geometry. 'To the horizon and no further' trades a black silhouette for a black shaft. This is what makes the tree read as cardboard next to docs/refs/01-forest-tilemap-frame.png.",
+    "[TILES-OWNED] tree-close-12.png, top-centre: a lawn-coloured diamond punches through the middle of the canopy. ki02c is a flat horizontal slice, so materialGeometryRoles gives it flatOnly:true; combined with SOFT alpha that makes it decal:true in makeMaterial (src/tiles/materials.js:198), which sets depthWrite:false plus a ground polygonOffset \u2014 on a canopy 3m in the air. A canopy slice that writes no depth occludes nothing behind it, so ground shows through wherever no other opaque leaf card covers. The decal rule needs a height or category guard so it only catches slices lying ON the ground (kage_out/h_kage), not canopy slices.",
+    "[TILES-OWNED] No contact shadow or ambient occlusion anywhere at noon. hedge-close-12.png: the hedge and its stone kerb meet the lawn with zero darkening \u2014 the hedge looks pasted on, not planted. ground-12.png: the path/grass boundary has no occlusion either. Reference 01-forest-tilemap-frame.png carries large soft ground shading that is most of its depth. tod 12 in ov-12.png likewise shows no cast shadow under any plateau edge.",
+    "[TILES-OWNED] hedge-close-12.png: the lawn is a visible grid-aligned checkerboard of slightly different greens, one tone per cell, at close range. The `variety` tonal jitter is too strong and too obviously square. Reference grass varies organically at a scale larger than one cell. Reduce jitter amplitude and/or drive it from a low-frequency noise rather than per-cell hash2.",
+    "[TILES-OWNED, showcase] lamps mode wastes its frame on two benches that read as debris: in lamps-12/17.5/21.png the right bench_s is a half-cut dark slab lying flat at the frame edge (approx 1340,800), and the left one at stage (3,9) is entirely hidden behind the readout panel. Either drop them or place them inside the framed area \u2014 as shipped they only add a 'what is that broken thing' beat to the module's own proof shot.",
+    "[TILES-OWNED, showcase] set2-12.png proves nothing: all 13 case stamps are invisible because set2 is the michi03 palette, whose centre texture michi03b is a 4-bit indexed PNG with an all-green palette (#74dc76/#81db72/#8bdc74) \u2014 green tiles stamped on a green lawn. NOT a render bug (I decoded the PLTE to confirm), but the set-mode proof needs a contrasting pad under the stamps, as set0-12.png effectively gets for free from tan-on-green.",
+    "[ENVIRONMENT/CORE-OWNED \u2014 visible in tiles' proof, DO NOT CHASE IN TILES] tod 21 is an unreadable black frame. ov-21.png and catalog-21.png lose all hue: every tile is the same navy-black and no material identity survives. docs/refs/03-forest-voxel-night.png is a night scene in which the dirt path stays warm brown, grass stays green, fence wood keeps its light/shade sides and flowers stay readable. This is the single biggest gap to the reference and it is the night ramp's exposure floor, not tiles' materials.",
+    "[ENVIRONMENT/CORE-OWNED \u2014 visible in tiles' proof, DO NOT CHASE IN TILES] tod 17.5 is a monochrome orange wash. ov-17.5.png: grass, water, dirt path and mountain rock all collapse to the same orange; set1 lake is indistinguishable in hue from set0's path. docs/refs/04-cave-golden-hour.png keeps clear rock/sand/shadow separation under a warm key. The sun tint is being applied at full strength to ambient as well as direct.",
+    "[ENVIRONMENT/CORE-OWNED \u2014 visible in tiles' proof, DO NOT CHASE IN TILES] Sun shadows are inverted across dusk. At tod 17.5 (lamps-17.5.png) \u2014 sun low, shadows should be long \u2014 there is almost no shadow at all, just a faint band. At tod 21 (lamps-21.png, catalog-21.png) \u2014 sun below horizon, shadows should be gone \u2014 there are long, hard, jet-black diagonal streaks from every lamp and a huge black wedge across the catalog stage. The shadow-casting light is still active and has flipped sides after sunset.",
+    "[ENVIRONMENT/CORE-OWNED \u2014 visible in tiles' proof, DO NOT CHASE IN TILES] Lit lamps at tod 21 cast no light pool. lamps-21.png: the glass blooms correctly but the paving directly beneath each lamp is exactly as dark as paving three cells away. docs/refs/03-forest-voxel-night.png has a clear warm falloff around its key. tiles' emissive seam is doing its half; nothing is adding the point light.",
+    "[\\HARNESS, informational, not a console error] The first attempt at set2-12 failed with 'Page.captureScreenshot timed out' after 182 s and wrote a JSON with ok:false. It reproduced clean on immediate retry (2.5 s, 60 fps, 0 errors). Treated as a puppeteer protocol flake, not counted against the module; worth a protocolTimeout bump in tools/shots/shoot.js if it recurs."
    ],
+   "verified": {
+    "at": "2026-09-08",
+    "round": 2,
+    "budgetShot": "docs/progress/tiles/r2/budget-1080.png",
+    "size": "1920x1080",
+    "fps": 60,
+    "p95ms": 16.8,
+    "drawCalls": 400,
+    "triangles": 24856,
+    "programs": 14,
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "shots": 18,
+    "allShots": "every shot in docs/progress/tiles/r2/ is 60 fps, 0 console errors and 0 console warnings",
+    "cityRegression": "docs/progress/tiles/r2/city-noon.png - 60 fps, 233 draw calls, 18994 triangles, 19 programs, 0 errors. The contact shadows cost exactly +3 draw calls and +1 program against ?contact=0 (232 draws, 18 programs). docs/progress/tiles/r2/boot-noon.png is / with no showcase: every module ready, 0 errors.",
+    "fixed": [
+     "normals are clamped to 22 degrees above the horizon in the fragment shader (after three's back-face flip, so bothFaces cards are right on both sides): the lamp post is one even grey top to bottom with no band, the canopy reads green at noon, benches and hedge undersides are no longer navy blobs",
+     "46 down-wound triangles rewound before the horizon lift (the rewind negates the normals of a triangle it turns over, and after the lift there is no negative Y left to find) - the pale diamond punched through forest_entrance_front's canopy is closed. A/B: r2/ab-tree-norewind.png against r2/tree-close-12.png, same URL, one guard flipped.",
+     "a ground decal must now be low as well as thin (maxY <= 0.35), and decals are unlit (MeshBasicMaterial) so a painted shadow stops taking the key light",
+     "generated contact shadows: one extra InstancedMesh per world, plateau-and-penumbra in world cells via two instanced attributes, +3 draws in the city",
+     "the lawn checkerboard: the tonal blotch moved from 9/4-cell lattices to 24/11 (per-cell step 2.8% -> 0.73%) AND globally-mapped tiles are now phased by their own 4x4 block instead of per cell, which was the larger half (measured 19 levels of green between neighbouring cells)",
+     "set-mode stamps stand on a tinted pad, so set2's green-on-green palette is visible for the first time (r2/set2-12.png, r2/ov-12.png)",
+     "lamps mode's two benches moved inside the framed area"
+    ]
+   },
    "lastShots": [
-    "docs/progress/_boot/sc-tiles.png"
-   ]
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/ov-8.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/ov-12.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/ov-17.5.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/ov-21.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/lamps-12.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/critic/lamps-17.5.png"
+   ],
+   "pass": false
   },
   "terrain": {
    "round": 0,
@@ -56,15 +93,34 @@
    ]
   },
   "simulation": {
-   "round": 0,
-   "score": null,
-   "status": "seeded",
+   "round": 2,
+   "score": 6,
+   "status": "round 2 done; critic scored 6/10, pass bar is 8.5",
    "errors": 0,
    "openIssues": [
-    "no player or follower sprite is drawn yet",
-    "seed inverts the brief: followerCell() returns trail[gap] for the Pokemon, i.e. the Pokemon walks BEHIND. The brief and ARCHITECTURE 5.4 say the active Pokemon LEADS and the trainer follows; camera focus stays on the trainer and tall-grass encounters trigger on the Pokemon's cell"
+    "[tiles-owned, but it wrecks every simulation frame - flag it, don't chase it] Every meadow tree has a bright vertical stripe rammed through it from canopy to root. Cropped at 6x from c-wide-tod175.png (region 980,440-1120,680): the canopy renders as a face-on quad while a SECOND quad is seen edge-on as a full-height 1-texel column, and the two receive completely different light - at 17:30 the canopy is blood-red while the stripe stays bright green. Same artifact at noon (c-tod12 at ~1400,560: a brown lintel-like slab with a black wedge above the canopy). The only <=4-cell tree models in bw2-adastra are `tree`, `round_tree`, `darker_pine`, all 2x2 'billboard' - so the crossed-quad geometry or its per-face normals are wrong in the tile models. Fix belongs to tiles (single camera-facing quad, or DoubleSide with an up-flattened normal). Simulation's only mitigation is to stop planting them until it's fixed.",
+    "[sim-owned] The meadow ground is a literal 50/50 checkerboard. `buildWalkMap` fills with `tiles.pick(tiles.find(SLUG,{category:'ground',tags:['grass']}), cx, cz, {salt:11})` - and that query returns exactly TWO models: `grass` (tags flat/floor/grass) and `grass_v2` (tags flat/floor/grass/**raised**). So half the map is randomly set to a raised, differently-valued tile, producing the two-tone speckle and the hard horizontal value seams visible across c-tod12, c-tod08 and the crop behind the Lillipup. tiles' own ov-12.png shows organic mottled grass, so this is simulation's fill query, not the tileset. Fix: fill with `grass` only, or drop `grass_v2` to a low-probability accent (<10%) rather than a coin flip.",
+    "[sim-owned] The `grass` mode fails its own stated purpose - the lead is swallowed. In c-grass-tod08.png only the top ~30% of Oshawott's head clears the tall grass at (650,530); the mode exists to show 'the lead has stepped into the tall grass while the trainer is still on the path' and you cannot see the lead. The tileset ships `grass_patch_half` and `grass_decoration` alongside `tall_grass`, but buildWalkMap takes `tall[0]`. Fix: use the half-height model at the patch rim, or move the freeze cell to a ragged edge cell, or raise the actor so >=50% of the lead reads above the blades.",
+    "[environment-owned] Hard grey rectangular shadow slabs cross the road at 08:00, 17:30 and 21:00. In c-tod175.png there are straight horizontal bands at y~180, ~570 and ~740 with dead-straight top edges that stair-step once; the 4x crop (580,400-900,600) shows they are a flat uniform grey that DESATURATES what it crosses instead of darkening it warmly. They are not tree-shaped and no caster is visible. At golden hour a shadow must carry the ambient's colour - compare docs/refs/04-cave-golden-hour.png where shadowed rock stays warm. Fix belongs to environment (shadow bias/cascade + coloured ambient in shadow).",
+    "[sim-owned] The `city` mode fails its own stated purpose - the queue is invisible in the crowd. In c-city-tod21.png I cannot tell the party from the extras: the four members are scattered among ~12 city NPCs at similar scale, with lamp-head props bisecting several sprites. The mode's point is 'the party walking a real map somebody else authored'. Fix: pull the camera to the empty half of the square, freeze on a step where the bend is unobstructed, or temporarily clear the lobby NPCs from the queue's read.",
+    "[sim-owned] The `wide` mode makes the subject unreadable. At k=1 (c-wide-tod175.png) the four walkers are ~30 px tall blobs at (700-810, 440-640) and the shape of the queue - the entire stated point of the showcase - cannot be resolved. Either raise k to ~1.5, or keep k=1 but frame the corner tighter so the line occupies more than 4% of the frame height.",
+    "[pokemon-owned, flag it] The trainer's back sprite is an unreadable blob at this camera pitch. Cropped at 5x from c-tod12 (700,380-900,580): a black-and-orange oval occupies ~55% of the sprite's height with no distinguishable shoulders, arms or legs beneath it - just a lavender mass, a stray orange rectangle and a pink stub. Next to it in c-grass-tod08 the Snivy and Tepig profiles read cleanly, which is the comparison that damns it. Against docs/refs/01-forest-tilemap-frame.png, where the BW trainer's cap/body/legs separate at a fraction of this zoom, this is the weakest asset in frame.",
+    "[pokemon/sim] The party is not anchored to the light at low sun. `src/pokemon/field.js:106` sets `castShadow = false` and relies on the contact blob. At 17:30 the trees throw 6-tile directional shadows while the 4x crop of the party shows essentially nothing under either walker - they read as pasted on. docs/refs/03-forest-voxel-night.png keeps a soft directional shadow trailing each follower even at night. Either strengthen and stretch the blob with sun azimuth (field.js:245 claims to do this - it is not visible) or let sprites cast into the shadow map.",
+    "[sim-owned] The `run` mode does not read as running. I pixel-diffed the party strip (560,380-900,900) between c-tod12.png and c-run-tod12.png: 61,671 of 176,800 px differ, so a distinct run frame IS being drawn - the side-by-side crop shows a wider stride and a swung arm. But at the mode's own k=2 framing nothing says 'running': no lean, no stride-length change that reads, no dust, and the party freezes on the identical cells as `corner`. Either freeze the run at a mid-air/extended-stride tick, add a speed cue, or drop the mode - as shot it proves nothing a critic can judge.",
+    "[environment-owned] 17:30 is a flat sepia wash, not golden hour. In c-wide-tod175.png grass, dirt, foliage and sprites all collapse to the same olive-orange; the trainer goes nearly black and its silhouette dissolves into the road. The reference (docs/refs/04-cave-golden-hour.png) pushes warmth hard while keeping local colour separation and the trainer's red saturated. Needs a grade that preserves hue separation and a fill/bounce so subjects don't crush.",
+    "[environment-owned] 21:00 is a global blue-black multiply with no light in it. c-south-tod21.png is nearly unreadable - the tall-grass patch is an undifferentiated dark mass, no moonlight key, no rim, no emissive anywhere. docs/refs/03-forest-voxel-night.png is just as dark in the corners but has a real light source, a warm pool on the path, and blue flowers still reading as blue. Add a moon key with a cool rim on sprites and at least one practical light.",
+    "[city/tiles-owned] Lamp-head props bisect NPC sprites in the plaza. Cropped at 4x from c-default-tod12 (100,600-400,780): an untextured pale-blue cuboid lamp head is drawn straight through an NPC's torso, leaving a head and two feet; the same happens to a Pokemon at (930-1010,750). The lamps also drop hard black rectangular shadow patches with no falloff. Two of the flat-lying shapes near (700,810) and (1100,850) read as prone sprites, but I could not verify whether that is a low-profile species or an orientation bug - treat that half as unconfirmed.",
+    "[process nit] `src/simulation/selftest.js` (34 checks) is never run by the harness - `tools/seams/run.js:132` only spawns `src/idle/selftest.js`. It passes when I run it by hand, but nothing regressions it. Worth a coreRequest to have seams discover module selftests generically."
    ],
-   "lastShots": []
+   "lastShots": [
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-tod08.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-tod12.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-tod175.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-tod21.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-closeup-tod12.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-wide-tod175.png"
+   ],
+   "pass": false
   },
   "pokemon": {
    "round": 1,
@@ -143,18 +199,53 @@
    "lastShots": []
   },
   "city": {
-   "round": 0,
-   "score": null,
-   "status": "seeded",
+   "round": 2,
+   "score": 6,
+   "status": "round 2 done; critic scored 6/10, pass bar is 8.5",
    "errors": 0,
    "openIssues": [
-    "no buildings yet (DECISIONS #3)",
-    "no NPCs",
-    "no night lamp emissives"
+    "THE POND DOES NOT EXIST [city]. Probed the running page: terrain.tagsAt() returns ZERO 'water' cells anywhere in cx 40-60 / cz 8-26, the exact region POND (layout.js:96, cx50 cz16 rx6.5 rz4.5) claims. map.js:78 `draft.autotile(tiles,'set1',inPond,{collision:'water',layer:3})` silently places nothing - 'set1' is not resolving to a water autotile set in bw2-adastra. Consequence: the `pond` preset (layout.js:292) and the `pond` marker (map.js:232) frame an empty lawn (n12-pond.png). Two of nine presets - `pond` and `garden` (n12-garden.png) - render nothing but grass. Make autotile warn on an unresolved set the way the lamp lookup already does at map.js:189, so this cannot fail silently again.",
+    "ROOF SHADOW TEARING ON EVERY BUILDING AT EVERY SUN-BEARING HOUR [environment/render, not city's composition]. A hard-edged black polygon is slashed across each roof with no occluder to produce it. The discriminating fact: the wedge sits on the SAME west/left facet at 08:00 (sun east - m08-plaza.png, m08-highstreet.png, four roofs, four wedges) AND at 17:30 (sun west - g175-plaza.png, g175-wide.png). A legitimate hipped-roof terminator flips sides when the sun crosses; this does not. That rules out honest shading and points at shadowBias -0.0006 / shadowNormalBias 0.035 being insufficient for the 45-degree roof normals at shadowExtent 56. This is the single most visible artifact in the module and it is in the hero frame.",
+    "THE STREET LAMPS READ AS RUGBY GOALPOSTS [city]. LAMPS (layout.js:141) places mirror-image pairs 3-4 cells apart facing each other - 'e' at cx30 with 'w' at cx33, 'e' at cx23 with 'w' at cx42 - so the two cobra arms nearly meet over the road and each pair reads as one gantry frame, not two lamps. Unmistakable in n12-highstreet.png, n21-highstreet.png, n12-southgate.png, m08-highstreet.png. The DECISIONS #25 fix removed the featureless-obelisk foreshortening but the paired placement created a worse read. Stagger the pairs along the street instead of opposing them, or offset one member by 2+ cells. Separately, at close range the head is an untextured grey lozenge with no lantern housing or glass (n12-close.png, bottom edge).",
+    "THE PLAZA LAMPS PUT NO LIGHT ON THE GROUND AT NIGHT [city + environment]. stats() confirms 12 lamp bulbs registered and 2 window bulbs (glows:2 is the windows, not a lamp shortfall). But at the `plaza` framing the six in-frame lamps produce no discernible pool on the paving - the whole square is a uniform flat brown at 21:00 (n21-plaza.png) - while the high-street pair clearly does (n21-highstreet.png). Determine whether environment's 8-nearest PointLight cap (acknowledged at layout.js:219-221) is spending its slots on off-screen lamps, or whether intensity 1.25 / radius 13 is simply too weak against the plaza material. Also: the plaza lamp heads render pale WHITE on screen, not the 0xffb166 sodium the code specifies, so the glow quad is not taking the lamp's colour.",
+    "THE 'STONE-PAVED SQUARE' IS UNTEXTURED MUD [city]. It is the largest surface in every plaza shot and it is flat, smeared brown with no paving pattern, no joints and no border course. Worse, at close range it is visibly bilinear-soft while every other surface in frame is crisp nearest-filtered (n12-close.png) - a filtering/material mismatch that breaks the pixel grid the refs hold rigidly. PLAZA_STONE exists in layout but is not reading as stone at any distance.",
+    "THE POKE MART IS VISUALLY A COPY OF THE POKEMON CENTER [asset, not mapping]. Checked: structures/pack.json ships three genuinely distinct models (house_a 5x4, poke_mart 6x5, pokemon_center 8x6) and plotModel (layout.js:53) resolves each by its own subcategory - the mapping is correct. The problem is the assets: both shops carry the SAME red hipped roof, the SAME beige wall, the SAME red/white awning and the SAME Pokeball roof sign (n12-plaza.png, n12-highstreet.png, budget-1080-noon.png). Nothing says 'Mart'. In n12-wide.png the whole town is a six-building red-roof monoculture. Re-author or re-tint the mart roof (blue is the series convention) and give it its own sign.",
+    "GRASS TILES AS A VISIBLE CHECKERBOARD [terrain/tiles]. Every lawn shows a perfect grid of alternating light/dark green squares - unmissable in n12-pond.png, n12-garden.png and n12-southgate.png. Variance is alternating on cell parity instead of hashing on position. Note the tiles showcase grass (docs/progress/_boot/sc-tiles.png) is smooth and organic with no checkerboard, so this is introduced by the city map or its biome preset, not inherent to the tileset.",
+    "TREES RENDER NEAR-BLACK AT EVERY HOUR [tiles/props material]. The tree line is a black-to-navy silhouette with bright orange trunk flares at the base. At noon a tree cannot be black. The left third of n12-garden.png is a solid black void; same in n12-pokecenter.png and n12-pond.png. The trunk material lights correctly and the canopy does not, so it is specific to the foliage planes - normals facing away, or unlit vertex colours.",
+    "HARD BLACK SHADOW SLABS AND LAWN BANDING AT NIGHT AND LOW SUN [environment]. n21-pokecenter.png has a razor-straight black wedge across the left grass with no occluder. n21-wide.png throws 20-tile hard black streaks from every tree at 21:00 with the sun below the horizon, and shows a rectangular tonal boundary in the lawn at the shadow-camera extent. g175-wide.png bands the entire meadow in horizontal light/dark stripes. Reference 03-forest-voxel-night.png keeps its night shadowing soft and subtle.",
+    "BENCHES, HEDGE TUBS AND FLOWER BEDS DO NOT READ AS OBJECTS [city]. At close range a bench is a flat dark rectangle that looks like a floor grate (n12-close.png). Hedge tubs are bare green cubes with pink dots placed in perfectly uniform rows of five with zero rotation or spacing variance. Flower beds are flat decals lying on mud at a finer pixel scale than everything around them. The scalloped green edging ribbon repeats identically along every lawn edge and reads as a caterpillar (n12-southgate.png).",
+    "GOLDEN HOUR IS A FLAT ORANGE WASH AND NIGHT BLOOM BLOWS OUT [environment grade/post]. g175-wide.png collapses grass, roofs and roads onto one hue with no value separation; reference 04-cave-golden-hour.png keeps full structure under its orange. At night the shop windows bloom to pure white with no detail left (n21-pokecenter.png) where reference 03 keeps bloom restrained enough to preserve the light source's shape.",
+    "__HOOKS__.focus(cx,cz) IS DEAD FOR THE CITY SHOWCASE [city/main]. `--focus 50,20` produced the plaza framing, pixel-identical in composition to `--preset plaza` (n12-pond-focus.png). simulation re-centres the rig on the trainer every frame and focus() only sets the rig without teleporting; preset() works because focusOn() teleports first. index.js:56-60 documents exactly this failure mode for presets but left the harness hook with it. Any gauntlet or critic run using --focus silently gets the default view.",
+    "PROPS ON THE OPEN LAWN READ AS LITTER [city]. The barrels, log, woodpile and axe sit on bare grass east of the Mart with nothing tying them to the town - four unrelated objects with no fence, no yard, no path (n12-mart.png, right side). Group them against a wall or inside an enclosure so they read as a woodyard rather than scatter.",
+    "STAGING: EVERY HUMAN IN THE CAST FACES AWAY FROM THE LENS [city/npcs]. The trainer and both NPC people are posed facing north, the same way the camera looks, so no face ever reads - at distance the back of a white cap over red hair reads as a featureless blank head (n12-close.png, n12-plaza.png). Turn at least the two shopfront NPCs to face south or three-quarters so the cast has a front.",
+    "PROCESS: the builder's own r1 logs all carry `preset: null` (docs/progress/city/r1/*.json), including pokecenter-night.json and high-street-night.json. Those PNGs are the default view under a name that claims a framing that was never requested, and all eight share identical metrics. The self-verification did not look at what it claimed to."
    ],
+   "verified": {
+    "at": "2026-09-08",
+    "size": "1920x1080",
+    "fps": 60,
+    "drawCalls": 210,
+    "triangles": 18112,
+    "programs": 18,
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "buildings": 6,
+    "props": 16,
+    "lamps": 12,
+    "litDoorways": 2,
+    "npcs": 13,
+    "deterministic": "two runs of ?showcase=city&tod=21.5 agree to a max 6/255 on any channel, and are byte-identical with &grain=0; the residual is the post stack's film grain, not the cast",
+    "extraDrawCalls": "32 (22 InstancedMeshes for 6 buildings across 3 models, 10 for 16 props across 10), 1378 triangles \u2014 counted from the two pack.json files"
+   },
    "lastShots": [
-    "docs/progress/_boot/city-base.png"
-   ]
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-plaza.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-wide.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-pokecenter.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-mart.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-highstreet.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-pond.png"
+   ],
+   "pass": false
   },
   "hunts": {
    "round": 0,
@@ -195,7 +286,62 @@
    ]
   }
  },
- "coreRequests": [],
+ "coreRequests": [
+  {
+   "from": "city",
+   "want": "a `tileset` field on Placement (or a multi-tileset MapDraft), so terrain.load can realise a map that mixes bw2-adastra with structures and props",
+   "why": "`tiles.buildInstances(scene, slug, placements)` resolves modelId against one tileset, so a structures id put through an AdAstra draft silently draws an unrelated AdAstra model. Every scene that places an authored building has to build and dispose its own extra InstancedWorlds (src/city/structures.js). It works and costs 21 draw calls, but it is a trap every future map author will fall into once (DECISIONS #26a).",
+   "state": "open"
+  },
+  {
+   "from": "city",
+   "want": "environment.lamps.add({ point:false }) \u2014 a glow-only bulb that never claims a slot in the 8-light pool",
+   "why": "lamps.update() hands the pool to the eight bulbs nearest the camera focus, by distance alone. A lit window wants a glow quad and a small wall wash; a street lamp wants the ground pool. Today registering more than a couple of windows near the camera silently takes the PointLights away from the street lamps, so the city registers exactly two lit doorways and no window bulbs at all.",
+   "state": "open"
+  },
+  {
+   "from": "city",
+   "want": "props: re-cut `pt-forest__hedge` and `pt-overworld-7__hedge`",
+   "why": "Both render as a pale grey blob roughly a third of a cell across with a blue rim, although their catalog record claims a 1x1x0.86 bush with the plant sprite on it. Reproduces with nothing else in frame at /?showcase=preview&mode=props&filter=hedge. They are the only two greenery props in the set, so the city plants AdAstra's hedge1 instead. assets/props + tools/assets are not city's to edit (DECISIONS #26e).",
+   "state": "open"
+  },
+  {
+   "from": "city",
+   "want": "environment: a readable dusk between golden hour and night",
+   "why": "tod 19.1 (environment's own 'dusk' preset) already renders as dark as tod 21.5; the last light in the sky is gone by 18.5. docs/progress/city/r1/golden.png (17.3) and dusk.png (19.1) are two hours apart and look like different scenes; dusk.png and night.png are 2.4 hours apart and look identical. The lamp ramp is fine \u2014 it is the sky and the key that fall off a cliff.",
+   "state": "open"
+  },
+  {
+   "from": "city",
+   "want": "core/render.js: freeze the film-grain phase when config.timeFrozen is set, as environment already freezes its lamp flicker",
+   "why": "DECISIONS #14 promises the same URL gives the same pixels, and the harness sets timeFrozen=1 for exactly that. Everything else obeys it: two runs of ?showcase=city&tod=21.5 put every sprite, lamp and shadow on the same pixel, but the grain reseeds and the PNGs differ by up to 6/255 on every pixel. With &grain=0 they are byte-identical. It costs a round-trip diff between two rounds its whole meaning.",
+   "state": "open"
+  },
+  {
+   "from": "tiles",
+   "want": "environment: an ambient/exposure floor at night and a fill that does not take the sun's tint at full strength",
+   "why": "tod 21 renders every tile the same navy-black and tod 17.5 renders every tile the same orange - docs/progress/tiles/r2/catalog-21.png and lamps-17.5.png. docs/refs/03 keeps a warm dirt path, green grass and readable flowers at night and docs/refs/04 keeps rock/sand/shadow separation under a warm key. tiles' own materials, normals and emissives are verified correct at noon in the same shots; nothing tiles can do to a material survives a fill that is both near-zero and monochrome.",
+   "state": "open"
+  },
+  {
+   "from": "tiles",
+   "want": "environment: turn the shadow-casting sun off below the horizon, and lengthen the shadow as it sets",
+   "why": "docs/progress/tiles/r2/lamps-17.5.png (sun low, shadows should be long) has almost no shadow; lamps-21.png (sun below the horizon, shadows should be gone) has long hard jet-black diagonals from every lamp. The light has flipped sides after sunset and is still casting.",
+   "state": "open"
+  },
+  {
+   "from": "tiles",
+   "want": "a placement yaw that is not a quarter turn, or an exporter pass that splays a crossed-billboard prop's two cards",
+   "why": "Every AdAstra tree is two upright cards at x=1 and z=1 and the camera never yaws (ARCHITECTURE 2.7), so the x=1 card is permanently perpendicular to the view and rasterises as a full-height sliver of canopy texture. `simulation` measured the same geometry independently (DECISIONS #29) and plants no tree at all because of it. Placement carries `rot: 0|1|2|3` only (ARCHITECTURE 7), so tiles cannot rotate a tree off the camera axis without breaking the one-tile-one-cell grid contract, and assets/ + tools/ are not tiles' to edit. Round 2's normal floor stops the sliver being black, but it is still a sliver.",
+   "state": "open"
+  },
+  {
+   "from": "tiles",
+   "want": "for the integrator: simulation's `variety: 0` showcase workaround (DECISIONS #29) can be retired",
+   "why": "It was added because the per-cell UV phase tore AdAstra's 4x4 global grass pattern at every cell edge. tiles round 2 phases a globally-mapped tile by its own 4x4 block instead, so the pattern stays continuous inside a block and only the repeat is broken - measured in docs/progress/tiles/r2/hedge-close-12.png at 3x the game zoom and ground-12.png at mid distance. simulation should re-shoot with the workaround removed before it is deleted.",
+   "state": "open"
+  }
+ ],
  "gate": {
   "wholeGame": null,
   "blindJudges": [],
@@ -212,6 +358,20 @@
    "before Wave B: full boot shot at / (not a showcase) + node tools/seams/run.js; showcases can all pass while the combined boot is broken",
    "city must consume the authored `structures` tileset via tiles.find('structures', {category:'building'}) and register door markers on the cell south of model.door",
    "hunts: coast shallows are set7 (walk_edge); sea/sea_border_* are the deep-water models"
+  ],
+  "appliedFromWaveB": [
+   "core/render.js: film grain phase is frozen when config.timeFrozen, so the same URL gives the same pixels (ARCHITECTURE 6.3). Verified: two captures of one URL differ by 0 of 230400 pixels. Requested by simulation AND city independently.",
+   "core/config.js: followerGapTiles default 1 -> 2. Measured, not preferred: a 32px sprite is a 2.83-unit quad covering 2.0 tiles of ground depth under a 45-degree pitch, so at gap 1 the trainer completely hides the lead Pokemon.",
+   "tools/seams: module selftests are now discovered rather than listed \u2014 src/<id>/selftest.js runs if it exists. Five modules ship one (automation, collection, idle, offline, simulation) and only idle's was being run. Proven to catch a failure."
+  ],
+  "routedNotYetApplied": [
+   "terrain: terrain.height(cx,cz) returns the authored heightfield (0 everywhere in the demo city) and ignores that AdAstra grass/path tiles are modelled at baseY 0.07 and dirt at 0.125, so walkers plan against the wrong surface height.",
+   "terrain/tiles: Placement needs a `tileset` field (or MapDraft needs to be multi-tileset) so one map can mix bw2-adastra with structures and props.",
+   "ordering bug: offline.restorePlayer runs on world:loaded, which terrain emits from inside terrain.load(); city.enter() then calls simulation.placePlayer(spawn) after load() returns, so a restored position is immediately overwritten.",
+   "environment: lamps.add({point:false}) \u2014 a glow-only bulb that does not claim one of the 8 point-light slots, so lit windows stop starving street lamps. Handed to Wave C.",
+   "environment: drive tiles.setEmissiveScale(k) from the dusk curve, and put a small warm point light on each city lamp marker. Handed to Wave C.",
+   "city: replace the hard-coded LAMP_MODEL name table with tiles.find(slug, {category:'light', orientation:'w'}) now that tiles derives orientation from geometry.",
+   "props: re-cut pt-forest__hedge and pt-overworld-7__hedge \u2014 both render as a pale grey blob a third of a cell across with a blue rim."
   ]
  },
  "waveA": {
@@ -253,5 +413,37 @@
    "spriteCoverage": "1253/1253 species have assets/overworld/<name>/{normal,shiny}.png",
    "method": "public/generated/species.json cross-checked against the asset tree"
   }
+ },
+ "waveB": {
+  "dispatched": 9,
+  "completed": 9,
+  "failed": 0,
+  "modules": {
+   "simulation": {
+    "score": 6,
+    "pass": false,
+    "fps": 60,
+    "drawCalls": 58,
+    "consoleErrors": 0,
+    "issuesRemaining": 13
+   },
+   "city": {
+    "score": 6,
+    "pass": false,
+    "fps": 60,
+    "drawCalls": 210,
+    "consoleErrors": 0,
+    "issuesRemaining": 15
+   },
+   "tiles": {
+    "score": 6.5,
+    "pass": false,
+    "fps": 60,
+    "drawCalls": 399,
+    "consoleErrors": 0,
+    "issuesRemaining": 11
+   }
+  },
+  "note": "All three critics ran and none passed: simulation 6, city 6, tiles 6.5 against a pass bar of 8.5. Every module is inside budget (60fps, 0 console errors). Two independent critics traced their worst remaining defects to `environment`, which is why Wave C runs it alone."
  }
 }

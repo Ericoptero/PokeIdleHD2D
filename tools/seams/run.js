@@ -124,16 +124,19 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
   }
 }
 
-// --- 6. idle's own property checks -------------------------------------------
-// 21 checks, no browser, about half a second. They are the only thing that catches a break
-// in the chunk-additivity that both idle and offline are built on, and a break there is
-// silent: the numbers stay plausible and stop being reproducible.
-{
-  const out = spawnSync(process.execPath, [join(REPO, 'src', 'idle', 'selftest.js')],
-    { encoding: 'utf8', timeout: 60000 });
+// --- 6. every module's own property checks ------------------------------------
+// Any module may ship a `selftest.js` that exits non-zero on failure; they are discovered
+// rather than listed, so a new one starts being enforced the moment it is written. These are
+// the checks a screenshot cannot make — idle's 21 cover the chunk-additivity that idle and
+// offline both rest on, and a break there is silent: the numbers stay plausible and stop
+// being reproducible.
+for (const m of MODULES) {
+  const selftest = join(REPO, 'src', m, 'selftest.js');
+  if (!existsSync(selftest)) continue;
+  const out = spawnSync(process.execPath, [selftest], { encoding: 'utf8', timeout: 120000 });
   if (out.status !== 0) {
     const why = (out.stdout ?? '').split('\n').filter((l) => l.startsWith('✗')).slice(0, 6);
-    fail('idle-selftest', join(REPO, 'src/idle/selftest.js'),
+    fail('selftest', selftest,
       why.length ? why.join(' | ') : `exited ${out.status}: ${(out.stderr ?? '').slice(0, 200)}`);
   }
 }
