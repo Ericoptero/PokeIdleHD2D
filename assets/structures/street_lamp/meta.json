@@ -1,0 +1,22 @@
+{
+ "category": "light",
+ "subcategory": "street_lamp",
+ "tags": [
+  "light",
+  "lamp",
+  "authored",
+  "street"
+ ],
+ "biomes": [
+  "city",
+  "any"
+ ],
+ "collision": "block",
+ "w": 1,
+ "h": 1,
+ "door": null,
+ "swapYZ": true,
+ "emissiveMaterials": [
+  "head"
+ ]
+}

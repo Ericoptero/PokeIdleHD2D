@@ -311,6 +311,34 @@
    "tilingV": 1,
    "emissive": 0.5,
    "uniformNormals": false
+  },
+  {
+   "id": 22,
+   "image": "post.png",
+   "name": "street_lamp:post",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0,
+   "uniformNormals": false
+  },
+  {
+   "id": 23,
+   "image": "head.png",
+   "name": "street_lamp:head",
+   "alpha": 31,
+   "translucent": false,
+   "bothFaces": false,
+   "vertexColors": false,
+   "fog": true,
+   "tilingU": 1,
+   "tilingV": 1,
+   "emissive": 0.9,
+   "uniformNormals": false
   }
  ],
  "models": [
@@ -563,6 +591,60 @@
    "emissiveMaterials": [
     "window",
     "door"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "street_lamp",
+   "category": "light",
+   "subcategory": "street_lamp",
+   "orientation": null,
+   "tags": [
+    "light",
+    "lamp",
+    "authored",
+    "street",
+    "multicell"
+   ],
+   "biomes": [
+    "city",
+    "any"
+   ],
+   "collision": "block",
+   "w": 1,
+   "h": 1,
+   "baseY": 0,
+   "bounds": {
+    "min": [
+     0.25,
+     0,
+     0.24
+    ],
+    "max": [
+     1.56,
+     3.86,
+     0.76
+    ]
+   },
+   "autotile": null,
+   "groups": [
+    {
+     "material": 22,
+     "offset": 31152,
+     "count": 156
+    },
+    {
+     "material": 23,
+     "offset": 38016,
+     "count": 36
+    }
+   ],
+   "globalUv": false,
+   "uvScale": 0,
+   "door": null,
+   "walkable": [],
+   "emissiveMaterials": [
+    "head"
    ]
   }
  ]

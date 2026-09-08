@@ -198,6 +198,72 @@ function timberTexture(r) {
   return c;
 }
 
+
+/**
+ * A street lamp's painted steel, 1x1 unit, seamless vertically. Two highlight columns and a
+ * shaded side give a round post out of a flat quad — the trick DS-era art uses everywhere,
+ * and the thing slamp03.png (16x32, ten colours, no bulb and no housing) does not do.
+ */
+function lampPostTexture() {
+  const c = new Canvas(32, 32);
+  const r = ramp('stone');
+  for (let x = 0; x < 32; x++) {
+    // a cosine across the post so the lit edge, the body and the shaded edge all read
+    const t = x / 31;
+    const col = t < 0.16 ? r.shadow : t < 0.30 ? r.base : t < 0.44 ? r.light
+      : t < 0.56 ? r.hi : t < 0.74 ? r.light : t < 0.88 ? r.base : r.deep;
+    c.vLine(x, 0, 32, col);
+  }
+  // cast collar rings, which is what stops a pole reading as a pipe
+  for (const y of [3, 4, 18, 19]) c.hLine(0, y, 32, r.deep);
+  for (const y of [5, 20]) c.hLine(0, y, 32, r.hi);
+  return c;
+}
+
+/**
+ * The lamp head: a housing above and a lens below, packed one above the other so the night
+ * material can shift V by half a sheet exactly as the windows do. 2 units wide x 2 tall.
+ */
+function lampHeadTexture() {
+  const c = new Canvas(64, 64);
+  const r = ramp('stone');
+  const glass = ramp('glass');
+
+  // --- housing, top half: a tapered cowl with a rim and a mounting boss
+  c.rect(0, 0, 64, 32, PALETTE.shadowInk);
+  for (let y = 0; y < 26; y++) {
+    const inset = Math.round(y * 0.28);
+    const col = y < 4 ? r.deep : y < 9 ? r.base : y < 16 ? r.light : r.base;
+    c.hLine(4 + inset, y, 56 - inset * 2, col);
+  }
+  c.hLine(2, 26, 60, r.deep);
+  c.hLine(2, 27, 60, r.shadow);
+  // a specular run along the cowl's shoulder
+  for (let i = 0; i < 22; i++) c.set(12 + i, 6 + Math.floor(i / 11), r.hi);
+  // mounting boss
+  c.rect(27, 0, 10, 5, r.shadow);
+  c.rect(29, 0, 6, 4, r.base);
+
+  // --- lens, bottom half: the same shape, filled with light
+  c.rect(0, 32, 64, 32, PALETTE.shadowInk);
+  for (let y = 0; y < 26; y++) {
+    const inset = Math.round(y * 0.28);
+    const t = y / 25;
+    const col = t < 0.18 ? PALETTE.glowHi : t < 0.5 ? PALETTE.glowLight
+      : t < 0.78 ? PALETTE.glowBase : PALETTE.glowDeep;
+    c.hLine(4 + inset, 32 + y, 56 - inset * 2, col);
+  }
+  // the filament, and the two bars of a real fitting across the lens
+  c.rect(28, 32 + 6, 8, 7, PALETTE.white);
+  c.rect(30, 32 + 4, 4, 11, PALETTE.white);
+  c.hLine(6, 32 + 17, 52, PALETTE.glowDeep);
+  c.hLine(8, 32 + 22, 48, PALETTE.glowDeep);
+  c.hLine(2, 32 + 26, 60, r.deep);
+  c.hLine(2, 32 + 27, 60, r.shadow);
+  c.rect(27, 32, 10, 5, r.shadow);
+  return c;
+}
+
 // ---------------------------------------------------------------------------
 
 const SETS = {
@@ -220,6 +286,10 @@ const SETS = {
     'awning.png': () => awningTexture(mart),
     'sign.png': () => signTexture('mart'),
     'timber.png': () => timberTexture(wood),
+  },
+  street_lamp: {
+    'post.png': lampPostTexture,
+    'head.png': lampHeadTexture,
   },
   house_a: {
     'roof.png': () => roofTexture(ramp('wood')),

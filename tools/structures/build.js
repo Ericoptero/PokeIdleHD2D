@@ -38,6 +38,10 @@ const TEXELS_PER_UNIT = 32;
  */
 const DAY_PANE = 0.5;
 
+/** head.png packs the housing in the image's top half and the lit lens below it. */
+const HOUSING = 0.5;
+const LENS = 0.0;
+
 class Mesh {
   constructor() { this.v = []; this.vt = []; this.vn = []; this.faces = []; }
 
@@ -383,7 +387,67 @@ function houseA() {
   };
 }
 
-const BUILDINGS = { pokemon_center: pokemonCenter, poke_mart: pokeMart, house_a: houseA };
+
+/**
+ * A street lamp, authored because the tileset's own is not one: slamp03.png is 16x32 with
+ * ten colours, a flat blue-grey swatch with no bulb, no housing and no fixture detail, and
+ * two whole-game passes plus a blind judge all named the result as the most obviously wrong
+ * object on screen. DECISIONS #3 made exactly this call for the buildings.
+ *
+ * A square-section post with a cobra arm and a cowled head, in the BW2 idiom. The post
+ * clears a 2.8-unit sprite, the arm reaches out over the pavement, and the head's lens is
+ * its own material so `emissiveMaterials` lights it at night the way the Centre's windows
+ * are lit. Boxes rather than a swept curve: at gameplay zoom three stepped boxes read as a
+ * cobra neck for a fraction of the triangles.
+ *
+ * Space here is the buildings' space: x east, y south, **z up**.
+ */
+function streetLamp() {
+  const m = new Mesh();
+  const H = 3.4;                    // top of the shaft
+  const P = 0.15;                   // half-width of the post
+  const cx = 0.5, cy = 0.5;         // centred in its cell
+
+  // base plinth — a lamp that stops dead at the ground reads as stuck through it
+  m.box(cx - 0.25, cy - 0.25, 0, cx + 0.25, cy + 0.25, 0.20, 'post', 32, 32, { skip: ['bottom'] });
+  // the shaft
+  m.box(cx - P, cy - P, 0.18, cx + P, cy + P, H, 'post', 32, 32, { skip: ['bottom', 'top'] });
+
+  // the cobra arm: up, out, and over
+  m.box(cx - 0.12, cy - 0.12, H, cx + 0.12, cy + 0.12, H + 0.30, 'post', 32, 32, { skip: ['bottom'] });
+  m.box(cx - 0.10, cy - 0.10, H + 0.26, cx + 0.62, cy + 0.10, H + 0.46, 'post', 32, 32);
+  m.box(cx + 0.52, cy - 0.09, H + 0.16, cx + 0.98, cy + 0.09, H + 0.34, 'post', 32, 32);
+
+  // the head, hung under the end of the arm. The housing is the image's top half.
+  const hx0 = cx + 0.58, hx1 = cx + 1.06;
+  const hy0 = cy - 0.26, hy1 = cy + 0.26;
+  m.box(hx0, hy0, H - 0.10, hx1, hy1, H + 0.20, 'head', 64, 64,
+    { skip: ['bottom'], uvOffset: [0, HOUSING] });
+
+  // the lens: the underside of the head, so the light has a source to come out of
+  m.quad([[hx0, hy0, H - 0.10], [hx0, hy1, H - 0.10], [hx1, hy1, H - 0.10], [hx1, hy0, H - 0.10]],
+    'head', { u0: 0.08, v0: LENS + 0.04, u1: 0.92, v1: LENS + 0.46, expect: [0, 0, -1] });
+
+  return {
+    mesh: m,
+    materials: {
+      post: { map: 'post.png' },
+      head: { map: 'head.png', emissive: 0.9 },
+    },
+    meta: {
+      category: 'light', subcategory: 'street_lamp',
+      tags: ['light', 'lamp', 'authored', 'street'],
+      biomes: ['city', 'any'], collision: 'block', w: 1, h: 1,
+      door: null, swapYZ: true,
+      emissiveMaterials: ['head'],
+    },
+  };
+}
+
+const BUILDINGS = {
+  pokemon_center: pokemonCenter, poke_mart: pokeMart, house_a: houseA,
+  street_lamp: streetLamp,
+};
 
 for (const [name, make] of Object.entries(BUILDINGS)) {
   const { mesh, materials, meta } = make();

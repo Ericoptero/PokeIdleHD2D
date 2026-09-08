@@ -1,0 +1,19 @@
+# street_lamp
+newmtl post
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.000 0 0
+illum 1
+map_Kd post.png
+
+newmtl head
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+d 1.000
+Ke 0.900 0 0
+illum 1
+map_Kd head.png
+
