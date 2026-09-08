@@ -76,8 +76,8 @@
     "species.json snapshot not generated",
     "no sprite rendering yet",
     "DECISIONS #17 settled the trainer sheet: sideA is west, walk cycle is contact/stride/contact/stride \u2014 the open item from #4 is closed",
-    "one console error reproduces in `--showcase simulation`: THREE.WebGLProgram shader error, Material Name pokemon:sprite. Attributed by control runs; economy/city/pokemon showcases are clean",
-    "never critiqued, no score"
+    "never critiqued, no score",
+    "the THREE.WebGLProgram shader error offline's round saw on pokemon:sprite no longer reproduces: pokemon, simulation and city showcases are all at 0 console errors as of 2026-09-08"
    ],
    "lastShots": []
   },
@@ -232,5 +232,26 @@
    "automation"
   ],
   "durationMs": 3912779
+ },
+ "requirements": {
+  "gen9": {
+   "claim": "the brief asks for 'a gen 9 compatible game'",
+   "verified": true,
+   "species": 1253,
+   "gens": {
+    "1": 186,
+    "2": 137,
+    "3": 143,
+    "4": 140,
+    "5": 183,
+    "6": 126,
+    "7": 124,
+    "8": 114,
+    "9": 100
+   },
+   "maxDexId": 1025,
+   "spriteCoverage": "1253/1253 species have assets/overworld/<name>/{normal,shiny}.png",
+   "method": "public/generated/species.json cross-checked against the asset tree"
+  }
  }
 }
