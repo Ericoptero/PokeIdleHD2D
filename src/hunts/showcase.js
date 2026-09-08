@@ -18,11 +18,36 @@
 import { isLive } from './palette.js';
 
 /** How the party is walking when the shutter opens, per biome. */
+/**
+ * Every route tries to end walking **east**, and it does not yet succeed everywhere.
+ *
+ * Three rounds of blind A/B judging against the Gamma Emerald stills named the same tell in
+ * our frames every time: "the protagonist's head is a blank cream oval with no face". The
+ * art is not at fault — assets/trainer/hero.png is a 24-frame BW sheet with a face, a cap
+ * brim, arms and a red-and-white outfit. Walking north points the camera at the back of the
+ * cap, which under a 45-degree pitch is a featureless lozenge, and the party files up-screen
+ * so each sprite hides the one behind it. `coast` is the one biome the critics said read
+ * correctly, and it is the one whose route starts east.
+ *
+ * Asking for an east leg is not enough on its own, and this is worth knowing before anyone
+ * tries it again: `makeScriptedRoute` skips any direction the world says is impassable and
+ * moves on to the next in the list, silently. The forest, meadow and cave paths run
+ * north-south, so an `e` leg is walked into trees, dropped, and the route wraps back to `n`.
+ * Probed on the running page — every walker still reports `dir: 2` (north) with these
+ * routes. The fix is a genuine east-west leg in the biome maps, which is map authoring, not
+ * a route string.
+ *
+ * `tiles` is a count of *completed tiles*, and it has to be, which is the other half of the
+ * bug. The old code froze with `advanceSteps`, which counts sim ticks — at 0.25 s per tile
+ * that is fifteen ticks each, so `advanceSteps(23)` moved the party one and a half tiles and
+ * left every route still on its first leg. `coast` read correctly for the one reason that it
+ * *starts* east. `advanceTo` counts tiles, so these land where they say they do.
+ */
 const WALKS = {
-  forest: { route: 'n14 e2 n6', steps: 23 },
-  meadow: { route: 'n10 e6 n8', steps: 17 },
-  cave: { route: 'n8 e4 n6', steps: 15 },
-  coast: { route: 'e10 n4 e6', steps: 21 },
+  forest: { route: 'n12 e10', tiles: 18, subTicks: 7 },
+  meadow: { route: 'n8 e12', tiles: 15, subTicks: 7 },
+  cave: { route: 'n6 e10', tiles: 12, subTicks: 7 },
+  coast: { route: 'e10 n4 e6', tiles: 8, subTicks: 7 },
 };
 
 export async function showcaseHunt(mode, ctx, biomes) {
@@ -59,10 +84,11 @@ export async function showcaseHunt(mode, ctx, biomes) {
 export function stageParty(ctx, biome) {
   const sim = ctx.get('simulation');
   if (!isLive(sim) || typeof sim.walk !== 'function') return false;
-  const walk = WALKS[biome.id] ?? { route: 'n8', steps: 13 };
+  const walk = WALKS[biome.id] ?? { route: 'e8', tiles: 6, subTicks: 7 };
   sim.walk(walk.route, { loop: true });
   if (!ctx.config.timeFrozen) return true;
-  sim.advanceSteps(walk.steps);
+  if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
+  else sim.advanceSteps(walk.tiles * 15);
   sim.freeze(true);
   return true;
 }
