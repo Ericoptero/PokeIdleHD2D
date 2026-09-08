@@ -13,7 +13,7 @@
  * meta.json giving the footprint, collision and door cell. Output goes to
  * public/generated/tiles/structures/.
  *
- * The same code builds the adapted props (DECISIONS #15): they are authored art in exactly
+ * The same code builds the adapted props (DECISIONS #22): they are authored art in exactly
  * the same folder shape, so they are a source directory and a slug, not a second builder.
  *
  *   node tools/assets/build-structures.js

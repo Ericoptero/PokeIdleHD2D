@@ -21,7 +21,7 @@ const CHROME = process.env.CHROME_PATH
 export function parseArgs(argv) {
   const a = { base: 'http://127.0.0.1:5173', size: '1920x1080', tod: null, preset: null,
     showcase: null, mode: null, seed: null, settle: 30, out: null, timeout: 30000,
-    focus: null, pixelScale: null, software: false, debug: false, retries: 3, extra: {} };
+    focus: null, pixelScale: null, software: false, debug: false, hidden: false, retries: 3, extra: {} };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (!k.startsWith('--')) continue;
@@ -138,6 +138,24 @@ async function shootOnce(opts) {
     }), Number(n));
     await spin(a.settle);
     await page.evaluate(() => window.__HOOKS__?.resetMetrics?.());
+
+    // `--hidden` proves the thing the idle brief is actually about: that the game keeps
+    // accruing with the tab in the background. A second tab is opened and brought to the
+    // front, which is what makes the browser report `document.hidden` and throttle
+    // requestAnimationFrame on this one — nothing else in headless Chrome does.
+    let backgrounder = null;
+    if (a.hidden) {
+      backgrounder = await browser.newPage();
+      await backgrounder.goto('about:blank');
+      await backgrounder.bringToFront();
+      log.hidden = await page.evaluate(() => document.hidden);
+      await new Promise((r) => setTimeout(r, Number(a.hiddenMs ?? 5000)));
+      await page.bringToFront();
+      await backgrounder.close();
+      // rAF was throttled while hidden, so the fps window is meaningless; take a fresh one.
+      await spin(a.settle);
+      await page.evaluate(() => window.__HOOKS__?.resetMetrics?.());
+    }
     await spin(60);
 
     const metrics = await page.evaluate(() => window.__HOOKS__?.metrics?.() ?? null);

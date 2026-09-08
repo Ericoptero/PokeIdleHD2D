@@ -156,8 +156,8 @@
    "status": "built and seen in-engine",
    "errors": 0,
    "openIssues": [
-    "the two crossed-billboard props (tree_mush, pile_of_logs) read flatter than the revolved ones; AdAstra's slice-quad trick needs top-down canopy art these sprites do not have (DECISIONS #17)",
-    "hgss-overworld/water_rock and hgss-overworld/rock have water and grass baked into the sprite; the cylindrical wrap carries it up the body (DECISIONS #16)",
+    "the two crossed-billboard props (tree_mush, pile_of_logs) read flatter than the revolved ones; AdAstra's slice-quad trick needs top-down canopy art these sprites do not have (DECISIONS #24)",
+    "hgss-overworld/water_rock and hgss-overworld/rock have water and grass baked into the sprite; the cylindrical wrap carries it up the body (DECISIONS #23)",
     "76 triangles per revolved prop against 18 for AdAstra's bench_s \u2014 fine against the budget, first thing to cut if it tightens",
     "not yet placed in any map; city and hunts should draw from tiles.load('props')"
    ],

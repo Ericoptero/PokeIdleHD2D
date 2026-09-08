@@ -53,7 +53,21 @@ export const DEFAULTS = {
   runSecondsPerTile: 0.15,
   followerGapTiles: 1,
   offlineCapS: 12 * 3600,
+  /** The floor of the offline efficiency curve — what an hour away is worth at the limit. */
   offlineEfficiency: 0.55,
+  /** How long away is still worth full rate, before the decay starts. */
+  offlineGraceS: 1800,
+  /** Half-life of the decay from full rate down towards `offlineEfficiency`. */
+  offlineHalfLifeS: 3600,
+  /** Gaps shorter than this are not worth a catch-up pass. */
+  offlineMinS: 60,
+  /** Longer than this and the anchor is treated as broken, not as a real absence. */
+  offlineMaxPlausibleS: 10 * 365 * 24 * 3600,
+  /** How often an open tab re-stamps its anchor, so a force-kill cannot claim the hours it was open. */
+  offlineHeartbeatMs: 60000,
+  /** Save write debounce, and the ceiling that stops a busy session starving the write. */
+  saveDebounceMs: 2000,
+  saveMaxDebounceMs: 15000,
   idleHeartbeatMs: 1000,
 
   // --- diagnostics ----------------------------------------------------------

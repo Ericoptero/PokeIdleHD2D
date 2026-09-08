@@ -1,5 +1,5 @@
 """
-Rebuilds the leaning 45-degree sprites as real geometry, in the AdAstra style (DECISIONS #15).
+Rebuilds the leaning 45-degree sprites as real geometry, in the AdAstra style (DECISIONS #22).
 
 Run inside Blender:
 

@@ -8,6 +8,8 @@
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -94,6 +96,46 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
   const unnamed = pack.models.filter((m) => !m.empty && (!m.name || m.category === 'unknown'));
   if (unnamed.length) fail('assets', tilesDir,
     `${unnamed.length} bw2-adastra models are unclassified: ${unnamed.slice(0, 6).map((m) => m.name).join(', ')}`);
+}
+
+// --- 5. the balance table economy prices against still matches idle's ---------
+// economy/pacing.js keeps a *copy* of idle's income constants so it can project 30 days of
+// play without importing a module it does not depend on. That copy had already drifted once
+// (BASE_MONEY 0.85 against 0.55) with nothing at runtime able to notice: the shop simply
+// priced itself against a game that no longer existed. This is the notice.
+{
+  const accrual = await import(pathToFileURL(join(REPO, 'src', 'idle', 'accrual.js')).href);
+  const pacing = await import(pathToFileURL(join(REPO, 'src', 'economy', 'pacing.js')).href);
+  const model = pacing.INCOME_MODEL ?? {};
+  const mirrored = ['BASE_MONEY', 'BASE_EXP', 'BASE_RESEARCH', 'BASE_ENCOUNTERS',
+    'MONEY_POWER_EXP', 'TRAINER_BASE_POWER', 'SLOT_FALLOFF', 'LEAD_BONUS'];
+  for (const key of mirrored) {
+    const a = accrual[key];
+    const b = model[key];
+    if (a === undefined) { fail('balance-mirror', join(REPO, 'src/idle/accrual.js'), `accrual.js no longer exports ${key}`); continue; }
+    if (b === undefined) { fail('balance-mirror', join(REPO, 'src/economy/pacing.js'), `INCOME_MODEL is missing ${key}`); continue; }
+    const same = Array.isArray(a)
+      ? Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i])
+      : a === b;
+    if (!same) {
+      fail('balance-mirror', join(REPO, 'src/economy/pacing.js'),
+        `${key}: idle says ${JSON.stringify(a)}, economy's copy says ${JSON.stringify(b)}`);
+    }
+  }
+}
+
+// --- 6. idle's own property checks -------------------------------------------
+// 21 checks, no browser, about half a second. They are the only thing that catches a break
+// in the chunk-additivity that both idle and offline are built on, and a break there is
+// silent: the numbers stay plausible and stop being reproducible.
+{
+  const out = spawnSync(process.execPath, [join(REPO, 'src', 'idle', 'selftest.js')],
+    { encoding: 'utf8', timeout: 60000 });
+  if (out.status !== 0) {
+    const why = (out.stdout ?? '').split('\n').filter((l) => l.startsWith('✗')).slice(0, 6);
+    fail('idle-selftest', join(REPO, 'src/idle/selftest.js'),
+      why.length ? why.join(' | ') : `exited ${out.status}: ${(out.stderr ?? '').slice(0, 200)}`);
+  }
 }
 
 // --- report ----------------------------------------------------------------

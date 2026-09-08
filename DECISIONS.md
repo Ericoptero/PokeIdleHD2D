@@ -265,7 +265,7 @@ written by a newer build loses nothing on a downgrade.
 player's real absence on a screenshot, so in showcase mode `offline` runs against an
 in-memory copy of the save: it never hydrates, never grants and never writes.
 
-### 15 — 2026-09-07 — What "adapt to AdAstra" means, measured from AdAstra's own geometry
+### 22 — 2026-09-07 — What "adapt to AdAstra" means, measured from AdAstra's own geometry
 
 The brief says the other tilesets are "tilted sprites in 45 degrees with not connected
 parts" and asks for them adapted to the AdAstra style. Rather than guess at that, the two
@@ -507,9 +507,9 @@ with the lead — giving 69 % wins and 31 % catches against the 72 % / 35 % `pac
 **This coupling is invisible to both files at runtime.** It wants a seam test asserting the
 two tables are equal; that is in the idle builder's `coreRequests`.
 
-### 16 — 2026-09-07 — The adapted props ship as a tileset named `props`
+### 23 — 2026-09-07 — The adapted props ship as a tileset named `props`
 
-The fifteen rebuilt props are authored art in the same folder shape as `assets/structures/`,
+The fifteen rebuilt props (DECISIONS #22) are authored art in the same folder shape as `assets/structures/`,
 so they need a source directory and a slug, not a second builder:
 `tools/assets/build-structures.js --src assets/props --slug props`. They land at
 `public/generated/tiles/props/` and load with `tiles.load('props')` like any other set,
@@ -527,7 +527,7 @@ cylindrical wrap carries ripples and grass up the body; they read as a crystal a
 rather than as boulders. Both are still better than the leaning card they replace, and both
 are usable, but they are the two to re-cut first if these props go on screen prominently.
 
-### 17 — 2026-09-07 — The screenshot harness never reads a cached asset
+### 24 — 2026-09-07 — The screenshot harness never reads a cached asset
 
 Twice during the props round a rebuild produced a screenshot of an empty floor — with the
 *same* 40 draw calls and 3k triangles as the shot that had just worked. The geometry was

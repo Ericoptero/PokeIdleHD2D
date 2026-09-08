@@ -284,6 +284,27 @@ export default /** @type {ModuleDescriptor} */ ({ id, needs, init, tick, frame, 
 boundaries — no deep imports of `src/other/internal.js`. `tools/seams/no-deep-imports.test.js`
 enforces this.
 
+**The optional save seam.** Any module may expose two more methods on its API:
+
+```js
+saveState()        // -> a JSON-serialisable value, this module's slice of the save
+loadState(value)   // <- the value a previous saveState() returned; returns true on success
+```
+
+`offline` discovers them by probe and persists whatever it finds, so a module opts in simply
+by having them and needs no entry anywhere. Three rules make the seam safe:
+
+- `loadState` must be **silent**. Replaying a collection through the normal intake path would
+  re-fire `collection:added` and toast the player once per Pokémon they already own.
+- `loadState` must tolerate a slice from an older version, and must refuse a newer one rather
+  than guess at it. A refusal is a `log.warn`, never a `log.error` — §7 counts errors, and a
+  handled path must not cost the budget.
+- Derived state is rebuilt, never trusted from the file. Counts that can be recomputed from
+  what was just restored cannot then desync from it.
+
+`idle` predates this and ships `snapshot()` / `restore(value)` instead; `offline` accepts
+that pair as an alias. New modules use `saveState`/`loadState`.
+
 ### 5.1 `tiles` — tile system + auto-tiling
 `needs: []`
 
@@ -423,8 +444,15 @@ The tab may be backgrounded; `requestAnimationFrame` stops and `setTimeout` is t
 `needs: ['idle']`
 
 Reads `lastSeenMs` from the save, clamps `awayS` to `config.offlineCapS` (default 12 h),
-applies `idle.simulate` with a reduced efficiency curve, and presents a "while you were
-away" summary. Save format is versioned with forward migrations; a corrupt save is
+applies `idle.simulate` **once** with the elapsed time discounted, and presents a "while you
+were away" summary.
+
+The discount is a curve, not a scalar: full rate for `config.offlineGraceS` (30 min), then
+decay with half-life `config.offlineHalfLifeS` (1 h) towards a floor of
+`config.offlineEfficiency` (0.55), integrated in closed form — 12 h away is worth about 62 %
+of 12 h played. It is applied **to the time axis**, not to `idle`'s own `state.efficiency`
+scalar, so it holds whatever `idle` decides a second is worth, including its index-addressed
+encounters (DECISIONS #15). Save format is versioned with forward migrations; a corrupt save is
 quarantined to `pokeidle.save.broken` and the game starts fresh rather than white-screening.
 
 ### 5.9 `economy` — currency, items, shop
