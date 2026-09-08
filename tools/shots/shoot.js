@@ -11,9 +11,10 @@
  *        --showcase city --preset plaza --tod 12 --size 1920x1080
  */
 
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { decodePng, sceneStats } from './png.js';
 
 const CHROME = process.env.CHROME_PATH
   ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -163,6 +164,16 @@ async function shootOnce(opts) {
     Object.assign(log, metrics ?? {}, { events });
 
     await page.screenshot({ path: out, type: 'png' });
+    // Statistics come from the file a critic would open, not from the WebGL buffer — that
+    // reads back black once the frame is presented, and preserving it would cost every
+    // frame the game ever draws. `hudRows` skips the HUD: measuring with the cream panels
+    // in frame reads p99 234 where the scene itself reaches 150, which is exactly how a real
+    // defect once got reported as "does not reproduce".
+    try {
+      log.scene = sceneStats(decodePng(readFileSync(out)), { hudRows: Number(a.hudRows ?? 0) });
+    } catch (err) {
+      log.sceneError = String(err.message ?? err);
+    }
     log.ok = !log.fatal && consoleErrors.length === 0;
   } catch (err) {
     log.error = String(err.message ?? err);
