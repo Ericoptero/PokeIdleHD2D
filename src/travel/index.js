@@ -50,6 +50,20 @@ export default {
      * Built fresh each call rather than cached: `hunts.list()` is the authority on which
      * biomes exist, and a table copied at init would go stale the moment one is added.
      */
+    /**
+     * The trainer's level, or `null` when `economy` is not live.
+     *
+     * `null` and not 0: a quarantined ledger must **fail open** (§5.16). A gate that defaulted
+     * to level 1 would lock the player out of every hunt because a module they cannot see is
+     * broken, which is the opposite of what §2.1's isolation is for.
+     */
+    function trainerLevel() {
+      const eco = ctx.get('economy');
+      if (!isLive(eco) || typeof eco.trainer !== 'function') return null;
+      const t = eco.trainer();
+      return Number.isFinite(t?.level) ? t.level : null;
+    }
+
     function destinations() {
       const out = [];
       const city = cityApi();
@@ -61,10 +75,17 @@ export default {
       }
       const hunts = huntsApi();
       if (isLive(hunts) && typeof hunts.list === 'function') {
+        const level = trainerLevel();
         for (const b of hunts.list()) {
+          const need = Number(b.requiredLevel) || 0;
+          // `locked` is false when the level is unknown — the fail-open rule above.
+          const locked = level !== null && level < need;
           out.push({
             id: `hunt-${b.id}`, name: b.name, kind: 'Hunt', module: 'hunts', arg: b.id,
             formation: b.formation ?? null,
+            requiredLevel: need,
+            locked,
+            why: locked ? `Trainer Lv${need} — you are Lv${level}` : null,
           });
         }
       }
@@ -84,6 +105,21 @@ export default {
       if (busy) { log.info(`travel: already travelling — "${id}" ignored`); return false; }
       const dest = find(id);
       if (!dest) { log.warn(`travel: no destination "${id}"`); return false; }
+      // **The gate is a rule of progression, not a property of the scene**, so it does not
+      // apply under `?showcase=`. Every hunt biome is gated above trainer level 1 and the
+      // showcase harness boots a fresh save, so a gate that applied here would make
+      // `?showcase=travel&mode=hunt-cave` — and the same mode on `hunts` and `encounter` —
+      // photograph an empty blue void instead of the cave. Measured, not reasoned about: that
+      // is exactly what the first capture after the gate landed did (DECISIONS #70). The row
+      // is still drawn locked, because `destinations()` is untouched; it is only the *refusal*
+      // that stands down for a screenshot.
+      if (dest.locked && !config.showcase) {
+        // Refused, not thrown: the caller gets `false` the same way it does for an unknown
+        // destination, and the player gets a sentence rather than a dead button.
+        log.info(`travel: "${id}" needs trainer level ${dest.requiredLevel}`);
+        bus.emit('ui:toast', { text: dest.why, kind: 'warn' });
+        return false;
+      }
 
       busy = true;
       try {

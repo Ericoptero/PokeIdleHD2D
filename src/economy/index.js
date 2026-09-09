@@ -32,6 +32,7 @@
 
 import { speciesPrice } from './pricing.js';
 import { makePity } from './pity.js';
+import { trainerFromWins } from './trainer.js';
 import { CURRENCIES, formatCurrency } from './currencies.js';
 import { ITEMS, item, itemsBy, ballMultiplier, catchOdds, stackCap } from './items.js';
 import { UPGRADES, upgrade, costOf, bulkCost, foldUpgrades } from './upgrades.js';
@@ -158,6 +159,7 @@ export default {
         itemsBought: s.itemsBought,
         battlesWon: s.battlesWon,
         playSeconds: Math.floor(clock?.simTime ?? 0),
+        trainerLevel: trainerFromWins(state.stats().battlesWon ?? 0).level,
       };
     }
 
@@ -493,6 +495,15 @@ export default {
 
       // --- catching ---------------------------------------------------------
       catchMultiplier: (ballId, context) => ballMultiplier(ballId, context),
+
+      /**
+       * The trainer's level, `travel`'s gate (§5.16).
+       *
+       * Derived from `battlesWon`, which this module has counted since it was written — so
+       * there is no new state, no save slice and no migration, and a level that disagreed with
+       * the battle count is not expressible (DECISIONS #70).
+       */
+      trainer: () => trainerFromWins(progress().battlesWon),
 
       // --- what a Pokemon is worth, and the pity that follows from it (§5.9) ---
       /** Derived from capture rate, base-stat total and whether it is a final form. */

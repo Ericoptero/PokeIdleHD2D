@@ -68,7 +68,15 @@ export function makeHud(ctx) {
     if (isLive(environment) && typeof environment.phase === 'function') phase = environment.phase();
     const player = isLive(sim) && typeof sim.player === 'function' ? sim.player() : null;
 
-    return { wallet, party, tod: Number(tod) || 0, phase, player };
+    // The trainer's own level — the number `travel` gates on (§5.16). Read here rather than
+    // in the painter, like everything else in this snapshot.
+    let trainer = null;
+    if (economy && economy.__missing === undefined && typeof economy.trainer === 'function') {
+      const t = economy.trainer();
+      if (Number.isFinite(t?.level)) trainer = t;
+    }
+
+    return { wallet, party, tod: Number(tod) || 0, phase, player, trainer };
   }
 
   function onPhase(p) { phase = p; }
@@ -105,6 +113,24 @@ export function makeHud(ctx) {
     panel(g, box, { paper: C.wallLight });
     g.textCentre(box.x + box.w / 2, y + 4, time, C.ink);
     if (name) g.textCentre(box.x + box.w / 2, y + 13, name, C.stoneShadow);
+
+    // **The trainer's level, under the clock.** It is the number that decides where the party
+    // may go (§5.16), so it belongs where the player can see it without opening anything —
+    // and the progress to the next one is what makes a locked destination read as a schedule
+    // rather than as a wall. Drawn only when there is one: a quarantined `economy` reports
+    // none and the HUD simply does not have a badge (DECISIONS #70).
+    if (s.trainer) {
+      const label = `TRAINER ${s.trainer.level}`;
+      const tw = Math.max(g.measure(label), 46) + 10;
+      const tb = { x: right - tw, y: box.y + box.h + 3, w: tw, h: 15 };
+      panel(g, tb, { paper: C.wallLight });
+      g.textCentre(tb.x + tb.w / 2, tb.y + 4, label, C.ink);
+      // A two-pixel bar rather than a number: it is a hint, not a statistic.
+      const frac = s.trainer.need > 0 ? Math.max(0, Math.min(1, s.trainer.into / s.trainer.need)) : 0;
+      g.fill(tb.x + 3, tb.y + tb.h - 3, tb.w - 6, 1, C.wallDeep);
+      if (frac > 0) g.fill(tb.x + 3, tb.y + tb.h - 3, Math.round((tb.w - 6) * frac), 1, C.martBase);
+      return { ...box, h: box.h + 18 };
+    }
     return box;
   }
 

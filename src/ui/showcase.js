@@ -12,7 +12,8 @@
  * asked for a fixed `awayS` rather than a real absence — `offline` is read-only in showcase
  * mode (DECISIONS #15) so nothing is granted or written either way.
  *
- * Modes: `default font hud menu offline shop boxes dex party toasts dialogue input`
+ * Modes: `default font hud menu offline shop boxes dex party moves battle travel toasts
+ * dialogue input evolution evolution-burst evolution-reveal evolve`
  */
 
 import { characters, glyph, HEIGHT, BASELINE, TRACKING } from './font.js';
@@ -92,6 +93,25 @@ export async function showcaseUi(mode = 'default', ctx) {
     case 'boxes': ui.open('boxes'); break;
     case 'dex': ui.open('dex'); break;
     case 'party': ui.open('party'); break;
+    /** The move view of the same panel, on a Pokemon with a pool worth choosing from. */
+    case 'moves': {
+      const pk = ctx.get('pokemon');
+      const lead = pk.party?.()?.[0];
+      // A level-5 starter knows three moves and there is nothing to choose between; the pool
+      // is only a control once the species has learned more than it can carry.
+      if (lead && typeof pk.grantExp === 'function') pk.grantExp(lead.instanceId, 26000, { source: 'hunt' });
+      ui.open('party', { view: 'moves' });
+      break;
+    }
+    /** The destination list, which is also the trainer gate: a fresh save is Lv1. */
+    case 'travel': ui.open('travel'); break;
+    /** A real fight, resolved by the real engine, with the pity ledger really spent into. */
+    case 'battle': {
+      const fight = stageFight(ctx);
+      if (fight) ui.open('battle', { fight });
+      else log.warn('ui showcase: no battle could be staged — battle or encounter is not live');
+      break;
+    }
     case 'evolution': case 'evolution-burst': case 'evolution-reveal': {
       // The cutscene, HELD. It is 5.75 s long and the harness spins ninety frames between
       // `__READY__` and the shutter, so a running one is a different picture every time —
@@ -154,6 +174,118 @@ export async function showcaseUi(mode = 'default', ctx) {
   if (wanted === 'font') installSpecimen(ui);
   return true;
 }
+
+/**
+ * A battle for the battle card to be a card *of*.
+ *
+ * Nothing here is invented. The wild is `encounter.rollAt(INDEX)` — the same pure,
+ * index-addressed roll the live game and the closed tab both use — and the fight is
+ * `battle.resolve()` on the same seed and the same index, so the transcript on screen is the
+ * transcript that encounter would have produced. The pity meter is spent into through
+ * `economy.throwBall`, which is the only thing in the game that credits the ledger; a mocked
+ * meter would be a drawing of a number rather than the number.
+ *
+ * Deterministic by construction (§6.3): a fixed index, a fixed grant, and a loop whose exit
+ * condition is arithmetic on the species price rather than a count of tries.
+ */
+/**
+ * Where the search for a photogenic fight starts, and how far it runs.
+ *
+ * A *fixed* index is not enough. The wild's level band scales with the party's own top level
+ * (`encounter/rolls.js levelBand`), so granting the lead enough experience to make a fight
+ * interesting also raises what it is fighting — and index 137 in the cave came out a Lv33
+ * Drilbur against a Lv31 Oshawott, captioned "Lost after 2" with a pity meter under it, which
+ * is a state the game refuses (`attempt()` will not throw at a fight that was lost).
+ *
+ * So the index is *searched* rather than assumed, the way `encounter/showcase.js findIndex`
+ * searches for a frame worth taking: the first index in a fixed window that the lead wins in
+ * more than two turns. Deterministic — same seed, same window, same answer — and it resolves
+ * with the engine's own pure `resolve`, which writes nothing back.
+ */
+const FIGHT_FROM = 100;
+const FIGHT_SPAN = 120;
+
+function stageFight(ctx) {
+  const bt = ctx.get('battle');
+  const pk = ctx.get('pokemon');
+  const enc = ctx.get('encounter');
+  const eco = ctx.get('economy');
+  if (!isLive(bt) || !isLive(pk) || !isLive(enc)) return null;
+  if (typeof bt.resolve !== 'function' || typeof enc.rollAt !== 'function') return null;
+
+  const lead = pk.party?.()?.[0];
+  if (!lead) return null;
+  // Enough level that the fight has turns in it. A level-5 starter against its own route is
+  // four turns of tackle, which is a true picture of nothing.
+  if (typeof pk.grantExp === 'function') pk.grantExp(lead.instanceId, 26000, { source: 'hunt' });
+
+  // The cave, not the forest: the starter this save leads with is a Water type and a Grass
+  // route beats it three times in four (DECISIONS #68).
+  const makeAlly = () => bt.makeCombatant({
+    species: lead.species, level: lead.level, ivs: lead.ivs, shiny: !!lead.shiny,
+    moves: (lead.moves ?? []).map((m) => ({ ...m })), hp: lead.hp, instanceId: lead.instanceId,
+  });
+
+  let wild = null;
+  let out = null;
+  for (let i = FIGHT_FROM; i < FIGHT_FROM + FIGHT_SPAN; i++) {
+    const rolled = enc.rollAt(i, { biome: 'cave', tod: 12 });
+    if (!rolled?.sheet) continue;
+    const b = bt.makeCombatant({
+      species: rolled.sheet, level: rolled.level, ivs: rolled.ivs, shiny: !!rolled.shiny,
+    });
+    const res = bt.resolve(makeAlly(), b, ctx.config.seed, i);
+    // More than two turns, because a two-turn fight has one move in its transcript and the
+    // card's whole lower half would be empty.
+    if (res.winner === 'a' && res.turns > 2) { wild = rolled; out = res; break; }
+  }
+  if (!wild || !out) return null;
+
+  // The ledger, spent into for real until the meter is inside the pity band — which is the
+  // state worth photographing, because below 90 % the bar is only a spend.
+  let odds = 0;
+  if (isLive(eco) && typeof eco.throwBall === 'function') {
+    eco.give?.('pokeball', 300, 'grant:showcase');
+    const context = { species: wild.sheet, level: wild.level, biome: 'cave', tod: 12, turn: 1 };
+    for (let i = 0; i < 300 && (eco.pity?.(wild.species)?.ratio ?? 1) < 1.02; i++) {
+      eco.throwBall('pokeball', context, { catchRate: wild.catchRate, hpFraction: 0.01, status: 'none' });
+    }
+    odds = eco.oddsWithPity?.({
+      ball: 'pokeball', catchRate: wild.catchRate, hpFraction: 0.01, status: 'none', context,
+    }, wild.species)?.odds ?? 0;
+  }
+
+  return {
+    won: out.winner === 'a',
+    turns: out.turns,
+    transcript: out.transcript,
+    ally: {
+      display: titleCaseName(lead.species),
+      level: lead.level, shiny: !!lead.shiny,
+      hp: out.a.hp, maxHp: out.a.maxHp, status: out.a.status, moves: out.a.moves,
+    },
+    wild: {
+      species: wild.species,
+      display: titleCaseName(wild.sheet),
+      level: wild.level, shiny: !!wild.shiny,
+      types: wild.sheet.types ?? [],
+      hp: out.b.hp, maxHp: out.b.maxHp,
+      frac: out.b.maxHp > 0 ? out.b.hp / out.b.maxHp : 0,
+    },
+    ball: 'pokeball',
+    odds,
+    // The card's THROW/RUN buttons draw live. They *are* live at this moment in the real game,
+    // and a capture of two greyed-out buttons would be a picture of a state that never happens
+    // — `attempt()` on a showcase with no live encounter simply answers `false`.
+    live: true,
+  };
+}
+
+/** The same casing the HUD uses, without reaching into `ui`'s internals for it. */
+const titleCaseName = (species) => {
+  const raw = String(species?.display ?? species?.name ?? species ?? '');
+  return raw.replace(/(^|[\s-])([a-z])/g, (_, p, c) => p + c.toUpperCase());
+};
 
 /**
  * The away card's payload for a fixed five-hour absence. `offline.preview()` is pure — it

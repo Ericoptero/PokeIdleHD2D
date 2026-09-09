@@ -225,6 +225,16 @@ export const DEFAULTS = {
    */
   scene: null,
   settleFrames: 30,
+  /**
+   * Quarantine a module on purpose: `?break=economy`.
+   *
+   * §2.1's load-bearing rule — one broken module costs a feature and never the game — was the
+   * only claim in this document with no way to *photograph* it. Now there is one: the named
+   * module is failed before `init` runs, its dependents block exactly as they would after a
+   * real throw, and the rest of the game keeps its frame loop. Comma-separated for more than
+   * one. Never set outside a diagnostic URL (DECISIONS #70).
+   */
+  break: null,
 };
 
 const NUMERIC = new Set(Object.entries(DEFAULTS).filter(([, v]) => typeof v === 'number').map(([k]) => k));

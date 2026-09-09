@@ -26,6 +26,7 @@ import { makeTravel } from './panels/travel.js';
 import { makeOfflineCard } from './panels/offline.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
+import { makeBattle } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
 import { makeParty } from './panels/party.js';
 import { makeDialogue } from './panels/dialogue.js';
@@ -44,8 +45,14 @@ let live = null;
 export default {
   id: 'ui',
   needs: [],
-  /** The showcase draws real panels over the real lobby, so it needs the lobby and its data. */
-  showcaseNeeds: ['city', 'economy', 'collection', 'offline', 'idle', 'automation', 'hunts', 'travel'],
+  /**
+   * The showcase draws real panels over the real lobby, so it needs the lobby and its data.
+   * `battle` and `encounter` are named rather than left to the closure: `mode=battle` stages a
+   * real fight from a real roll, and `encounter.needs` does not list `battle` (a quarantined
+   * engine costs the game its fights, not its grass).
+   */
+  showcaseNeeds: ['city', 'economy', 'collection', 'offline', 'idle', 'automation', 'hunts',
+    'travel', 'battle', 'encounter'],
 
   init(ctx) {
     const { bus, config, log } = ctx;
@@ -66,6 +73,7 @@ export default {
       /** Set by `draw` each frame; read by the menu so it never lands on the clock. */
       clockBox: null,
       stripBox: null,
+      partyBox: null,
     };
 
     const app = {
@@ -101,6 +109,8 @@ export default {
       /** Where the clock and the button strip landed this frame, so a panel can dodge them. */
       clockBox: () => state.clockBox,
       stripBox: () => state.stripBox,
+      /** Where the party bar landed. It moves when the touch pad is out, so it is measured. */
+      partyBox: () => state.partyBox,
       toggleDebug() {
         state.debug = !state.debug;
         config.set({ debug: state.debug });
@@ -117,6 +127,7 @@ export default {
       boxes: makeBoxes(app),
       dex: makeDex(app),
       party: makeParty(app),
+      battle: makeBattle(app),
       dialogue: makeDialogue(app),
     };
 
@@ -159,6 +170,34 @@ export default {
         const b = pk.species(to);
         if (a && b) evolution.play({ from: a, to: b, shiny: !!shiny });
         screen.markDirty();
+      }),
+      /**
+       * The battle card (§5.12).
+       *
+       * `encounter:started` and not `battle:started`: the engine's event fires from inside
+       * `fight()`, *before* `encounter` has assembled the record the card reads, so a card
+       * opened on it would find nothing. By `encounter:started` the fight is resolved and its
+       * transcript is on `encounter.active()`.
+       *
+       * Three guards, and each one is a bug that would otherwise be invisible:
+       *  - `minimal || config.showcase` — this module is a passenger in every other module's
+       *    showcase, and a card painted over `encounter_12` moves a frame in the regression
+       *    gate that nobody asked to move (§6.3).
+       *  - `state.panel` — a hunt starts a battle every few seconds. One that shut the shop
+       *    the player was standing in would be unusable.
+       *  - `has()` — an encounter with no battle record (a quarantined `battle`) would open an
+       *    empty card that still owns the panel slot and still suppresses the walk hint.
+       */
+      bus.on('encounter:started', () => {
+        if (minimal || config.showcase || state.panel) return;
+        if (!PANELS.battle.has?.()) return;
+        app.open('battle');
+      }),
+      // `resolve()` clears `active`, so the card has nothing left to read the moment this
+      // fires. Closing it is not a courtesy; it is what stops an empty panel owning the slot.
+      bus.on('encounter:resolved', () => {
+        if (state.panel?.id === 'battle') app.close();
+        else screen.markDirty();
       }),
       bus.on('tod:changed', ({ phase }) => { hud.onPhase(phase); screen.markDirty(); }),
       // The event, never `summary() != null`: in showcase mode `offline` builds a summary
@@ -251,6 +290,7 @@ export default {
       const bars = !full && !state.panel?.hidesHud;
       state.clockBox = null;
       state.stripBox = null;
+      state.partyBox = null;
       if (!full) {
         hud.drawWallet(g, s);
         state.clockBox = hud.drawClock(g, s);
@@ -259,6 +299,7 @@ export default {
         // The touch pad owns the bottom-left corner when it is up, so the party bar sits
         // above it rather than under it.
         const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4 });
+        state.partyBox = partyBox;
         const stripBox = drawStrip(g);
         state.stripBox = stripBox;
         drawStrip.lastX = stripBox.x;
@@ -326,6 +367,10 @@ export default {
         if (next.tod !== prev.tod
           || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
           || party(next) !== party(prev)
+          // The badge is drawn from `trainer`, so a level-up has to dirty the screen on its
+          // own account: nothing else in this comparison moves when a battle is won.
+          || next.trainer?.level !== prev.trainer?.level
+          || next.trainer?.into !== prev.trainer?.into
           || state.debug) {
           state.hud = next;
           screen.markDirty();

@@ -34,8 +34,15 @@ export function makeTravel(app) {
       kind: d.kind,
       here: d.id === here,
       loading: d.id === pending,
+      // A hunt the trainer is too low for is SHOWN AND GREYED, never hidden — the same rule
+      // `economy/shops.js` uses for a shelf that is not unlocked yet. A destination you cannot
+      // see is not a goal; one you can see with its price on it is (DECISIONS #70).
+      locked: !!d.locked,
+      need: Number(d.requiredLevel) || 0,
       // The place you are already standing in is not a destination, and nothing is pickable
-      // while a map is being built.
+      // while a map is being built. **A locked row is NOT disabled**: pressing it is how the
+      // player finds out what it wants, because `go()` refuses it with a sentence. A greyed
+      // row that swallows the keypress is the fault `panels/party.js` was rewritten to avoid.
       disabled: d.id === here || !!pending,
     }));
   }
@@ -50,6 +57,9 @@ export function makeTravel(app) {
     if (!item || item.disabled || pending) return;
     const t = travel();
     if (!isLive(t) || typeof t.go !== 'function' || t.busy?.()) return;
+    // Locked: let `go()` refuse it out loud. No `pending`, because nothing is loading — the
+    // player gets the toast that names the level and the panel stays open on the row.
+    if (item.locked) { t.go(item.id); app.markDirty(); return; }
     pending = item.id;
     app.markDirty();
     Promise.resolve(t.go(item.id))
@@ -62,10 +72,16 @@ export function makeTravel(app) {
 
     open() {
       const items = rows();
-      // Open on the row below the one you are standing in, so the first thing under the
-      // cursor is somewhere you can actually go.
+      // Open on the first row below the one you are standing in that is somewhere you can
+      // actually go. Every hunt but the meadow is gated now, so "the row below" on its own
+      // opens the panel with the cursor sitting on a wall.
       const here = items.findIndex((r) => r.here);
-      cursor = items.length ? (here + 1) % items.length : 0;
+      cursor = 0;
+      for (let i = 1; i <= items.length; i++) {
+        const k = (here + i + items.length) % items.length;
+        if (!items[k].here && !items[k].locked) { cursor = k; break; }
+        if (i === items.length) cursor = items.length ? (here + 1) % items.length : 0;
+      }
       top = 0;
     },
     close() { pending = null; },
@@ -113,10 +129,12 @@ export function makeTravel(app) {
         items, rowH, top, selected: cursor, tag: 'travel',
         onPick: (_i, item) => pick(item),
         draw: (g2, item, rect, st) => {
-          g2.text(rect.x + 4, rect.y + 3, item.label, st.ink);
-          const note = item.loading ? '…' : item.here ? 'HERE' : item.kind;
+          g2.text(rect.x + 4, rect.y + 3, item.label, item.locked ? C.stoneShadow : st.ink);
+          const note = item.loading ? '…'
+            : item.here ? 'HERE'
+              : item.locked ? `Lv${item.need}` : item.kind;
           g2.textRight(rect.x + rect.w - 4, rect.y + 3, note,
-            item.here ? C.martBase : C.shadowInk);
+            item.here ? C.martBase : item.locked ? C.roofBase : C.shadowInk);
         },
       });
     },

@@ -42,14 +42,20 @@ export function makeRegistry({ bus, log }) {
     mods.set(desc.id, { desc, status: 'registered', api: null, error: null, initMs: 0 });
   }
 
-  function fail(id, err, phase) {
+  /**
+   * @param {boolean} [opts.deliberate] the break was *asked for* (`?break=`), so it is
+   *   reported at `warn`. A handled path may not spend §7's zero-console-error budget, and a
+   *   quarantine the URL requested is the most handled path there is.
+   */
+  function fail(id, err, phase, { deliberate = false } = {}) {
     const rec = mods.get(id);
     if (!rec) return;
     if (rec.status !== 'failed') {
       rec.status = 'failed';
       rec.error = err;
       rec.api = nullObject(id, (m) => log.warn(m));
-      log.error(`[${id}] ${phase} failed — module quarantined`, err);
+      if (deliberate) log.warn(`[${id}] quarantined on purpose by ?break= — ${err?.message ?? err}`);
+      else log.error(`[${id}] ${phase} failed — module quarantined`, err);
       bus.emit('module:failed', { id, phase, error: String(err?.message ?? err), stack: err?.stack });
       // Anything downstream of a failed module cannot be trusted either.
       for (const [otherId, other] of mods) {
@@ -97,10 +103,17 @@ export function makeRegistry({ bus, log }) {
 
   async function init(ctx, { only = null } = {}) {
     const wanted = only ? closure(only) : null;
+    // `?break=economy,idle` — the diagnostic that makes failure isolation photographable. The
+    // module is failed *instead of* being initialised, so its dependents block down the same
+    // path a real throw takes rather than down a second one written for the test.
+    const broken = new Set(
+      String(ctx?.config?.get?.('break') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    );
     for (const id of resolveOrder()) {
       const rec = mods.get(id);
       if (wanted && !wanted.has(id)) { rec.status = 'skipped'; rec.api = nullObject(id, () => {}); continue; }
       if (rec.status !== 'registered') continue;
+      if (broken.has(id)) { fail(id, new Error(`?break=${id}`), 'init', { deliberate: true }); continue; }
       const missing = (rec.desc.needs ?? []).find((n) => mods.get(n)?.status !== 'ready');
       if (missing) {
         rec.status = 'blocked';

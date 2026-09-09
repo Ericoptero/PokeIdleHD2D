@@ -1087,14 +1087,26 @@ export default {
         const economy = ctx.get('economy');
         return isLive(economy) ? economy.recommendBall?.(ballContext(enc, (enc?.turn ?? 0) + 1)) ?? null : null;
       },
-      /** The odds a given ball would have right now, without spending one. */
+      /**
+       * The odds a given ball would have right now, without spending one.
+       *
+       * **Through `oddsWithPity`, not `catchOdds`.** What `attempt()` actually rolls against
+       * is the pity-floored number (`economy.throwBall` credits the ledger and then floors),
+       * so a panel reading the raw formula would print one percentage and the ball would obey
+       * another. The floor is taken at the *current* sum — the ball about to be thrown has not
+       * been credited yet, which is exactly what "without spending one" means.
+       */
       oddsFor(id, enc = active, turn = (active?.turn ?? 0) + 1) {
         const economy = ctx.get('economy');
         if (!isLive(economy) || !enc) return 0;
-        return economy.catchOdds?.({
+        const opts = {
           ball: id, catchRate: enc.catchRate, hpFraction: enc.hpFraction,
           status: 'none', context: ballContext(enc, turn),
-        }) ?? 0;
+        };
+        if (typeof economy.oddsWithPity === 'function') {
+          return economy.oddsWithPity(opts, enc.species)?.odds ?? 0;
+        }
+        return economy.catchOdds?.(opts) ?? 0;
       },
 
       // --- reporting --------------------------------------------------------

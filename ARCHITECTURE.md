@@ -145,6 +145,11 @@ Guarantees:
   cascade. Reading an unknown property logs once at `warn`.
 - `registry.status()` returns `{ id, status, error, initMs }[]`, surfaced in the debug
   overlay and in every screenshot's JSON log.
+- **`?break=<id>[,<id>]` quarantines a module on purpose**, before its `init` runs, down the
+  same path a real throw takes — dependents block, the null object stands in, the frame loop
+  keeps going. Reported at `warn`, not `error`, because a quarantine the URL asked for is a
+  handled path and §7 budgets zero console errors. It exists so the rule below can be
+  *photographed* rather than only asserted (DECISIONS #70).
 
 > **The load-bearing rule:** one broken module must never take the game down. The dev
 > server stays up and `/` stays screenshottable at all times, because other agents are
@@ -736,6 +741,21 @@ module status, tod, seed).
 **`ui` is what throws the ball.** Until DECISIONS #61 nothing in the game called
 `encounter.attempt(ballId)` and a player could not catch anything by hand.
 
+**The battle panel is a docked card, not a window.** Every other panel is `full: true` and is
+opened because the player asked for it; a fight is started by the world and, in a hunt, starts
+every few seconds. So `panels/battle.js` draws with no scrim above the party bar, the HUD and
+the button strip stay up, and it is auto-opened on **`encounter:started`** — not
+`battle:started`, which fires from inside `fight()` before `encounter` has assembled the record
+the card reads. It still lives in `PANELS`, and it **never opens over a panel the player
+opened**, never opens in another module's showcase, and closes on `encounter:resolved`, which
+is the moment `active` is cleared and there is nothing left to read.
+
+It is a readout of a *finished* fight: `encounter.begin()` resolves the whole battle
+synchronously and keeps the transcript, and the ball-throw scene that follows is the animation
+of an outcome that already exists. Both HP bars, the status, the verdict, the last few
+transcript lines, and the **pity meter** for the species being fought — with the catch
+percentage shown only on a win, because `attempt()` refuses to throw at a fight that was lost.
+
 **The evolution cutscene is the one thing here that is DOM and CSS rather than the canvas**
 (`ui/evolution.js`, DECISIONS #64), and the reason is concrete: a white silhouette is one
 `filter: brightness(0) invert(1)` in CSS and is *impossible* on the overworld sprite mesh,
@@ -849,6 +869,11 @@ quarantined `travel` costs the game travel rather than its lobby.
 rather than throwing. It reads the level from `economy.trainer()` through `ctx.get` and
 **fails open**: a quarantined `economy` unlocks every destination rather than locking the
 player out of the game, because one broken module must cost a feature and never the game.
+
+The refusal **stands down under `?showcase=`**. The gate is a rule of progression, not a
+property of a scene, and the harness boots a fresh save — so a gate that applied to a showcase
+would make `?showcase=travel&mode=hunt-cave` photograph an empty screen instead of the cave.
+`destinations()` is untouched, so the row is still drawn locked; only the refusal steps aside.
 
 **Registered after `simulation` and before `offline`** in `src/main.js`, and it also hands
 its save seam to `offline` directly if `offline` came up first — the registry's topological

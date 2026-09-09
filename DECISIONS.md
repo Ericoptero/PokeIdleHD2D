@@ -6581,3 +6581,158 @@ was calibrated against the ₽1M/h it predicts. Regenerating it would mean model
 sell values and how often a player actually sells — which is a balance pass, not a phase, and
 inventing numbers to fill the table would be worse than leaving one that is visibly stale. It is
 the top open issue on `economy`.
+
+### 70 — 2026-09-09 — The trainer has a level and it gates the map; the fight gets a card rather than a window; and the isolation rule is photographable at last
+
+Phase 7, the last of the eight. It ships the surfaces the previous six phases produced numbers
+for and had nowhere to print: the trainer's level, the destination lock, the battle readout, the
+pity meter and the move list. Four of the eleven paragraphs below are defects the work found in
+itself.
+
+#### (a) The trainer curve is triangular, and it lives in `economy` because the count already did
+
+`economy/state.js` has counted `battlesWon` since it was written, so a trainer level derived from
+it needs **no new state, no save slice and no migration** — and a level that disagreed with the
+battle count is not expressible. `src/economy/trainer.js` is 3·n·(n−1)/2: level *n* costs 3(n−1)
+wins, and the total is closed-form in both directions (the triangular numbers and their inverse),
+so `levelFromWins` is arithmetic rather than a loop.
+
+Measured, and now pinned as checks 18–24 of `economy/selftest.js`:
+
+| wins | 0 | 30 | 198 | 570 | 1305 |
+|---|---|---|---|---|---|
+| level | 1 | 5 | 12 | 20 | 30 |
+
+Those four are **exactly** the gates the biomes were already authored with — meadow at 1, the
+forest at 5, the coast at 12, the cave at 20 — which is why the step is 3 and not 2 or 4. The
+selftest asserts the inverse round-trips at every level from 2 to 200 *and one win either side of
+each boundary*, because a gate off by one is invisible in a screenshot and locks a player out of
+a map.
+
+#### (b) The gate fails open, and it also stands down for a photograph — which the first capture proved the hard way
+
+`travel.trainerLevel()` returns `null` when `economy` is not live, and a null level unlocks
+everything: one broken module costs a feature, never the game (§2.1). That half was written in
+this phase's first hour.
+
+The half that was **wrong** was found by looking at a capture. `?showcase=travel&mode=hunt-cave`
+came back as an empty blue void at **9 draw calls**: `travel.showcase()` asks `go(mode)`, `go()
+`refused the locked cave, and no scene was ever entered. Every hunt but the meadow is gated above
+level 1 and the harness boots a fresh save, so this broke *every* biome mode of the `travel`
+showcase at once — silently, because refusing is a `return false` and not a throw.
+
+The gate is a rule of *progression*, not a property of a *scene*, so it does not apply under
+`config.showcase`. `destinations()` is untouched, so the locked rows are still drawn locked; only
+the refusal steps aside. The same capture now frames the cave at 118 draws with `Hollow Deep`
+marked HERE and `Lv5`/`Lv12` still red on the rows above and below it.
+
+#### (c) A locked row that swallows the keypress is the fault the party panel was rewritten to avoid
+
+The travel panel marked locked rows `disabled`, and `pick()` refuses a disabled row — so pressing
+Z on `Verdant Wood  Lv5` did **nothing at all**: no toast, no sentence, no reason. That is exactly
+the "greyed-out button that does not say WHY" the party panel's own comment says this game must
+not have. A locked row is pickable now; `go()` refuses it out loud with the level it wants, and
+`open()` lands the cursor on the first row that is actually somewhere you can go rather than on
+the first wall.
+
+#### (d) The battle panel is a docked card, and it opens on `encounter:started`
+
+Every other panel is `full: true`: a window over a dimmed scene, opened because the player asked.
+A fight is neither — it is started by the world, and in a hunt that is every few seconds. A
+full-screen window on that trigger would black out the loop the player is watching, dozens of
+times a lap, uninvited. So `panels/battle.js` is a card: no scrim, docked above the party bar on
+the left where the lead it describes already is, HUD and button strip up.
+
+**`encounter:started`, not `battle:started`.** The engine's event is emitted from inside
+`fight()`, *before* `encounter` assembles `active` — a card opened on it finds nothing. Three
+guards, each of them a bug that would otherwise be invisible: `minimal || config.showcase` (this
+module is a passenger in every other module's showcase, and a card painted over `encounter_12`
+moves a frame in the regression gate nobody asked to move); `state.panel` (a battle that shut the
+shop the player was standing in would be unusable); and `has()` (an encounter with no battle
+record would open an empty card that still owns the panel slot and still suppresses the walk
+hint). It closes on `encounter:resolved`, which is the moment `active` is cleared.
+
+It reads a *finished* fight, and that is not a compromise: `begin()` resolves the whole battle
+synchronously and keeps the transcript, and the ball-throw scene that follows is the animation of
+an outcome that already exists.
+
+#### (e) The panel printed one percentage and the ball obeyed another
+
+`encounter.oddsFor()` went through `economy.catchOdds`. What `attempt()` actually rolls against is
+`throwBall`'s **pity-floored** number. At a pity meter of +69 % those are 31 % and 100 % — the
+panel would have been lying by more than two to one. `oddsFor` routes through `oddsWithPity` now,
+taken at the *current* sum, since the ball about to be thrown has not been credited yet, which is
+what "without spending one" means. The only other caller is `encounter/showcase.js`, and at a
+fresh ledger `t = 0` and `apply` returns `p0` unchanged — no capture moved.
+
+The meter is drawn where it is the only thing that matters: under the wild it is about to be
+thrown at. The 90 % mark is drawn **on** the bar, because that is where the rule changes and a
+meter whose behaviour changes at an invisible point is a meter nobody can read. The catch
+percentage is shown **only on a win** — `attempt()` refuses a lost fight (#67), so a percentage
+under "Lost after 1" is a number for a throw the game will not accept.
+
+#### (f) A minus sign shipped invisible for a whole capture, and now a check calls the formatter
+
+The transcript read `  35 HP  ×2` in a capture: the minus in front of it was **U+2212** and the
+font has no glyph for it, so it drew as a blank of the right width. Nothing threw, nothing warned,
+and the only way to see it was to look. `½` was one line away from doing the same.
+
+A list of forbidden characters would have been guesswork. `panels/battle.js` touches the DOM only
+inside `draw`, so `lineFor` is exported and `ui/selftest.js` **calls it** — one event of every kind
+it handles — and looks up every character it produces in the face. Verified by putting the U+2212
+back: the check fails with `"−" U+2212` and passes when it is an ASCII hyphen. The same check
+covers the card's fixed strings and the move view's.
+
+The two small plates went the same way. `WILD` reversed out of a 21 px box and `PSN` out of 16 px
+both came back as smudges at 3×; they are ink now, in the accent colour, which reads at every
+scale.
+
+#### (g) The move list shows the pool, not just the four
+
+`battle.movesFor` takes the last four the species learned, with `MIN_ATTACKS = 2` enforced over
+them (#68). That is right far more often than not and it is not always right, so `panels/party.js`
+gains a second view of the detail pane (`M`, or the STATS/MOVES tabs): the four slots with the PP
+left in each, and under them everything the species has learned **by this level** — exactly the
+set `movesFor` chooses from — with up to four pinnable. Four is the ceiling because four is the
+number of slots; a fifth pin would lose silently inside `movesFor`, and a control that accepts an
+input and discards it is worse than one that refuses it. The `MIN_ATTACKS` rule is printed under
+the list, because a player who pins four status moves and sees two replaced would otherwise
+conclude the control is broken.
+
+#### (h) `?break=<id>` — the load-bearing rule becomes a photograph
+
+§2.1's rule — one broken module must never take the game down — was the only claim in
+ARCHITECTURE with no way to *capture* it. `?break=economy` fails the named module before its
+`init` runs, down the same path a real throw takes: dependents block, the null object stands in,
+the frame loop keeps going. Reported at `warn` and not `error`, because a quarantine the URL asked
+for is a handled path and §7 budgets zero console errors.
+
+**What the capture proves, stated honestly.** `?showcase=travel&break=economy` renders the city,
+opens the panel, and lists `Lumen City` with **no lock and no level note** — the fail-open path,
+photographed. What it does *not* show is the biomes unlocked, because `encounter.needs` includes
+`economy` and `hunts.needs` includes `encounter`, so breaking the wallet blocks the hunts as well.
+That cascade is correct and is the design; it just means this capture proves travel survives and
+locks nothing, not that four biome rows turn green. Zero console errors, five warnings, all of
+them the quarantine reporting itself.
+
+#### (i) The HUD badge, and the one thing the regression gate saw
+
+The trainer's level sits under the clock with a one-pixel progress bar to the next — a hint, not a
+statistic — and only when there is one, so a quarantined `economy` costs the badge rather than
+producing a `TRAINER 0`. `ui`'s repaint test compares the wallet, the time and the party; a level
+gained by winning a battle moves none of those, so `trainer.level` and `trainer.into` joined the
+comparison or the badge would have stayed stale until something unrelated dirtied the screen.
+
+`tools/shots/regress.js`: **4 improved, 0 regressed, 0 moved, across 15 frames.** All four are the
+four hunt biomes' max luminance, 197–241 → 248, and the cause is the badge itself — a new light
+plate in the top-right corner of a scene that had none. Confirmed by cropping the corner rather
+than by reasoning about it. Baseline accepted.
+
+#### (j) Left open, on purpose
+
+The two open issues #68 filed are still open and are not phase-7 work: **the lead is not chosen
+for the matchup** (a Water starter walks into a Grass wood and the faint-swap takes the next
+member in line, not the right one), and **`economy/pacing.js MEASURED` is a projection of an
+income model that has been deleted**. The move-priority list makes the first one *addressable* by
+a player for the first time — pinning a Water move on a Grass route is now a thing you can do —
+but it does not make the automation do it.

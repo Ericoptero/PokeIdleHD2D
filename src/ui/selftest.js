@@ -26,6 +26,9 @@ import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
+// `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
+// function this file may call — the same discipline that lets `evolution.js` be tested here.
+import { lineFor, STATUS_NAME } from './panels/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
@@ -45,8 +48,46 @@ const check = (name, ok, detail = '') => {
   // The symbols other modules already put on the bus and in their own strings.
   const SYMBOLS = [...'₽◈◆★—×·…°éÉ→←↑↓▸▾▴✓✗♥'];
   const missingSymbols = SYMBOLS.filter((ch) => !has(ch));
+
   check('every symbol the other modules emit has a glyph', missingSymbols.length === 0,
     missingSymbols.length ? missingSymbols.join(' ') : SYMBOLS.join(''));
+
+  /**
+   * The battle card's own strings, composed by the same function the panel draws with.
+   *
+   * A missing glyph renders as a blank of the right width, so it is invisible in review — and
+   * `panels/battle.js` shipped "  35 HP  ×2" for a whole capture because the minus in front of
+   * it was U+2212 rather than an ASCII hyphen. Nothing threw, nothing warned, and the only way
+   * to see it was to look at a capture. So the transcript formatter is *called* here, one event
+   * of every kind it handles, and every character it produces is looked up in the face.
+   */
+  const NAMES = { a: 'Oshawott', b: 'Zubat' };
+  const EVENTS = [
+    { kind: 'move', actor: 'a', species: 'oshawott', name: 'Water Pulse' },
+    { kind: 'damage', actor: 'a', species: 'zubat', damage: 34, hits: 1, effectiveness: 2, crit: true },
+    { kind: 'damage', actor: 'a', species: 'zubat', damage: 3, hits: 1, effectiveness: 0.25, crit: false },
+    { kind: 'miss', actor: 'a', species: 'zubat' },
+    { kind: 'immune', actor: 'a', species: 'zubat' },
+    { kind: 'status', actor: 'b', species: 'oshawott', status: 'tox' },
+    { kind: 'confused', actor: 'b', species: 'oshawott' },
+    { kind: 'confused-hit', actor: 'a', species: 'oshawott', damage: 9 },
+    { kind: 'flinch', actor: 'a', species: 'oshawott' },
+    { kind: 'asleep', actor: 'a', species: 'oshawott' },
+    { kind: 'frozen', actor: 'a', species: 'oshawott' },
+    { kind: 'paralysed', actor: 'a', species: 'oshawott' },
+    { kind: 'recoil', actor: 'a', species: 'oshawott', damage: 7 },
+    { kind: 'faint', species: 'zubat' },
+  ];
+  const battleText = [
+    ...EVENTS.map((ev) => lineFor(ev, NAMES)?.text ?? ''),
+    ...Object.values(STATUS_NAME),
+    'WILD', 'PITY', 'IN BATTLE', 'LEARNED', 'two slots always hold attacks',
+  ].join('');
+  const battleMissing = [...new Set([...battleText])].filter((ch) => ch !== ' ' && !has(ch));
+  check('every character the battle card draws has a glyph', battleMissing.length === 0,
+    battleMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
+  check('the battle card has a line for every event kind it lists',
+    EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
 
   const ragged = [];
   const tall = [];

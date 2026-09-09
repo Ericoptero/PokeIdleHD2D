@@ -10,6 +10,11 @@
  * is exactly `p0` below 90 %, exactly 1 at 125 %, and monotone in between; and that the price
  * curve lands where the ball line says it should, because those two numbers together are the
  * whole grind.
+ *
+ * `trainer.js` joined them in DECISIONS #70. Its curve is closed-form in both directions — the
+ * triangular numbers and their inverse — so the check that matters is that the two agree at
+ * every level, and that the four biome gates the maps ship with land where they were authored
+ * to. A gate off by one is invisible in a screenshot and locks a player out of a map.
  */
 
 import { readFileSync } from 'node:fs';
@@ -18,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { speciesPrice, throwsToPity, BASE_PRICE } from './pricing.js';
 import { makePity, PITY_START, PITY_FULL, BP_MONEY_EQUIVALENT } from './pity.js';
+import { trainerFromWins, levelFromWins, winsForLevel, STEP } from './trainer.js';
 import { item } from './items.js';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -88,6 +94,41 @@ check('8. the anchor is the ball line', BASE_PRICE / 200 >= 5 && BASE_PRICE / 20
   round.restore(p5.serialize());
   eq('16. the ledger survives a save round trip', round.meter('v').sum, p5.meter('v').sum);
   eq('17. a newer slice is refused rather than guessed at', round.restore({ v: 99, sums: {} }), false);
+}
+
+// --- the trainer curve ------------------------------------------------------
+{
+  // Closed form in both directions, so the only thing worth asserting is that they invert.
+  let ok = true;
+  let firstBad = '';
+  // From 2: level 1 is 0 wins and there is no "one win before level 1" to check the boundary
+  // against. `levelFromWins(0) === 1` is check 20.
+  for (let n = 2; n <= 200; n++) {
+    const wins = winsForLevel(n);
+    if (levelFromWins(wins) !== n || levelFromWins(wins - 1) !== n - 1 || levelFromWins(wins + 1) !== n) {
+      ok = false; firstBad = `level ${n} at ${wins} wins`; break;
+    }
+  }
+  check('18. the level and its wins invert exactly, either side of the boundary', ok, firstBad);
+
+  // Monotone, and every win counts for something: `into`/`need` is what the HUD bar draws.
+  let monotone = true;
+  let prev = 0;
+  for (let w = 0; w <= 2000; w++) {
+    const t = trainerFromWins(w);
+    if (t.level < prev || t.into < 0 || t.into >= t.need) { monotone = false; break; }
+    prev = t.level;
+  }
+  check('19. the level never falls and the progress bar never overflows', monotone);
+
+  // **The four gates the biomes actually ship.** These are the numbers a locked travel row
+  // prints, and they were chosen against this curve; if the curve moves, the maps move with it
+  // and nobody notices until a save is a hundred battles further along than the map expects.
+  eq('20. a fresh save is trainer level 1', trainerFromWins(0).level, 1);
+  eq('21. the forest gate (Lv5) is 30 wins', winsForLevel(5), 30);
+  eq('22. the coast gate (Lv12) is 198 wins', winsForLevel(12), 198);
+  eq('23. the cave gate (Lv20) is 570 wins', winsForLevel(20), 570);
+  eq('24. the step between levels is the triangular one', winsForLevel(3) - winsForLevel(2), STEP * 2);
 }
 
 const failed = results.filter((r) => !r.ok);

@@ -8,7 +8,7 @@
  * itself — it makes one call on `pokemon` and the world catches up on its own.
  */
 
-import { C, windowFrame, section, action, well, fit } from './common.js';
+import { C, windowFrame, section, action, well, fit, list as listWidget, tabs } from './common.js';
 import { pokeball, meter } from '../theme.js';
 import { wrap } from '../font.js';
 
@@ -17,6 +17,10 @@ const STAT_KEYS = [['hp', 'HP'], ['atk', 'Atk'], ['def', 'Def'], ['spa', 'SpA'],
 
 export function makeParty(app) {
   let cursor = 0;
+  /** Which half of the detail pane is showing: the stat block, or the move list. */
+  let view = 'stats';
+  let moveCursor = 0;
+  let moveTop = 0;
 
   const mon = () => app.ctx.get('pokemon');
 
@@ -66,6 +70,57 @@ export function makeParty(app) {
     app.markDirty();
   }
 
+  /**
+   * The move list, and the part of it the player controls.
+   *
+   * `battle.movesFor` fills the four slots with **the last four moves the species learned**,
+   * biased by a preference list the player owns (`battle/moves.js`). That heuristic is right
+   * far more often than not and it is not always right — a Pokemon that learns a good STAB
+   * move early and three utility moves late walks into the grass with the utility. So the
+   * pool is shown, the four in use are shown, and up to four can be pinned.
+   *
+   * The pool is what the species has learned **by this level**, exactly the set `movesFor`
+   * chooses from; showing moves it cannot yet use would be a shopping list with no shop.
+   */
+  function moveModel(i) {
+    const bt = app.ctx.get('battle');
+    const inst = members()[i]?.inst;
+    if (!isLive(bt) || typeof bt.learnset !== 'function' || !inst?.species) return null;
+    const seen = new Set();
+    const pool = [];
+    for (const row of bt.learnset(inst.species.name)) {
+      if (row.level > (inst.level ?? 1)) break;      // the list is level-ascending
+      if (seen.has(row.move)) continue;
+      seen.add(row.move);
+      const def = bt.move(row.move);
+      if (def) pool.push({ id: row.move, at: row.level, name: def.n, type: def.t, power: def.p, pp: def.pp, cat: def.c });
+    }
+    const raw = typeof bt.priority === 'function' ? bt.priority(inst.instanceId) : (inst.priority ?? []);
+    return {
+      inst,
+      pool,
+      pinned: raw.filter((id) => seen.has(id)),
+      slots: (inst.moves ?? []).map((slot) => ({ ...slot, def: bt.move(slot.id) })),
+    };
+  }
+
+  /**
+   * Pins or unpins one move. Four is the ceiling because four is the number of slots — a
+   * fifth pin would silently lose to `MOVE_SLOTS` inside `movesFor`, and a control that
+   * accepts an input and then discards it is worse than one that refuses it.
+   */
+  function togglePin(i, id) {
+    const model = moveModel(i);
+    const p = mon();
+    if (!model || !isLive(p) || typeof p.setPriority !== 'function') return;
+    const next = model.pinned.includes(id)
+      ? model.pinned.filter((x) => x !== id)
+      : [...model.pinned, id];
+    if (next.length > 4) { app.toast('Four moves is the whole of it — unpin one first', 'warn'); return; }
+    p.setPriority(model.inst.instanceId, next);
+    app.markDirty();
+  }
+
   function setLead(i) {
     const p = mon();
     if (!isLive(p) || typeof p.setLead !== 'function' || i === 0) return;
@@ -76,17 +131,100 @@ export function makeParty(app) {
     app.markDirty();
   }
 
+  /**
+   * The move view.
+   *
+   * Two blocks: the four slots the Pokemon is actually carrying (with the PP left in each,
+   * which a hunt spends and a Pokemon Center restores), and the pool it chooses them from.
+   * A pinned move is one the player has told `movesFor` to keep; everything else is filled by
+   * the recency heuristic.
+   */
+  function drawMoves(g, detail, y0, room) {
+    const model = moveModel(cursor);
+    let y = y0;
+    if (!model) {
+      for (const line of wrap('Move data is not loaded — the battle module is unavailable.', detail.w - 10)) {
+        g.text(detail.x + 5, y, line, C.stoneShadow);
+        y += 8;
+      }
+      return;
+    }
+
+    g.text(detail.x + 5, y, 'IN BATTLE', C.shadowInk);
+    g.textRight(detail.x + detail.w - 5, y, 'PP', C.stoneShadow);
+    y += 9;
+    for (let i = 0; i < 4; i++) {
+      const slot = model.slots[i];
+      if (!slot) { g.text(detail.x + 5, y, '·  —', C.stoneShadow); y += 9; continue; }
+      const pinned = model.pinned.includes(slot.id);
+      g.text(detail.x + 5, y, pinned ? '★' : '·', pinned ? C.glowDeep : C.stoneShadow);
+      g.text(detail.x + 14, y, slot.def?.n ?? slot.id, C.ink, { max: detail.w - 52 });
+      // Zero PP is not cosmetic — it is why a Pokemon Struggles — so it is the one number
+      // in this block that changes colour.
+      g.textRight(detail.x + detail.w - 5, y, `${slot.pp}/${slot.maxPp}`,
+        slot.pp === 0 ? C.roofBase : C.shadowInk);
+      y += 9;
+    }
+    y += 3;
+
+    g.text(detail.x + 5, y, 'LEARNED', C.shadowInk);
+    g.textRight(detail.x + detail.w - 5, y, `${model.pinned.length}/4 pinned`,
+      model.pinned.length ? C.glowDeep : C.stoneShadow);
+    y += 9;
+
+    // The note is drawn before the list is sized, because it is not optional: a player who
+    // pins four status moves and sees two of them replaced would otherwise conclude the
+    // control is broken. `movesFor` guarantees two attacks (`MIN_ATTACKS`) and takes the
+    // slots it needs from whatever is NOT pinned.
+    const note = 'two slots always hold attacks';
+    const listH = Math.max(20, room - y - 9);
+    moveCursor = Math.max(0, Math.min(model.pool.length - 1, moveCursor));
+    const rowH = 10;
+    const rows = Math.max(1, Math.floor(listH / rowH));
+    if (moveCursor < moveTop) moveTop = moveCursor;
+    if (moveCursor >= moveTop + rows) moveTop = moveCursor - rows + 1;
+
+    const out = listWidget(g, { x: detail.x + 4, y, w: detail.w - 8, h: listH }, {
+      items: model.pool, rowH, top: moveTop, selected: moveCursor, tag: 'move',
+      onPick: (i, item) => { moveCursor = i; togglePin(cursor, item.id); },
+      draw(gg, item, rect, st) {
+        const pinned = model.pinned.includes(item.id);
+        gg.text(rect.x + 2, rect.y + 2, pinned ? '★' : '·', pinned ? C.glowDeep : st.ink);
+        gg.text(rect.x + 11, rect.y + 2, item.name, st.ink, { max: rect.w - 52 });
+        // Type and power, because that is what a choice between two moves is made on. A
+        // status move has no power and says so rather than printing a zero.
+        gg.textRight(rect.x + rect.w - 3, rect.y + 2,
+          `${item.type.slice(0, 3).toUpperCase()} ${item.power ? item.power : '—'}`,
+          st.selected ? C.glassLight : C.stoneShadow);
+      },
+    });
+    moveTop = out.top;
+    g.text(detail.x + 5, y + listH + 1, note, C.stoneShadow, { max: detail.w - 10 });
+  }
+
   return {
     id: 'party',
     full: true,
-    open() { cursor = 0; },
+    /** `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3). */
+    open(opts) { cursor = 0; view = opts?.view === 'moves' ? 'moves' : 'stats'; moveCursor = 0; moveTop = 0; },
     close() {},
 
     key(ev) {
-      const list = members();
+      const roster = members();
       const code = ev.code;
-      if (code === 'ArrowUp' || code === 'KeyW') { cursor = Math.max(0, cursor - 1); app.markDirty(); return true; }
-      if (code === 'ArrowDown' || code === 'KeyS') { cursor = Math.min(list.length - 1, cursor + 1); app.markDirty(); return true; }
+      if (code === 'KeyM') { view = view === 'moves' ? 'stats' : 'moves'; moveCursor = 0; moveTop = 0; app.markDirty(); return true; }
+      // In the move view the arrows belong to the move list — the party is six rows and the
+      // pool is twenty, and the list that cannot be reached any other way gets the keys.
+      if (view === 'moves') {
+        const pool = moveModel(cursor)?.pool ?? [];
+        if (code === 'ArrowUp' || code === 'KeyW') { moveCursor = Math.max(0, moveCursor - 1); app.markDirty(); return true; }
+        if (code === 'ArrowDown' || code === 'KeyS') { moveCursor = Math.min(pool.length - 1, moveCursor + 1); app.markDirty(); return true; }
+        if (code === 'Enter' || code === 'KeyZ' || code === 'Space') { if (pool[moveCursor]) togglePin(cursor, pool[moveCursor].id); return true; }
+        if (code === 'KeyE') { evolve(cursor); return true; }
+        return false;
+      }
+      if (code === 'ArrowUp' || code === 'KeyW') { cursor = Math.max(0, cursor - 1); moveCursor = 0; moveTop = 0; app.markDirty(); return true; }
+      if (code === 'ArrowDown' || code === 'KeyS') { cursor = Math.min(roster.length - 1, cursor + 1); moveCursor = 0; moveTop = 0; app.markDirty(); return true; }
       if (code === 'Enter' || code === 'KeyZ' || code === 'Space') { setLead(cursor); return true; }
       if (code === 'KeyE') { evolve(cursor); return true; }
       return false;
@@ -97,7 +235,9 @@ export function makeParty(app) {
       cursor = Math.max(0, Math.min(list.length - 1, cursor));
       const win = windowFrame(g, {
         title: 'PARTY', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
-        footer: '↑↓ choose    Z make it lead    E evolve    X close',
+        footer: view === 'moves'
+          ? '↑↓ choose    Z pin / unpin    M back to stats    X close'
+          : '↑↓ choose    Z make it lead    E evolve    M moves    X close',
         onClose: () => app.close(), ...fit(g, 424, 250),
       });
 
@@ -185,6 +325,20 @@ export function makeParty(app) {
       if (m.shiny) g.text(port.x + 46, y + 33, '★ shiny', C.glowDeep);
       y += 46;
 
+      // Two views of the same Pokemon, because the pane cannot hold both: what it *is*, and
+       // what it *does*. The tabs are the affordance; `M` is the shortcut.
+      tabs(g, detail.x + 4, y, [{ id: 'stats', label: 'STATS' }, { id: 'moves', label: 'MOVES' }], {
+        active: view, h: 11, tag: 'party-view',
+        onPick: (id) => { if (id !== view) { view = id; moveCursor = 0; moveTop = 0; } app.markDirty(); },
+      });
+      y += 14;
+
+      const evo = evolution(cursor);
+      const room = detail.y + detail.h - 32;
+
+      if (view === 'moves') {
+        drawMoves(g, detail, y, room);
+      } else {
       // base stats, with the individual value drawn over them as a lighter tick
       const maxStat = 180;
       for (const [key, label] of STAT_KEYS) {
@@ -225,8 +379,6 @@ export function makeParty(app) {
       // The bill, not a verdict. A greyed-out button that does not say WHY is the thing this
       // panel exists to avoid, so the level and every material are listed with what the bag
       // actually holds beside them — a shopping list the player can go and fill.
-      const evo = evolution(cursor);
-      const room = detail.y + detail.h - 32;
       if (evo) {
         g.fill(detail.x + 4, y - 2, detail.w - 8, 1, C.wallDeep);
         y += 2;
@@ -258,6 +410,7 @@ export function makeParty(app) {
         if (y + blurb.length * 8 <= room) {
           for (const line of blurb) { g.text(detail.x + 5, y, line, C.stoneShadow); y += 8; }
         }
+      }
       }
 
       // Two rows, evolve on top, because it is the one that changes the Pokemon and the one
