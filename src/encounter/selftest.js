@@ -22,6 +22,7 @@
  */
 
 import { makeRng } from '../core/rng.js';
+import { dropsFor, BIOME_LOOT, LOOT_IDS, DROP_CHANCE } from './drops.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
   streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
@@ -243,6 +244,49 @@ export function runSelfTest({ species = null } = {}) {
       todBand(4) === 'morning' && todBand(9.99) === 'morning' && todBand(10) === 'day'
       && todBand(17.99) === 'day' && todBand(18) === 'night' && todBand(3.99) === 'night',
       '04-10 morning, 10-18 day, 18-04 night');
+  }
+
+  // --- 15 drops -----------------------------------------------------------------
+  // The faucet. Index-addressed like everything else in this module, because `offline` has to
+  // replay a hunt's loot and get the hunt's loot.
+  {
+    const ITEM_IDS = new Set(LOOT_IDS);
+    let same = 0; let outside = 0; let empty = 0; let total = 0; let counted = 0;
+    for (let i = 0; i < 3000; i++) {
+      const d = dropsFor(SEED, i, { biome: 'forest', catchRate: 255, level: 10 });
+      if (JSON.stringify(d) === JSON.stringify(dropsFor(SEED, i, { biome: 'forest', catchRate: 255, level: 10 }))) same++;
+      if (!d.length) { empty++; continue; }
+      for (const x of d) {
+        counted++;
+        if (!ITEM_IDS.has(x.id)) outside++;
+        if (x.n < 1 || x.n > 3) outside++;
+      }
+      total++;
+    }
+    check('drops are reproducible from (seed, index)', same === 3000, `${same}/3000`);
+    check('every drop is a real treasure item, 1..3 of it', outside === 0, `${outside} bad of ${counted}`);
+    // Not every kill pays, and the rate is the one in the file rather than whatever fell out.
+    const rate = total / 3000;
+    check('the drop rate is about DROP_CHANCE', Math.abs(rate - DROP_CHANCE) < 0.04,
+      `${(rate * 100).toFixed(1)}% against ${(DROP_CHANCE * 100).toFixed(0)}%`);
+    check('a biome drops its OWN ladder', dropsFor(SEED, 1, { biome: 'cave', catchRate: 255, level: 5 })
+      .every((d) => BIOME_LOOT.cave.includes(d.id)));
+    // Rarity picks the rung: a hard species pays better than a common one, every time.
+    const commons = new Set();
+    const rares = new Set();
+    for (let i = 0; i < 400; i++) {
+      for (const d of dropsFor(SEED, i, { biome: 'forest', catchRate: 255, level: 10 })) commons.add(d.id);
+      for (const d of dropsFor(SEED, i, { biome: 'forest', catchRate: 40, level: 10 })) rares.add(d.id);
+    }
+    check('a rare species drops from a higher rung', rares.has(BIOME_LOOT.forest[2]) && !commons.has(BIOME_LOOT.forest[2]),
+      `common ${[...commons].join(',')} | rare ${[...rares].join(',')}`);
+    // A shiny is the rarest thing in the game and beating one must not be able to pay nothing.
+    let shinyEmpty = 0;
+    for (let i = 0; i < 300; i++) {
+      if (!dropsFor(SEED, i, { biome: 'meadow', catchRate: 255, level: 10, shiny: true }).length) shinyEmpty++;
+    }
+    check('a shiny always leaves something', shinyEmpty === 0, `${shinyEmpty} empty of 300`);
+    check('drops use their own stream', empty > 0 && empty < 3000, `${empty} of 3000 paid nothing`);
   }
 
   // --- 15 battles ---------------------------------------------------------------

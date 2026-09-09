@@ -6448,3 +6448,83 @@ an earlier run reached level 10-11 and won 13 of 51 — but a starter should not
 wildlife nineteen times out of twenty. That is phase 5/6's problem (drops, prices, the accrual
 model) and tuning it here, without the economy that has to pay for it, would be guesswork done
 twice. It is the top open issue on `encounter` rather than a number quietly nudged.
+
+---
+
+### 68 — 2026-09-09 — Money has a source: drops, a derived price, and a pity ledger — and the "balance problem" was the type chart working
+
+Phase 5 of the refactor. Three new pure files and one large correction to what #67 recorded.
+
+**(a) The twelve `treasure` items finally have a source.** `encounter/drops.js` is a pure
+`(seed, index) → [{id, n}]` on `root/encounter/drop/<index>`, so a hunt replayed by `offline`
+produces the hunt's loot rather than fresh loot. Four ladders of three keyed by **biome** — a
+cave gives up nuggets and bones, a shore gives up pearls — against the same twelve items
+`pokemon/evolution.js` keys by **type**. Two views of one small catalogue, deliberately: it
+means a player hunting evolution materials has a reason to pick one biome over another.
+
+Draw order is a contract like every other roll here: **whether, then which, then how many, then
+the bonus coin**, all four drawn unconditionally and the unused ones discarded. 46 % of wins pay;
+rarity picks the rung; a shiny always leaves something, because beating the rarest thing in the
+game must not be able to pay nothing.
+
+**(b) `speciesPrice` is derived and does three jobs.** Sell value, pity threshold, and therefore
+expected ball cost. Capture rate does most of the work `(255/rate)^1.16`, base-stat total a
+gentler `^0.6`, a final form 1.15×. **The anchor is the ball line itself**: `BASE_PRICE` is what
+an ordinary common costs, and at 1400 that is seven Poké Balls to a guaranteed catch. Measured:
+Caterpie 6 balls, Rattata 7, Pikachu 11, Gible 55, Dragonite 96.
+
+Two things the selftest caught rather than the eye. **Rounding ran after the shiny multiplier**,
+so a shiny Caterpie was ₽9,100 against a printed ₽900 — right to the pound and wrong to the eye;
+it rounds before now, and a shiny is exactly ten times the number already on screen. And the
+power law needs a **ceiling**: uncapped, a 780-BST rate-3 legendary came out at ₽45,800, which is
+286 Poké Balls — not a goal, a closed door. `PRICE_CEILING` is ₽30,000, or 188.
+
+**(c) The pity ledger is a lerp over the finished probability.** The algebra is in #61 and the
+selftest now pins the three claims that matter: below 90 % of the price the odds are `p0`
+**exactly**, the ramp never goes down, and certainty arrives at 1.25× and not before. BP-priced
+balls count at `BP_MONEY_EQUIVALENT` — a Quick Ball costs 15 BP and a ledger that ignored the
+shop's dearest shelf would make it free pity. It survives a save round trip, because forty balls
+into a Gible and a reload putting you back at zero is the one piece of state a player would
+genuinely resent losing.
+
+---
+
+**(d) The correction. #67 called the balance "wrong" and it was mostly the type chart.**
+
+#67 recorded three wins in sixty and blamed the numbers. Measured properly, at equal level,
+against each biome's whole table:
+
+| | oshawott (Water) | snivy (Grass) | tepig (Fire) | best of the three |
+| --- | --- | --- | --- | --- |
+| meadow | 47 % | 63 % | 58 % | **95 %** |
+| forest | 17 % | 39 % | **94 %** | **100 %** |
+| cave | **81 %** | 63 % | 31 % | 81 % |
+| coast | 63 % | **81 %** | 25 % | 88 % |
+
+The starting party has a right answer for every biome and the runs were sending a **Water**
+starter into a **Grass** wood. Oshawott loses to sewaddle, shroomish, seedot, deerling, pansage,
+foongus, oddish, bellsprout, budew, cherubi, sunkern and ferroseed — every Grass type on the
+table — and beats caterpie, weedle, combee and larvesta, every Bug one. That is the chart doing
+exactly what it is for, and the engine is symmetric: a mirror match is 51.8 %.
+
+So **nothing was nerfed**. What this reveals is a missing *mechanic*, not a wrong number: an idle
+game should not need the player to babysit which Pokémon is in front, and the faint-swap picks
+the next member in line rather than the one that can win. That is an `automation` rule — the top
+open issue on `encounter` now says so, with this table attached.
+
+**(e) One real defect did come out of the measuring.** A level-12 Oshawott won **fewer** fights
+than a level-5 one, which is the wrong shape for anything. Its four slots were
+`tackle, tailwhip, watergun, soak` — two attacks and two status moves — while the wildlife it met
+had three attacks. `movesFor` took "the last four learnable" and nothing else, so slots filled up
+with moves `choose` would never pick over a damaging one. It guarantees `MIN_ATTACKS` (2) now by
+trading the oldest status slots for the newest unused attacks. Measured across the whole table at
+three levels: **358 of 3,759 species-levels (9.5 %) had fewer than two attacks and are repaired**
+— Venusaur at level 50 had *one* — and the 34 that still have none genuinely know none, and
+Struggle, which is correct.
+
+**Measured.** `economy/selftest.js` is new at 17/17; `encounter/selftest.js` 38/38 with seven new
+drop checks (reproducible from `(seed, index)`, every drop a real item 1..3 of it, the rate is
+`DROP_CHANCE`, a biome drops its own ladder, a rare species drops from a higher rung, a shiny
+always pays). Live in a forest hunt: a Tiny Mushroom dropped, banked and sold for ₽250 — the
+first money in this project's history that came from a hunt rather than from a faucet. Seams
+green at 140 files / 17 modules; regression 0/0/0.

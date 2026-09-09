@@ -25,6 +25,8 @@ export const STATUS = 0;
 
 /** How many moves a Pokemon carries. Four, and it is not a tunable. */
 export const MOVE_SLOTS = 4;
+/** How many of the four must be able to deal damage, when the species knows that many. */
+export const MIN_ATTACKS = 2;
 
 let MOVES = Object.create(null);
 let LEARN = Object.create(null);
@@ -105,8 +107,33 @@ export function movesFor(species, level, { priority = [] } = {}) {
 
   const wanted = priority.filter((id) => seen.has(id));
   const rest = known.filter((id) => !wanted.includes(id));
-  const picked = [...wanted, ...rest.slice(-Math.max(0, MOVE_SLOTS - wanted.length))]
+  let picked = [...wanted, ...rest.slice(-Math.max(0, MOVE_SLOTS - wanted.length))]
     .slice(0, MOVE_SLOTS);
+
+  // **At least two of the four have to be able to hurt something.**
+  //
+  // "The last four learnable" is a good heuristic and on its own it is not enough: a level-12
+  // Oshawott came out with `tackle, tailwhip, watergun, soak` — two attacks and two status
+  // moves — while the route wildlife it met had three. Measured against the whole forest
+  // table, it won 33% of its fights at level 5 and **22% at level 12**, getting *worse* as it
+  // levelled, which is the shape of a Pokemon whose slots are filling up with moves `choose`
+  // will never pick over a damaging one (DECISIONS #68).
+  //
+  // So the recency rule stands, and then the oldest status slots are traded for the newest
+  // damaging moves the species knows and is not already carrying. A species that genuinely has
+  // no attacks (a level-1 Magikarp) keeps what it has and Struggles, which is correct.
+  const isAttack = (id) => MOVES[id] && MOVES[id].c !== STATUS;
+  if (picked.filter(isAttack).length < MIN_ATTACKS) {
+    const spare = known.filter((id) => isAttack(id) && !picked.includes(id));
+    for (let i = picked.length - 1; i >= 0 && spare.length; i--) {
+      if (isAttack(picked[i])) continue;
+      if (priority.includes(picked[i])) continue;       // the player asked for it; leave it
+      picked[i] = spare.pop();
+      if (picked.filter(isAttack).length >= MIN_ATTACKS) break;
+    }
+    // Keep the slots in learn order so the panel reads the way the learnset does.
+    picked = known.filter((id) => picked.includes(id));
+  }
 
   return picked.map((id) => ({ id, pp: MOVES[id].pp, maxPp: MOVES[id].pp }));
 }

@@ -30,6 +30,8 @@
  * moment `offline` hydrates.
  */
 
+import { speciesPrice } from './pricing.js';
+import { makePity } from './pity.js';
 import { CURRENCIES, formatCurrency } from './currencies.js';
 import { ITEMS, item, itemsBy, ballMultiplier, catchOdds, stackCap } from './items.js';
 import { UPGRADES, upgrade, costOf, bulkCost, foldUpgrades } from './upgrades.js';
@@ -67,6 +69,25 @@ export default {
 
   init(ctx) {
     const { bus, config, clock } = ctx;
+
+    /**
+     * A species object from whatever the caller had.
+     *
+     * Callers hand over a name, a species object or an encounter, and the price needs
+     * `catchRate` and `bst` — so `pokemon` is asked through `ctx.get`, and a quarantined
+     * `pokemon` degrades to a flat ordinary price rather than to a crash.
+     */
+    const resolveSpecies = (x) => {
+      if (x && typeof x === 'object' && (x.bst || x.catchRate)) return x;
+      const name = typeof x === 'string' ? x : x?.species ?? x?.name;
+      if (!name) return null;
+      const pk = ctx.get('pokemon');
+      const live = !!pk && pk.__missing === undefined;
+      return (live && typeof pk.species === 'function' ? pk.species(name) : null) ?? { name, catchRate: 255, bst: 300 };
+    };
+
+    /** The per-species ball ledger. Prices come from this module; the roll never does. */
+    const pity = makePity({ price: (sp) => speciesPrice(sp), item });
 
     const state = makeEconomyState({
       onChange(change) {
@@ -197,6 +218,8 @@ export default {
     }
 
     bus.on('catch:succeeded', (payload) => {
+      // A catch clears that species' debt and nobody else's (DECISIONS #61).
+      if (payload?.species) pity.reset(resolveSpecies(payload.species));
       sawCatchEvent = true;
       if (payload?.species) seenCaught.add(String(payload.species));
       state.add('shards', SHARDS_PER_CATCH, 'loot');
@@ -287,11 +310,24 @@ export default {
       }
       state.bump('ballsThrown', 1);
       const multiplier = ballMultiplier(ballId, context);
-      const odds = catchOdds({
+      const p0 = catchOdds({
         ball: ballId, catchRate, hpFraction, status, context,
         bonus: state.multipliers().catchRate,
       });
-      return { thrown: true, ball: ballId, multiplier, odds };
+
+      // **The ledger is credited before the odds are read**, so the throw that crosses 125 % is
+      // the one that succeeds rather than the one after it (DECISIONS #61). This module still
+      // does not roll: it spends the ball, remembers what was spent, and reports a number —
+      // `encounter` compares it to a coin from its own stream (#35(d)).
+      const species = context?.species ?? null;
+      if (species) pity.credit(species, ballId);
+      const floored = species ? pity.apply(p0, species) : { odds: p0, p0, t: 0, sum: 0, price: 0 };
+
+      return {
+        thrown: true, ball: ballId, multiplier,
+        odds: floored.odds, p0: floored.p0, pity: floored.t,
+        spent: floored.sum, price: floored.price,
+      };
     }
 
     /** The best ball in the bag for this encounter; ties go to the cheapest. */
@@ -457,6 +493,19 @@ export default {
 
       // --- catching ---------------------------------------------------------
       catchMultiplier: (ballId, context) => ballMultiplier(ballId, context),
+
+      // --- what a Pokemon is worth, and the pity that follows from it (§5.9) ---
+      /** Derived from capture rate, base-stat total and whether it is a final form. */
+      speciesPrice: (nameOrSpecies, opts) => speciesPrice(resolveSpecies(nameOrSpecies), opts),
+      /** The meter a UI draws: how much has been spent on this species against its price. */
+      pity: (species) => pity.meter(resolveSpecies(species)),
+      /** The floor, applied to a finished probability. Never lowers it. */
+      applyPity: (p0, species) => pity.apply(p0, resolveSpecies(species)),
+      /** Odds INCLUDING the pity floor, without spending a ball. For the panel. */
+      oddsWithPity(opts, species) {
+        const base = catchOdds({ ...opts, bonus: (opts?.bonus ?? 1) * state.multipliers().catchRate });
+        return species ? pity.apply(base, resolveSpecies(species)) : { odds: base, p0: base, t: 0 };
+      },
       catchOdds: (opts) => catchOdds({ ...opts, bonus: (opts?.bonus ?? 1) * state.multipliers().catchRate }),
 
       // --- shops ------------------------------------------------------------
@@ -521,10 +570,13 @@ export default {
       onChange(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
 
       // --- persistence (the native seam src/offline/slices.js prefers) -------
-      saveState: () => ({ ...state.serialize(), vouchers: vouchersBought }),
+      saveState: () => ({ ...state.serialize(), vouchers: vouchersBought, pity: pity.serialize() }),
       loadState(value) {
         const ok = state.restore(value);
         if (Number.isFinite(value?.vouchers)) vouchersBought = Math.max(0, Math.floor(value.vouchers));
+        // The ledger is the one piece of state here a player would genuinely resent losing:
+        // forty balls into a Gible and a reload puts them back at zero.
+        if (value?.pity) pity.restore(value.pity);
         return ok;
       },
     };

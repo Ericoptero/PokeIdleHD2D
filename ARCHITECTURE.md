@@ -678,8 +678,22 @@ multiplier that would reach certainty depends on the capture rate, the HP, the b
 status all at once, and no fixed value can mean "maximum at 125 % of the price".
 `catchOdds` therefore stays pure and untouched, and the floor wraps it:
 `odds = p0 + (1 − p0) · t`, with `t` ramping from 0 at 90 % of the species price to 1 at 125 %.
-Every ball counts at its `price`; the counter resets on a catch. `economy` credits the ledger
-inside `throwBall` and still never rolls (#35(d)).
+Every ball counts at its `price` (BP shelves at `BP_MONEY_EQUIVALENT`); the counter resets on a
+catch and lives in the save. `economy` credits the ledger inside `throwBall` and still never
+rolls (#35(d)).
+
+**`speciesPrice` is derived and does three jobs at once** — the sell value, the pity threshold,
+and therefore how many balls a species is expected to cost. Capture rate does most of the work,
+base-stat total a little, final forms a touch; the anchor is the ball line itself, so an
+ordinary common is seven Poké Balls to a guaranteed catch and nothing exceeds `PRICE_CEILING`
+(188 balls). A grind has to end.
+
+**Drops are `encounter`'s** (`encounter/drops.js`), not `economy`'s: they are authored like a
+spawn table and must be a pure `(seed, index) → [{id, n}]` so `offline` replays a hunt's loot
+and gets that hunt's loot. `economy` only receives `give(id, n, 'drop')`. They are the **only**
+source of the twelve `category: 'treasure'` items, which have shipped with sell prices and no
+way to obtain them since this module was written — and they are what an evolution is paid for
+with (§5.5), which is what ties the hunt to the collection.
 
 **The trainer's level lives here**, because `progress()` is already the single snapshot every
 unlock gate is evaluated against and `requirementMet` already gates shelves, shops, upgrade

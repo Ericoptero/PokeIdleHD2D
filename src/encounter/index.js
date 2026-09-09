@@ -50,6 +50,7 @@ import {
   streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
   shakesFor, rewardsFor,
 } from './rolls.js';
+import { dropsFor } from './drops.js';
 import {
   BIOMES, STEP_RATE, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
 } from './tables.js';
@@ -914,6 +915,24 @@ export default {
         } else faintedWarned = false;
       }
 
+      // **The loot.** Pure and index-addressed, so a hunt replayed by `offline` produces the
+      // same haul as the one that was watched. It is the only way the twelve `treasure` items
+      // enter the bag — they have shipped with sell prices and no source since `economy` was
+      // written — and it is what an evolution is paid for with (DECISIONS #62, #68).
+      if (win) {
+        const loot = dropsFor(seed, enc.index, {
+          biome: enc.biome, catchRate: enc.catchRate, level: enc.level, shiny: enc.shiny,
+        });
+        if (loot.length && isLive(economy) && typeof economy.give === 'function') {
+          for (const drop of loot) economy.give(drop.id, drop.n, 'drop');
+          bus.emit('drop:collected', { items: loot, index: enc.index });
+          if (!config.showcase) {
+            const named = loot.map((d) => `${d.n}× ${economy.item?.(d.id)?.name ?? d.id}`).join(', ');
+            bus.emit('ui:toast', { text: `Found ${named}`, kind: 'good' });
+          }
+        }
+      }
+
       // The walk resumes wherever it stopped. `pause` and not `halt`, so a scripted loop keeps
       // its place in the circuit rather than restarting it (§5.4).
       const sim = ctx.get('simulation');
@@ -1162,6 +1181,12 @@ export default {
       slotsNear: (cx, cz) => slotNear(cx, cz),
       /** Starts a fight with whatever is on a slot. Returns the encounter, or null. */
       engage: (slot) => (slot ? engage(slot) : null),
+      /** What encounter `index` drops. Pure and index-addressed; `idle` replays it verbatim. */
+      dropsFor: (index, opts = {}) => dropsFor(seed, index, {
+        biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
+        level: opts.level ?? 5, shiny: !!opts.shiny,
+      }),
+
       /** The last fight's turn-by-turn transcript, for a battle panel to replay. */
       transcript: () => (last?.battle?.transcript ?? []).map((e) => ({ ...e })),
 
