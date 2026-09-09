@@ -545,3 +545,162 @@ export function laneNear(draft, cx, cz, {
 }
 
 export { clamp01, lerp, smooth };
+
+// ---------------------------------------------------------------------------
+// The hunt loop, and the slots on it (ARCHITECTURE §5.14, DECISIONS #65)
+// ---------------------------------------------------------------------------
+
+/**
+ * Finds a **closed** circuit the party can walk forever, on the map that was actually built.
+ *
+ * Hand-written route strings were the obvious way to do this and they are the wrong one: a
+ * route is a list of relative directions with no idea where it is, `makeScriptedRoute` skips a
+ * blocked step, and three separate places in this module already document routes drifting off
+ * their own path when the map grew an obstacle. A route authored against a map is only correct
+ * until the composition changes, and the composition changes every round.
+ *
+ * So the loop is **derived from the draft**, after it is built, and it is a rectangle — because
+ * a rectangle's perimeter is closed by construction and can be checked cell by cell in one
+ * pass. The search walks candidate sizes from large to small and returns the first perimeter
+ * that is passable the whole way round, so a biome gets the biggest circuit its terrain allows
+ * rather than the one somebody guessed at.
+ *
+ * @param {import('../terrain/index.js').MapDraft} draft
+ * @param {{cx:number, cz:number}} around  the marker to centre on
+ * @param {{min?:number, max?:number, step?:number}} [opts]
+ * @returns {{start:{cx:number,cz:number,dir:number}, route:string, cells:{cx:number,cz:number}[],
+ *            w:number, h:number}|null}
+ */
+export function findLoop(draft, around, { min = 7, max = 20, step = 1, margin = 11 } = {}) {
+  // `around` may be one cell or a list of them. A cave is a system of galleries and its
+  // showcase marker sits in one of them; searching only there found nothing at all and left
+  // the biome standing still, so every marker on the draft gets a turn (DECISIONS #65).
+  const anchors = (Array.isArray(around) ? around : [around])
+    .filter(Boolean)
+    .map((a) => ({ cx: Math.round(a.cx ?? draft.w / 2), cz: Math.round(a.cz ?? draft.h / 2) }));
+  if (!anchors.length) anchors.push({ cx: draft.w >> 1, cz: draft.h >> 1 });
+
+  /** Walks the perimeter clockwise from the north-west corner, checking every step. */
+  const perimeter = (x, z, w, h) => {
+    const cells = [];
+    const legs = [[EAST_, w - 1], [SOUTH_, h - 1], [WEST_, w - 1], [NORTH_, h - 1]];
+    let cx = x; let cz = z;
+    for (const [dir, n] of legs) {
+      for (let i = 0; i < n; i++) {
+        cells.push({ cx, cz });
+        const nx = cx + DX[dir];
+        const nz = cz + DZ[dir];
+        // `passable` is asked in the direction of travel, because a ledge is one-way and a
+        // loop that can only be walked anticlockwise is not a loop.
+        if (!draft.passable(nx, nz, dir)) return null;
+        cx = nx; cz = nz;
+      }
+    }
+    // It has to come home. A rectangle always does, but asserting it here is what makes this
+    // function's promise checkable rather than merely intended.
+    return (cx === x && cz === z) ? cells : null;
+  };
+
+  // Largest first, and the anchors in the order the caller gave them, so a biome gets the
+  // biggest circuit its terrain allows near the ground it thinks is worth looking at.
+  for (let size = max; size >= min; size -= step) {
+    for (let w = size; w >= min; w -= step) {
+      const h = size;
+      for (const anchor of anchors) {
+        // Nudge around the anchor rather than only centring on it: a marker often sits against
+        // a cliff, and a few cells of give is the difference between a loop and none.
+        for (const [ox, oz] of NUDGES) {
+          const x = anchor.cx - ((w / 2) | 0) + ox;
+          const z = anchor.cz - ((h / 2) | 0) + oz;
+          // **A camera-width clear of every edge.** The camera follows the trainer and the
+          // trainer is ON the loop, so a circuit that runs near a border walks the frame off
+          // the end of the world — the first meadow capture had a third of the screen in flat
+          // sky (docs/progress/hunts/r6). At ppu 32 a 640-wide buffer sees twenty cells across
+          // and about sixteen deep, so eleven is the half-width plus a tile of slack.
+          if (x < margin || z < margin) continue;
+          if (x + w > draft.w - margin || z + h > draft.h - margin) continue;
+          const cells = perimeter(x, z, w, h);
+          if (!cells) continue;
+          return {
+            start: { cx: x, cz: z, dir: EAST_ },
+            route: `e${w - 1} s${h - 1} w${w - 1} n${h - 1}`,
+            cells, w, h,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Spawn slots for a loop: cells at Chebyshev distance **exactly 2** from the path.
+ *
+ * Two, and the arithmetic is the whole reason (§5.14): a tethered wild drifts one tile off its
+ * slot and the encounter trigger reaches one tile from the walking head, so two is contact.
+ * One closer and the party is permanently in a battle; one further and a lap never meets
+ * anything.
+ *
+ * Slots are spread along the circuit rather than clustered, so a lap is a series of encounters
+ * instead of one ambush. Deterministic: the walk order is the perimeter's own order and the
+ * only randomness is which side of the path a slot sits on.
+ *
+ * @param {import('../terrain/index.js').MapDraft} draft
+ * @param {{cx:number,cz:number}[]} loopCells
+ * @param {{next:() => number}} rng
+ * @param {{count?:number, accept?:(cx:number,cz:number)=>boolean}} [opts]
+ */
+export function slotsForLoop(draft, loopCells, rng, { count = 10, accept } = {}) {
+  if (!loopCells?.length || count <= 0) return [];
+  const near = (cx, cz) => loopCells.some((c) => Math.max(Math.abs(c.cx - cx), Math.abs(c.cz - cz)) < 2);
+  const taken = new Set();
+  const out = [];
+  const stride = Math.max(1, Math.floor(loopCells.length / count));
+
+  for (let i = 0; i < loopCells.length && out.length < count; i += stride) {
+    const c = loopCells[i];
+    // The four cells two out from this step, shuffled so a lap does not always meet its
+    // wildlife on the same shoulder.
+    const candidates = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+    for (let k = candidates.length - 1; k > 0; k--) {
+      const j = Math.floor(rng.next() * (k + 1));
+      [candidates[k], candidates[j]] = [candidates[j], candidates[k]];
+    }
+    for (const [dx, dz] of candidates) {
+      const cx = c.cx + dx;
+      const cz = c.cz + dz;
+      const key = `${cx},${cz}`;
+      if (taken.has(key)) continue;
+      if (!draft.inside(cx, cz)) continue;
+      // A slot must be somewhere a creature can stand and drift on, and it must NOT be on the
+      // path — `near` rejects anything within one cell of the circuit, which is what keeps the
+      // distance at two rather than at "two or less".
+      if (!draft.passable(cx, cz, 0)) continue;
+      if (near(cx, cz)) continue;
+      if (draft.occupied[draft.idx(cx, cz)]) continue;
+      if (accept && !accept(cx, cz)) continue;
+      taken.add(key);
+      // Facing the path, so a wild reads as having noticed the party rather than as scenery.
+      out.push({ cx, cz, dir: dx > 0 ? WEST_ : dx < 0 ? EAST_ : dz > 0 ? NORTH_ : SOUTH_ });
+      break;
+    }
+  }
+  return out;
+}
+
+/** `core/dir.js`'s numbers, spelled out locally so this file keeps its single core import. */
+const SOUTH_ = 0; const WEST_ = 1; const NORTH_ = 2; const EAST_ = 3;
+const DX = [0, -1, 0, 1];
+const DZ = [1, 0, -1, 0];
+/** Offsets tried around the anchor, nearest first. */
+const NUDGES = (() => {
+  const out = [];
+  for (let r = 0; r <= 6; r++) {
+    for (let ox = -r; ox <= r; ox++) {
+      for (let oz = -r; oz <= r; oz++) {
+        if (Math.max(Math.abs(ox), Math.abs(oz)) === r) out.push([ox, oz]);
+      }
+    }
+  }
+  return out;
+})();

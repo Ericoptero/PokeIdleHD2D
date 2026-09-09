@@ -105,6 +105,13 @@ export const FOREST = {
   alsoLoad: ['props'],
   w: 64,
   h: 62,
+  /**
+   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   *
+   * Authored HERE and not in `travel`, because what a destination *is* stays with the
+   * scene that owns it. 1.35x encounters and 1.45x experience — the training biome (encounter/tables.js).
+   */
+  requiredLevel: 5,
   weather: null,
   /**
    * Camera framings, one per thing a critic needs to be able to judge on its own.

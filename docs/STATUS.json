@@ -1,6 +1,6 @@
 {
- "updatedMs": 1788983511056,
- "wave": "REFACTOR phases 0-2 of 7 complete, plus DECISIONS #62 (manual, paid-for evolution) on top at the user's request. Awaiting the user's validation of the evolve system before phase 3.",
+ "updatedMs": 1788985256469,
+ "wave": "REFACTOR phases 0-3 of 7 complete (DECISIONS #61-#65). A hunt is now a closed loop walked past fixed spawn slots. The encounter trigger has NOT moved yet — that is phase 4.",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
@@ -428,9 +428,9 @@
    "pass": false
   },
   "hunts": {
-   "round": 7,
+   "round": 6,
    "score": 6,
-   "status": "round 7 done: the coast 'fringe restore' was investigated, measured and REFUSED with evidence (the -39% was round 5's misplaced fringe being removed, not a feature), and both biomes that have never won a blind pair got a motivated practical — a camp fire in the forest clearing and one on the meadow's brook bank, plus the daylight half of the same light as an albedo pool, because environment holds look.lamps at 0 all day. NOT re-critiqued; the score below is still the last blind round's.",
+   "status": "round 6: the loop and the slots (DECISIONS #65). Not re-scored — no critic has run since r3 6.",
    "errors": 0,
    "measured": {
     "at": "1920x1080 in docs/progress/hunts/r7/final/ and docs/progress/hunts/r7/ab/, plus 1280x720 through tools/shots/regress.js",
@@ -490,28 +490,19 @@
     "THE FIRE IS 4% OF THE FRAME AND THE OTHER 96% IS UNCHANGED. Warm (fire-lit) pixels: forest/21 62,233 px = 4.32%; meadow/21 60,375 px = 4.19%. The rest of both night frames is the same flat unlit wash the earlier critics named. Two biomes got a light; coast and cave got nothing this round and still have no motivated source at any hour.",
     "THE FOREST FIRE IS CLIPPED AT THE FRAME EDGE IN THE MODULE'S OWN 'route' FRAMING. forest-route-21.png: the camp is jammed against the left border, half out of shot, with the trail reduced to a sliver. NOT scored as a goalpost move — DECISIONS #g records that plan.json shot preset:'route' when no biome defined one, so the blind pairs genuinely fell back to 'clearing' with presetApplied:false, and #53f records plan.json being disturbed by another agent's git stash. The builder's 'the framing both blind pairs are shot on' is honest. But the composition is one preset away from falling apart.",
     "CAVE FLOOR CHECKERBOARD, UNTOUCHED AND HUNTS-OWNED. cave-12.png x 700-1300, y 180-450: alternating light/dark tile-sized rectangles in a regular checker. tiles' STATUS already attributes this to hunts (bw2-cave's two floor sheets are mean luminance 103 and 55 — a 2x step between two models laid in one field; it is a palette choice in src/hunts/biomes/cave.js). Still there.",
-    "FLOWERS ARE LAID ON A MACHINE LATTICE IN EVERY BIOME. Autocorrelation of the forest's right-hand bed: column spacing peak at lag 12 px (strength 0.56), row spacing at lag 24 and 48 px (0.41, 0.30). Visible unaided as dead-regular diagonal rows in forest-8, forest-12, forest-17.5, forest-route-21 and coast-12. docs/refs/01 has organic clumps.",
-    "THE MEADOW'S MAIN ROAD IS A STAIRCASE OF HARD RECTANGLES. m12-road3x.png: six-plus one-cell tan bands with dead-straight boundaries; the road's right edge terminates against grass as a raw rectangle with no autotile fringe; the T-junction with the horizontal lane is an untreated overlap; and a faint tan decal motif repeats on a perfect 3-across grid down the surface. Largest surface in the frame.",
-    "THE COAST'S MEANDER CORNERS HAVE RAW UNFRINGED FACES. Visible in r6-strand-3x.png as a hard vertical tan/green edge with zero transition, and across the shoreline of coast-12.png as a staircase of bare rectangles. The builder concedes 222 px of short faces are lost and blames the exporter's V negation. OWNER: tools/assets (standing coreRequest) for the fix; hunts owns the fact that the shoreline currently reads as a staircase.",
-    "MEADOW AND COAST DAY FRAMES HAVE NO LIGHT SHAPE AT ALL. meadow-12 and coast-12 are uniform flat noon green with no shadow shapes beyond sprite contact blobs. docs/refs/01 is defined by large raking canopy-shadow shapes on the grass — that is what makes its sunlight legible. These frames have no focal point and no direction.",
-    "THE FOREST CAMP READS AS DEBRIS AT DAY, NOT AS A CAMP. f12-ring8x.png: a dark box with an orange sliver, one grey stone (not a ring), and several hard-edged black polygons that do not read as log silhouettes. forest.js:1011 asserts 'a fire ring reads as a fire ring at every hour, including the two daylight' — at 8x it does not. Both camp pads also have hard rectangular stepped edges with no autotile fringe on at least one side."
+    "[HUNTS] THE LOOP IS A RECTANGLE and it reads as one. It is closed, verified and camera-safe, which is what phase 3 needed — but a circuit that turns four square corners does not read as a trail through a wood. A meander that still closes is the next thing worth doing here.",
+    "[HUNTS] The circuit ignores the composed PATH. Every biome lays a readable trail and the loop is found on passability alone, so the party often walks the grass beside the road rather than the road. Preferring `path`-tagged cells in findLoop is a small change and a big improvement.",
+    "[HUNTS] `biome.walk` (the old e16/n2 staging routes) is still there and is now only used by the showcase. Two ideas of \"where the party goes\" in one file.",
+    "[HUNTS] requiredLevel is authored and enforced by nobody until phase 7."
    ],
    "lastShots": [
-    "docs/progress/hunts/r7/final/forest-11.png",
-    "docs/progress/hunts/r7/final/forest-21.png",
-    "docs/progress/hunts/r7/final/meadow-11.png",
-    "docs/progress/hunts/r7/final/meadow-21.png",
-    "docs/progress/hunts/r7/final/forest-12.png",
-    "docs/progress/hunts/r7/final/forest-17.5.png",
-    "docs/progress/hunts/r7/final/meadow-12.png",
-    "docs/progress/hunts/r7/final/meadow-17.5.png",
-    "docs/progress/hunts/r7/final/coast-12.png",
-    "docs/progress/hunts/r7/final/cave-12.png",
-    "docs/progress/hunts/r7/final/boot-12.png",
-    "docs/progress/hunts/r7/ab/r5-strand-3x.png",
-    "docs/progress/hunts/r7/ab/r6-strand-3x.png"
+    "docs/progress/hunts/r6/forest_12.png",
+    "docs/progress/hunts/r6/meadow_12.png",
+    "docs/progress/hunts/r6/cave_12.png",
+    "docs/progress/hunts/r6/coast_12.png"
    ],
-   "pass": false
+   "pass": false,
+   "selftest": "353/353"
   },
   "props": {
    "round": 1,
@@ -1151,7 +1142,7 @@
   "honestSummary": "No module passes the 8.5 bar and no critic passes. The game is real and runs clean — a populated town with authored buildings and lamps, four biomes, a walking party, an idle system proven to accrue in a backgrounded tab, 1253 Gen 1-9 species with sprites, and a UI you can play through — but it is scored at roughly 7/10 against Gamma Emerald, not 8.5, and blind judges pick the reference 5 times out of 7."
  },
  "refactor": {
-  "decision": "61 + 62 + 63 + 64",
+  "decision": "61 + 62 + 63 + 64 + 65",
   "plan": "a hunt is a closed loop past fixed spawn slots; proximity starts a real turn-based battle; a defeated wild is thrown at with a per-species pity floor; money is earned by selling, never accrued; and evolution is a button that costs a level plus a pile of drops",
   "phases": [
    {
@@ -1175,13 +1166,13 @@
    {
     "n": 3,
     "name": "hunts loop + slots",
-    "state": "next",
+    "state": "done",
     "delivers": "closed loops, slots, requiredLevel; simulation autopilot:'route', strict, pause(), makeTether"
    },
    {
     "n": 4,
     "name": "the switchover",
-    "state": "todo",
+    "state": "next",
     "delivers": "proximity trigger, slot NPC becomes the combatant, battle.resolve replaces resolveBattle, automation onto battle:ended"
    },
    {
@@ -1288,6 +1279,21 @@
     "docs/progress/pokemon/r3/evolution-burst.png",
     "docs/progress/pokemon/r3/evolution-reveal.png"
    ]
+  },
+  "phase3Measured": {
+   "delivers": "compose.findLoop + compose.slotsForLoop; simulation autopilot:\"route\" with strict routes, makeTether and pause(); hunts derives a circuit per biome, stands its wildlife on tethered slots, and audits the loop on every enter(); requiredLevel authored per biome",
+   "derivedNotAuthored": "The circuit is FOUND on the finished draft, not written as a route string. A route is relative directions with no idea where it is, makeScriptedRoute skips a blocked step, and a route authored against a composed map is correct only until the composition changes — which it does every round. Rectangle perimeters, largest first, anchored on the biome own markers.",
+   "loops": "forest 6x22 (52 cells) · meadow 6x17 (42) · cave 9x15 (44) · coast 14x22 (68). Nine slots each. All four audits clean.",
+   "coverage": "100% of every loop covered with ZERO ticks off it, over ten laps per biome.",
+   "requiredLevel": "meadow 0, forest 5, coast 12, cave 20 — authored in the biome because what a destination is stays with the scene that owns it. NOTHING ENFORCES IT YET; the gate is phase 7.",
+   "selftest": "hunts 353/353 (nine new: a loop is found around a pillar, every step passable, it CLOSES, one step per perimeter cell, it goes around the pillar not through it, slots exactly two cells off, no shared cells, all standable, and a solid map reports null). simulation 34/34.",
+   "captures": "docs/progress/hunts/r6 — four biomes x two times of day, 0 console errors and 0 hunt warnings in all eight.",
+   "threeBugsFoundByMeasuring": [
+    "The cave had NO LOOP and came up autopilot:\"still\" — a hunt that does not hunt. The search only tried the showcase marker, and a cave is a system of galleries. Every marker gets a turn now and the cave gets a 9x15 circuit.",
+    "The first meadow capture had A THIRD OF THE SCREEN IN FLAT SKY: the camera follows the trainer and the trainer is ON the loop, so a circuit near a border walks the frame off the end of the world. margin 11 = the camera half-width plus a tile. Closest loop cell to an edge is now 11 (cave, coast), 18 (forest), 19 (meadow).",
+    "THE ROUTE BELONGS TO THE HEAD AND placePlayer PLACES THE TRAINER. placePlayer lays the lead Pokemon `gap` cells ahead, and in a hunt the Pokemon is the head — so teleporting to loop.start put the route-walker two cells past the corner, off the circuit. It measured as 22 of a 58-cell loop covered in 84 tiles of walking, with audit() reporting the loop clean the whole time BECAUSE THE LOOP WAS CLEAN — nobody was standing on it. The trainer starts on cells[0] and the route is rotated by gap."
+   ],
+   "gateIsBlindHere": "node tools/shots/regress.js reports 0 improved / 0 regressed / 0 moved — and SEVEN hunts PNGs changed on disk. Measured against HEAD: forest 4.47% of pixels differ by >6 (max channel delta 225), cave 5.06% (224), coast 1.77% (186), meadow 1.73% (201). The wildlife moved from a scenery scatter onto slots and the party walks a circuit; the gate measures fps, draw calls and luminance statistics, and none of those moved. This is the same blindness tiles r5 recorded: it is composition, not luminance. The eight r6 captures are the evidence, not the gate."
   }
  }
 }

@@ -36,7 +36,7 @@ import { SOUTH } from '../core/dir.js';
 import { Line } from './line.js';
 import { Cast } from './cast.js';
 import { makeSurface } from './surface.js';
-import { makeScriptedRoute, makeWander, STILL } from './route.js';
+import { makeScriptedRoute, makeWander, makeTether, STILL } from './route.js';
 
 /** The registry's null object answers every property with a function — this is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -116,6 +116,7 @@ export default {
     let formation = { head: 'pokemon', input: true, autopilot: 'none', preferTags: ['path'], label: 'simulation/wander' };
     let intent = null;
     let frozen = false;
+    let paused = false;
     let placed = false;
     /**
      * A whole-cell nudge added to the camera's focus, for a staged frame only.
@@ -271,7 +272,11 @@ export default {
       if (line.advance(dt)) announce();
       if (!line.moving) {
         const head = line.pose(0, 0);
-        const cmd = intent ?? route.next(head, world);
+        // `paused` gates only the AUTOPILOT: a paused party finishes the tile it is on (the
+        // `advance` above) and then stands, and a deliberate `moveIntent` still works, because
+        // pausing is what a battle does and not what a cutscene does. The route keeps its
+        // index, which is the whole difference between this and `halt()`.
+        const cmd = intent ?? (paused ? null : route.next(head, world));
         intent = null;
         if (cmd) line.step(cmd.dir, stepOptions());
       }
@@ -367,25 +372,58 @@ export default {
        * they place the player, because `placePlayer` lays the queue out against `head`.
        */
       setFormation(next = {}) {
+        const kind = next.autopilot === 'wander' || next.autopilot === 'route' ? next.autopilot : 'none';
         formation = {
           head: next.head === 'trainer' ? 'trainer' : 'pokemon',
           input: next.input !== false,
-          autopilot: next.autopilot === 'wander' ? 'wander' : 'none',
+          autopilot: kind,
+          route: typeof next.route === 'string' || Array.isArray(next.route) ? next.route : null,
+          strict: next.strict !== false,
           preferTags: Array.isArray(next.preferTags) ? [...next.preferTags] : ['path'],
           label: next.label ?? 'simulation/wander',
         };
         intent = null;
+        paused = false;
         // A showcase always starts still and stages its own walk, and `?autowalk=0` pins a
         // frame — both guards are the ones the boot-time wander used to carry.
         const asked = params.get('autowalk');
-        const auto = !config.showcase && asked !== '0' && asked !== 'false' && formation.autopilot === 'wander';
-        // Forked per scene, so the forest and the meadow are different strolls and each one
-        // is reproducible from its own stream rather than from wherever the shared one got to.
-        route = auto ? makeWander(ctx.rng.fork(formation.label), { preferTags: formation.preferTags }) : STILL;
+        const auto = !config.showcase && asked !== '0' && asked !== 'false' && kind !== 'none';
+
+        if (!auto) route = STILL;
+        else if (kind === 'route' && formation.route) {
+          // A hunt walks a CLOSED CIRCUIT (§5.14), forever, and it is `strict` unless told
+          // otherwise: a blocked step stalls where the player can see it rather than skipping
+          // to the next heading and quietly walking the party off its own loop.
+          route = makeScriptedRoute(formation.route, {
+            loop: true,
+            strict: formation.strict,
+            onStall: ({ cx, cz, dir, index }) => log.warn(
+              `simulation: the route stalled at (${cx},${cz}) facing ${dir}, step ${index} — `
+              + 'the loop is blocked on the shipped map'),
+          });
+        } else if (kind === 'route') {
+          log.warn("simulation: autopilot 'route' with no route spec — standing still");
+          route = STILL;
+        } else {
+          // Forked per scene, so the forest and the meadow are different strolls and each one
+          // is reproducible from its own stream rather than from wherever the shared one got to.
+          route = makeWander(ctx.rng.fork(formation.label), { preferTags: formation.preferTags });
+        }
         if (placed) { rebuildMembers(); restage(); renderPose(0); }
         return api;
       },
       formation: () => ({ ...formation, preferTags: [...formation.preferTags] }),
+
+      /**
+       * Stops the party where it stands, **keeping the route's place in its loop**.
+       *
+       * Three ways to stop and they are not interchangeable (§5.4): `halt()` replaces the
+       * route object and therefore loses a scripted route's index; `freeze()` is the
+       * screenshot tool and also stops every NPC and the idle animation; this one is for a
+       * battle, which has to hand the walk back exactly where it took it.
+       */
+      pause(on = true) { paused = !!on; return api; },
+      paused: () => paused,
 
       /**
        * The active Pokemon, wherever it is standing — in front of the trainer in a hunt,
@@ -425,10 +463,13 @@ export default {
           line: l,
           spec: { trainer: spec.trainer, species: spec.species, shiny: spec.shiny, name: spec.name },
           who: spec.trainer ?? null,
-          route: spec.route === 'wander' || (!spec.route && spec.wander)
-            ? makeWander(rng, { preferTags: spec.preferTags ?? ['path'] })
-            : spec.route ? makeScriptedRoute(spec.route, { loop: spec.loop !== false })
-              : STILL,
+          route: spec.tether
+            // A wild on a spawn slot drifts one tile and no further (§5.14).
+            ? makeTether(rng, spec.tether)
+            : spec.route === 'wander' || (!spec.route && spec.wander)
+              ? makeWander(rng, { preferTags: spec.preferTags ?? ['path'] })
+              : spec.route ? makeScriptedRoute(spec.route, { loop: spec.loop !== false })
+                : STILL,
         };
         npcs.push(npc);
         npcOffset = members.length;

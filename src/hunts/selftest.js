@@ -33,8 +33,7 @@
  */
 
 import {
-  Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff, mulTint, litAt,
-} from './compose.js';
+  Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff, mulTint, litAt, findLoop, slotsForLoop } from './compose.js';
 import { makeRng } from '../core/rng.js';
 import terrainModule from '../terrain/index.js';
 import { BIOMES } from './index.js';
@@ -616,6 +615,64 @@ function floodFrom(draft, cx, cz) {
     }
   }
   return n;
+}
+
+// ---------------------------------------------------------------------------
+// The loop and its slots (DECISIONS #65)
+// ---------------------------------------------------------------------------
+// `findLoop` and `slotsForLoop` are pure functions of a draft, so unlike everything above
+// them they mean exactly the same thing here as they do on the shipped map. What they are
+// asked about the SHIPPED map is `hunts.audit()`'s job, at runtime, on every enter().
+{
+  // A hand-built room: a 24x20 walkable floor with a pillar in the middle of it.
+  const room = new MapDraft({ id: 'loop-test', w: 24, h: 20, seed: 1 });
+  for (let z = 1; z < 19; z++) for (let x = 1; x < 23; x++) room.setCollision(x, z, 'walk');
+  for (let z = 8; z < 12; z++) for (let x = 10; x < 14; x++) room.setCollision(x, z, 'block');
+
+  // `margin` is a CAMERA constraint (the frame must not see past the map edge), and this room
+  // is a 24x20 fixture with no camera in it — the shipped default of 11 leaves nothing to
+  // search. The geometry under test is the perimeter, not the framing.
+  const loop = findLoop(room, { cx: 12, cz: 10 }, { min: 6, max: 18, margin: 1 });
+  check('a loop is found in an open room', !!loop, loop ? `${loop.w}x${loop.h}` : 'none');
+  if (loop) {
+    // Walk it, exactly as `audit()` does on the real draft.
+    let cx = loop.start.cx; let cz = loop.start.cz; let blocked = 0;
+    const DX = [0, -1, 0, 1]; const DZ = [1, 0, -1, 0];
+    const L = { s: 0, w: 1, n: 2, e: 3 };
+    const dirs = [];
+    for (const m of loop.route.matchAll(/([nsew])\s*(\d*)/g)) {
+      const n = m[2] ? parseInt(m[2], 10) : 1;
+      for (let i = 0; i < n; i++) dirs.push(L[m[1]]);
+    }
+    for (const d of dirs) {
+      const nx = cx + DX[d]; const nz = cz + DZ[d];
+      if (!room.passable(nx, nz, d)) blocked++;
+      cx = nx; cz = nz;
+    }
+    check('every step of the loop is passable', blocked === 0, `${blocked} blocked`);
+    check('the loop CLOSES', cx === loop.start.cx && cz === loop.start.cz,
+      `ends ${cx},${cz} want ${loop.start.cx},${loop.start.cz}`);
+    check('the route has one step per perimeter cell', dirs.length === loop.cells.length,
+      `${dirs.length} steps, ${loop.cells.length} cells`);
+    check('the loop steps around the pillar, not through it',
+      !loop.cells.some((c) => c.cx >= 10 && c.cx < 14 && c.cz >= 8 && c.cz < 12));
+
+    const slots = slotsForLoop(room, loop.cells, makeRng(1, 'slots'), { count: 8 });
+    check('slots are placed', slots.length > 0, `${slots.length}`);
+    // The arithmetic the encounter trigger rests on: tether 1 + trigger 1 = contact at 2.
+    const dist = (s2) => Math.min(...loop.cells.map((c) => Math.max(Math.abs(c.cx - s2.cx), Math.abs(c.cz - s2.cz))));
+    check('every slot is EXACTLY two cells off the path',
+      slots.every((s2) => dist(s2) === 2),
+      slots.map(dist).join(','));
+    check('no two slots share a cell',
+      new Set(slots.map((s2) => `${s2.cx},${s2.cz}`)).size === slots.length);
+    check('every slot is somewhere a creature can stand',
+      slots.every((s2) => room.passable(s2.cx, s2.cz, 0)));
+  }
+
+  // A map with nowhere to walk must say so rather than inventing a circuit.
+  const solid = new MapDraft({ id: 'solid', w: 20, h: 20, seed: 1 });
+  check('a map with no walkable ring reports no loop', findLoop(solid, { cx: 10, cz: 10 }, { margin: 1 }) === null);
 }
 
 const total = passed + failed;

@@ -11,6 +11,21 @@
  */
 
 import { makePalette, isLive } from './palette.js';
+import { findLoop, slotsForLoop } from './compose.js';
+
+/** `core/dir.js`'s deltas, for walking a route string back over the draft in `audit()`. */
+const LOOP_DX = [0, -1, 0, 1];
+const LOOP_DZ = [1, 0, -1, 0];
+const LOOP_LETTER = { s: 0, w: 1, n: 2, e: 3 };
+/** The same expansion `simulation/route.js` does, kept here so `audit` needs no cross-import. */
+const parseLoop = (spec) => {
+  const out = [];
+  for (const m of String(spec ?? '').toLowerCase().matchAll(/([nsew])\s*(\d*)/g)) {
+    const n = m[2] ? parseInt(m[2], 10) : 1;
+    for (let i = 0; i < n; i++) out.push(LOOP_LETTER[m[1]]);
+  }
+  return out;
+};
 import { FOREST, buildForest } from './biomes/forest.js';
 import { MEADOW, buildMeadow } from './biomes/meadow.js';
 import { CAVE, buildCave } from './biomes/cave.js';
@@ -54,9 +69,21 @@ const DEFAULT_WALK = { route: 'e12', tiles: 3, subTicks: 7, dir: 3 };
  * A biome may override any of it with a `formation` field of its own; none needs to today.
  */
 const HUNT_FORMATION = {
-  head: 'pokemon', input: false, autopilot: 'wander',
+  head: 'pokemon', input: false, autopilot: 'route', strict: true,
   preferTags: ['tallgrass', 'encounter', 'path'],
 };
+
+/**
+ * How much of the map a circuit may take, and how many creatures stand beside it.
+ *
+ * The loop is not authored — it is FOUND on the draft that was actually built (`findLoop`),
+ * because a route string is a list of relative directions with no idea where it is, and one
+ * authored against a map stays correct only until the composition changes. It changes every
+ * round.
+ */
+const LOOP = { min: 6, max: 22, margin: 11 };
+/** Slots per lap. `WILD_CAP` is the ceiling; a lap wants encounters, not a wall of them. */
+const SLOTS = 9;
 
 /** How many wild Pokemon a biome stands up, and how they are chosen. */
 const WILD_CAP = 11;          // MAX_NPCS is 32 and `city` uses a dozen of them
@@ -143,7 +170,14 @@ export default {
       const pokemon = ctx.get('pokemon');
       if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
       if (!isLive(pokemon) || typeof pokemon.species !== 'function') return 0;
-      const cells = built.get(biome.id)?.wild ?? [];
+      // The SLOTS, not `wildCells`' scenery scatter. A slot is a fixed respawn point two
+      // cells off the circuit (§5.14) and the creature on it drifts one tile around it, so the
+      // party meets the same wildlife in the same places on every lap — which is what makes a
+      // hunt a route rather than a lucky dip. Falls back to the old scatter when a map could
+      // not be given a loop, so a biome with no circuit still has animals in it.
+      const cells = built.get(biome.id)?.slots?.length
+        ? built.get(biome.id).slots
+        : (built.get(biome.id)?.wild ?? []);
       if (!cells.length) return 0;
 
       const env = ctx.get('environment');
@@ -182,9 +216,12 @@ export default {
       for (const p of picked) {
         const npc = sim.spawnNpc({
           species: p.species, shiny: p.shiny, cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
-          // Named, because `simulation` forks its wander stream off the name: an unnamed NPC
-          // keys off an incrementing id, so adding one more would reshuffle the walk of every
-          // creature already on the map.
+          // One tile of drift around the slot and no further: far enough that the wood is
+          // alive, near enough that the slot is still where the player learned it was.
+          tether: { cx: p.cx, cz: p.cz, radius: 1 },
+          // Named, because `simulation` forks its stream off the name: an unnamed NPC keys off
+          // an incrementing id, so adding one more would reshuffle the walk of every creature
+          // already on the map.
           name: `wild/${biome.id}/${p.cx},${p.cz}`,
         });
         if (npc) wildIds.push(npc.id);
@@ -200,7 +237,27 @@ export default {
         const palette = makePalette(tiles, draft.tileset, log);
         const rng = c.rng.fork(`hunts/${biome.id}/${draft.seed}`);
         const report = biome.build(draft, c, palette, rng, log) ?? {};
-        built.set(biome.id, { ...report, missing: palette.missing() });
+
+        // The circuit and its slots are computed HERE, against the finished draft, because
+        // this is the only place that has one. `showcaseDefault`'s marker is the biome's own
+        // idea of where the good ground is, so the loop is grown around that.
+        // Every marker the biome placed, its own favourite first, then the spawn. A cave is a
+        // system of galleries and searching only around the showcase marker found nothing.
+        const preferred = biome.presets?.[biome.showcaseDefault]?.marker;
+        const anchors = [...draft.markers.entries()]
+          .sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0))
+          .map(([, m]) => m);
+        anchors.push(draft.spawn);
+        const loop = findLoop(draft, anchors, LOOP);
+        const slots = loop
+          ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
+            { count: SLOTS })
+          : [];
+        if (!loop) {
+          log.warn(`hunts/${biome.id}: no closed circuit fits this map between `
+            + `${LOOP.min} and ${LOOP.max} cells — the party will stand still`);
+        }
+        built.set(biome.id, { ...report, loop, slots, missing: palette.missing() });
       });
     }
 
@@ -273,6 +330,13 @@ export default {
         id: b.id, name: b.name, preset: b.preset, tileset: b.tileset,
         w: b.w, h: b.h, presets: Object.keys(b.presets ?? {}),
         formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
+        requiredLevel: b.requiredLevel ?? 0,
+        // Only known once the map has been built — a biome that has never been entered
+        // reports null rather than a guess.
+        loop: built.get(b.id)?.loop
+          ? { route: built.get(b.id).loop.route, w: built.get(b.id).loop.w, h: built.get(b.id).loop.h }
+          : null,
+        slots: built.get(b.id)?.slots?.length ?? 0,
       })),
 
       current: () => currentId,
@@ -280,6 +344,7 @@ export default {
         const b = byId(id);
         return {
           id: b.id, name: b.name, preset: b.preset, tileset: b.tileset, w: b.w, h: b.h,
+          requiredLevel: b.requiredLevel ?? 0,
           formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
         };
       },
@@ -339,11 +404,38 @@ export default {
           // `formation.head`, and it installs this biome's own wander in place of whatever
           // the last scene was walking. `stage()` still wins, because it sets its scripted
           // route after `enter()` has returned.
+          const loop = built.get(biome.id)?.loop ?? null;
+
+          /**
+           * **The route belongs to the HEAD, and `placePlayer` places the TRAINER.**
+           *
+           * `placePlayer(cx, cz, dir)` stands the trainer on that cell and lays the lead
+           * Pokemon `gap` cells ahead of it — and in a hunt the Pokemon is the head (§5.4), so
+           * teleporting to `loop.start` puts the walker that follows the route two cells PAST
+           * the corner, off the circuit entirely. It then walked the first leg from the wrong
+           * place, ran into the rectangle's own side and stalled: measured as 22 of a 58-cell
+           * loop covered in 84 tiles of walking, with `audit` reporting the loop clean the
+           * whole time, because the loop WAS clean — nobody was standing on it.
+           *
+           * So the trainer starts on `cells[0]`, which puts the head on `cells[gap]`, and the
+           * route is rotated by `gap` so its first step is the one that cell is due to take.
+           * `parseRoute` accepts an array, so the rotation needs no new syntax.
+           */
+          const gap = typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
+          const dirs = loop ? parseLoop(loop.route) : [];
+          const rotated = dirs.length > gap ? [...dirs.slice(gap), ...dirs.slice(0, gap)] : dirs;
+
           sim.setFormation?.({
             ...HUNT_FORMATION, ...(biome.formation ?? {}),
+            // No circuit means no route, and `setFormation` falls back to standing still
+            // rather than to a wander — a hunt that cannot walk its loop should look broken,
+            // not look like a different game.
+            autopilot: loop ? 'route' : 'none',
+            route: loop ? rotated : null,
             label: `simulation/wander/hunt-${biome.id}`,
           });
-          sim.teleport(spawn.cx, spawn.cz, spawn.dir ?? 2);
+          const at = loop?.start ?? spawn;
+          sim.teleport(at.cx, at.cz, loop ? dirs[0] : (spawn.dir ?? 2));
         } else {
           ctx.three.rig?.setFocus?.(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
         }
@@ -452,11 +544,64 @@ export default {
             fails.push({ preset: name, at: `${m.cx},${m.cz}`, span: span.join(''), why: 'lane' });
           }
         }
+        // --- the loop, walked ----------------------------------------------
+        // This is the assertion the Node selftest cannot make: it builds a DIFFERENT map from
+        // a different stream against a stub tileset, and once shipped 279/279 green over three
+        // broken framings (see the head of `selftest.js`). The circuit has to be walked on the
+        // draft the player is standing on, on every entry, so it cannot go stale.
+        const loop = built.get(biome.id)?.loop ?? null;
+        if (!loop) {
+          fails.push({ preset: 'loop', why: 'no closed circuit was found for this map' });
+        } else {
+          checked++;
+          let cx = loop.start.cx;
+          let cz = loop.start.cz;
+          let blocked = 0;
+          for (const dir of parseLoop(loop.route)) {
+            const nx = cx + LOOP_DX[dir];
+            const nz = cz + LOOP_DZ[dir];
+            if (!draft.passable(nx, nz, dir)) blocked++;
+            cx = nx; cz = nz;
+          }
+          if (blocked) fails.push({ preset: 'loop', at: `${loop.start.cx},${loop.start.cz}`, why: `${blocked} blocked step(s)` });
+          // **It has to come home.** A route that does not close is not a loop, and the party
+          // would walk it once and then spend the rest of the session somewhere else.
+          if (cx !== loop.start.cx || cz !== loop.start.cz) {
+            fails.push({ preset: 'loop', why: `does not close — ends at ${cx},${cz} not ${loop.start.cx},${loop.start.cz}` });
+          }
+        }
+
+        // --- the slots, measured -------------------------------------------
+        // Distance EXACTLY 2 is the arithmetic the encounter trigger rests on (§5.14): a
+        // tether of 1 plus a trigger of 1. A slot at 1 puts the party permanently in a battle
+        // and a slot at 3 is never met.
+        const slots = built.get(biome.id)?.slots ?? [];
+        if (loop && slots.length) {
+          checked++;
+          const d = (s2) => Math.min(...loop.cells.map((c) => Math.max(Math.abs(c.cx - s2.cx), Math.abs(c.cz - s2.cz))));
+          const wrong = slots.filter((s2) => d(s2) !== 2);
+          if (wrong.length) {
+            fails.push({ preset: 'slots', why: `${wrong.length} of ${slots.length} are not 2 cells off the path` });
+          }
+        }
+
         for (const f of fails) {
           log.warn(`hunts/${biome.id}: preset "${f.preset}" ${f.why} `
-            + `${f.at ? `at ${f.at} — cx-5..cx+8 is ${f.span}` : ''}`);
+            + `${f.at ? `at ${f.at} — cx-5..cx+8 is ${f.span ?? '-'}` : ''}`);
         }
         return { ok: !fails.length, checked, fails };
+      },
+
+      /** The circuit this biome is played on: `{ start, route, cells, w, h }` or `null`. */
+      loop: (id = currentId) => {
+        const l = built.get(id ?? 'forest')?.loop ?? null;
+        return l ? { start: { ...l.start }, route: l.route, w: l.w, h: l.h, cells: l.cells.map((c) => ({ ...c })) } : null;
+      },
+
+      /** The fixed respawn points on it, with whatever is standing on each right now. */
+      slots: (id = currentId) => {
+        const list = built.get(id ?? 'forest')?.slots ?? [];
+        return list.map((s2, k) => ({ k, cx: s2.cx, cz: s2.cz, dir: s2.dir ?? 0 }));
       },
     };
     return api;

@@ -29,6 +29,13 @@ export const COAST = {
   alsoLoad: ['props'],
   w: 66,
   h: 54,
+  /**
+   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   *
+   * Authored HERE and not in `travel`, because what a destination *is* stays with the
+   * scene that owns it. deeper water rows and a table that starts to bite.
+   */
+  requiredLevel: 12,
   weather: null,
   presets: {
     // Three cells of camera toward the sea. The marker stands eight cells inland of

@@ -6207,3 +6207,93 @@ sprite tracks differ, or nothing is alternating). Driven live: no console errors
 sequence, the toast reads "Oshawott evolved into Dewott!", and the walking sprite is a Dewott
 afterwards. Seams green at 136 files / 17 modules. Shots:
 `docs/progress/pokemon/r3/{evolution,evolution-burst,evolution-reveal}.png`.
+
+---
+
+### 65 — 2026-09-09 — The hunt loop is found on the map, not written against it; and the route belongs to the head, which is not where `placePlayer` puts anybody
+
+Phase 3 of the refactor (DECISIONS #61): a hunt stops being a seeded stroll and becomes a
+**closed circuit walked forever, past fixed spawn slots**.
+
+**(a) The circuit is derived from the draft, and hand-authored route strings were the wrong
+idea.** Every biome already carried one — `walk: { route: 'e16 n2 e10 s2' }` — and they were
+screenshot staging, which is the only thing they could safely be. A route is a list of *relative
+directions with no idea where it is*; `makeScriptedRoute` silently skips a blocked step; and a
+route written against a composed map is correct until the composition changes, which it does
+every round. Three separate places in `hunts` already document routes drifting off their own
+path for exactly this reason.
+
+So `compose.findLoop(draft, anchors, opts)` searches the **finished draft** for a rectangle whose
+perimeter is passable the whole way round. A rectangle because its perimeter is closed by
+construction and checkable in one pass; largest-first so a biome gets the biggest circuit its
+terrain allows; anchored on the biome's own markers because those are where it thinks the good
+ground is.
+
+**Every marker gets a turn, and that was not optional.** Searching only around the showcase
+marker found nothing at all in the cave — it is a system of galleries and the marker sits in one
+of them — and the biome came up with `autopilot: 'still'`, which is a hunt that does not hunt.
+With every marker as a candidate and `min` at 6 the cave gets a 9×15 circuit.
+
+**(b) The loop must stay a camera-width clear of every edge, and the first capture is why.** The
+camera follows the trainer and the trainer is *on* the loop, so a circuit near a border walks the
+frame off the end of the world: the first meadow frame had **a third of the screen in flat sky**.
+At `ppu` 32 a 640-wide buffer sees twenty cells across and about sixteen deep, so `margin` is 11 —
+the half-width plus a tile of slack. Measured after: the closest any loop cell comes to an edge is
+11 cells (cave and coast), 18 in the forest, 19 in the meadow.
+
+**(c) The route belongs to the HEAD, and `placePlayer` places the TRAINER.** This is the one that
+looked like a working feature and was not. `placePlayer(cx, cz, dir)` stands the trainer on that
+cell and lays the lead Pokémon `gap` cells ahead of it — and in a hunt the Pokémon is the head
+(§5.4). So teleporting to `loop.start` put the walker that follows the route **two cells past the
+corner, off the circuit entirely**; it walked the first leg from the wrong place, ran into the
+rectangle's own side and stalled.
+
+It measured as **22 of a 58-cell loop covered in 84 tiles of walking** — and `audit()` reported
+the loop clean the entire time, because the loop *was* clean. Nobody was standing on it. The
+trainer starts on `cells[0]`, which puts the head on `cells[gap]`, and the route is **rotated by
+`gap`** so its first step is the one that cell is due to take. `parseRoute` already accepts an
+array, so the rotation needed no new syntax.
+
+After: **all four biomes cover 100 % of their loop with zero ticks off it**, over ten laps.
+
+**(d) `strict` routes: a stall you can see beats a drift you cannot.** `makeScriptedRoute` gains
+`strict`, which is what a hunt asks for. A blocked step now **stands still and warns once** with
+the cell, the facing and the step index, instead of falling through to the next heading and
+quietly walking the party off its own loop. The lenient branch stays for the callers that want it.
+
+**(e) The wildlife stands on the slots and stays there.** `makeTether(rng, {cx, cz, radius})` is a
+new route kind: a wild drifts **one tile, Chebyshev**, around its slot and no further — far enough
+that the wood is alive, near enough that the slot is still where the player learned it was. Mostly
+it does nothing (`idleWeight` 0.72), because eleven creatures all pacing at once reads as a
+fairground. `spawnWild` places on `slots` rather than `wildCells`' scenery scatter, and falls back
+to the scatter when a map could not be given a loop.
+
+**Distance exactly 2, and the arithmetic is the whole point:** tether 1 + trigger 1 = contact at
+2. One closer and the party is permanently in a battle; one further and a lap never meets
+anything. `audit()` measures it on the shipped map and `hunts/selftest.js` pins it on a hand-built
+room.
+
+**(f) `pause(on)` is a third way to stop, and it is not either of the other two.** `halt()`
+*replaces* the route object and therefore loses a scripted route's index; `freeze()` is the
+screenshot tool and also stops every NPC and the idle animation. `pause()` stops the party and
+**keeps the route's place in its loop**, which is what a battle needs — it has to hand the walk
+back exactly where it took it. It gates the autopilot only: a paused party finishes the tile it is
+on and a deliberate `moveIntent` still works.
+
+**(g) `requiredLevel` is authored in the biome**, not in `travel`, because what a destination *is*
+stays with the scene that owns it (`travel`'s own header says so). Meadow 0 — the softest table
+and where a new save fills a dex; forest 5 — 1.35× encounters and 1.45× experience; coast 12;
+cave 20 — Gible and Larvitar at weight 1, and 0.70× money to pay for it. Nothing enforces it yet;
+the gate is phase 7.
+
+**The encounter trigger has not moved.** It is still `player:enteredTile` on a tall-grass tag.
+Slot proximity is phase 4, and doing it here would have meant changing how the party walks and
+what it meets in the same step, with one set of frames to tell them apart.
+
+**Measured.** `hunts/selftest.js` 353/353, nine of them new: a loop is found in a room with a
+pillar in it, every step of it is passable, **it closes**, it has one step per perimeter cell, it
+goes around the pillar rather than through it, its slots are all exactly two cells off the path,
+no two share a cell, every one is standable, and a map with no walkable ring reports `null` rather
+than inventing a circuit. `simulation/selftest.js` 34/34. Live, across all four biomes: audits
+clean, 9 slots each, 100 % loop coverage, 0 ticks off-loop, **0 console errors and 0 hunt
+warnings** in all eight captures. `docs/progress/hunts/r6/`.

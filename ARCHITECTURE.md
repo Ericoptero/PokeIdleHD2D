@@ -734,26 +734,41 @@ map, not noise: readable paths, cliff walls with correct auto-tiled edges, water
 shoreline, props with purpose. Each ships a showcase. Each declares the formation it is
 played under (§5.4) and applies it inside `enter()`, before it places the player.
 
-**A hunt also authors the loop it is played on, and the slots on it.**
+**A hunt is played on a closed loop, and the loop is FOUND, not authored.**
 
 ```js
 {
-  list(),      // each entry: { id, name, …, requiredLevel, loop: { start, route }, slots }
-  slots(id),   // -> [{ k, cx, cz, occupied, npcId, species, level, shiny, respawnAt }]
-  audit(id),   // asserts every framing AND that the loop closes on the shipped draft
+  list(),      // each entry: { id, name, …, requiredLevel, loop: {route, w, h}|null, slots }
+  loop(id),    // -> { start, route, cells, w, h } | null
+  slots(id),   // -> [{ k, cx, cz, dir }]
+  audit(id),   // asserts every framing, that the loop CLOSES on the shipped draft,
+               //   and that every slot is exactly two cells off it
 }
 ```
 
-- The `route` **must return to its start cell.** `audit()` walks it once on the real draft and
-  fails if it does not, or if any step is blocked — the Node selftest cannot check this,
-  because it builds a different map from a different stream against a stub tileset
-  (`hunts/selftest.js` says so at the top, and once shipped 279/279 green over three broken
-  framings).
+- **The circuit is derived from the draft that was built** (`compose.findLoop`), not written
+  as a route string. A route is a list of relative directions with no idea where it is,
+  `makeScriptedRoute` skips a blocked step, and a route authored against a map stays correct
+  only until the composition changes — which it does every round. It is a rectangle, because a
+  rectangle's perimeter is closed by construction and checkable in one pass, and the search
+  takes the largest that fits near the biome's own markers.
+- **It must stay a camera-width clear of every edge** (`margin`, 11 cells). The camera follows
+  the trainer and the trainer is *on* the loop, so a circuit near a border walks the frame off
+  the end of the world.
+- **`audit()` walks it on the real draft, on every `enter()`**, and fails if any step is
+  blocked or if it does not come home. The Node selftest cannot check this: it builds a
+  different map from a different stream against a stub tileset (`hunts/selftest.js` says so at
+  the top, and once shipped 279/279 green over three broken framings). What the selftest *can*
+  pin is `findLoop` and `slotsForLoop` themselves, on a hand-built room.
 - **Slots sit at Chebyshev distance exactly 2 from the path.** A tethered wild moves ±1 tile
   and the trigger reaches 1 tile, so 2 is contact — no closer, or the party is permanently in
   a battle, and no further, or a lap never meets anything.
+- **The route is rotated by `config.followerGapTiles` before it is handed over.**
+  `placePlayer` places the *trainer* and lays the lead Pokémon `gap` cells ahead — and in a
+  hunt the Pokémon is the head, so starting the trainer on the loop's first cell puts the
+  walker that follows the route two cells past the corner, off the circuit.
 - `requiredLevel` is authored **here**, not in `travel`: what a destination *is* stays with the
-  scene that owns it.
+  scene that owns it. Meadow 0, forest 5, coast 12, cave 20.
 
 ### 5.16 `travel` — where the player is
 `needs: ['terrain']`

@@ -29,6 +29,13 @@ export const CAVE = {
   tileset: 'bw2-cave',
   w: 56,
   h: 54,
+  /**
+   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   *
+   * Authored HERE and not in `travel`, because what a destination *is* stays with the
+   * scene that owns it. the hardest table: Gible and Larvitar at weight 1, and 0.70x money to pay for it.
+   */
+  requiredLevel: 20,
   weather: null,
   presets: {
     chamber: { marker: 'chamber', ppu: 32 },

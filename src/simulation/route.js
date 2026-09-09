@@ -40,24 +40,80 @@ export function parseRoute(spec) {
  * @param {string|number[]} spec
  * @param {{loop?:boolean}} [opts]
  */
-export function makeScriptedRoute(spec, { loop = true } = {}) {
+export function makeScriptedRoute(spec, { loop = true, strict = false, onStall } = {}) {
   const dirs = parseRoute(spec);
   let i = 0;
+  let stalled = false;
   return {
     kind: 'route',
     length: dirs.length,
-    reset() { i = 0; },
+    get index() { return i; },
+    get stalled() { return stalled; },
+    reset() { i = 0; stalled = false; },
     next(head, world) {
       if (!dirs.length) return null;
-      for (let tries = 0; tries < dirs.length; tries++) {
-        if (i >= dirs.length) {
-          if (!loop) return null;
-          i = 0;
-        }
-        const dir = dirs[i++];
-        if (world.passable(head.cx + DIR_DX[dir], head.cz + DIR_DZ[dir], dir)) return { dir };
+      if (i >= dirs.length) { if (!loop) return null; i = 0; }
+      const dir = dirs[i];
+
+      if (world.passable(head.cx + DIR_DX[dir], head.cz + DIR_DZ[dir], dir)) {
+        i++;
+        stalled = false;
+        return { dir };
+      }
+
+      // **A stall you can see beats a drift you cannot.** The lenient branch below skips a
+      // blocked step and carries on with the next heading — which silently walks a route off
+      // its own path, and is a defect three separate places in `hunts` have had to document
+      // (`compose.js`, `hunts/selftest.js`). A hunt's loop must close, so it asks for `strict`
+      // and stands still instead, once, loudly (DECISIONS #65).
+      if (strict) {
+        if (!stalled) { stalled = true; onStall?.({ cx: head.cx, cz: head.cz, dir, index: i }); }
+        return null;
+      }
+
+      for (let tries = 1; tries < dirs.length; tries++) {
+        if (i >= dirs.length) { if (!loop) return null; i = 0; }
+        const d = dirs[i++];
+        if (world.passable(head.cx + DIR_DX[d], head.cz + DIR_DZ[d], d)) return { dir: d };
       }
       return null;
+    },
+  };
+}
+
+/**
+ * A wild Pokemon that stays where it was put.
+ *
+ * A spawn slot is a fixed cell (§5.14) and the creature standing on it may drift **one tile**
+ * around it and no further — far enough that the map is alive, near enough that the slot is
+ * still where the player learned it was. Chebyshev, not Manhattan, so a diagonal drift is
+ * inside the box rather than being two steps out of it.
+ *
+ * Mostly it does nothing: `idleWeight` is the chance of standing still on any given decision,
+ * and it is high, because eleven creatures all pacing at once reads as a fairground rather
+ * than as a wood.
+ *
+ * @param {{next:() => number}} rng  a `ctx.rng.fork(label)` stream
+ * @param {{cx:number, cz:number, radius?:number, idleWeight?:number}} anchor
+ */
+export function makeTether(rng, { cx, cz, radius = 1, idleWeight = 0.72 } = {}) {
+  const inside = (x, z) => Math.max(Math.abs(x - cx), Math.abs(z - cz)) <= radius;
+  return {
+    kind: 'tether',
+    anchor: { cx, cz, radius },
+    reset() {},
+    next(head, world) {
+      if (rng.next() < idleWeight) return null;
+      const options = [];
+      for (let dir = 0; dir < 4; dir++) {
+        const nx = head.cx + DIR_DX[dir];
+        const nz = head.cz + DIR_DZ[dir];
+        if (!inside(nx, nz)) continue;
+        if (!world.passable(nx, nz, dir)) continue;
+        options.push(dir);
+      }
+      if (!options.length) return null;
+      return { dir: options[Math.floor(rng.next() * options.length)] };
     },
   };
 }

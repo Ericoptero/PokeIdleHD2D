@@ -61,6 +61,13 @@ export const MEADOW = {
   tileset: 'bw2-adastra',
   w: 64,
   h: 60,
+  /**
+   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   *
+   * Authored HERE and not in `travel`, because what a destination *is* stays with the
+   * scene that owns it. the softest table in the game and the first place a new save fills a dex.
+   */
+  requiredLevel: 0,
   weather: null,
   presets: {
     brook: { marker: 'brook', ppu: 32 },
