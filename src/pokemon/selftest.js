@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 import * as INST from './instance.js';
 import * as EVO from './evolution.js';
+import * as ANIM from './evolve-anim.js';
 // `economy` is booted through its own `init` for the same reason `battle` is: check 30's whole
 // point is that this module's material ids and that module's item ids are the same strings, and
 // a hand-copied list of ids would be the one thing that cannot prove it.
@@ -192,6 +193,35 @@ check('31b. a refusal can name the shortfall, not just say no',
   JSON.stringify(short.missing));
 const tooLow = INST.evolutionFor(mint('bulbasaur', 5), lookup, RICH);
 check('31c. …and a level refusal names the level', tooLow.ready === false && tooLow.level === 16);
+
+// --- 4c. the evolution flash -------------------------------------------------
+// The animation is a pure function of time, so the parts that can be wrong on their own are
+// checked here and the parts that can only be judged by eye are in the showcase strip
+// (`?showcase=pokemon&mode=evolving`).
+const first = ANIM.frameAt(0);
+const last = ANIM.frameAt(ANIM.TOTAL_S);
+eq('31d. the flash starts on the OLD form', first.showNew, false);
+eq('31e. …and ends on the new one', last.showNew, true);
+eq('31f. …settled, visible, at its own scale', `${last.scale}/${last.visible}/${last.done}`, '1/true/true');
+
+let swaps = 0; let blinks = 0; let prev = null; let worstScale = 0; let everGone = false;
+for (let t = 0; t <= ANIM.TOTAL_S; t += 1 / 60) {
+  const f = ANIM.frameAt(t);
+  if (prev !== null && f.showNew !== prev) swaps++;
+  prev = f.showNew;
+  if (!f.visible) blinks++;
+  if (f.scale > worstScale) worstScale = f.scale;
+  if (f.scale <= 0) everGone = true;
+}
+check('31g. it alternates enough times to read as an evolution', swaps >= 8, `${swaps} swaps`);
+check('31h. …and blinks, which is what stops it reading as a dropped frame', blinks > 0 && blinks < 40,
+  `${blinks} hidden frames of ${Math.round(ANIM.TOTAL_S * 60)}`);
+check('31i. the scale never collapses or blows up', !everGone && worstScale <= 1.4, `peak ${worstScale.toFixed(2)}`);
+
+// The alternation must ACCELERATE, or it reads as a constant flicker for its whole length.
+const early = ANIM.swapsBy(0.5).step;
+const late = ANIM.swapsBy(1.8).step;
+check('31j. the swaps accelerate', late < early * 0.5, `${early.toFixed(3)}s -> ${late.toFixed(3)}s`);
 
 // --- 5. the species swap keeps identity -------------------------------------
 const charm = mint('charmander', 16);

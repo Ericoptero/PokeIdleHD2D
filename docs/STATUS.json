@@ -1,5 +1,5 @@
 {
- "updatedMs": 1788981521607,
+ "updatedMs": 1788982227472,
  "wave": "REFACTOR phases 0-2 of 7 complete, plus DECISIONS #62 (manual, paid-for evolution) on top at the user's request. Awaiting the user's validation of the evolve system before phase 3.",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
@@ -184,14 +184,16 @@
     "[POKEMON] `grantPartyExp` now runs on every `idle:tick` (<=1 Hz), and each call does an `evolutionFor` walk plus an `economy.count()` per conscious party member. Cheap, but it is the first per-tick gameplay work this module has ever done and it runs while the tab is hidden.",
     "[POKEMON] The evolution bill is DERIVED and has never been played against. The counts (2..12) and the rung bands (420/520 BST) are reasoned, not tuned — nothing can drop a treasure item until phase 5, so no one has yet had to actually grind one.",
     "[POKEMON] `evolutions(id)` returns every route priced, and nothing draws the fork yet: the party panel shows only the single closest offer. An Eevee player cannot see the other seven without opening the console.",
-    "[POKEMON] The EVOLVE button lives only in the party panel. The user asked for \"the HUD or the party box\"; the party panel is one keypress from the HUD (P) and the HUD has no room for a per-Pokemon action, but if a HUD button is wanted it is a small addition to ui/hud.js."
+    "[POKEMON] The EVOLVE button lives only in the party panel. The user asked for \"the HUD or the party box\"; the party panel is one keypress from the HUD (P) and the HUD has no room for a per-Pokemon action, but if a HUD button is wanted it is a small addition to ui/hud.js.",
+    "[POKEMON] The evolution flash has no sound, no particles and no white silhouette — the overworld sprite mesh has no per-instance colour, so a real flash would need a colour attribute in field.js. That is a bigger change than this was and it is the obvious next step if the moment still feels thin.",
+    "[POKEMON] The flash plays wherever the party is standing, including mid-step. It does not pause the walk, because pause() is phase 3 API and inventing it early would have coupled this to unlanded work."
    ],
    "lastShots": [
-    "docs/progress/pokemon/r3/evolve-ready.png",
-    "docs/progress/pokemon/r3/evolve-shopping-list.png",
-    "docs/progress/pokemon/r3/levelup.png"
+    "docs/progress/pokemon/r3/evolved-overworld.png",
+    "docs/progress/pokemon/r3/evolving-strip.png",
+    "docs/progress/pokemon/r3/evolve-ready.png"
    ],
-   "selftest": "49/49"
+   "selftest": "56/56"
   },
   "encounter": {
    "round": 3,
@@ -1149,7 +1151,7 @@
   "honestSummary": "No module passes the 8.5 bar and no critic passes. The game is real and runs clean — a populated town with authored buildings and lamps, four biomes, a walking party, an idle system proven to accrue in a backgrounded tab, 1253 Gen 1-9 species with sprites, and a UI you can play through — but it is scored at roughly 7/10 against Gamma Emerald, not 8.5, and blind judges pick the reference 5 times out of 7."
  },
  "refactor": {
-  "decision": "61 + 62",
+  "decision": "61 + 62 + 63",
   "plan": "a hunt is a closed loop past fixed spawn slots; proximity starts a real turn-based battle; a defeated wild is thrown at with a per-species pity floor; money is earned by selling, never accrued; and evolution is a button that costs a level plus a pile of drops",
   "phases": [
    {
@@ -1265,6 +1267,20 @@
     "evolve() answered \"nothing it can evolve into yet\" whenever nothing was affordable — true and useless. It falls back to the closest route and names that route's actual shortfall."
    ],
    "awaiting": "USER VALIDATION. Look at ?showcase=ui&mode=evolve (button live), ?showcase=ui&mode=party (the shopping list) and ?showcase=pokemon&mode=levelup (the whole transcript). Phase 3 does not start until this is signed off."
+  },
+  "evolutionAnimation": {
+   "decision": 63,
+   "bugFixed": "The overworld sprite never changed. pokemon.evolve() swaps the species IN PLACE, so the HUD and the party bar updated — but simulation.members holds the species object captured at its last rebuildMembers and Cast.keyOf derives the sheet from that. The game drew a Dewott name over an Oshawott sprite for the rest of the session with nothing throwing and no failing check. Fixed by a bus.on(\"pokemon:evolved\") that does what party:leadChanged already did.",
+   "animation": "An accelerating alternation between the two sheets (0.30s -> 0.05s, 11 swaps over 2s), a one-frame blink at each swap, and a 1.35 pop onto the new form. Built from key/scale/visible because the overworld sprite mesh has NO per-instance colour — there is no white silhouette and no fade available. Driven from pokemon lateFrame in real seconds; poseWalker never patches key or scale, so the walk and the flash do not fight.",
+   "ownership": "simulation plays it (it owns the actor and knows which slot the lead is in); pokemon owns the animation (it owns the sprite field and the atlas, and both sheets must be prepared before an alternation can read from either). An actor id goes one way, a promise comes back.",
+   "showcase": "Suppressed under config.showcase — a 2.5s flash caught 90 settle-frames after __READY__ is a different picture every run. ?showcase=pokemon&mode=evolving lays it out as nine sprites each holding frameAt() at a fixed instant, so the strip IS the animation.",
+   "verifiedLive": "Driven in the real page with puppeteer: oshawott -> dewott, 6 pearls spent, bag 0; the lead actor showed BOTH sheets during the flash, 11 swaps, 23 blink frames, peak scale 1.35, settled on dewott; the staged cast afterwards contains dewott and no oshawott; 0 console errors.",
+   "selftest": "56/56",
+   "foundByLooking": "The first strip picked its nine timestamps by eye and three landed exactly on swap boundaries — which are blink frames, so three of nine sprites were invisible — while three others fell on the same form in a row. A strip of an alternation that did not alternate. Sampled at swap midpoints now, with one boundary kept on purpose so the gap is visible.",
+   "shots": [
+    "docs/progress/pokemon/r3/evolving-strip.png",
+    "docs/progress/pokemon/r3/evolved-overworld.png"
+   ]
   }
  }
 }

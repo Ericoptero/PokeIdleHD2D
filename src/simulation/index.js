@@ -533,6 +533,41 @@ export default {
 
     // A lead swap re-cuts the head of the queue without moving anybody.
     bus.on('party:leadChanged', () => { if (!placed) return; rebuildMembers(); restage(); });
+
+    /**
+     * An evolved Pokemon has to change on screen, and until this listener existed it did not.
+     *
+     * `pokemon.evolve()` swaps the species **in place** on the instance, so `pokemon.party()`
+     * reported the new one and the HUD updated — but `members` had captured the OLD species
+     * object at its last `rebuildMembers`, and `Cast.keyOf` derives the sprite key from that.
+     * The result was a Dewott in the party panel and an Oshawott still walking in front of the
+     * trainer, indefinitely, with nothing anywhere throwing.
+     *
+     * The flash plays on the actor that is standing there *now*, before the restage: it
+     * alternates between the two sheets, so it needs the actor that still holds the old one.
+     * The restage then makes it permanent. Both halves are guarded — a quarantined `pokemon`
+     * costs the moment its animation, never its correctness — and the restage runs even if the
+     * animation could not, which is the half that is a bug fix rather than a flourish.
+     */
+    bus.on('pokemon:evolved', async ({ from, to } = {}) => {
+      if (!placed) return;
+      const pokemon = ctx.get('pokemon');
+      const actorId = pokemonIndex >= 0 ? cast.actorId(pokemonIndex) : 0;
+      const lead = isLive(pokemon) && typeof pokemon.lead === 'function' ? pokemon.lead() : null;
+
+      // Never in a showcase: the harness spins ninety frames between `__READY__` and the
+      // shutter, so a 2.5-second flash would be caught at a different point every run and the
+      // capture would stop being a function of the URL (ARCHITECTURE §6.3).
+      if (actorId && !config.showcase && isLive(pokemon) && typeof pokemon.sprites?.playEvolution === 'function') {
+        try {
+          await pokemon.sprites.playEvolution({ actorId, from, to, shiny: !!lead?.shiny });
+        } catch (err) {
+          log.warn('simulation: the evolution flash did not play', err);
+        }
+      }
+      rebuildMembers();
+      restage();
+    });
     // A map rebuilt under the party invalidates every ground height we cached.
     bus.on('world:loaded', () => { surface.rebuild(); });
 

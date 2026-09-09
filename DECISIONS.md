@@ -6063,3 +6063,74 @@ wants the stone *and* materials (22-23); a branching line offers all eight (24);
 separates a Caterpie from a Dragonite (26-27); every one of 492 priced routes names a real item
 (30) and asks for a reachable level (31). Seams green at 134 files / 17 modules; `/` boots at 60
 fps with 0 console errors. Shots: `docs/progress/pokemon/r3/{levelup,evolve-ready,evolve-shopping-list}.png`.
+
+---
+
+### 63 — 2026-09-09 — The HUD said Dewott and an Oshawott kept walking in front of the trainer; and an evolution you paid a hunt for has to be worth watching
+
+Two things, one of them a bug that had been shipping since #62 landed an hour earlier.
+
+**(a) The sprite never changed, and nothing anywhere threw.** `pokemon.evolve()` swaps the
+species **in place** on the instance, so `pokemon.party()` reported the new one and the party bar
+and the HUD both updated. But `simulation`'s `members` array holds the species object captured at
+its last `rebuildMembers`, and `Cast.keyOf` derives the sprite sheet from *that*. So the game drew
+a Dewott's name over an Oshawott's sprite, for the rest of the session, with no console error and
+no failing check — `simulation` listened for `party:leadChanged` and there was no equivalent for
+"the lead is now a different species".
+
+The fix is one listener on `pokemon:evolved` doing what `party:leadChanged` already did:
+`rebuildMembers(); restage();`. **The restage runs unconditionally**, before and after the
+animation question — a quarantined `pokemon` costs the moment its flourish, never its
+correctness.
+
+Verified by driving the real page rather than by reading the code: `oshawott → dewott`, six pearls
+spent and the bag left at zero, and the staged cast afterwards contains `dewott` and no
+`oshawott`. `docs/progress/pokemon/r3/evolved-overworld.png` is the blue Dewott walking in front
+of the trainer with `Dewott Lv 40` in the HUD.
+
+**(b) The animation is built from three properties because those are the three that exist.**
+`pokemon/field.js` patches an `aUvRect` attribute into the sprite material and nothing else —
+there is **no per-instance colour on the overworld sprite mesh**, so the mainline's white
+silhouette is not available and neither is a fade. What an actor does expose is `key` (which sheet
+it reads), `scale`, and `visible`. So:
+
+  1. **the alternation**, old form / new form, with the interval easing quadratically from 0.30 s
+     to 0.05 s. Quadratic and not linear because a linear ramp reads as a constant flicker for
+     most of its length; this one is unmistakably accelerating. Eleven swaps over two seconds.
+  2. **a one-frame blink at each swap.** This is the load-bearing one. Two sprites cutting between
+     each other with no gap looks like a *dropped frame*, which is precisely what this must not
+     look like; the gap is what makes it read as a flash. It is also why the showcase strip below
+     deliberately includes one.
+  3. **a pop** at the end — the new form overshoots to 1.35 on a half-sine and settles, so the
+     sequence lands on something instead of stopping.
+
+It is driven from `pokemon`'s `lateFrame` in **real seconds, not sim steps**: it is presentation,
+it must not change what the world does, and a frozen clock has to leave it alone. It does not
+fight the walk, and that was checked rather than hoped: `poseWalker` builds
+`{ x, y, z, dir, visible, gait, phase }` and never touches `key` or `scale`, and `lateFrame` runs
+after `frame`, so the animation's write is the last one of the frame.
+
+**Ownership.** `simulation` plays it because `simulation` owns the actor — it stages the cast and
+knows which slot the lead is in. `pokemon` owns the *animation*, because it owns the sprite field
+and the atlas, and both sheets have to be prepared before an alternation can read from either.
+Neither reaches into the other: an actor id goes one way and a promise comes back.
+
+**(c) It is never played in a showcase, and that is why there is a strip.** The harness spins
+ninety frames between `__READY__` and the shutter, so a 2.5-second flash would be caught at a
+different point every run and `?showcase=…` would stop being a function of its URL (§6.3). So the
+animation is suppressed under `config.showcase`, and `?showcase=pokemon&mode=evolving` lays it out
+as **nine sprites, each holding the frame `frameAt()` produces at a fixed instant** — the same
+pure function the running animation calls, so the strip is the animation and not a drawing of it.
+
+The first cut of that strip picked its nine timestamps by eye, and **three of them landed exactly
+on swap boundaries** — which are blink frames, so three of the nine sprites were invisible — while
+three others happened to fall on the same form in a row. A strip of an alternation that does not
+alternate. The stops are sampled at the *middle* of each swap now, with one boundary kept on
+purpose so the gap is visible. `docs/progress/pokemon/r3/evolving-strip.png`.
+
+**Measured.** `node src/pokemon/selftest.js` 56/56, seven of them new: the flash starts on the old
+form and ends settled on the new one, it swaps at least eight times, it blinks but not for more
+than forty frames of a hundred and fifty, the scale never collapses or exceeds 1.4, and the swap
+interval at 1.8 s is less than half what it is at 0.5 s. Driven live in the page: eleven swaps
+across both sheets, twenty-three blink frames, peak scale 1.35, settled on `dewott`, zero console
+errors. Seams green at 136 files / 17 modules; regression 0/0/0 across fifteen frames.

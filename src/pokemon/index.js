@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { SpriteField } from './field.js';
 import * as INST from './instance.js';
+import { makeEvolution, TOTAL_S as EVOLVE_SECONDS } from './evolve-anim.js';
 
 /** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
 const SAVE_VERSION = 1;
@@ -81,6 +82,27 @@ export default {
 
     /** Ids already toasted "can evolve", so the news is broken once and not once a second. */
     const announced = new Set();
+
+    /** Evolution flashes in flight, keyed by actor id. Stepped from `lateFrame`. */
+    const evolutions = new Map();
+
+    /**
+     * Advances every flash in real seconds.
+     *
+     * Real time, not sim time: this is presentation and must not change what the world does.
+     * It runs from `lateFrame`, before `field.update()`, so the last write of the frame is the
+     * animation's — `simulation` poses walkers on `frame` and its patch carries position and
+     * gait but never `key` or `scale`, so the two never fight over the same field.
+     */
+    function stepEvolutions(dt) {
+      if (!evolutions.size) return;
+      for (const [id, anim] of [...evolutions]) {
+        if (!anim.step(dt)) {
+          evolutions.delete(id);
+          anim.resolve?.(true);
+        }
+      }
+    }
 
     /** How many of an item the bag holds. 0 when the ledger is quarantined, which reads as
      *  "you cannot afford it" rather than as a crash. */
@@ -174,6 +196,46 @@ export default {
       sprites: {
         prepare,
         /**
+         * Plays the evolution flash on one staged actor, and resolves when it lands.
+         *
+         * The caller owns the actor — `simulation` stages the party and knows which slot the
+         * lead is in — so the id comes in rather than being hunted for. Both sheets are
+         * prepared here because the new form's is not in the atlas until somebody asks for it,
+         * and an animation that alternates onto a sheet that is not loaded draws the wrong
+         * Pokemon for half its length.
+         *
+         * Resolves rather than rejecting when it cannot run: a missing sheet must cost the
+         * moment its flourish, not cost the player their evolution.
+         */
+        async playEvolution({ actorId, from, to, shiny = false } = {}) {
+          const a = typeof from === 'object' ? from : lookup(from);
+          const b = typeof to === 'object' ? to : lookup(to);
+          if (!actorId || !a || !b || !field.get(actorId)) return false;
+
+          await prepare([{ species: a, shiny }, { species: b, shiny }]);
+          const sheet = (s) => {
+            const key = SpriteField.key('pokemon', spriteUrl(s, shiny));
+            const layout = field.atlas.layout(key);
+            return layout ? { key, frameTexels: layout.frame } : null;
+          };
+          const oldSheet = sheet(a);
+          const newSheet = sheet(b);
+          if (!oldSheet || !newSheet) {
+            log.warn(`pokemon: no atlas sheet for the evolution ${a.name} -> ${b.name}`);
+            return false;
+          }
+
+          // One at a time per actor: a second evolution landing on the same sprite would
+          // leave two animations fighting over `key` and the loser's last write would win.
+          evolutions.get(actorId)?.finish();
+          const anim = makeEvolution(field, actorId, oldSheet, newSheet);
+          return new Promise((resolve) => {
+            evolutions.set(actorId, Object.assign(anim, { resolve }));
+          });
+        },
+        /** Seconds one evolution takes, so a caller can time a toast against it. */
+        evolutionSeconds: EVOLVE_SECONDS,
+        /**
          * @param {object} spec  `{ species | trainer, shiny, x, y, z, dir, gait, phase, scale }`
          *   Position is world space, at the sprite's feet. `dir` is a core/dir.js direction.
          * @returns {Promise<number>} actor id, 0 on failure
@@ -196,6 +258,8 @@ export default {
          */
         phaseFor: (tiles) => Math.floor(tiles * 2),
         field,
+        /** Driven by the descriptor's `lateFrame`; not part of the §5.5 surface. */
+        _stepEvolutions: stepEvolutions,
       },
 
       // --- sheet contracts, for anything that needs the raw layout ----------
@@ -415,7 +479,10 @@ export default {
   // `lateFrame`, not `frame`: `field.update()` reads the camera basis to put every sprite on
   // the internal pixel grid, and the camera does not move until after `frame` has run.
   lateFrame(dt, alpha, ctx) {
-    ctx.get('pokemon').sprites?.field?.update();
+    const api = ctx.get('pokemon');
+    // The flash writes `key` and `scale`; `field.update()` reads them. In that order, once.
+    api.sprites?._stepEvolutions?.(dt);
+    api.sprites?.field?.update();
   },
 
   async showcase(mode, ctx) {

@@ -10,6 +10,9 @@
  *   depth     sprites in front of, level with and behind a tree line, plus a giant, to show
  *             the depth test against tall tiles and the contact shadows on two surfaces.
  *   dex       forty species at once — the atlas and the instanced mesh still cost two draws.
+ *   evolving  the evolution flash as a strip: nine sprites, each holding the frame the
+ *             animation draws at a fixed moment, because a 2.5-second flash cannot be
+ *             screenshotted running and stay reproducible.
  *   levelup   the half of this module a sprite cannot show: a Pokemon levelling, learning,
  *             refusing to evolve, being paid for, and being saved. Every line is a live call
  *             on the public API.
@@ -18,6 +21,7 @@
  */
 
 import { SOUTH, WEST, NORTH, EAST } from '../core/dir.js';
+import { frameAt } from './evolve-anim.js';
 import { TEXELS_PER_UNIT } from './sprites.js';
 
 const SLUG = 'bw2-adastra';
@@ -261,6 +265,44 @@ export async function showcasePokemon(mode, ctx) {
     await row(pokemon, map, { trainer: 'hero', z: 14.7, cx, gap, dir: WEST, gait: 'walk' });
     await row(pokemon, map, { trainer: 'hero', z: 10.8, cx, gap, dir: WEST, gait: 'run' });
     frame(ctx, cx, 20.0, D2);
+    return;
+  }
+
+  if (mode === 'evolving') {
+    // **An animation, screenshotted honestly.** The flash is 2.5 seconds long and the harness
+    // spins ninety frames between `__READY__` and the shutter, so capturing it *running* would
+    // give a different picture every run — which is the one thing a showcase may not do (§6.3).
+    // So it is laid out as a STRIP: the same Oshawott, staged nine times, each one holding the
+    // frame the animation produces at a fixed moment. `frameAt` is pure, so every sprite here
+    // is exactly what the running animation draws at that instant, and the URL is the picture.
+    // Sampled at the MIDDLE of each swap, not at the boundaries: the swaps land at
+    // 0.30 0.596 0.875 1.125 1.346 1.533 1.687 1.808 1.904 1.979, and a stop on a boundary is
+    // a blink frame — three of the first nine stops picked by eye were invisible and three in
+    // a row showed the same form, which is a strip of the animation that does not show it.
+    // The last two are the pop's peak (2.25, scale 1.35) and where it settles.
+    const STOPS = [0.15, 0.45, 0.74, 1.00, 1.24, 1.44, 1.61, 2.25, 2.50];
+    const BLINK_AT = 0.30;   // one boundary, kept on purpose: the gap is part of the animation
+    const FROM = 'oshawott';
+    const TO = 'dewott';
+    await pokemon.sprites.prepare([{ species: FROM }, { species: TO }]);
+    const map = await ground(ctx, { w: 60, h: 34, trees: 5, plants: 10 });
+
+    const stops = [...STOPS.slice(0, 2), BLINK_AT, ...STOPS.slice(2)];
+    const gap = 3.2;
+    const x0 = 10.0;
+    for (let i = 0; i < stops.length; i++) {
+      const f = frameAt(stops[i]);
+      const x = x0 + i * gap;
+      const z = 15.0;
+      const id = await pokemon.sprites.spawn({
+        species: f.showNew ? TO : FROM, dir: SOUTH, x, y: map.surfaceY(x, z), z,
+      });
+      // The blink is a real frame of the animation and it is drawn as one: a gap in the strip
+      // where the sprite is genuinely not on screen. Hiding it would make the strip tidier and
+      // would stop it being the animation.
+      pokemon.sprites.set(id, { scale: f.scale, visible: f.visible });
+    }
+    frame(ctx, x0 + ((stops.length - 1) / 2) * gap, 15.0, D1);
     return;
   }
 

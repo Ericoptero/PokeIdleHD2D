@@ -451,6 +451,14 @@ unless it says otherwise: a blocked step **stalls and warns once** rather than b
 skipped, because a route that quietly drifts off its own path is a defect three separate places
 in `hunts` have already had to document (DECISIONS #61(a)).
 
+**A scene reacts to `pokemon:evolved`, and it is not optional.** `pokemon.evolve()` swaps the
+species *in place* on the instance, so the party bar updates on its own — but `members` holds
+the species object captured at the last `rebuildMembers`, and the sprite key is derived from
+that. Without the listener the game showed an evolved Pokémon in the HUD and the **old sprite
+still walking in front of the trainer**, indefinitely, with nothing throwing. The listener
+plays the flash on the actor that is standing there and then restages; the restage runs even
+when the flash cannot, because that half is the bug fix.
+
 **Three ways to stop, and they are not interchangeable.** `halt()` *replaces* the route with
 `STILL` and so loses a scripted route's position in its loop; `pause(on)` stops the party and
 keeps that position, which is what a battle needs; `freeze(on)` is the screenshot tool and also
@@ -494,6 +502,7 @@ because Showdown records it on the child and the game asks the opposite question
   evolve(instanceId, { to }),            // -> { ok, why } — only ever called by a button
   refreshMoves(instanceId), setPriority(instanceId, moveIds),
   heal(instanceId, { hp, status }), damage(instanceId, n),
+  sprites.playEvolution({ actorId, from, to, shiny }),   // -> Promise; the flash
   saveState(), loadState(v)
 }
 ```
@@ -515,6 +524,12 @@ ivs, stats, maxHp, hp, moves: [{ id, pp, maxPp }] × 4, priority, status }`. Two
 - **A refusal says which of the three reasons it is** — no route, too low, or short of
   materials — because a greyed-out button that does not say why is the defect the party panel
   exists to avoid.
+- **An evolution is animated, and the animation is a pure function of time.** The overworld
+  sprite mesh has no per-instance colour, so the flash is built from the three things an actor
+  does expose — the sheet it reads, its scale and its visibility: an accelerating alternation
+  between the two forms, a one-frame blink at each swap, and a pop onto the new one. It runs on
+  `lateFrame` in real seconds, because it is presentation and must not change what the world
+  does. `simulation` owns the actor and therefore plays it (§5.4).
 
 The save seam here is **native and mandatory**: `offline`'s adapter rebuilds a party through
 `createInstance` and would silently drop moves, PP and HP.
