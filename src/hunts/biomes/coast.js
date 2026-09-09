@@ -19,6 +19,7 @@ import {
   laneNear,
 } from '../compose.js';
 import { distanceField } from './forest.js';
+import { set0Outward } from '../palette.js';
 
 export const COAST = {
   id: 'coast',
@@ -224,7 +225,13 @@ export function buildCoast(draft, ctx, palette, rng, log) {
     return !water.get(cx, cz) && d >= 1 && d <= reach && cz < H - 3;
   });
   track.despeckle(4).closeCorners();
-  palette.draw(draft, 'set0', track, { collision: 'walk', layer: 1, tags: ['path'] });
+  // Round 5 left this line alone and filed it: the strand ran as a *divided* track for the
+  // same reason the forest's trail did, because `set0`'s transition art samples inverted.
+  // `set0Outward` turns it out and re-casts the corners; on an east-west band its shoulder
+  // rule picks `edge_n`/`edge_s` rather than the trail's `edge_w`/`edge_e`, which is why the
+  // rule measures the field instead of naming a side.
+  palette.draw(draft, 'set0', track, { collision: 'walk', layer: 1, tags: ['path'],
+    ...set0Outward(track) });
   if (dirtPatch.length) {
     track.forEach((cx, cz) => {
       if (valueNoise(cx, cz, seed ^ 0x6d2, 3) < 0.22) {

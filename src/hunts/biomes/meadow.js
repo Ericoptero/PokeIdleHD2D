@@ -22,7 +22,7 @@ import {
   wildCells, mixTint,
 } from '../compose.js';
 import { distanceField } from './forest.js';
-import { SET0_OUTWARD } from '../palette.js';
+import { set0Outward } from '../palette.js';
 
 export const MEADOW = {
   id: 'meadow',
@@ -155,11 +155,12 @@ export function buildMeadow(draft, ctx, palette, rng, log) {
     underlay: true, collision: 'water', layer: 2, tags: ['water'],
   });
 
-  // `SET0_OUTWARD` puts the grass transition on the outside of the track rather than twice
-  // down the middle of it — the same pack defect the forest's trail had, and the critic
+  // `set0Outward` puts the grass transition on the outside of the track rather than twice
+  // down the middle of it, and re-casts the corner slots so the meander steps stop stamping a
+  // green comma inside the dirt — the same pack defect the forest's trail had, and the critic
   // measured it in both biomes. See `hunts/palette.js`.
   palette.draw(draft, 'set0', track, { collision: 'walk', layer: 1, tags: ['path'],
-    rotate: (kase) => SET0_OUTWARD[kase] ?? 0 });
+    ...set0Outward(track) });
   if (dirtPatch.length) {
     track.forEach((cx, cz) => {
       if (valueNoise(cx, cz, seed ^ 0x915, 3) < 0.2) {

@@ -602,9 +602,18 @@ function render(ctx, mode, staged) {
   // over-showing at once simply clipped the bottom two sections off the panel.
   // One long section per mode, never two: the eighteen-ball shelf is `mode=balls`'s reason to
   // exist, the step log is `mode=walk`'s, and everything else gets the spawn table.
+  //
+  // Round 3 cut it again, and this time for the *whole-game* critic rather than this
+  // module's: "the catch resolving entirely inside a developer readout — odds, roll, shakes,
+  // band table". The band table is what makes a readout a developer readout, and it was in
+  // every picture mode. So the shelf belongs to `mode=balls`, the step log to `mode=walk`,
+  // the spawn table to `mode=table`, and a mode whose job is a *picture* carries only what
+  // its own frame is evidence for: what was rolled, what the ball did, and the two-line
+  // proof that the roll replays.
   const wide = mode === 'balls';
   const showSteps = mode === 'walk';
-  const showTable = !wide && !showSteps;
+  const showTable = mode === 'table';
+  const showBalls = wide || showTable;
   const rows = (enc.rows(staged.biome, tod) ?? []).slice().sort((x, y) => y.weight - x.weight);
   const totalW = rows.reduce((n, r) => n + r.weight, 0) || 1;
   const top = rows.slice(0, 5).map((r) =>
@@ -678,12 +687,12 @@ function render(ctx, mode, staged) {
       <div class="row"><span class="k">animation</span><span class="v">${stageLabel} @ step ${scene?.step ?? 0}</span></div>
     </section>
 
-    <section>
+    ${showBalls ? `<section>
       <div class="row"><span class="k">every ball, on this target</span><span class="v">${balls.length} in the line</span></div>
       <table>${balls.slice(0, wide ? 18 : 3).map((b) =>
         `<tr><td>${b.name}${wide && b.why ? ` <span class="k">${b.why}</span>` : ''}</td>`
         + `<td class="r">×${b.mult >= 255 ? '∞' : b.mult.toFixed(2)} · ${pct(b.odds)}</td></tr>`).join('')}</table>
-    </section>
+    </section>` : ''}
 
     ${showTable ? `<section>
       <div class="row"><span class="k">table</span><span class="v">${rows.length} rows · band Lv${band.min}-${band.max}</span></div>
@@ -705,6 +714,49 @@ function render(ctx, mode, staged) {
       ${isLive(economy) ? `<div class="row"><span class="k">bag</span><span class="v">${economy.count('pokeball')} Poké · ${economy.count('greatball')} Great · ₽${economy.balance('money').toLocaleString()}</span></div>` : ''}
     </section>
   `);
+}
+
+/**
+ * The line the game itself would print, in the game's own message box.
+ *
+ * `ui.say()` is a published seam — ui/panels/dialogue.js says so in its own header: "any
+ * module can call `ctx.get('ui').say(text, { speaker })`". It draws a DS message box into
+ * `ui`'s low-res canvas with the era's font and the era's frame, at the bottom of the
+ * picture, at the same pixel pitch as the scene. That is exactly the device
+ * `docs/refs/01-forest-tilemap-frame.png` is built around, and it is the difference between
+ * a frame that *narrates* a capture in a side panel and one that *is* a capture.
+ *
+ * It is safe here and it would not be in the live game, which is why `index.js` emits a
+ * toast instead (see `begin()`): the box waits for a keypress to close, and an idle game
+ * that opened one on every encounter would leave a modal in front of an absent player. In a
+ * showcase there is no player, the box never has to close, and — unlike a toast — it carries
+ * no wall-clock timer, so the same URL gives the same pixels (DECISIONS #14).
+ */
+function say(ctx, mode, staged, enc) {
+  const ui = ctx.get('ui');
+  if (!isLive(ui) || typeof ui.say !== 'function') return false;
+  const last = enc.last();
+  const e = last ?? staged.rolled;
+  const name = (e?.display ?? e?.species ?? 'Pokemon').toUpperCase();
+  const ballName = last?.ballName ?? 'BALL';
+  const line = {
+    // No wild on screen yet, and that is the point of the beat.
+    approach: 'The tall grass rustled!',
+    reveal: `A wild ${name} appeared!`,
+    shiny: `A wild ${name} appeared! It is shining…`,
+    // The mainline prints the trainer's own line at the throw, not the odds.
+    throw: `Go! ${ballName.toUpperCase()}!`,
+    // What the games put on screen while the ball wobbles: nothing but the wait.
+    shake: '…',
+    caught: `Gotcha! ${name} was caught!`,
+    escaped: `Oh, no! The ${name} broke free!`,
+    night: `Go! ${ballName.toUpperCase()}!`,
+    // `walk`, `balls` and `table` are the readout modes; a message box would be a caption on
+    // a diagram rather than a moment, and it would cover the section they exist to show.
+  }[mode];
+  if (!line) { ui.close?.(); return false; }
+  ui.say(line);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -729,11 +781,23 @@ const STOP = {
   // **integer** because `pixelExactDistance` only lands a sprite texel on a whole internal
   // pixel for integer k (DECISIONS #29).
   walk: { throw: false, k: 3 },
-  // **The top of the hop, not the tail of it.** The appear beat lifts the wild by
-  // `sin(k·pi)·0.55`, so round 1's 0.85 froze it at 0.25 units — about 24 screen px — and
-  // `c02` and `c13` show a Pokemon *sitting* in the grass rather than rising out of it. 0.5
-  // is the apex: the full 0.55 units, and the grass burst below lands on the same frame.
-  reveal: { stage: 'appear', at: 0.5, throw: false },
+  /**
+   * **The grass, before anything is in it.** The first of the five beats the brief names,
+   * and the one that did not exist: round 2's appear drew the wild from step 0, so there was
+   * no frame in which something was happening and nothing had happened yet.
+   *
+   * 0.3 of `T.APPEAR` is inside `T.RUSTLE` (0.4) by a clear margin, so this mode is the
+   * disturbance alone — no Pokemon, no ball, no bubble — with the lead standing in it.
+   */
+  approach: { stage: 'appear', at: 0.3, throw: false, k: 3 },
+  /**
+   * **The top of the burst.** `T.RUSTLE` of the beat is grass alone and the wild comes out
+   * over the remaining 0.6, so the apex of its hop is at `0.4 + 0.5·0.6 = 0.7` of the beat —
+   * the full half-unit lift, the stretch at its tallest, the "!" bubble popped, and the
+   * grass still open underneath it. Round 1 froze at 0.85 (24 screen px of lift, reading as
+   * a Pokemon *sitting* in grass); round 2's 0.5 is now inside the rustle window.
+   */
+  reveal: { stage: 'appear', at: 0.7, throw: false, k: 3 },
   // **Past the apex, not on it.** The trainer, the lead and the wild are all on one row and
   // the camera's yaw is fixed looking north, so screen-x *is* world-x and the lead stands
   // exactly halfway between thrower and target: a parabola frozen at its apex therefore puts
@@ -741,18 +805,20 @@ const STOP = {
   // centre x 792 against the lead's 794 — two pixels — and the ball read as a hat. Freezing
   // later moves the ball down-range without leaving the air: at 0.72 it is 72 % of the way
   // across and still at 81 % of the apex height.
-  throw: { stage: 'throw', at: 0.72, throw: true },
-  shake: { stage: 'shake', at: 0.45, throw: true },
-  caught: { stage: 'result', at: 0.34, throw: true, want: 'caught' },
-  escaped: { stage: 'result', at: 0.3, throw: true, want: 'escaped' },
-  shiny: { stage: 'appear', at: 0.5, throw: false, want: 'shiny' },
+  throw: { stage: 'throw', at: 0.72, throw: true, k: 3 },
+  shake: { stage: 'shake', at: 0.45, throw: true, k: 3 },
+  caught: { stage: 'result', at: 0.34, throw: true, want: 'caught', k: 3 },
+  escaped: { stage: 'result', at: 0.3, throw: true, want: 'escaped', k: 3 },
+  shiny: { stage: 'appear', at: 0.7, throw: false, want: 'shiny', k: 3 },
+  /** The spawn table and the ball shelf's head, which the picture modes no longer carry. */
+  table: { stage: 'appear', at: 0.7, throw: false, k: 3 },
   // `night` does NOT force the clock. The harness applies `--tod` *after* `showcase()`
   // returns (`shoot.js` calls `__HOOKS__.setTimeOfDay` on the way to the shutter), so a mode
   // that set 21:30 for itself got a nocturnal spawn table printed over a midday picture —
   // the panel and the frame disagreeing, which is worse than either being wrong
   // (`00-night-at-noon.png`). The mode reads the clock like every other one and warns if it
   // is not actually night; shoot it with `--tod 21.5`.
-  night: { stage: 'throw', at: 0.72, throw: true, wantNight: true },
+  night: { stage: 'throw', at: 0.72, throw: true, wantNight: true, k: 3 },
   // A *hard* target, or the table is eighteen rows of 100 %: a Great Ball on a 190-rate
   // Marill at 30 % HP already clears `a >= 255`. `want: 'hard'` scans for a low capture rate.
   // A *varied* target, not merely a hard one: see `findIndex`'s `variety` scan. Round 1
@@ -761,7 +827,23 @@ const STOP = {
 };
 
 export async function showcaseEncounter(mode, ctx) {
-  const key = STOP[mode] ? mode : 'throw';
+  /**
+   * **The default is the reveal**, and that is this round's answer to the whole-game critic.
+   *
+   * `?showcase=encounter` with no mode is the URL an outside critic shoots, and it is the one
+   * that produced `docs/progress/_whole/enc-default.png` and the verdict "there is no
+   * encounter on screen at all — the catch resolving entirely inside a developer readout".
+   * The default was `throw`, on the argument that a ball in the air is "the one unambiguous
+   * frame". It is unambiguous about a *ball*; the wild in it is passive, un-marked and the
+   * same size as three party members standing in the same grass, so the frame's subject was
+   * whichever sprite the reader guessed at.
+   *
+   * The reveal is the frame that says an encounter is happening: the wild is the only thing
+   * in the air, it is the only thing wearing the "!", the grass it came out of is still open
+   * under it, and the box at the bottom names it. `throw` is one URL away and is still the
+   * frame the ball's own critique is judged on.
+   */
+  const key = STOP[mode] ? mode : 'reveal';
   const stop = STOP[key];
   const enc = ctx.get('encounter');
   const sim = ctx.get('simulation');
@@ -859,11 +941,26 @@ export async function showcaseEncounter(mode, ctx) {
     // until this resolves. Freezing the timeline before it lands is a screenshot of empty
     // grass — which is exactly the failure this await exists to stop.
     await enc.ready();
-    // The reveal always plays out first: the throw is *queued* rather than jumped to (see
-    // `marks()` in index.js), which is also what keeps `automation`'s synchronous throw from
-    // skipping the animation in the real game.
-    enc.advanceToStage('appear', 1);
-    if (stop.throw) enc.attempt(ball);
+    /**
+     * The reveal plays out first **only for a mode that then throws**, and the guard is not
+     * cosmetic: it is the bug that made `mode=reveal` a picture of a Pokemon sitting in grass.
+     *
+     * `advanceToStage` computes an absolute target step and advances by `max(0, target -
+     * step)` — it cannot rewind. Rolling to `('appear', 1)` first therefore parks the scene at
+     * the END of the appear beat, and every later call for a step *inside* that beat advances
+     * by zero. Round 2 asked for `('appear', 0.5)` and got step 14 of 14; the panel printed
+     * `appear @ step 14` in `f02-reveal-morning.png` and nobody read it against the mode's own
+     * stop. So the two beats that live inside the reveal — `approach` and `reveal` itself —
+     * were the same frame, frozen after the hop had already come back down.
+     *
+     * A throwing mode still needs the pre-roll: `attempt()` only *queues* the throw (see
+     * `marks()` in index.js), and a throw queued before the reveal has played is what keeps
+     * `automation`'s synchronous ball from skipping the animation in the real game.
+     */
+    if (stop.throw) {
+      enc.advanceToStage('appear', 1);
+      enc.attempt(ball);
+    }
     enc.advanceToStage(stop.stage, stop.at);
   }
 
@@ -875,13 +972,16 @@ export async function showcaseEncounter(mode, ctx) {
   sim.frameOffset?.(-2, -1);
   ctx.config.set({ cameraDistance: pixelExactDistance(ctx.config, stop.k ?? 2) });
 
-  render(ctx, key, { biome, tod, rolled: started ?? enc.rollAt(index, { biome, tod }) });
+  const staged2 = { biome, tod, rolled: started ?? enc.rollAt(index, { biome, tod }) };
+  render(ctx, key, staged2);
+  const spoke = say(ctx, key, staged2, enc);
 
   const l = enc.last();
   ctx.log.info(`encounter showcase "${key}": index ${index} → ${l?.display ?? '—'} Lv${l?.level ?? '—'}` +
     `${l?.shiny ? ' SHINY' : ''}, ball ${l?.ball ?? ball}, odds ${l?.odds != null ? pct(l.odds) : 'n/a'}, ` +
     `roll ${l?.roll?.toFixed(6) ?? 'n/a'}, outcome ${l?.outcome ?? 'pending'}; ` +
     `stage ${enc.scene()?.stage ?? 'none'} @ ${enc.scene()?.step ?? 0}; ` +
+    `bubble ${enc.alerting?.() ? 'up' : 'down'}; message box ${spoke ? 'up' : 'down'}; ` +
     `lead at ${lead.cx},${lead.cz} on [${standing.join(',') || 'plain'}]; ${lampCount} lamps`);
 
   // A staged scene whose lead is not actually in the grass is not proving what it claims.

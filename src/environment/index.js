@@ -30,6 +30,7 @@ import { PRESETS, blendPreset, applyWeather, WEATHERS } from './presets.js';
 import { makeLamps } from './lamps.js';
 import { makeWeather } from './weather.js';
 import { makeCastShadows } from './castShadows.js';
+import { installShadowFilter, shadowFilterInstalled, SHADOW_FILTER_TAPS } from './shadowFilter.js';
 
 const SKY_VERT = /* glsl */`
 varying vec3 vDir;
@@ -173,6 +174,54 @@ const URL_TUNE = urlTune();
 const BIAS_MUL = devNum('envBiasMul', 1);
 const SHADOW_INTENSITY = devNum('envShadowIntensity', 1);
 const NORMAL_BIAS_MUL = devNum('envNormalBiasMul', 1);
+/**
+ * `?envShadowRadius=N` pins the penumbra; `NaN` (the shipping path) runs the curve below.
+ *
+ * `LightShadow.radius` defaults to **1**, and nothing in this project had ever set it — which
+ * is the whole of "the shadows are hard". One texel of a 2048 map over a 56-unit ortho box is
+ * `56 / 2048 = 0.0273` world units, a thirty-sixth of a tile, so every shadow in the game had
+ * an edge one screen pixel wide at any zoom a player will ever see. `ARCHITECTURE` §2.7 asks
+ * for `PCFSoftShadowMap` and `core/render.js` sets it, but three r185 deprecated that constant
+ * and silently substitutes `PCFShadowMap` (`WebGLShadowMap.js:99`), whose kernel is
+ * `shadowRadius * texelSize` — so the requested soft filter has been a one-texel one all along.
+ */
+const SHADOW_RADIUS = devNum('envShadowRadius', NaN);
+
+/**
+ * How wide the penumbra is, in shadow-map texels, at a given key elevation.
+ *
+ * A penumbra is set by how far the shadow has travelled from the thing that casts it, and in
+ * this game that distance is set almost entirely by the hour: at noon a bench's shadow lies
+ * at its own feet, at 17:30 the same 8.6-degree sun throws a tree 6.6 caster-heights across
+ * the lawn. One constant radius therefore cannot serve both, and both failures were shot
+ * (`docs/progress/environment/r7/sweep/`):
+ *
+ *   · at 12 texels the *golden hour* is right — `crop-f-lawn-r12.png` — and noon is wrong:
+ *     `crop-bench-f12.png` has the bench's shadow blurred down to a faint smudge, because
+ *     0.33 world units of blur across a shadow only 1.2 units long is most of the shadow.
+ *   · at 6 texels *noon* is right — `crop-bench-f6.png` keeps the shadow's shape with a soft
+ *     edge — and the golden hour keeps more of its corduroy than it should.
+ *
+ * So the radius rides the key's elevation, linearly in `graze = 1 - sin(elevation)`, through
+ * the two points those two crops picked: 6.4 texels at noon's `graze` of 0.45, 12 at the
+ * golden hour's 0.85. The ends are clamped — 5 is the softest a *short* shadow can take
+ * before it stops reading as a shadow at all, and 14 is where the far end of a raked one
+ * starts to smear rather than soften.
+ *
+ * Note what this is *not*: it is not the missing per-pixel contact hardening. A real filter
+ * would widen with each pixel's own blocker distance, which needs a depth *value* and three's
+ * PCF map is a comparison sampler that will not give one (castShadows.js has the note on what
+ * reading one through a `sampler2D` costs). This is the frame-wide average of that, and it is
+ * chosen by looking at two crops rather than derived, because the derivation is wrong: the
+ * kernel is a disk in the shadow map, and projection onto flat ground already stretches it by
+ * `1 / sin(elevation)` along the shadow's run for free. Only the width *across* the run —
+ * which is what makes a bar a bar — needs this.
+ */
+function shadowRadiusFor(sunY) {
+  if (Number.isFinite(SHADOW_RADIUS)) return SHADOW_RADIUS;
+  const graze = 1 - Math.max(0, Math.min(1, sunY));
+  return Math.max(5, Math.min(14, 5 + 14 * (graze - 0.35)));
+}
 
 /** Set by `init`, read by `frame`. One environment per page, so one reference is enough. */
 let activeFx = null;
@@ -339,6 +388,19 @@ export default {
     if (noShadow) three.sun.light.castShadow = false;
 
     /**
+     * The sun's penumbra, installed before the first frame because programs compile lazily
+     * at first render and `environment` cannot reach another module's materials to mark them
+     * dirty afterwards. `?envNoShadowFilter=1` leaves three's own 5-tap filter in place, so
+     * the whole change is one URL parameter apart. See shadowFilter.js.
+     */
+    const shadowFilter = devFlag('envNoShadowFilter')
+      ? { installed: false, why: '?envNoShadowFilter=1' }
+      : installShadowFilter(three.renderer, log);
+    if (!shadowFilter.installed && !devFlag('envNoShadowFilter')) {
+      log?.warn?.(`environment: soft shadow filter not installed — ${shadowFilter.why}`);
+    }
+
+    /**
      * `?envDumpCasters=1` — every object the shadow pass will actually rasterise, with the
      * three properties that decide *which face* of it lands in the depth buffer. three.js
      * renders a `FrontSide` material into the shadow map as `BackSide` unless the material
@@ -387,6 +449,28 @@ export default {
         return rows;
       };
     }
+
+    /**
+     * `window.__ENVSHADOW__()` — what the sun's shadow rig actually is, this frame.
+     *
+     * Three rounds looked for a cause of the hard edges in the frustum, the bias pair and the
+     * caster list, and the answer was two numbers nobody had printed: the shadow-map *type*
+     * three had silently swapped in, and `LightShadow.radius`. It is always exposed, not
+     * gated behind a flag, because it costs nothing and the next agent should be able to read
+     * it rather than deduce it.
+     */
+    window.__ENVSHADOW__ = () => {
+      const s = three.sun.light.shadow;
+      return {
+        rendererType: three.renderer.shadowMap.type,
+        rendererTypeName: { 0: 'Basic', 1: 'PCF', 2: 'PCFSoft(deprecated)', 3: 'VSM' }[three.renderer.shadowMap.type],
+        filterInstalled: shadowFilterInstalled(), taps: SHADOW_FILTER_TAPS,
+        radiusTexels: s.radius, mapSize: s.mapSize.x, extent: config.shadowExtent,
+        penumbraWorldUnits: +(s.radius * (config.shadowExtent / s.mapSize.x)).toFixed(4),
+        bias: s.bias, normalBias: s.normalBias, intensity: s.intensity,
+        casting: three.sun.light.castShadow,
+      };
+    };
 
     // --- sky dome ----------------------------------------------------------
     const skyUniforms = {
@@ -587,6 +671,7 @@ export default {
       three.sun.light.shadow.normalBias = normalBias;
       three.sun.light.shadow.bias = bias;
       three.sun.light.shadow.intensity = SHADOW_INTENSITY;
+      three.sun.light.shadow.radius = shadowRadiusFor(sunDir.y);
       config.set({ shadowNormalBias: normalBias, shadowBias: bias });
 
       hemi.color.copy(look.hemiSky);

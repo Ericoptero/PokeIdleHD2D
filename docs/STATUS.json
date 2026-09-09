@@ -1,8 +1,8 @@
 {
- "updatedMs": 1788900918228,
+ "updatedMs": 1788909638673,
  "wave": "D complete; every module built, none re-critiqued after its fix round",
  "seed": 1337,
- "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off \u2014 the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
+ "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
   "at": "2026-09-08",
   "size": "1920x1080",
@@ -19,15 +19,15 @@
   "tiles": {
    "round": 4,
    "score": 6.5,
-   "status": "round 4 done (the regression the round-3 critic found, the second half of the foliage close, and the baked shadow rectangles). Not re-scored \u2014 no critic has run since r2 6.5.",
+   "status": "round 4 done (the regression the round-3 critic found, the second half of the foliage close, and the baked shadow rectangles). Not re-scored — no critic has run since r2 6.5.",
    "errors": 0,
    "openIssues": [
     "[TILES-OWNED, NOT FIXED] The Pokemon Center / Mart / house_a roof signs render upside down: sign.png has the Poke Ball red-side-up and the building shows it white-side-up. Same V-convention defect as DECISIONS #41a, but the sign sits on the roof pitch at |ny| = 0.85 and the load-time correction is gated to |ny| < 0.5. Filed as a coreRequest against tools/assets instead: the V convention belongs in the exporter, where one rule covers every face at every angle. Visible in docs/progress/tiles/r3/21-boot.png at the Poke Center roof. NOTE: DECISIONS #44d now measures the horizontal-face convention across all fifteen packs and it is NOT uniform (6111 triangles run v south, 8296 run v north), so widening the gate is even less safe than r3 assumed.",
-    "[NOT TILES' TO FIX \u2014 authored-asset job] slamp03.png has no fixture detail in it at all. 16x32, ten colours, all blue-grey between #809098 and #f8f8f8: a pole gradient and a white block with three flat bands. No bulb, housing, lens, cage or bracket is drawn. docs/progress/tiles/r4/11-lamps-day-after.png and 13-lamps-night-after.png. coreRequest filed; the integrator is authoring a replacement as a structures-style asset.",
-    "[ENVIRONMENT-OWNED \u2014 the OTHER half of the 'black rectangles beside each lamp' finding, PROVED NOT TILES'] On plain / at tod 11 the dark rounded slab north-east of the lamp head (x 920-990, y 240-285) is unchanged by ?contact=0 (mean red 101.1 vs 101.3) and lifts to 177.7 under ?envNoShadow=1. It is the sun's own shadow map making a rectangle out of a flat lozenge head. The long hard black bars the lamps throw at tod 21 from a sun below the horizon (docs/progress/tiles/r4/13-lamps-night-after.png) are the same owner, already filed as tiles coreRequest 6.",
+    "[NOT TILES' TO FIX — authored-asset job] slamp03.png has no fixture detail in it at all. 16x32, ten colours, all blue-grey between #809098 and #f8f8f8: a pole gradient and a white block with three flat bands. No bulb, housing, lens, cage or bracket is drawn. docs/progress/tiles/r4/11-lamps-day-after.png and 13-lamps-night-after.png. coreRequest filed; the integrator is authoring a replacement as a structures-style asset.",
+    "[ENVIRONMENT-OWNED — the OTHER half of the 'black rectangles beside each lamp' finding, PROVED NOT TILES'] On plain / at tod 11 the dark rounded slab north-east of the lamp head (x 920-990, y 240-285) is unchanged by ?contact=0 (mean red 101.1 vs 101.3) and lifts to 177.7 under ?envNoShadow=1. It is the sun's own shadow map making a rectangle out of a flat lozenge head. The long hard black bars the lamps throw at tod 21 from a sun below the horizon (docs/progress/tiles/r4/13-lamps-night-after.png) are the same owner, already filed as tiles coreRequest 6.",
     "[TILES-OWNED, found while shooting, NOT commissioned and NOT fixed] bench_s renders nearly black on the plaza paving at noon. docs/progress/tiles/r4/ab/city-plaza-kage-off.png region (240,780)-(660,920) at 3x. It is a `prop`, not foliage, so none of round 4's patches touch it; it is probably the same lit/shade-side problem the critic named on the lamp posts.",
     "[TILES-OWNED, deliberate residue, now much smaller] The two tree populations are closed to 9.0 degrees of crown hue (round_tree 137.5, tree 139.6, big_tree_dark 140.6, darker_pine 146.5) from 23.1 at round 3 and 43.3 with no patch. They are not identical and are not meant to be: saturation and value are untouched, so darker_pine still measures 0.404 value against round_tree's 0.529. Knobs are FOLIAGE_BAND_DEG / FOLIAGE_LIT_KNEE_DEG in src/tiles/materials.js; A/Bs are ?foliage=0, ?foliage=knee, ?foliageBand=<deg>, ?foliageLit=<deg>.",
-    "[TILES-OWNED, NOT re-opened this round] The lit-side hue ceiling is tuned against the post-AgX frame (132 degrees of pre-tonemap hue lands the crowns near 140-146 on screen). If environment re-grades, that number needs re-shooting, not re-deriving \u2014 ?foliageLit=<deg> is the sweep.",
+    "[TILES-OWNED, NOT re-opened this round] The lit-side hue ceiling is tuned against the post-AgX frame (132 degrees of pre-tonemap hue lands the crowns near 140-146 on screen). If environment re-grades, that number needs re-shooting, not re-deriving — ?foliageLit=<deg> is the sweep.",
     "[TILES-OWNED, measured and recorded, NOT a defect] The light-side hue ceiling is time-of-day dependent and rides setEmissiveScale (132 deg by day, 144 at full night). If environment re-grades or changes its night key, both numbers need re-shooting, not re-deriving: ?foliageLit=<deg> is the sweep and the four-way night table is in DECISIONS #44b."
    ],
    "verified": {
@@ -44,8 +44,8 @@
     "consoleWarnings": 0,
     "shots": 46,
     "allShots": "every capture in docs/progress/tiles/r4/ (18 proofs + 28 A/B controls, 39 carrying a JSON log) is 60 fps, p95 16.7-16.8 ms, 0 console errors and 0 console warnings; draw calls run 22 (lamps) to 386 (the autotile overview), triangles 3.6k to 24.9k, programs 8 to 23",
-    "cityRegression": "docs/progress/tiles/r4/30-boot.png is / with no showcase at tod 11: 60 fps, 221 draws (234 in r3 \u2014 the 13 baked shadow decal meshes are gone), 18906 tris, 22 programs, 0 errors. 31-city-plaza-noon.png 221 draws, 32-city-plaza-night.png 222 draws, hunts forest/meadow/coast 86/127/113 draws, all 0 errors.",
-    "abFlags": "?uvright=0 restores the old V sampling, ?crossed=1 puts the edge-on card back, ?foliage=0 turns the whole hue patch off, ?foliage=knee restores round 3 exactly (both new halves off \u2014 verified against a frame captured from the round-3 build before any of this landed: 2 changed subpixels of 6220800, max delta 1), ?foliageBand=<deg> moves the per-sheet ceiling, ?foliageLit=<deg> pins the lit-colour ceiling and stops the night ramp writing to it (0 removes it), ?kage=1 puts the tileset's own baked shadow quads back, ?contact=0 removes the generated ones. Each is one variable against the same URL.",
+    "cityRegression": "docs/progress/tiles/r4/30-boot.png is / with no showcase at tod 11: 60 fps, 221 draws (234 in r3 — the 13 baked shadow decal meshes are gone), 18906 tris, 22 programs, 0 errors. 31-city-plaza-noon.png 221 draws, 32-city-plaza-night.png 222 draws, hunts forest/meadow/coast 86/127/113 draws, all 0 errors.",
+    "abFlags": "?uvright=0 restores the old V sampling, ?crossed=1 puts the edge-on card back, ?foliage=0 turns the whole hue patch off, ?foliage=knee restores round 3 exactly (both new halves off — verified against a frame captured from the round-3 build before any of this landed: 2 changed subpixels of 6220800, max delta 1), ?foliageBand=<deg> moves the per-sheet ceiling, ?foliageLit=<deg> pins the lit-colour ceiling and stops the night ramp writing to it (0 removes it), ?kage=1 puts the tileset's own baked shadow quads back, ?contact=0 removes the generated ones. Each is one variable against the same URL.",
     "reproducible": "?showcase=tiles&mode=trees&tod=12 captured twice at the same URL differs by 0 on every channel.",
     "fixed": [
      "THE ROUND-3 REGRESSION: dropEdgeOnTwins kept the Z-facing card and a placement at rot 1 or rot 3 turns that card edge-on, so a quarter-turned tree lost exactly the card the camera sees. cameraFacingRot now composes a twin-dropped model at rot & 2, refuses the snap on a non-square footprint, and never writes back to p.rot (terrain/draft.js and simulation/surface.js read it for collision). Per-region A/B of docs/progress/tiles/r4/00-rotate-before.png against 10-rotate-after.png: tree rot 0 changed 3 px of 68000 (max delta 1), rot 1 12404 px (213), rot 2 0 px, rot 3 11339 px (199), the 3x1 stairs row 0 of 210000, the 4x4 forest_entrance row 0 of 360000. Every shipped scene places trees at rot 0, so this was live in the gauntlet, not in the forest.",
@@ -85,25 +85,36 @@
    ]
   },
   "environment": {
-   "round": 6,
+   "round": 7,
    "score": 7,
-   "status": "round 6 done. The crush that made every night frame black is fixed at its arithmetic root, the cave bloom no longer eats the sprites, and the caster-less slabs are isolated to a named caster with a URL. NOT re-critiqued; the score below is still round 3's.",
+   "status": "round 7 done — the shadow round. The sun's penumbra was one shadow-map texel (0.027 world units) because three r185 deprecated PCFSoftShadowMap and LightShadow.radius had never been set; environment now installs its own 24-tap PCF with a receiver-plane depth bias and rides the radius on the sun's elevation. The environment showcase's cave mode was a lawn and is now a cave. NOT re-critiqued; the score below is still round 3's.",
    "errors": 0,
    "openIssues": [
-    "CASTER-LESS SLABS at low sun are the town's own 117 trees, raked 6.6x by an 8.64-degree shown sun at tod 17.5. Isolated: ?envCasterOff=tree,pine removes 100% of them. NOT fixed - both lighting-side fixes were built and measured and cost more than the defect (elevation floor at 14 deg costs forest-17.5 mean 38.8->64.8; shadow intensity 0.7 costs it 41->60). Needs either the city tree line moved back or a distance-from-caster shadow falloff in core. DECISIONS #50(d).",
-    "pushOutOfCone still costs city-21 2.13 points of belowL8 (11.11 with, 8.99 without) because the bent moon throws the high street buildings across the path. Untried: bend the azimuth for castShadows.js only and leave the shadow map on the raw moon. DECISIONS #50(b).",
+    "[NOT ENVIRONMENT'S, MEASURED] 48.5% of hunts/forest/17.5 has its blue channel at exactly 0, and the golden-hour reference (docs/refs/04) has 1.17% at the same mean blue. It is NOT the shadow: inside the shadow mask the figure is 50.5% against 48.5% frame-wide, and in city/high-street/17.5 the shadow is LESS zero-blue than the frame (10.5% vs 20.0%). It is DECISIONS #50(a)'s crush point — `contrast` is (x-0.5)*c+0.5 with a hard clamp, so at c=1.307 everything under 0.1173 goes to zero and the golden lift delivers 0.0423 in blue. Four preset-side fixes were shot and priced in DECISIONS #52(f); the cheapest (saturation 1.57->1.30, zero-blue 48.5->29.7 at mean -0.28) takes the gold out of the golden hour and was looked at and rejected. The honest fix is a soft toe on the contrast in core/render.js — filed as a coreRequest with the numbers.",
+    "castShadows.js's `sunAlreadyGone()` is a single hardware-2x2 comparison tap — a hard edge — and the sun's shadow map now has a 12-texel penumbra at the golden hour. A sprite crossing that penumbra will have its projected shadow snap from full depth to the AO-only branch at the 50% line while the ground around it ramps smoothly. Not filed by any critic and not shot; found by reasoning about the change. One-line fix: sample `sunAlreadyGone` over the same shadowRadius-scaled disk, or at least four taps. castShadows.js is this module's, so it is a round's work, not a request.",
+    "No caster stands on LIT ground at 17:30 in either shipped framing (the city's trees are off-frame, the showcase's block and lamp posts are inside the massif's shadow, and street lamps are not shadow casters at all), so the 12-texel penumbra has never been checked for contact detachment at the hour it is widest. The contact evidence is noon's bench at 6.4 texels. The showcase should grow a caster on open lit ground at 17:30.",
+    "No per-pixel contact hardening. The penumbra is one width per frame, ridden on the sun's elevation, so a bench at noon and a tree line at 17:30 get 6.4 and 12 texels — but within one frame a shadow at its caster's feet is as soft as one 26 units away. A real filter needs a blocker DISTANCE, and three's PCF map is a comparison sampler that will not return a depth value. Needs either a second depth channel in core or a VSM/PCSS path; the standing coreRequest is now correctly worded.",
     "Night frames are still mid-heavy: forest-21 p50 50 / p95 82 against ref03's p50 33 / p95 130. The floor is fixed; the range is not, and #46 measured that it needs a practical in frame, not a threshold.",
-    "The interior preset carries the same lift-vs-crush error as the night keys did (lift 0x140f08 delivers (1.5,1.0,0.5)/255 under a crush point of 17.6/255). No shipped scene uses it, so it was not shot or changed."
+    "The interior preset carries the same lift-vs-crush error as the night keys did (lift 0x140f08 delivers (1.5,1.0,0.5)/255 under a crush point of 17.6/255). It is now VISIBLE rather than theoretical: ?showcase=environment&mode=biome:interior measures belowL8 39.6% / pureBlack 11.6% on the new enclosed stage. Untouched this round — it is grade work and the round was shadows.",
+    "The enclosed showcase stage reads as a raised tray rather than a hollow, because bw2-cave's set0 draws its metre of wall on the outermost FILLED cells. hunts/biomes/cave.js renders the same way, so it is the tileset's idiom rather than this stage's bug — but it is a tiles/hunts question worth someone's round.",
+    "pushOutOfCone still costs city-21 about 2 points of belowL8 because the bent moon throws the high street buildings across the path. Untried: bend the azimuth for castShadows.js only and leave the shadow map on the raw moon. DECISIONS #50(b)."
    ],
-   "verified": "docs/progress/environment/r6/*.png, 1280x720, hudRows 60, all 60fps / <=221 draw calls / 0 console errors. Gate at the end of the round: 12 improved, 1 regressed, 6 moved; the one regression (city/high-street/17.5 max 230->221) is proven not environment's - see DECISIONS #50(e). Attribution corrected in DECISIONS #50 postscript: the first control was round-4 environment (git checkout goes to HEAD, a round behind); against the correct round-5 control city-21 belowL8 is 22.69 -> 11.11, ~11.6 of the 12.1 points this round's.",
+   "verified": "docs/progress/environment/r7/*.png, 1280x720, hudRows 60, all 60fps / <=221 draw calls / 0 console errors. Gate BEFORE the round: 0 improved, 0 regressed, 0 moved. Gate AFTER: 6 improved, 0 regressed, 0 moved. Four of the six are attributed to this round by a same-minute A/B one flag apart (?envNoShadowFilter=1&envShadowRadius=1 is the round-6 rig exactly): belowL8 city/high-street/21 11.114->9.903, hunts/meadow/21 4.872->3.225, hunts/forest/21 11.864->10.253, hunts/forest/12 2.803->2.352, with mean moving under 0.3 on every one. The other two (hunts/meadow/12 and hunts/coast/12 drawCalls) are src/hunts/'s, which was being edited while this ran. The headline measurement is a scanline: the 90%->10% transition across the massif's shadow at showcase tod 17.5, row y=380, is 3 px before and 26 px after. At 1920x1080 on city/high-street/17.5: 59.4 fps mean, p95 16.7 ms, 221 draw calls, 19k triangles, 22 programs, 0 console errors, against 60.0 fps with the filter off — so the filter costs 0.6 fps and sits inside the >=50 fps / p95 <=20 ms budget. Tap count and the receiver-plane bias are both swept behind URL flags (?envShadowTaps=N, ?envNoRpdb=1) and the numbers are in DECISIONS #52(c).",
    "lastShots": [
-    "docs/progress/environment/r6/city-21.png",
-    "docs/progress/environment/r6/cave-12.png",
-    "docs/progress/environment/r6/forest-21.png",
-    "docs/progress/environment/r6/city-17.5.png",
-    "docs/progress/environment/r6/city-17.5-nocaster-tree.png",
-    "docs/progress/environment/r6/city-21-nobend.png",
-    "docs/progress/environment/r6/cave-pool-12.png"
+    "docs/progress/environment/r7/showcase-17.5.png",
+    "docs/progress/environment/r7/crop-showcase175-hard.png",
+    "docs/progress/environment/r7/crop-showcase175-soft.png",
+    "docs/progress/environment/r7/city-17.5.png",
+    "docs/progress/environment/r7/city-8.png",
+    "docs/progress/environment/r7/forest-17.5.png",
+    "docs/progress/environment/r7/showcase-cave-12.png",
+    "docs/progress/environment/r7/sweep/crop-lawn-r20.png",
+    "docs/progress/environment/r7/sweep/crop-bench-f6.png",
+    "docs/progress/environment/r7/sweep/crop-bench-f12.png",
+    "docs/progress/environment/r7/taps/crop-t5.png",
+    "docs/progress/environment/r7/taps/crop-t24.png",
+    "docs/progress/environment/r7/rpdb/diff-hs175.png",
+    "docs/progress/environment/r7/hd-city-17.5.png"
    ],
    "pass": false
   },
@@ -146,69 +157,67 @@
     "sideA/sideB west-east assignment unverified (DECISIONS #4)",
     "species.json snapshot not generated",
     "no sprite rendering yet",
-    "DECISIONS #17 settled the trainer sheet: sideA is west, walk cycle is contact/stride/contact/stride \u2014 the open item from #4 is closed",
+    "DECISIONS #17 settled the trainer sheet: sideA is west, walk cycle is contact/stride/contact/stride — the open item from #4 is closed",
     "never critiqued, no score",
     "the THREE.WebGLProgram shader error offline's round saw on pokemon:sprite no longer reproduces: pokemon, simulation and city showcases are all at 0 console errors as of 2026-09-08"
    ],
    "lastShots": []
   },
   "encounter": {
-   "round": 2,
-   "score": 6,
-   "status": "round 1 critic scored 6/10; a fix round has landed since and has NOT been re-scored",
+   "round": 3,
+   "score": 6.5,
+   "status": "round 3 done: the module's beats are on screen instead of in the readout. NOT re-scored — no critic has run since the round-1 6/10. Round 3 answered the whole-game critic (\"there is no encounter on screen at all\") rather than this module's own list: the era's \"!\" bubble over the wild, a rustle beat before the reveal drawn with leaf particles, the game's own message box via ui.say(), k=3 framing on every picture mode, a new mode=approach and mode=table, and the default mode moved from throw to reveal. See DECISIONS #51.",
    "errors": 0,
    "openIssues": [
-    "[1] THE BALL IS HALF A BLACK BLOB -- encounter-owned (ball.js), the module's only self-authored art. Measured on c01, ball bbox x 750-834 / y 403-490: of ~4,449 silhouette pixels, 2,243 are exactly (0,0,0) or (1,1,1) = 50.4% pure black. That matches the source exactly: 56 of 112 filled texels in BALL_ART use o (#14141c), B (#1d1d24) or k (#2a2a33), and all three land on (0,0,0) after the scene grade -- outline, equator band and button ring have zero separation. At 8x and 10x the Great Ball reads as a blue cap over a black domino mask with a white chin; the Dusk Ball at night is the same shape in teal. The band is 4 of 12 rows at the ball's widest point. Fix is a table edit: give B and k real value separation (e.g. #3a3a46 / #55555f) and thin the band to one row.",
-    "[2] NIGHT IS A MULTIPLY, NOT A GRADE -- environment's night preset, but it lands in encounter's own night mode, the one built to sell the Dusk Ball's x3. c04 (21:30) vs c01 (12:00): median L 42.8 vs 107.2 (x0.40), p95 62.8 vs 133.8 (x0.47) -- a near-uniform scale. Hue median moves 110.7 -> 125.8 degrees, i.e. GREENER, and the whole frame lives in a 38-degree wedge (p5 113, p95 151). Reference 03-forest-voxel-night: hue median 48.6, p5-p95 span 118 degrees, 8.77% of pixels above L=100, max L 217. c04's brightest scene pixel is L=114 and 0.00% exceed L=140. No moon, no rim, no lamp, nothing to look at.",
-    "[3] SHADOWS TRANSMIT 11% OF THE LIGHT, 3-4x DEEPER THAN THE SAME ENGINE'S OWN CONTROL. c03 at 17:30, hedgerow shadow on grass: L 11.0, RGB (5,15,0), against lit ground L 101.9 (80,116,9) -- ratio 0.108, and the row-mean profile drops 94.3 (y=210) -> 11.7 (y=285) -> 81.3 (y=300) with a 32.1 L jump in a single row and no penumbra. Like-for-like control, same clock, same surface: ctl-sim-golden trainer shadow on grass 0.443, hedge shadow on grass 0.270. Reference 01-forest tree shadow on grass 0.448. So something encounter's showcase does -- setBiomePreset('meadow'), reground(), or shadows landing on layer-5 grass models instead of the ground plane -- is crushing them to black bars across the full frame width.",
-    "[4] THE HEADLINE MODE STACKS THE BALL ON THE FOLLOWER -- encounter-owned (showcase.js frameOffset + the arc apex). In mode=throw, the default and the mode the file calls 'the one unambiguous frame', the ball at apex is centred at screen x 792 and the party's lead Pokemon is centred at x 794. Two pixels apart, 115 px vertically. The ball loses its silhouette against the follower and reads as a hat. Shift the apex a tile off the follower's column or move the camera offset.",
-    "[5] THE AIRBORNE BALL HAS NO VISIBLE SHADOW -- encounter-owned. ball.js does draw a contact blob during the arc (shadow(x, groundY, z, max(0.45, 0.85 - high*0.14))), but it sits at groundY+0.02 underneath layer-5 tall-grass placements at ~0.32 effective opacity. At 4x on c01 there is zero darkening anywhere under the ball. The single cue that sells 'in the air' in a still frame is absent from the frame whose whole job is to be that still.",
-    "[6] THE SPARKLES DO NOT BLOOM AND READ AS FLAT CREAM DIAMONDS -- encounter-owned (ball.js). The code sets sparkMat.color.setRGB(2.6, 2.45, 1.9) with toneMapped:false on the stated theory that this clears bloomThreshold 0.72 and 'the composite's bloom pass lifts the stars off the grass'. Measured: brightest 400 sparkle pixels average (246,215,186), max L 220 -- never white -- and the skirt/core ratio (px 150<L<200 over px L>200) is 0.01 in c03 and 0.02 in c08. There is no halo. In c08 five 55-px hard-edged diamonds sit on top of the shiny Eevee and obscure it.",
-    "[7] THE SHOWCASE FLATTENS ITS OWN GROUND -- encounter-owned (showcase.js reground(), variety: 0). Mean absolute luminance gradient on the near lawn: c01 1.50 with only 2.35% of gradients >8, versus the same engine's simulation lawn at 2.12 / 4.26% and reference 03-forest ground at 1.80 / 4.91%. The bottom quarter of every encounter frame is the softest surface I measured anywhere in the project -- a smooth green field sitting under hard nearest-filtered pixel art, which is the classic HD-2D tell. reground fixed a checkerboard by deleting the texture instead of fixing the UV phase.",
-    "[8] THE GRASS PATCH READS AS A NURSERY, NOT A FIELD. At 2x, and unmistakably at --pixelScale 2 (c12), the patch resolves into rows of identical fern rosettes at identical rotation and phase, separated by straight rectilinear aisles produced by the h>0.93 bare-cell rule -- it reads as a hedge maze. The five-model mix does not read at this scale, and the hedgerows behind it are 15+ identical cubes with identical flowers in identical spots. The grass and hedge models are tiles/terrain assets (the same corduroy appears in ctl-sim-golden's patch, so the art is not encounter's), but the layout, the density and the decision to make it ~60% of every frame are showcase.js's.",
-    "[9] THE DEBUG PANEL IS 22% OF THE FRAME (393x810 of 1600x900; 18% at 1920x1080), in all nine modes, and in mode=walk and mode=balls it is the only thing that changes. The composition is then 22% panel, ~25% empty near lawn, ~20% empty far lawn, and the actual moment in a ~400x160 box at x 500-1080. Every framing I tried has the same problem, which is what shooting more than one angle is for.",
-    "[10] TWO READOUTS CONTRADICT THEIR OWN FRAME -- encounter-owned (index.js:575 + showcase.js render()). (a) c04 and c06: the row labelled 'outcome (decided at the throw)' prints 'win' on a FAILED catch, directly under 'roll 0.865422 >= 0.388403' and 'shakes 0'. index.js does last = { outcome: caught ? 'caught' : outcome } where outcome is the battle verdict, so a miss is captioned as a win. (b) c10 prints 'battle: flee ... -> HP 96.1%' two rows above 'outcome: caught'. A proof shot whose caption disagrees with itself is worse than no caption.",
-    "[11] AT NIGHT THE WILD IS EFFECTIVELY INVISIBLE -- the direct consequence of [2]. Silhouette readability (fraction of subject pixels more than 25 L from the local background median): c04 Murkrow on night grass 7.5%, against the reference's night Poochyena pair at 63.5%. In daylight the module is fine on this metric (c01 Marill 48.4% vs REF01 trainer 50.1%), so this is a night-lighting failure, not a sprite failure. In c11 the same problem takes a hue form the code itself predicts -- shiny Azurill at hue 91.4 / sat 0.436 sits 19 degrees of hue and 0.30 of saturation from the grass around it, and the shimmer is left doing all the work.",
-    "[12] THE AIRBORNE BALL IS OFF THE PIXEL GRID -- encounter-owned, minor. Ground sprites measure a constant 6 screen px per texel (2 internal px). The ball at the arc's apex measures 7.08 px horizontally and 7.33 px vertically = 2.36 internal px per texel, because elevation brings it closer to the pitched camera. Texel runs come out 6/7/9/12 px instead of constant and the outline steps are visibly ragged at 8x. pixelExactDistance(k=2) puts things on the grid only at ground height; the arc has no compensating scale.",
-    "[13] mode=balls IS THIRTEEN IDENTICAL ROWS -- minor. c09 lists all 18 balls, but Poke, Premier, Net, Dive, Dusk, Timer, Repeat, Luxury, Heal, Level, Moon, Fast and Heavy all print 'x1.00 . 15.1%'. Correct behaviour (their conditions genuinely are not met at noon in a meadow against a fresh species) but it makes the mode whose entire purpose is the eighteen-ball line into a wall of repeats. Stage it where three or four conditions actually fire.",
-    "[14] THE SPUR ROAD ENDS IN A BARE TAN RECTANGLE MID-FIELD -- encounter-owned (showcase.js SPUR.x0 = 23), minor. Off-frame at the default framing but plainly inside it at 1920x1080 (c09) and at --pixelScale 2 (c12), with a hedge planted at its corner and a party Pokemon standing on it. It reads as a bald patch, not a path terminus.",
-    "[15] THE REVEAL DOES NOT READ AS A REVEAL -- minor. mode=reveal freezes at stage appear/0.85, where the hop is sin(0.85*pi)*0.55 = 0.25 world units, about 24 screen px. In c02 and c13 the wild looks like it is sitting in the grass, not rising out of it. There is no parted-grass burst, no dust, no squash. Freeze nearer the top of the hop, or give the appear a grass-displacement puff."
+    "[FIXED r3, root cause was not the one filed] [15] THE REVEAL DOES NOT READ AS A REVEAL. Filed as a freeze fraction; it was a rewind bug. encounter.advanceToStage computes an ABSOLUTE target and advances by max(0, target - step), so showcase.js's unconditional pre-roll to ('appear', 1) parked the scene at the END of the appear beat and every later request for a step inside it advanced by zero. mode=reveal asked for 0.5 of the beat and got 14 of 14 — the settled frame. The round-2 shot prints its own evidence: f02-reveal-morning.png says `animation appear @ step 14`. The pre-roll is now guarded by `if (stop.throw)`, which is the only case that needs it.",
+    "[FIXED r3] THE WILD WAS INDISTINGUISHABLE FROM THE PARTY. Five same-sized sprites in the same grass with no mark on any of them. ball.js now draws the era's own signal — docs/refs/01 is a trainer, a Pokemon and one white balloon with a red '!' — on the same 16-texel grid as the ball, hung over the wild from the moment it breaks cover until the ball leaves the hand. Measured on r3/reveal.png: balloon paper 111x126 px, wild 138x126, 34 px apart horizontally, which is the 45-degree camera's lean on anything lifted 2.1 units, not a placement error.",
+    "[FIXED r3] THERE WAS NO BEAT IN WHICH THE GRASS REACTED AND NOTHING HAD APPEARED. T.APPEAR 14 -> 20 with T.RUSTLE = 0.4 of it: for eight steps the wild is not drawn at all and only the disturbance is. mode=approach freezes at 0.3 (inside it), mode=reveal at 0.7 (the apex of the burst). Five beats, five modes: approach, reveal, throw, shake, caught/escaped.",
+    "[FIXED r3] THE RUSTLE WAS THE CAPTURE BURST'S OWN WHITE STARS. Ten 65 px stars on a 77 px ring is a solid overlap and the frame showed one horizontal white bar; a white bar in grass reads as magic. Nine lit leaf sprites now, on their own instancer (+1 draw call). Two corrections found by cropping and not by reasoning: the first blade was fully outlined and came out a clump of near-black lumps (the ball's round-1 defect in miniature), and mirroring instances via a negative scale.x inverts the normal matrix, so four of nine leaves rendered with no lit face at all.",
+    "[FIXED r3] THE CATCH WAS NARRATED, NOT SHOWN. ui/panels/dialogue.js publishes ctx.get('ui').say() as a seam and ui's `minimal` flag gates the party bar and the away card, not app.open — so a foreign showcase can use the game's own DS message box. Every picture mode now prints the line the games print (\"A wild MARILL appeared!\", \"Go! GREAT BALL!\", \"Gotcha! MARILL was caught!\", \"Oh, no! The MARILL broke free!\") in ui's low-res canvas at the scene's own pixel pitch. NOT in the live game: the box waits for a keypress to advance, so index.js emits ui:toast instead, guarded by !config.showcase.",
+    "[FIXED r3] [9] THE DEBUG PANEL. 21.9% of the frame in round 1, 13.1% in round 2, 5.00% now at the default mode (measured by isolating its navy scrim: 324x320 of 1920x1080). The spawn table the whole-game critic named by name and the eighteen-ball shelf are gone from every mode that is a picture; they live in the new mode=table and in mode=balls.",
+    "[FIXED r3, found by the round's own review] A SQUASH-AND-STRETCH ON A PIXEL SPRITE IS ISSUE [12] WITH A DIFFERENT ACTOR. The appear beat first shipped a continuous scale ramp that freezes mode=reveal at ~1.10; at k=3 one sprite texel is exactly 3 internal pixels, so 1.10 of it is 3.3 and texels came out 3 internal px wide in some runs and 4 in others — on the headline sprite in the frame an outside critic shoots. Histogram of horizontal texel-edge spacings over the whole sprite, same species same cell: scale 1 control (mode=escaped) gap9 x408 / gap12 x223, 48.9% on whole texels; continuous ramp gap9 x246 / gap12 x441, 27.1%; shipped gap9 x415 / gap12 x224, 50.5%. Fixed by quantising rather than deleting — a scale that is a multiple of 1/3 keeps every texel a whole number of internal pixels, so the pop is 2/3 -> 1 and nothing between, and the frozen reveal lands on the settled 1. DECISIONS #51(j) states the general rule.",
+    "[FIXED r3] THE RESTING BALL WAS DRAWN BELOW ITS OWN SHADOW. arc() already passed shadowY = at.y + coverY because tall_grass stands 0.625 proud, but rest() placed the ball at at.y — 0.625 units below its own shadow — so the blades took its lower shell, band and button. (The pre-fix frame was not kept; the claim rests on the two call sites, which disagreed by exactly coverY.) Shipped, at 2x: docs/progress/encounter/r3/crops/ball-resting-on-cover-2x.png. The wobble also went 2 -> 3 texels (at 2 the sweep's extreme is 27 px against a 116 px ball, so every frozen frame looked static).",
+    "[VERIFIED HELD r3] [1] THE BALL IS HALF A BLACK BLOB. Re-measured on r3/throw.png with the critic's own looser not-green mask over an 11,160 px silhouette: 0 pixels at exactly (0,0,0) and 0 at exactly (1,1,1) = 0.00%, against round 1's 50.4%.",
+    "[VERIFIED HELD r3] [5] THE AIRBORNE BALL HAS NO VISIBLE SHADOW. Present and on the cover: the row-mean luminance under the ball falls from 68 to 57 across y 720..744 on r3/throw.png and the ellipse is plainly visible in a 3x crop.",
+    "[VERIFIED HELD r3] [4] THE HEADLINE MODE STACKS THE BALL ON THE FOLLOWER. Ball/lead centre separation 5 px (r1) -> 114 px (r2) -> 180 px at the r3 framing.",
+    "[MEASURED, MUCH REDUCED, NOT REWORKED] [8] THE GRASS PATCH READS AS A NURSERY. Re-measured at the k=3 framing rather than re-litigated: scanning the patch band (y 430-620) of r3/walk.png for columns with no blade texture at all finds ONE bare lane wider than 25 px in the whole frame — x 1395-1600, 1.43 cells — and it is the walk corridor the queue is standing in, which is deliberate. 229 of 1920 columns are bare. The rectilinear aisles the critic photographed were mostly the flat decal models (grass_patch / grass_patch_half / grass_decoration, 21% of interior cells) reading as bare ground at the wider k=2 framing. The layout code is untouched: changing the model mix risks trading this for the single repeating diagonal texture it was introduced to fix, and it is not what the whole-game critic filed.",
+    "[NOT FIXED, encounter-owned] [14] THE SPUR ROAD ENDS IN A BARE TAN RECTANGLE MID-FIELD (showcase.js SPUR.x0 = 23). Off-frame at the k=3 framing every picture mode now uses, so it is no longer in a judged shot, but it is still in the map.",
+    "[NOT FIXED, minor] The break-out (mode=escaped) hides the ball entirely at the moment the wild comes back out. The games burst it open. A still of the beat therefore shows the wild hopping with no evidence a ball was ever thrown, and only the message box says so.",
+    "[NOT RE-MEASURED r3, environment-owned] [2] NIGHT IS A MULTIPLY / [3] SHADOWS TRANSMIT 11% / [11] THE WILD IS INVISIBLE AT NIGHT. Round 2 moved all three (night % over L100 0.38 -> 6.71 against ref 03's 8.77; silhouette readability 8.4% -> 39.2%) and round 3 changed nothing in that path. The '!' bubble and the leaves both carry an emissive floor so they read at 21:30; verified on r3/night.png, which is lamp-lit with the Dusk Ball's x3 live.",
+    "[NOT ENCOUNTER-OWNED — for `ui`] IN THE LIVE GAME NOBODY CAN THROW. `ui` has no key bound to a ball, and `automation` is off by default (ARCHITECTURE 5.11), so at `/` a player walks into grass, sees the rustle, the wild rise, the '!' and the \"A wild X appeared!\" toast — and then T.LEAVE fires and it goes. Everything needed is already published: `encounter.active()`, `encounter.bestBall()` and `encounter.attempt(ballId) -> boolean`. One key in ui/input.js gated on `encounter.scene()?.stage === 'ready'` closes the loop. Filed here rather than as a coreRequest because it is a module's job, not core's."
    ],
    "lastShots": [
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c01-throw-noon.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c02-reveal-dawn.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c03-caught-golden.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c04-night-2130.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c05-walk-dawn.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/critic/c06-escaped-noon.png"
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/approach.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/reveal.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/throw.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/shake.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/caught.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/escaped.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/shiny.png",
+    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/night.png"
    ],
    "measured": {
-    "at": "17 shots, 1600x900 and 1920x1080, tod 5.8/8/12/17.5/21/21.5, plus --pixelScale 2",
+    "at": "12 shots at 1920x1080 plus one at 1600x900, tod 8 / 12 / 17.5 / 21.5, modes approach reveal throw shake caught escaped shiny night walk balls table",
     "fps": "60 in every shot",
     "p95ms": "16.7-16.8",
-    "drawCalls": "60-72",
-    "triangles": "15604-15778",
-    "programs": "16-24",
+    "drawCalls": "54-62 (the leaf instancer is +1, and only while a reveal is on screen)",
+    "triangles": "~15k",
+    "programs": "16-26",
     "consoleErrors": 0,
     "consoleWarnings": 0,
-    "reproducible": "two captures of ?showcase=encounter&mode=caught&tod=12 differ by 0 on every channel, grain on",
-    "selftest": "node src/encounter/selftest.js 35/35; node tools/seams/run.js passes",
-    "round2Deltas": {
-     "ball pure-black pixels": "critic's tight silhouette mask read 50.4% in round 1; with one looser not-green mask applied to BOTH rounds over the same region, 25.1% -> 0.0%. In texels the black-family count went 56/112 -> 32/112, and those 32 are outline only, rendering at (18,10,25) rather than clipping. Pokemon sprites in the same frame measure 9.0% and 10.3% under the same mask.",
-     "ball/follower centre separation at the throw": "5 px -> 114 px on a 66 px ball",
-     "hedgerow shadow band, columns under L 15": "91% -> 36%; band mean L 9.2 -> 33.0",
-     "night scene % over L 100": "0.38 -> 6.71 (ref 03: 8.77)",
-     "night scene % over L 140": "0.00 -> 1.60 (ref 03: 3.04)",
-     "night scene max L": "114.3 -> 253.6 (ref 03: 216.9)",
-     "night hue p5-p95 span": "44.6 -> 134.8 (ref 03: 117.8)",
-     "wild silhouette readability at night": "8.4% -> 39.2% (ref 03 night pair: 63.5%)",
-     "sparkle skirt/core ratio": "0.01 -> 1.01 (burst), 0.02 -> 1.08 (shiny ring)",
-     "sparkle brightest 400 px": "(246,215,186) -> (255,247,226)",
-     "airborne ball contact shadow (A/B vs blob off)": "0 px -> 2040 px, max 46.7 levels",
-     "airborne ball texel anisotropy": "8.6% -> 1.5% (7.00x7.60 px -> 6.60x6.70 px)",
-     "panel share of frame": "21.9% -> 13.1%",
-     "sun-shadow transmission (control)": "encounter 0.173 vs simulation 0.191 at the same tod and preset"
-    }
+    "reproducible": "two captures of ?showcase=encounter&mode=reveal&tod=12 at 1600x900 differ by 0 of 1,440,000 pixels, max channel delta 0",
+    "selftest": "node src/encounter/selftest.js 35/35; node tools/seams/run.js passes (120 files, 15 modules)",
+    "gate": "node tools/shots/regress.js BEFORE this round: 0 improved / 0 regressed / 0 moved across 12 frames. AFTER (re-run following the last src change): 6 improved / 0 REGRESSED / 0 moved. Every improved row is a hunts or city frame and is somebody else's: src/hunts/biomes/{forest,meadow,coast}.js and src/environment/index.js were being edited concurrently and the counts drifted between two runs of the gate an hour apart. encounter contributes no row to the matrix; the one row that boots the whole game (boot/12) did not move, which is also the check that the new live-path ui:toast does not fire during a boot capture.",
+    "round3Deltas": {
+     "panel share of the default frame": "21.9% (r1) -> 13.1% (r2) -> 5.00% (r3, 324x320 of 1920x1080)",
+     "ball pure black/white, looser not-green mask": "50.4% (r1) -> 0.00% (r3, 0 of 11,160 silhouette px)",
+     "ball/lead centre separation at the throw": "5 px -> 114 px -> 180 px",
+     "sprite scale": "pixelExactDistance k=2 -> k=3 on every picture mode; a Pokemon is ~180 px tall in a 1080 frame, against ref 01's proportion",
+     "beats a critic can judge separately": "4 (reveal/throw/shake/result) -> 5, with approach added and reveal freed from the pre-roll clamp that made it identical to the end of the beat",
+     "modes": "9 -> 11 (approach, table added)",
+     "wild texel grid at the reveal": "continuous squash-stretch put 27.1% of the wild's texel edges on whole texels against a 48.9% scale-1 control; quantising the pop to thirds returns 50.5%"
+    },
+    "evidenceCrops": "docs/progress/encounter/r3/crops/ — leaf-outlined-3x.png and leaf-shipped-3x.png (the mirrored-normal finding), ball-airborne-shadow-3x.png (the contact shadow under the arc), ball-resting-on-cover-2x.png (the ball clear of the blades)"
    },
    "pass": false
   },
@@ -298,13 +307,13 @@
     "programs": 21,
     "consoleErrors": 0,
     "consoleWarnings": 0,
-    "selftest": "node src/ui/selftest.js \u2014 all checks pass",
-    "seams": "node tools/seams/run.js \u2014 119 files, 15 modules, all contracts hold",
-    "determinism": "?showcase=ui&mode=boxes and &mode=dex at tod 21, shot twice: max channel delta 0 across all 1,440,000 pixels. &mode=shop differs in exactly 504 pixels in one 50x20 box \u2014 the money digits \u2014 which is idle's accrual through the settle window (critic issue 17a), not ui.",
+    "selftest": "node src/ui/selftest.js — all checks pass",
+    "seams": "node tools/seams/run.js — 119 files, 15 modules, all contracts hold",
+    "determinism": "?showcase=ui&mode=boxes and &mode=dex at tod 21, shot twice: max channel delta 0 across all 1,440,000 pixels. &mode=shop differs in exactly 504 pixels in one 50x20 box — the money digits — which is idle's accrual through the settle window (critic issue 17a), not ui.",
     "lightModel": "wallet paper luma by tod: 8 -> 224.2, 12 -> 233.5, 17.5 -> 209.5, 21 -> 152.1; plaza ground under it 85.1 / 124.2 / 116.2 / 68.0. Round 1 was 233.6 at all four.",
     "contrast": "away card efficiency bands, worst of six: 5.28:1 at tod 8, 5.86:1 at tod 21 (round 1: 1.41:1 / 2.47:1 / 2.47:1). Ink on lit panel paper at tod 21: 6.1:1.",
     "panelValue": "same measurement box, round 1 -> round 2 at 1920x1080: dex luminance mu 166.4 -> 81.6, shop 163.2 -> 109.4 with saturation p50 72.9 -> 108.5, boxes 155.6 -> 97.2 with luminance p5 31.5 -> 28.3.",
-    "darkWellContrast": "the deep recess is exempt from the light model along with the lamp ramp \u2014 a dex list and a PC box are displays inside the device. Dimmed with everything else, deepDim on deepBase falls from 5.4:1 at noon to 2.8:1 at 21:00; exempt it holds 5.4:1 at every hour."
+    "darkWellContrast": "the deep recess is exempt from the light model along with the lamp ramp — a dex list and a PC box are displays inside the device. Dimmed with everything else, deepDim on deepBase falls from 5.4:1 at noon to 2.8:1 at 21:00; exempt it holds 5.4:1 at every hour."
    },
    "lastShots": [
     "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/ui/critic/01-default-t12.png",
@@ -315,22 +324,22 @@
     "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/ui/critic/06-party-t17.png"
    ],
    "fixedThisRound": [
-    "1 PANELS OFF SCREEN \u2014 every authored w/h now goes through `fit(g,w,h)` in panels/common.js and every internal column is a fraction of win.w. Verified at 426x239, 533x299 and 640x360 internal for all seven panels.",
-    "2 HUD BRIGHTNESS CONSTANT \u2014 theme.applyLight(tod) re-lights the whole palette from a solar-elevation proxy. Wallet paper luma 233.5 (noon) / 224.2 (08:00) / 209.5 (17:30) / 152.1 (21:00), against a hard 233.6 everywhere in round 1. Night is 0.65 of luma and not lower because 0.36 would take ink-on-paper to 2.4:1.",
-    "3 MENU ON THE CLOCK \u2014 the menu anchors to the MENU button that opens it (bottom-right, above the strip) and is floored at the clock's bottom edge; toasts step left while it is open.",
-    "4 NO LEADING IN THE MENU \u2014 row pitch 17->21, blurb at +12 (three clear rows below the label's baseline), selected blurb white instead of light-blue-on-blue.",
-    "5 FLAT DESATURATED INTERIORS \u2014 a deep ramp (C.deepDeep..deepFaint) plus a `dark` flag on well/row/list; dex entries, box tray, box list, shop shelf and party tray are dark recesses with light type. Same box r1->r2: dex luminance mu 166.4->81.6, shop 163.2->109.4 (saturation p50 72.9->108.5), boxes 155.6->97.2.",
-    "6 KEY HINT COLLIDES AT 720p \u2014 three steps now, and the third always works: long string, short string, then the hint moves to the top of the screen under the wallet. Also dodges the toast column, which round 1 did not measure.",
-    "7 SLASHED ZERO AND FOUR-POINTED STAR (in part) \u2014 the zero is a plain oval, still 5 px wide so wallet numbers keep their width; the star is five-pointed and sits on the baseline. Descender depth and stroke weight are NOT fixed \u2014 see openIssues.",
-    "8 BROKEN SPECIMEN \u2014 the specimen is `full` so it replaces the HUD, and the 3x block is filled cell by cell out of font.js's rows with the glyph grid and the baseline drawn under it.",
-    "9 AWAY BAND LABELS UNDER CONTRAST \u2014 flat five-step ramp with the ink chosen against the band. Worst band measured 5.28:1 at tod 8 and 5.86:1 at tod 21 (round 1: 1.41:1, 2.47:1, 2.47:1).",
-    "10 TOAST KIND ON HUE ALONE \u2014 rails separated in value (CIE L* 82.9/61.5/46.8/35.6/24.3, min gap 11) and each kind carries a mark glyph on its own ink chip.",
-    "11 DEAD ZONES \u2014 shop DETAIL gained an IN YOUR BAG list, shop SHOPS gained an IN EFFECT multiplier block, party DETAIL gained IV total / BST / slot plus a wrapped explanation, the dialogue box is now as tall as its message, and empty party slots are plates rather than hairlines.",
-    "12 RELEASE THE BIGGEST BRIGHTEST CONTROL \u2014 `danger` variant on button()/action(); RELEASE is the small red control beside a wide MARK FAVOURITE (collection.favourite is real API), and the confirm reads YES, RELEASE / KEEP.",
-    "13 STALE COPY \u2014 the menu blurb and the boxes doc comment both say ten orders.",
-    "14 CURRENCY ORDER FLIPS \u2014 panels/shop.js imports WALLET from hud.js instead of re-listing it, so the two cannot drift again.",
-    "15 SMALL CRAFT \u2014 (a) DISPROVED, see disproved[]; (b) one header rule written into section(): window bar = module colour, every section bar = stone; (c) the wallet is repainted over the away card's scrim; (d) wrapped note continuations are indented past the bullet; (e) 'the only one you hold' is lamp amber, not error red. Also: the strip chips' key letters were hanging outside the plate and now sit inside it.",
-    "16 UNFINISHED D-PAD \u2014 one cross-shaped body with knocked-out corners, inset key plates, a recessed hub instead of a bare square, and a RUN latch with a lamp and a caption."
+    "1 PANELS OFF SCREEN — every authored w/h now goes through `fit(g,w,h)` in panels/common.js and every internal column is a fraction of win.w. Verified at 426x239, 533x299 and 640x360 internal for all seven panels.",
+    "2 HUD BRIGHTNESS CONSTANT — theme.applyLight(tod) re-lights the whole palette from a solar-elevation proxy. Wallet paper luma 233.5 (noon) / 224.2 (08:00) / 209.5 (17:30) / 152.1 (21:00), against a hard 233.6 everywhere in round 1. Night is 0.65 of luma and not lower because 0.36 would take ink-on-paper to 2.4:1.",
+    "3 MENU ON THE CLOCK — the menu anchors to the MENU button that opens it (bottom-right, above the strip) and is floored at the clock's bottom edge; toasts step left while it is open.",
+    "4 NO LEADING IN THE MENU — row pitch 17->21, blurb at +12 (three clear rows below the label's baseline), selected blurb white instead of light-blue-on-blue.",
+    "5 FLAT DESATURATED INTERIORS — a deep ramp (C.deepDeep..deepFaint) plus a `dark` flag on well/row/list; dex entries, box tray, box list, shop shelf and party tray are dark recesses with light type. Same box r1->r2: dex luminance mu 166.4->81.6, shop 163.2->109.4 (saturation p50 72.9->108.5), boxes 155.6->97.2.",
+    "6 KEY HINT COLLIDES AT 720p — three steps now, and the third always works: long string, short string, then the hint moves to the top of the screen under the wallet. Also dodges the toast column, which round 1 did not measure.",
+    "7 SLASHED ZERO AND FOUR-POINTED STAR (in part) — the zero is a plain oval, still 5 px wide so wallet numbers keep their width; the star is five-pointed and sits on the baseline. Descender depth and stroke weight are NOT fixed — see openIssues.",
+    "8 BROKEN SPECIMEN — the specimen is `full` so it replaces the HUD, and the 3x block is filled cell by cell out of font.js's rows with the glyph grid and the baseline drawn under it.",
+    "9 AWAY BAND LABELS UNDER CONTRAST — flat five-step ramp with the ink chosen against the band. Worst band measured 5.28:1 at tod 8 and 5.86:1 at tod 21 (round 1: 1.41:1, 2.47:1, 2.47:1).",
+    "10 TOAST KIND ON HUE ALONE — rails separated in value (CIE L* 82.9/61.5/46.8/35.6/24.3, min gap 11) and each kind carries a mark glyph on its own ink chip.",
+    "11 DEAD ZONES — shop DETAIL gained an IN YOUR BAG list, shop SHOPS gained an IN EFFECT multiplier block, party DETAIL gained IV total / BST / slot plus a wrapped explanation, the dialogue box is now as tall as its message, and empty party slots are plates rather than hairlines.",
+    "12 RELEASE THE BIGGEST BRIGHTEST CONTROL — `danger` variant on button()/action(); RELEASE is the small red control beside a wide MARK FAVOURITE (collection.favourite is real API), and the confirm reads YES, RELEASE / KEEP.",
+    "13 STALE COPY — the menu blurb and the boxes doc comment both say ten orders.",
+    "14 CURRENCY ORDER FLIPS — panels/shop.js imports WALLET from hud.js instead of re-listing it, so the two cannot drift again.",
+    "15 SMALL CRAFT — (a) DISPROVED, see disproved[]; (b) one header rule written into section(): window bar = module colour, every section bar = stone; (c) the wallet is repainted over the away card's scrim; (d) wrapped note continuations are indented past the bullet; (e) 'the only one you hold' is lamp amber, not error red. Also: the strip chips' key letters were hanging outside the plate and now sit inside it.",
+    "16 UNFINISHED D-PAD — one cross-shaped body with knocked-out corners, inset key plates, a recessed hub instead of a bare square, and a RUN latch with a lamp and a caption."
    ],
    "disproved": [
     "15(a) 'shiny star markers straddle the cell border'. Probed on the critic's own docs/progress/ui/critic/18-boxes-1080p.png: star ink spans y 390-401 and 696-707; the cell interior measured at a column 14 px left of each star (clear of the glyph) runs 387-419 and 693-752. Both stars are entirely inside their own cell, one output pixel below its top border. The pixel quoted, (562,398), is #9A8A6E cell paper. The round-1 column scan through the star's own x is what makes it look otherwise. Fixed anyway as a read problem: the star now sits on its own 7x7 ink chip."
@@ -374,7 +383,7 @@
     "litDoorways": 2,
     "npcs": 13,
     "deterministic": "two runs of ?showcase=city&tod=21.5 agree to a max 6/255 on any channel, and are byte-identical with &grain=0; the residual is the post stack's film grain, not the cast",
-    "extraDrawCalls": "32 (22 InstancedMeshes for 6 buildings across 3 models, 10 for 16 props across 10), 1378 triangles \u2014 counted from the two pack.json files"
+    "extraDrawCalls": "32 (22 InstancedMeshes for 6 buildings across 3 models, 10 for 16 props across 10), 1378 triangles — counted from the two pack.json files"
    },
    "lastShots": [
     "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/city/critic/n12-plaza.png",
@@ -387,77 +396,80 @@
    "pass": false
   },
   "hunts": {
-   "round": 5,
+   "round": 6,
    "score": 6.5,
-   "status": "round 5 done: ONE thing (the wood) plus the second (the divided road), both shot and both measured against tools/shots/regress.js with a same-session control. NOT re-critiqued; the score below is still round 1's 6.5 / the last blind round's 5.5.",
+   "status": "round 6 done: the road's eight corner slots re-cast per-slot (the residual meander-step commas are gone, 6+2 at 1x -> 0) and the wood's south face covered off the tree list instead of a scatter (trunk-brown -65% wide / -58% default / -37% close, and the close framing's four exposed root decals -> 0). NOT re-critiqued; the score below is still the last blind round's.",
    "errors": 0,
    "measured": {
-    "at": "1920x1080, docs/progress/hunts/r5/final/ (forest route+default at tod 12/17.5/21, forest deep, meadow, cave close, coast sea) and 1280x720 through tools/shots/regress.js",
+    "at": "1920x1080, docs/progress/hunts/r6/{before,after,after2,after3,final}/ and 1280x720 through tools/shots/regress.js",
+    "control": "src/hunts copied aside, `git checkout HEAD -- src/hunts/`, shot, copied back. Only this module's folder moves, so the other agents editing src/encounter, src/environment and tools/judge during this session cannot leak into the A/B. See DECISIONS #53f for the `git stash` mistake this replaced.",
     "fps": 60,
     "drawCalls": {
-     "forest": "86 -> 86 (unchanged; the extra trees are instances of models the map already used)",
-     "meadow": 127,
-     "cave": 118,
-     "coast": 113
+     "forest": "86 -> 78 (74 after the road alone; the trunk cover adds hedge2/hedge3 back)",
+     "meadow": "127 -> 115",
+     "coast": "113 -> 101",
+     "cave": 118
     },
-    "triangles": "forest 24924 -> 31056",
-    "consoleErrors": "0 on all 10 final shots",
-    "consoleWarnings": "0 on all 10 final shots \u2014 hunts.audit() runs on every enter(), so a clean shot JSON is the lane assertion",
-    "selftest": "310 -> 315 checks, all green",
-    "seams": "119 files, 15 modules, all contracts hold",
-    "GATE_CONTROLLED_AB": {
-     "why": "src/city/*, src/environment/index.js and src/tiles/* were edited by other agents DURING this round (mtimes one minute before a gate run), and the tod-21 rows moved by 7-12 points of belowL8Pct in every biome including ones this module does not touch. The only honest attribution is a control taken minutes apart under the same drift: src/hunts reverted to its session-start behaviour, `regress.js --only hunts`, restored, `--only hunts` again.",
-     "cave/12, coast/12, meadow/12, meadow/21": "EVERY METRIC IDENTICAL TO THREE DECIMALS. The meadow road fix moves 5.77% of the pixels of its judged frame and does not move one metric \u2014 a green ribbon inside the band traded for a green fringe outside it preserves the histogram.",
-     "forest/12": "mean -0.16, belowL8Pct -0.018, p99 0, max 0, pureBlack 0, over200 0",
-     "forest/17.5": "mean -2.58 (tol 4, no direction), p99 -4.00 (tol 4, at the boundary, not flagged), belowL8Pct +0.546 (tol 0.8), pureBlack +0.011",
-     "forest/21": "belowL8Pct +0.556 (tol 0.8), pureBlack +0.075 (tol 0.5), p99 0, mean -0.32",
-     "verdict": "ZERO REGRESSED rows on this module's own frames."
-    },
-    "GATE_AT_ROUND_END_VERBATIM": "12 improved, 1 regressed, 6 moved, across 12 frames.   The single REGRESSED row is `city/high-street/17.5  max  230 -> 221`. It is not this module's, and the evidence is not an alibi about timing: that frame's own shot JSON reports `hunts:skipped`, so this module is not even initialised in it; src/city/*.js and src/environment/index.js carried mtimes one minute before the run it first appeared in; and the controlled A/B below shows zero movement on all seven hunts rows. The gate was 0 improved / 0 regressed / 0 moved when this round started, so every movement in that line was introduced during the session by some agent \u2014 the A/B is what says which ones were mine.",
-    "wood": {
-     "treeNearestNeighbourMedian": "2.00 -> 1.41 cells (round 4: 2.00 at the minimum, the first quartile AND the median; round 5: 1.00 / 1.41 / 1.41). Both ends built through the same offline harness, the file reverted to round-4 behaviour and built again \u2014 not inferred from the spacing formula.",
-     "trees": "399 -> 681 (bigTrees 123 -> 255, conifers 43 -> 74)",
-     "crownCellsCoveredTwice": "18.1% -> 52.8% of crown-covered cells (337/1867 -> 1112/2108)",
-     "how": "packAt is a separate field from canopyAt (which stays the floor shade), floor 0.95 instead of 1.75 so a neighbour at d=1 is legal and one at d=1.41 is legal over most of the wood, range driven by its own period-7 `stand` field, and distToPath dropped from it entirely. distToOpenings thins over 7 cells rather than 4 \u2014 that number was set against the gate, not by eye."
-    },
+    "triangles": "forest 31k -> 40k",
+    "consoleErrors": "0 on all 11 hunts shots plus the plain boot shot at / — verified by reading every sibling JSON, not assumed",
+    "consoleWarnings": "0 on all 11 hunts shots plus the plain boot shot at / — verified by reading every sibling JSON. hunts.audit() runs on every enter(), so a clean shot log is the lane assertion, and meadow/coast were read too because set0Outward is new in both.",
+    "selftest": "315 -> 324: ten checks added, one retired (the old 'SET0_OUTWARD turns the two side cases and nothing else', which no longer describes the policy). FOUR of the ten were proved to fail on a reverted file rather than merely asserted: the two shoulder-rule checks (north-south -> edge_w, east-west -> edge_n) fail when the corner re-cast is disabled, and the two front-rank checks fail when the cover pass is removed ('180 of 180 front-rank crowns uncovered'). The other six — remap plumbing, the unknown-target fallback, SET_CASE_SIG's 13 slots, rot 2 on every case, inner -> center, edges untouched — are asserted, not proved by reversion.",
+    "seams": "120 files, 15 modules, all contracts hold",
     "road": {
-     "was": "a three-cell path field drawing as tan 77px | green 12 | tan 76 | green 15 | tan 76 \u2014 the critic's 'three tan runs split by two grass ribbons', with the band's outer edges meeting the lawn at a bare seam",
-     "now": "one continuous band with the artist's transition on both outer edges",
-     "cause": "bw2-adastra set0's edge_w/edge_e come out of the pack mirrored about their own centre. NOT 'border slots painting cells outside the field' \u2014 solvePlacements emits nothing outside the field, checked in source.",
-     "fix": "SET0_OUTWARD in hunts/palette.js + a `rotate` option on palette.draw: rot 2 on those two cases only. Corners are deliberately not turned (diagonal art, a quarter turn moves it to the wrong diagonal; they are a handful of cells at the meander steps). Applied in forest and meadow.",
-     "evidence": "docs/progress/hunts/r5/road-before.png vs road-after.png; road-before-meadow.png vs road-after-meadow.png"
-    }
+     "diagnosis": "NOT a U mirror and NOT 'mirrored about its own centre' — both earlier framings were wrong and both fixes built on them were reverted. Every `michi01a` face in pack.bin carries v = +0.0562..+0.9438 (DS top-down) while the `michi01b` fill on the same models carries v = 0..-0.9999 (already negated); TextureLoader uploads flipY=true, so the transition faces sample inverted along whichever world axis their own v runs. Repro: model 8 groups[0].offset 3960 vs model 9 in public/generated/tiles/bw2-adastra/pack.bin.",
+     "whyRotationIsNotEnough": "an outer corner is two triangles split on the diagonal, each carrying one strip on its own axis, so each strip flips out of its own triangle and only the sliver grazing the diagonal survives; an inner corner is one triangle whose v runs corner-to-hypotenuse, so the flip puts the fringe on the hypotenuse.",
+     "fix": "palette.draw gains `remap`; set0Outward(field) returns rot 2 for every case plus a per-slot re-cast: an outer corner becomes the edge_* of its longer exposed shoulder (measured on the field, so it returns edge_w/edge_e on the forest trail and edge_n/edge_s on the meadow and coast tracks), an inner corner becomes center. Applied in forest, meadow AND coast.",
+     "measuredOffline": "rebuilt the shipped seed-1337 trail from pack.bin + michi01a.png under the solver's own conventions: green pixels enclosed by dirt 960 -> 0, dirt meeting bare lawn with no fringe 720 -> 222.",
+     "measuredOnScreen": "the six stubs countable at 1x in forest-wide-12 and the two in the default framing are gone (looked at, not inferred). Dirt-enclosed-green scanline: forest-wide 3987 -> 1224, forest-default 4770 -> 1818, coast 22815 -> 9900, meadow 32670 -> 30678.",
+     "evidence": "docs/progress/hunts/r6/before/*.png vs docs/progress/hunts/r6/after/*.png"
+    },
+    "wood": {
+     "was": "a Poisson scatter at radius 1.35 over the `face` row — gaps by construction, and blind to where the trunks are",
+     "now": "driven off the tree list: every planted crown with no crown in the row south of its footprint gets a cover on its own southern row, width-matched (hedge2 under a 2x2, hedge3 under a 3x3), half as one run and half as one 1x1 per cell so the tree line is not sixty identical boxes.",
+     "twoCorrections": "exposure measured against crown footprints rather than against `wood` took it from 91 to 170 of 689 crowns; replacing the `lane` guard with `draft.collisionAt(x,bz) === 'block'` — which the crown itself already wrote — took it to 180 and covered the two trailside crowns the close framing is about.",
+     "trunkBrownPct": {
+      "gate": "a pixel counts as trunk when 45 <= r <= 135 and 12 <= r-g <= 50 and -8 <= g-b <= 42 and b <= 72. Chosen to separate the trunk/root decal from the dirt path, which is the same hue but far lighter (path samples ~(173,136,73), trunk ~(84,56,22)). This is NOT the critic's gate — they measured 2.71% -> 2.29% on some wider definition — so recompute with this one before comparing.",
+      "forest-wide-12": "0.818 -> 0.284",
+      "forest-default-12": "0.983 -> 0.416",
+      "forest-close-12": "0.946 -> 0.596",
+      "closeFramingFullyExposedRootDecals": "4 -> 0, counted at 1x by eye on before/forest-close-12.png vs final/forest-close-12.png"
+     },
+     "evidence": "docs/progress/hunts/r6/before/forest-close-12.png vs docs/progress/hunts/r6/final/forest-close-12.png"
+    },
+    "GATE_AT_ROUND_END_VERBATIM": "6 improved, 0 regressed, 0 moved, across 12 frames.  improved: hunts/forest/21 belowL8Pct 11.445 -> 10.493; hunts/meadow/12 drawCalls 127 -> 115; hunts/meadow/21 drawCalls 127 -> 115 and belowL8Pct 4.917 -> 3.225; hunts/coast/12 drawCalls 113 -> 101; city/high-street/21 belowL8Pct 11.114 -> 9.903 (not this module's — hunts is `skipped` in that frame; another agent's environment work landed during the session). The gate was 0/0/0 when this round started. --accept was NOT run."
    },
    "fixedThisRound": [
-    "[THE ONE THING] THE WOOD READS AS A WOOD. The plantation was arithmetic: four rounds drove the scatter off `spacing = 3.1 - canopyAt*1.35`, canopyAt clamps to 1, so the radius bottomed out at 1.75 \u2014 and scatterSpaced rejects on dx^2+dz^2 < r^2, so the closest two trees could ever stand was a full 2 cells, at which a 2x2 crown abuts its neighbour and can never overlap it. Every crown got its own ring of lit floor, its own root decal and its own separate cast shadow. `packAt` is now its own field with a floor of 0.95 and a linear range to 3.3 off an independent period-7 `stand` field: nearest-neighbour distance 2.00/2.00/2.00 (min/p25/p50) -> 1.00/1.41/1.41, trees 399 -> 681, crown cells covered twice 18.1% -> 52.8%. Both ends measured by building the map both ways, not inferred. Draw calls unchanged at 86.",
-    "[THE ONE THING, second half] THE LATTICE IS GONE AND THE SILHOUETTES VARY. distToPath is out of the packing entirely (a ride already carries its own treeless verge; thinning the wood four more cells behind it is what made the tree line a row of lollipops). Half the crowns are placed at rot 2 \u2014 mirrored, hashed off the cell; the odd quarter turns are unusable because dropEdgeOnTwins throws the X-facing card away (DECISIONS #41b). The 3x3 crown is commoner and its room test now checks all nine cells instead of three corners.",
-    "[THE ONE THING, third half] THE FRONT RANK'S ROOT DECALS ARE COVERED. A bush one row south covers only the bottom ~12px of a 40px trunk at this camera; a bush on the same cell shares its base and occludes the whole decal. Both rows are scattered now (`face` 1.35, `skirt` 2.2), and the skirt excludes `lane` outright rather than trusting a distance test.",
-    "[SECOND] THE TRAIL IS ONE ROAD, NOT THREE. Round 1's header claimed this; it was never true. The field is 3 cells and innocent \u2014 solvePlacements emits nothing outside it. bw2-adastra set0's edge_w/edge_e are mirrored about their own centre, so the grass strip the artist drew on the tile's outer edge is stamped on its inner one. SET0_OUTWARD turns exactly those two cases 180 degrees. Forest and meadow.",
-    "[GUARDS] The selftest asserts the round's own claims, and all three fail when the file is reverted to round-4 behaviour (proved, not assumed): canopy interlock > 40% of covered cells (round 4 measures 18.1 through the same stub, round 5 measures 52.8), median nearest-neighbour < 1.9 (round 4's was 2.00 at min, p25 and p50 alike), crowns not all at one yaw, and palette.draw passes `rotate` through. 310 -> 315."
+    "[THE ONE THING] THE ROAD NO LONGER BREAKS AT A MEANDER STEP. The eight corner slots are re-cast as neighbouring slots rather than turned, because their art cannot be turned back: the defect is a per-face V flip along each face's own axis, not a mirror, and an outer corner's two half-triangles flip in opposite axes. Six stubs at 1x in forest-wide-12 and two in the judged default framing -> zero, offline interior-green 960 px -> 0. Applied in forest, meadow and coast; the coast open issue from round 5 is closed with it.",
+    "[THE ONE THING, second half] THE SUBSTITUTE IS MEASURED, NOT NAMED. An outer corner takes the edge of its longer exposed shoulder, counted on the field, so the same rule keeps the fringe continuous through a step on a north-south trail and on an east-west track. Asserted in both directions in the selftest on two synthetic fields.",
+    "[SECOND] THE WOOD'S SOUTH FACE. The cover is placed off the tree list at the footprint's southern row and width-matched to the crown, so it covers the whole card rather than half of it; exposure is tested against crown footprints, not against the `wood` region, which is what left 'about 11 bare decals in a straight line'; and the `lane` guard is replaced by the collision the crown already wrote, which is what left the four decals on lit lawn in the close framing. 0 -> 180 crowns covered, 394 cells.",
+    "[FREE] src/hunts/biomes/forest.js:551 said the 3x3-crown threshold is '0.42 rather than 0.58' while the code it documents reads 0.54. Comment corrected to 0.54.",
+    "[GUARDS] Ten new selftest checks and one retired, 315 -> 324. FOUR were proved to fail on a reverted file, not merely asserted: the two shoulder-rule checks (a corner_nw takes edge_w on a north-south run and edge_n on an east-west one) and the two front-rank checks ('180 of 180 front-rank crowns uncovered' with the cover pass removed). The remaining six — remap plumbing, the unknown-target fallback, SET_CASE_SIG's thirteen slots, rot 2 on every case, inner -> center, straight edges untouched — are asserted only."
    ],
    "coreRequests": [
-    "[tools/assets, same address as DECISIONS #41a and the tiles roof-sign defect] bw2-adastra's set0 transition slots come out of the pack MIRRORED about their own centre: edge_w carries the grass strip on its east and edge_e on its west, so every path drawn with that set puts its transition on the inside. Measured in pixels: docs/progress/hunts/r5/road-before.png. hunts works around it with a 180-degree turn on those two cases (SET0_OUTWARD), which cannot fix the four outer and four inner corners because their art is diagonal. The V-convention belongs in the exporter, where one rule covers every slot of every pack.",
-    "[environment / core render] Forest golden hour: a mask of the sub-luma-8 pixels (docs/progress/hunts/r5/mask-below-luma8-17.5.png) is mostly the UNLIT HALVES OF THE CROWNS THEMSELVES, not ground shadow. A denser canopy therefore costs crush directly and hunts has no lever on it \u2014 instanceColor multiplies, so a tint can only darken. The ambient/fill at tod 17.5 is the knob."
+    "[tools/assets — RESTATED WITH A REPRO, supersedes the round-5 wording and the integratorFindings framing] `pack.bin` leaves `michi01a`'s V un-negated. Every transition face of bw2-adastra's set0 carries v = +0.0562..+0.9438 (DS, top-down) while the `michi01b` fill on the same models carries v = 0..-0.9999 (OpenGL order); TextureLoader uploads flipY=true, so the transition faces sample inverted along whichever world axis their own v runs — X for edge_w, Z for edge_n. The two earlier attempts failed because both assumed a U mirror: a global U flip is the wrong axis, and it also double-corrects the two slots hunts already turns. The correct exporter change is to negate V on the faces that still carry the DS convention, detected the way `uprightUvToImageOrder` already detects its case, and it must land together with deleting `set0Outward`'s `rotate` (the `remap` stays: it fixes a slot-choice problem, not a UV problem). Repro without the game: dump model 8 (grass_path_side_edge_w, groups[0].offset 3960) against model 9 (grass_path_center) from public/generated/tiles/bw2-adastra/pack.bin — same set, opposite V conventions.",
+    "[tiles] src/tiles/materials.js:597 states that 'a horizontal tile is untouched by a V flip'. It is untouched by a flip in HEIGHT; a floor tile maps v onto X or Z and is flipped in the ground plane. That sentence is why the V fix was scoped to upright faces only and why every auto-tiled transition in the game has been sampling backwards since. Worth correcting in place even if the exporter fix waits.",
+    "[environment / core render] UNCHANGED FROM ROUND 5. Forest golden hour: a mask of the sub-luma-8 pixels is mostly the unlit halves of the crowns themselves, not ground shadow, and hunts has no lever on it — instanceColor multiplies, so a tint can only darken."
    ],
    "openIssues": [
-    "[COST, STATED NOT HIDDEN] The denser canopy costs forest/17.5 belowL8Pct +0.546 and forest/21 +0.556 against a tolerance of 0.8, and forest/17.5 p99 -4.00 against a tolerance of 4.00 \u2014 inside the gate, but with little headroom. Measured, not guessed: cutting the tree count back 681 -> 666 -> 606 moves belowL8Pct at 17.5 by 0.005, so the crush is not a function of how many trees there are but of WHICH cells are wood, which is why the tuning went into the distToOpenings ramp (4 -> 7 cells) and not into the count.",
-    "COAST'S TRACK STILL DRAWS AS A DIVIDED ROAD. Same set0 defect, same one-line fix (`rotate: SET0_OUTWARD`), deliberately not applied this round: the brief named forest and meadow and coast/12 is a gate row this round had no budget left to re-verify by eye.",
-    "THE TRAIL'S MEANDER STEPS STILL PUT THEIR FRINGE INSIDE THE BAND. The corner and inner-corner cases are diagonal art; a quarter turn moves it to the wrong diagonal, so they are left as they were. A handful of cells against ~200 cells of straight run, and visible in docs/progress/hunts/r5/final/forest-default-12.png at the two jogs.",
-    "THE FRONT RANK OF THE WOOD STILL SHOWS SOME TRUNKS where the face scrub did not land. Nothing inside a wood can cover the trunks of its own front rank; the scrub is a scatter and a scatter has gaps.",
-    "[UNCHANGED FROM ROUND 4] The meadow is ~13.8% bare tan against ref01's 0.09%; the coast is the highest-tan biome and it is sand; the land/water boundary at the coast is a grid staircase; cave/pool and cave/close are still 12.4% and 16.2% pure black under environment's cave ambient; forest night is better than round 2 but the composition lever is spent; there is no highlight range outdoors."
+    "THE STEP'S SHORT FACE IS A BARE SEAM. An outer corner can carry the artist's transition on ONE of its two exposed sides and the rule spends it on the longer shoulder, so the one-cell face across the top or bottom of each meander step meets the lawn with no fringe. Measured offline: 222 px of it across the whole trail, against 720 before. It needs the exporter fix, not another workaround — with correct V the corner slot draws both strips itself.",
+    "THE INNER-CORNER NUB IS GONE, DELIBERATELY. Those cells now draw as plain dirt; the artist's small grass nub is unreachable at every rotation and the diagonal streak that stood in for it measured and looked worse. Also fixed by the exporter change.",
+    "SOME TRUNKS INSIDE THE WOOD STILL SHOW. The cover is placed only where no crown stands in the row south of the footprint. A crown whose southern neighbour is offset by a cell diagonally is counted as covered and is sometimes not; 509 of 689 crowns took no cover this round.",
+    "[UNCHANGED FROM ROUND 4/5] The meadow is ~13.8% bare tan against ref01's 0.09%; the coast is the highest-tan biome and it is sand; the land/water boundary at the coast is a grid staircase (the integrator pinned the cause: `deep = water.shrink(3)` is an erosion and the deep region has no border family — the walk_edge foam should ring the shallows on BOTH edges); cave/pool and cave/close are still ~12.4% and ~16.2% pure black under environment's cave ambient; forest night is better than round 2 but the composition lever is spent; there is no highlight range outdoors."
    ],
    "lastShots": [
-    "docs/progress/hunts/r5/final/forest-route-12.png",
-    "docs/progress/hunts/r5/final/forest-route-21.png",
-    "docs/progress/hunts/r5/final/forest-default-12.png",
-    "docs/progress/hunts/r5/final/forest-default-17.5.png",
-    "docs/progress/hunts/r5/final/forest-deep-12.png",
-    "docs/progress/hunts/r5/final/meadow-default-12.png",
-    "docs/progress/hunts/r5/final/cave-close-12.png",
-    "docs/progress/hunts/r5/final/coast-sea-12.png",
-    "docs/progress/hunts/r5/road-before.png",
-    "docs/progress/hunts/r5/road-after.png",
-    "docs/progress/hunts/r5/base/forest-route-12.png"
+    "docs/progress/hunts/r6/final/forest-close-12.png",
+    "docs/progress/hunts/r6/final/forest-wide-12.png",
+    "docs/progress/hunts/r6/final/forest-12.png",
+    "docs/progress/hunts/r6/final/forest-17.5.png",
+    "docs/progress/hunts/r6/final/forest-21.png",
+    "docs/progress/hunts/r6/final/forest-clearing-12.png",
+    "docs/progress/hunts/r6/final/forest-path-12.png",
+    "docs/progress/hunts/r6/final/meadow-12.png",
+    "docs/progress/hunts/r6/final/meadow-21.png",
+    "docs/progress/hunts/r6/final/coast-sea-12.png",
+    "docs/progress/hunts/r6/final/cave-close-12.png",
+    "docs/progress/hunts/r6/before/forest-wide-12.png",
+    "docs/progress/hunts/r6/before/forest-close-12.png"
    ],
    "pass": false
   },
@@ -469,7 +481,7 @@
    "openIssues": [
     "the two crossed-billboard props (tree_mush, pile_of_logs) read flatter than the revolved ones; AdAstra's slice-quad trick needs top-down canopy art these sprites do not have (DECISIONS #24)",
     "hgss-overworld/water_rock and hgss-overworld/rock have water and grass baked into the sprite; the cylindrical wrap carries it up the body (DECISIONS #23)",
-    "76 triangles per revolved prop against 18 for AdAstra's bench_s \u2014 fine against the budget, first thing to cut if it tightens",
+    "76 triangles per revolved prop against 18 for AdAstra's bench_s — fine against the budget, first thing to cut if it tightens",
     "not yet placed in any map; city and hunts should draw from tiles.load('props')"
    ],
    "verified": {
@@ -501,7 +513,7 @@
   },
   {
    "from": "city",
-   "want": "environment.lamps.add({ point:false }) \u2014 a glow-only bulb that never claims a slot in the 8-light pool",
+   "want": "environment.lamps.add({ point:false }) — a glow-only bulb that never claims a slot in the 8-light pool",
    "why": "lamps.update() hands the pool to the eight bulbs nearest the camera focus, by distance alone. A lit window wants a glow quad and a small wall wash; a street lamp wants the ground pool. Today registering more than a couple of windows near the camera silently takes the PointLights away from the street lamps, so the city registers exactly two lit doorways and no window bulbs at all.",
    "state": "implemented",
    "closedBy": "environment r2 - lamps.add({ point:false }) exists and is verified in the running page (a point:false bulb at the camera focus claims no PointLight; a normal bulb two cells away takes env:lamp0; the pool stays at 8). Not yet CALLED by any scene, so city still has to pass the flag for its windows before the frame changes. DECISIONS #31h."
@@ -515,7 +527,7 @@
   {
    "from": "city",
    "want": "environment: a readable dusk between golden hour and night",
-   "why": "tod 19.1 (environment's own 'dusk' preset) already renders as dark as tod 21.5; the last light in the sky is gone by 18.5. docs/progress/city/r1/golden.png (17.3) and dusk.png (19.1) are two hours apart and look like different scenes; dusk.png and night.png are 2.4 hours apart and look identical. The lamp ramp is fine \u2014 it is the sky and the key that fall off a cliff.",
+   "why": "tod 19.1 (environment's own 'dusk' preset) already renders as dark as tod 21.5; the last light in the sky is gone by 18.5. docs/progress/city/r1/golden.png (17.3) and dusk.png (19.1) are two hours apart and look like different scenes; dusk.png and night.png are 2.4 hours apart and look identical. The lamp ramp is fine — it is the sky and the key that fall off a cliff.",
    "state": "done",
    "closedBy": "environment r2 - the dusk keyframes were rebuilt and the day/night key floor unified; DECISIONS #31g"
   },
@@ -542,7 +554,7 @@
    "want": "a placement yaw that is not a quarter turn, or an exporter pass that splays a crossed-billboard prop's two cards",
    "why": "Every AdAstra tree is two upright cards at x=1 and z=1 and the camera never yaws (ARCHITECTURE 2.7), so the x=1 card is permanently perpendicular to the view and rasterises as a full-height sliver of canopy texture. `simulation` measured the same geometry independently (DECISIONS #29) and plants no tree at all because of it. Placement carries `rot: 0|1|2|3` only (ARCHITECTURE 7), so tiles cannot rotate a tree off the camera axis without breaking the one-tile-one-cell grid contract, and assets/ + tools/ are not tiles' to edit. Round 2's normal floor stops the sliver being black, but it is still a sliver.",
    "state": "resolved-in-module",
-   "closedBy": "tiles r3 \u2014 no core change needed after all. `dropEdgeOnTwins` (DECISIONS #41b) collapses the edge-on card of a crossed foliage pair at load, under a five-clause predicate that fires on 10 triangles in bw2-adastra, 6 in bw-overworld, 10 in bw2-brom and nothing else in any shipped pack. The sliver, and the hard shadow wedge it cast across its own twin, are both gone: docs/progress/tiles/r3/12-trees-after-vfix.png against 13-trees-after-twins.png, same URL, `?crossed=1` to put the card back. A splayed export would still be the better fix if the exporter is ever touched, because it would give the tree two readable faces instead of one; this gives it one readable face and no artefact."
+   "closedBy": "tiles r3 — no core change needed after all. `dropEdgeOnTwins` (DECISIONS #41b) collapses the edge-on card of a crossed foliage pair at load, under a five-clause predicate that fires on 10 triangles in bw2-adastra, 6 in bw-overworld, 10 in bw2-brom and nothing else in any shipped pack. The sliver, and the hard shadow wedge it cast across its own twin, are both gone: docs/progress/tiles/r3/12-trees-after-vfix.png against 13-trees-after-twins.png, same URL, `?crossed=1` to put the card back. A splayed export would still be the better fix if the exporter is ever touched, because it would give the tree two readable faces instead of one; this gives it one readable face and no artefact."
   },
   {
    "from": "tiles",
@@ -554,7 +566,8 @@
    "from": "environment",
    "want": "core/render.js: expose the shadow softness. `PCFSoftShadowMap` has a fixed kernel and `light.shadow.radius` is ignored by it; a VSM or a PCSS tap count that environment could set per hour would let a low sun have a soft penumbra and a noon sun a hard one.",
    "why": "Round 2 fixed a shadow's depth and colour (it carries the fill's hue instead of going to black) but not its edge, and every shadow in the game is still a razor line at 2048/56 = 0.027 world units per texel. docs/refs/01 and 03 both show soft-edged shadows. This is the last visible gap between our frame and theirs, and the type of shadow map is core's.",
-   "state": "open"
+   "state": "withdrawn-wrong",
+   "note": "DISPROVEN, DECISIONS #52(a). three r185 substitutes PCFShadowMap for the deprecated constant on the first shadow pass (WebGLShadowMap.js:99), and PCFShadowMap's kernel IS `shadowRadius * texelSize`. `light.shadow.radius` was read every frame all along — it had simply never been assigned, so it sat at its default of 1 and the penumbra was one texel, 0.027 world units. environment now sets it per hour."
   },
   {
    "from": "environment",
@@ -584,7 +597,8 @@
    "from": "environment",
    "want": "expose shadow.radius / a PCF radius on the sun light, or switch the shadow map type per preset",
    "why": "core sets PCFSoftShadowMap in makeRenderer and its filter width is fixed, so tile and building shadows have a constant penumbra whatever the sun's elevation and whatever the distance from the contact point. The critic's note 3 asks for the opposite ('shrink the PCF radius near the contact point'). The projected sprite shadows in src/environment/castShadows.js do contact-harden, which makes the mismatch between the two shadow kinds visible in the same frame.",
-   "state": "open"
+   "state": "resolved-in-module",
+   "note": "environment writes light.shadow.radius per frame from the key's elevation (DECISIONS #52d). No core change was needed."
   },
   {
    "from": "environment",
@@ -600,14 +614,14 @@
   },
   {
    "from": "ui",
-   "want": "tools/shots: a way to drive input from the harness \u2014 `window.__HOOKS__.key(code, down)` or `press(dir, frames)`",
+   "want": "tools/shots: a way to drive input from the harness — `window.__HOOKS__.key(code, down)` or `press(dir, frames)`",
    "why": "The input seam is the one thing in this module a screenshot alone cannot prove: shoot.js sets a preset and a time of day but cannot press a key, so verifying that a held ArrowRight walks the trainer needed a private puppeteer script. A hook would let gauntlet.js capture a walking frame, a running frame and a menu-open frame deterministically, and would let any future module test its own key handling.",
    "state": "open"
   },
   {
    "from": "ui",
    "want": "ARCHITECTURE 5.12: the wording \"DOM overlay (not WebGL) at full resolution\" should read \"a 2-D canvas at the renderer's internal resolution (not WebGL), upscaled with the scene\"",
-   "why": "The shipped module deviates from the letter of 5.12 deliberately and the reason is in DECISIONS #34a: text laid out in CSS pixels over a 640x360 buffer upscaled x3 is the only thing on screen off the pixel grid, and it reads as a debug overlay rather than as the game. The part of 5.12 that was load-bearing \u2014 not WebGL, so the UI cannot cost draw calls \u2014 is honoured exactly (0 draws added, measured). Flagging the mismatch rather than leaving it to be read as an ignored contract.",
+   "why": "The shipped module deviates from the letter of 5.12 deliberately and the reason is in DECISIONS #34a: text laid out in CSS pixels over a 640x360 buffer upscaled x3 is the only thing on screen off the pixel grid, and it reads as a debug overlay rather than as the game. The part of 5.12 that was load-bearing — not WebGL, so the UI cannot cost draw calls — is honoured exactly (0 draws added, measured). Flagging the mismatch rather than leaving it to be read as an ignored contract.",
    "state": "open"
   },
   {
@@ -673,7 +687,7 @@
   {
    "from": "ui",
    "want": "`idle` to stop accruing while `config.timeFrozen` is set, so a showcase capture is a pure function of the URL",
-   "why": "The showcase contract (ARCHITECTURE 6.3) is 'same URL, same pixels'. Two captures of ?showcase=ui&mode=shop&tod=21&grain=0 differ in exactly 504 pixels in one 50x20 box \u2014 the money digits \u2014 because idle:tick keeps accruing through the harness's settle window. Measured control: the same pair for &mode=boxes and &mode=dex, which draw no currency, is byte-identical across all 1,440,000 pixels (max channel delta 0). So it is the balance that moves, not the renderer. The critic filed this as its issue 17a against `idle`; ui cannot fix it without lying about the wallet.",
+   "why": "The showcase contract (ARCHITECTURE 6.3) is 'same URL, same pixels'. Two captures of ?showcase=ui&mode=shop&tod=21&grain=0 differ in exactly 504 pixels in one 50x20 box — the money digits — because idle:tick keeps accruing through the harness's settle window. Measured control: the same pair for &mode=boxes and &mode=dex, which draw no currency, is byte-identical across all 1,440,000 pixels (max channel delta 0). So it is the balance that moves, not the renderer. The critic filed this as its issue 17a against `idle`; ui cannot fix it without lying about the wallet.",
    "state": "open"
   },
   {
@@ -690,20 +704,20 @@
   },
   {
    "from": "tiles",
-   "want": "tools/assets: carry the V convention in the exporter \u2014 emit pack.bin UVs in the orientation three.js samples them, or write a `uvOrigin` field on the pack so the loader does not have to infer it per triangle",
-   "why": "A .pdsts stores V measured down from the image top; three uploads with `flipY = true`. Nothing cancels, so every upright face in every generated pack has been sampling upside down since the first tileset loaded (DECISIONS #41a). `tiles` now corrects it at load with a per-triangle sign test gated to |ny| < 0.5, which is safe and measured \u2014 608 of bw2-adastra's 2402 triangles, and the horizontal tiles diff byte-identical \u2014 but it cannot reach a face on a slope. The Pokemon Center sign is one: sign.png has the Poke Ball red-side-up and the building renders it white-side-up, at |ny| = 0.85. Widening the load-time gate to catch it would also flip 672 triangles of cliff bank and lake edge in AdAstra alone with no evidence they are wrong. In the exporter one rule covers every face at every angle and the loader pass can be deleted.",
+   "want": "tools/assets: carry the V convention in the exporter — emit pack.bin UVs in the orientation three.js samples them, or write a `uvOrigin` field on the pack so the loader does not have to infer it per triangle",
+   "why": "A .pdsts stores V measured down from the image top; three uploads with `flipY = true`. Nothing cancels, so every upright face in every generated pack has been sampling upside down since the first tileset loaded (DECISIONS #41a). `tiles` now corrects it at load with a per-triangle sign test gated to |ny| < 0.5, which is safe and measured — 608 of bw2-adastra's 2402 triangles, and the horizontal tiles diff byte-identical — but it cannot reach a face on a slope. The Pokemon Center sign is one: sign.png has the Poke Ball red-side-up and the building renders it white-side-up, at |ny| = 0.85. Widening the load-time gate to catch it would also flip 672 triangles of cliff bank and lake edge in AdAstra alone with no evidence they are wrong. In the exporter one rule covers every face at every angle and the loader pass can be deleted.",
    "state": "open"
   },
   {
    "from": "tiles",
    "want": "an authored street lamp, in assets/structures/ and through tools/assets/build-structures.js, the way the Pokemon Center and the Mart were authored (DECISIONS #3, #12)",
-   "why": "Two whole-game passes called the lamp \"a plain grey untextured pole with a flat lozenge head, no bulb, no housing, no fixture detail\" and that is an accurate description of the art. Measured rather than assumed: slamp03.png loads, both of lamp_h two material groups draw, the UVs cover the sheet (u 0..0.94, v 0..1), and the night glow lands on the underside of the shade. The sheet is 16x32 and holds ten colours, every one a blue-grey between #809098 and #f8f8f8 \u2014 a pole gradient on the left, a white block and three flat bands on the right. There is no bulb, housing, lens, cage or bracket drawn in it at all, so nothing in src/tiles/ can recover one. Evidence: docs/progress/tiles/r3/16-lamps-day.png and 17-lamps-night.png at the game camera, cameraDistance 14. A 30-triangle post with a proper lantern head and a 32x64 sheet with a visible glass panel and a bracket would close it.",
+   "why": "Two whole-game passes called the lamp \"a plain grey untextured pole with a flat lozenge head, no bulb, no housing, no fixture detail\" and that is an accurate description of the art. Measured rather than assumed: slamp03.png loads, both of lamp_h two material groups draw, the UVs cover the sheet (u 0..0.94, v 0..1), and the night glow lands on the underside of the shade. The sheet is 16x32 and holds ten colours, every one a blue-grey between #809098 and #f8f8f8 — a pole gradient on the left, a white block and three flat bands on the right. There is no bulb, housing, lens, cage or bracket drawn in it at all, so nothing in src/tiles/ can recover one. Evidence: docs/progress/tiles/r3/16-lamps-day.png and 17-lamps-night.png at the game camera, cameraDistance 14. A 30-triangle post with a proper lantern head and a 32x64 sheet with a visible glass panel and a bracket would close it.",
    "state": "open"
   },
   {
    "from": "hunts",
    "want": "environment: the cave preset should not run a shadow-casting sun (`sun: 5.20`), or environment should expose a way for an interior biome to switch the key off",
-   "why": "cave-21 is a sealed cave at 21:00 and still draws hard-edged black darts pointing west while the only light sources in the map are the placed lamps to the east. A/B'd on the running page with --envNoShadow 1 and --envNoCast 1: both remove them. hunts places the lamps and owns the biome, but it has no handle on the directional light. DECISIONS #42e.  [CORRECTED BY hunts ROUND 4, 2026-09-08 \u2014 THIS REQUEST'S PREMISE IS WRONG. Re-measured with the A/B this round rather than inferred: `--showcase hunts --mode cave --preset close --tod 12` with and without `--envNoShadow 1` are BYTE-IDENTICAL, max channel delta 0 over 1,440,000 px (docs/progress/hunts/r4/ab/cave-close-12-noshadow.png vs -on.png). The directional shadow map contributes nothing in the cave, so there is nothing here to switch off. What the frame actually needs is ambient and exposure \u2014 see the round-4 request at the end of this list. Kept rather than deleted so the correction is on the record.]",
+   "why": "cave-21 is a sealed cave at 21:00 and still draws hard-edged black darts pointing west while the only light sources in the map are the placed lamps to the east. A/B'd on the running page with --envNoShadow 1 and --envNoCast 1: both remove them. hunts places the lamps and owns the biome, but it has no handle on the directional light. DECISIONS #42e.  [CORRECTED BY hunts ROUND 4, 2026-09-08 — THIS REQUEST'S PREMISE IS WRONG. Re-measured with the A/B this round rather than inferred: `--showcase hunts --mode cave --preset close --tod 12` with and without `--envNoShadow 1` are BYTE-IDENTICAL, max channel delta 0 over 1,440,000 px (docs/progress/hunts/r4/ab/cave-close-12-noshadow.png vs -on.png). The directional shadow map contributes nothing in the cave, so there is nothing here to switch off. What the frame actually needs is ambient and exposure — see the round-4 request at the end of this list. Kept rather than deleted so the correction is on the record.]",
    "state": "withdrawn"
   },
   {
@@ -728,7 +742,8 @@
    "from": "environment",
    "want": "core/render.js: set renderer.shadowMap.type explicitly to THREE.PCFShadowMap (or accept the substitution knowingly)",
    "why": "three r185 deprecates PCFSoftShadowMap and silently swaps in PCFShadowMap with a console warning. The substitution is not cosmetic: PCFShadowMap is the only branch of WebGLShadowMap that sets compareFunction on shadow.map.depthTexture, so the shadow map is a COMPARE_REF_TO_TEXTURE sampler and any module reading it must declare sampler2DShadow. Reading it as sampler2D drops the draw call silently - no console error, the draw still counted. environment lost most of a round to this. Naming the type in core makes the contract visible.",
-   "state": "open"
+   "state": "open-still-wanted",
+   "note": "environment now does this at runtime in shadowFilter.js so the FIRST compiled program already carries SHADOWMAP_TYPE_PCF, but core/render.js:144 still asks for the deprecated constant and ARCHITECTURE §2.7 still documents it. Both should change."
   },
   {
    "from": "environment",
@@ -739,7 +754,7 @@
   {
    "from": "hunts",
    "want": "the cave preset's ambient/exposure lifted so unlit rock is dark rather than (0,0,0), OR a way for a biome to register a wide, weak fill light that is not subject to environment/lamps.js's POOL_REACH 3.9 clamp",
-   "why": "cave/pool is 12.43% and cave/close 16.23% of pixels at exactly (0,0,0), against docs/refs/02 at 0.00% and 04 at 0.06%. It is NOT shadows: --envNoShadow 1 on --showcase hunts --mode cave --preset close --tod 12 is BYTE-IDENTICAL to the control, max channel delta 0 over 1,440,000 px (docs/progress/hunts/r4/ab/cave-close-12-noshadow.png vs -on.png), which also means round 3's open issue 'sun shadows are still cast inside the sealed cave' is wrong as written. And it is no longer albedo: hunts lifted the cold rock tint from 0x1f2740 to 0x6c7691 this round and the pool frame only came from 27.29% to 12.43%, because instanceColor multiplies and a near-black bw2-cave set3 texel stays near black however white the tint. hunts owns lamp placement and has eleven bulbs down there, but lamps.js clamps every PointLight's reach to POOL_REACH 3.9 world units whatever radius is asked for, so a biome physically cannot fill a 56x54 room with placed light. This is the last thing between the cave and ref02's 0.194 mean saturation / 254 p99.  Related and NOT a re-file: coreRequests #27 and #35 already ask for a less saturated, less warm cave preset (the fog is 0x4a2f18 at density 0.040 with `saturation: 1.30`), and this round moved mean saturation on the default framing from a round-2 control's 0.588 to 0.516 without touching any of that \u2014 so #35 still stands and is still the larger term. This request is only about the *black*: 12-16% of the frame at exactly (0,0,0) against references at 0.00% and 0.06%.",
+   "why": "cave/pool is 12.43% and cave/close 16.23% of pixels at exactly (0,0,0), against docs/refs/02 at 0.00% and 04 at 0.06%. It is NOT shadows: --envNoShadow 1 on --showcase hunts --mode cave --preset close --tod 12 is BYTE-IDENTICAL to the control, max channel delta 0 over 1,440,000 px (docs/progress/hunts/r4/ab/cave-close-12-noshadow.png vs -on.png), which also means round 3's open issue 'sun shadows are still cast inside the sealed cave' is wrong as written. And it is no longer albedo: hunts lifted the cold rock tint from 0x1f2740 to 0x6c7691 this round and the pool frame only came from 27.29% to 12.43%, because instanceColor multiplies and a near-black bw2-cave set3 texel stays near black however white the tint. hunts owns lamp placement and has eleven bulbs down there, but lamps.js clamps every PointLight's reach to POOL_REACH 3.9 world units whatever radius is asked for, so a biome physically cannot fill a 56x54 room with placed light. This is the last thing between the cave and ref02's 0.194 mean saturation / 254 p99.  Related and NOT a re-file: coreRequests #27 and #35 already ask for a less saturated, less warm cave preset (the fog is 0x4a2f18 at density 0.040 with `saturation: 1.30`), and this round moved mean saturation on the default framing from a round-2 control's 0.588 to 0.516 without touching any of that — so #35 still stands and is still the larger term. This request is only about the *black*: 12-16% of the frame at exactly (0,0,0) against references at 0.00% and 0.06%.",
    "state": "open"
   },
   {
@@ -752,6 +767,18 @@
    "from": "environment",
    "want": "Either document that colour-valued grade uniforms (lift/gain) are converted sRGB->linear by THREE.Color, or add a display-space colour helper to core/config.js.",
    "why": "DECISIONS #50(a): presets.js authors lift as a display-space hex because that is what a post-tonemap offset is, but new THREE.Color(hex) with ColorManagement on delivers it in linear - 0x191c28 arrives as (2.5,3.0,5.4)/255, not (25,28,40). Two rounds raised the night lift against contrast's crush point using the hex bytes and moved nothing, and the frames measured 4.6-8.4% of pixels at exactly rgb(0,0,0). This is a trap any module writing a colour uniform can fall into.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "core/render.js: take over the soft-shadow filter. environment currently replaces THREE.ShaderChunk.shadowmap_pars_fragment at init (src/environment/shadowFilter.js) with a 24-tap Vogel PCF plus a receiver-plane depth bias, because three's shipped 5 taps dither the whole lawn at any radius wide enough to matter. §2.7 says the look lives in core; this is a runtime tune in a module folder and it should move, together with `renderer.shadowMap.type = PCFShadowMap` and a documented default for `light.shadow.radius`.",
+   "why": "DECISIONS #52(a-c). Measured: the 90->10% shadow transition goes 3 px -> 26 px, gate 6 improved / 0 regressed, 60 fps and identical draw calls on all twelve frames.",
+   "state": "open"
+  },
+  {
+   "from": "environment",
+   "want": "core/render.js: give `contrast` a soft toe instead of a hard clamp. It is `(x - 0.5) * c + 0.5`, so it has a crush point at `0.5 - 0.5/c` and everything under it becomes exactly 0 — 0.1173 at the golden hour's c = 1.307. A smoothstep toe over the bottom of the range would cost the black point almost nothing and would stop a warm frame's blue channel being clamped away.",
+   "why": "48.5% of hunts/forest/17.5 has blue at exactly 0, against 1.17% in docs/refs/04 at the same mean blue (30.2). Proven NOT to be the shadow: inside the shadow mask it is 50.5% against 48.5% frame-wide, and in city/high-street/17.5 the shadow is less zero-blue than the frame (10.5% vs 20.0%). Every preset-side fix was shot and priced in DECISIONS #52(f) and all of them cost more than the defect. This is #50(a)'s crush point, one layer deeper.",
    "state": "open"
   }
  ],
@@ -775,15 +802,15 @@
   "appliedFromWaveB": [
    "core/render.js: film grain phase is frozen when config.timeFrozen, so the same URL gives the same pixels (ARCHITECTURE 6.3). Verified: two captures of one URL differ by 0 of 230400 pixels. Requested by simulation AND city independently.",
    "core/config.js: followerGapTiles default 1 -> 2. Measured, not preferred: a 32px sprite is a 2.83-unit quad covering 2.0 tiles of ground depth under a 45-degree pitch, so at gap 1 the trainer completely hides the lead Pokemon.",
-   "tools/seams: module selftests are now discovered rather than listed \u2014 src/<id>/selftest.js runs if it exists. Five modules ship one (automation, collection, idle, offline, simulation) and only idle's was being run. Proven to catch a failure."
+   "tools/seams: module selftests are now discovered rather than listed — src/<id>/selftest.js runs if it exists. Five modules ship one (automation, collection, idle, offline, simulation) and only idle's was being run. Proven to catch a failure."
   ],
   "routedNotYetApplied": [
    "terrain: terrain.height(cx,cz) returns the authored heightfield (0 everywhere in the demo city) and ignores that AdAstra grass/path tiles are modelled at baseY 0.07 and dirt at 0.125, so walkers plan against the wrong surface height.",
    "terrain/tiles: Placement needs a `tileset` field (or MapDraft needs to be multi-tileset) so one map can mix bw2-adastra with structures and props.",
    "ordering bug: offline.restorePlayer runs on world:loaded, which terrain emits from inside terrain.load(); city.enter() then calls simulation.placePlayer(spawn) after load() returns, so a restored position is immediately overwritten.",
-   "environment: lamps.add({point:false}) \u2014 a glow-only bulb that does not claim one of the 8 point-light slots, so lit windows stop starving street lamps. Handed to Wave C.",
+   "environment: lamps.add({point:false}) — a glow-only bulb that does not claim one of the 8 point-light slots, so lit windows stop starving street lamps. Handed to Wave C.",
    "environment: drive tiles.setEmissiveScale(k) from the dusk curve, and put a small warm point light on each city lamp marker. Handed to Wave C.",
-   "props: re-cut pt-forest__hedge and pt-overworld-7__hedge \u2014 both render as a pale grey blob a third of a cell across with a blue rim.",
+   "props: re-cut pt-forest__hedge and pt-overworld-7__hedge — both render as a pale grey blob a third of a cell across with a blue rim.",
    "city: an authored street lamp now ships in the `structures` tileset (category 'light', subcategory 'street_lamp', 64 tris, emissiveMaterials ['head']). src/city/map.js still resolves lamps by AdAstra model name (LAMP_MODEL = { e:'lamp_h_v4', ... }) and so is still placing the featureless one that two whole-game passes and a blind judge called the most obviously wrong object on screen. Switch to tiles.find('structures', { category:'light' }) and register its head with environment's lamp system."
   ],
   "integratorFindings": [
@@ -792,31 +819,31 @@
     "hypothesisTested": "the ortho shadow box is a fixed +/-28 square, so at 10 degrees of elevation a 56-unit ground strip projects to ~322 units in the light's basis and the scene falls outside the shadow frustum, clamping to a full-frame slab",
     "verdict": "DISPROVEN. Driving config.shadowExtent 56 -> 100 -> 160 changes shadow coverage on the high-street framing at tod 8 by 14.3% -> 14.8% -> 15.3% of pixels, under one point. The darkening is not shadow-map frustum clamping and the rewrite that assumed it was has been reverted.",
     "measuredFacts": [
-     "with --envNoShadow the shadow accounts for 17.4% of pixels at tod 7, 14.3% at tod 8, 28.4% at tod 17.5 on --preset high-street \u2014 plausible coverage, not a frame-wide slab, so whatever the critic saw is localised",
+     "with --envNoShadow the shadow accounts for 17.4% of pixels at tod 7, 14.3% at tod 8, 28.4% at tod 17.5 on --preset high-street — plausible coverage, not a frame-wide slab, so whatever the critic saw is localised",
      "src/tiles/instanced.js:246 already excludes flat and decal tiles from casting, so the ground is not the caster",
      "next suspects, untested: shadowSide (three casts from the opposite face for FrontSide materials, which bit this project once already on the ground tiles), the bias/normalBias pair at src/environment/index.js:271-272 against a grazing sun, and InstancedMesh bounding spheres in the shadow pass"
     ]
    },
    {
-    "topic": "hunts' critic: 'NO HIGHLIGHT RANGE ANYWHERE \u2014 highest p99 across 41 shots is 152.2'",
+    "topic": "hunts' critic: 'NO HIGHLIGHT RANGE ANYWHERE — highest p99 across 41 shots is 152.2'",
     "verdict": "DOES NOT REPRODUCE after the fix rounds. Measured now at tod 12: forest, cave, meadow and coast all reach p99 234, against reference 01 at 148 and 04 at 181; the city reaches 234 at noon and 210 at golden hour. No core tone-mapping change was made, because the measurement does not support one.",
     "whatIsRealInstead": "night crush, and it is one biome's. Percentage of pixels below luma 8 at tod 21: forest 48.93%, coast 9.14%, meadow 6.14%, cave 0.20%, against reference 03-forest-voxel-night.png at 10.5%. Environment's night ramp matches the reference in open biomes; the forest canopy's own occlusion stacks on top of it. This confirms the hunts fix agent's re-attribution rather than the critic's original filing."
    },
    {
     "topic": "coast: the shoreline staircase with no surf (hunts' open issue #8)",
     "verdict": "CONFIRMED, still present after the round-2 fix, and the cause is now pinned. Cropped the deep/shallow boundary at 2x: long axis-aligned runs meeting at right angles with no transition tile of any kind, while the sand/grass boundary one band below it scallops correctly because it is autotiled.",
-    "cause": "`deep = water.clone().shrink(3)` is an erosion, and eroding by 3 removes every one-cell feature, so the deep-water region is a SMOOTHED copy of the coastline \u2014 which quantised onto the grid is a clean staircase. The deep region is then laid as flat cells with no border family, so its edge is blocky whatever shape it has.",
+    "cause": "`deep = water.clone().shrink(3)` is an erosion, and eroding by 3 removes every one-cell feature, so the deep-water region is a SMOOTHED copy of the coastline — which quantised onto the grid is a clean staircase. The deep region is then laid as flat cells with no border family, so its edge is blocky whatever shape it has.",
     "triedAndReverted": "fraying the deep edge after the erosion (ragged 0.5 / period 3, despeckle 4). It makes it worse: without border tiles, every frayed cell is another hard rectangle, so the edge goes from a straight staircase to floating dark-blue blocks. Looked at it, reverted it.",
-    "theActualFix": "bw2-adastra ships a complete 13-slot `walk_edge` family \u2014 corners, edges and inner corners \u2014 tagged `foam` and `surf`, and it is not being used on this boundary at all. The model named `sea` has no border family, so the deep water can only ever be blocky on its own; the foam belongs to the shallows and should ring the wadeable region on BOTH its edges, against the land and against the deep. That is hunts/biomes/coast.js's to make."
+    "theActualFix": "bw2-adastra ships a complete 13-slot `walk_edge` family — corners, edges and inner corners — tagged `foam` and `surf`, and it is not being used on this boundary at all. The model named `sea` has no border family, so the deep water can only ever be blocky on its own; the foam belongs to the shallows and should ring the wadeable region on BOTH its edges, against the land and against the deep. That is hunts/biomes/coast.js's to make."
    },
    {
     "topic": "the mirrored set0 transition slots (hunts' coreRequest: 'the V-convention belongs in the exporter')",
-    "verdict": "THE MIRROR IS REAL and I confirmed it independently of hunts: for grass_path_side_edge_w the vertex at world (0,0) \u2014 the WEST corner \u2014 carries u=0.0 and the east corner u=1.0, so U runs backwards against world X. The cause is the same one DECISIONS #5 records for winding: converting PDSMS's Z-up/Y-south space swaps two axes, which is a mirror, and the winding was realigned for it while the texture coordinates were not. Almost nothing shows it because ground, cliff and water art is tiling or near-symmetric; the transition slots are neither.",
-    "triedAndReverted": "flipping U in tools/assets/pdsts.js and rebuilding all 13 packs. The regression gate came back 1 improved / 0 regressed \u2014 but the gate measures histograms, not layout, so I scanned the road directly. The green ribbon splitting the path went from 6px to 16px: WORSE. hunts already ships a compensating 180-degree rotation on those two slots (SET0_OUTWARD in src/hunts/palette.js), so fixing the exporter double-corrects them.",
-    "theActualFix": "exporter and workaround must move together, in one change: flip U in pdsts.js, rebuild every pack, and delete SET0_OUTWARD in the same commit. Worth doing because the workaround cannot reach the four outer and four inner corner slots \u2014 their art is diagonal, and a quarter turn moves it to the wrong diagonal \u2014 which is why the road still breaks at every meander step. That is a coordinated tools+hunts change and belongs in one commissioned round, not in an integrator patch to one half of it.",
+    "verdict": "THE MIRROR IS REAL and I confirmed it independently of hunts: for grass_path_side_edge_w the vertex at world (0,0) — the WEST corner — carries u=0.0 and the east corner u=1.0, so U runs backwards against world X. The cause is the same one DECISIONS #5 records for winding: converting PDSMS's Z-up/Y-south space swaps two axes, which is a mirror, and the winding was realigned for it while the texture coordinates were not. Almost nothing shows it because ground, cliff and water art is tiling or near-symmetric; the transition slots are neither.",
+    "triedAndReverted": "flipping U in tools/assets/pdsts.js and rebuilding all 13 packs. The regression gate came back 1 improved / 0 regressed — but the gate measures histograms, not layout, so I scanned the road directly. The green ribbon splitting the path went from 6px to 16px: WORSE. hunts already ships a compensating 180-degree rotation on those two slots (SET0_OUTWARD in src/hunts/palette.js), so fixing the exporter double-corrects them.",
+    "theActualFix": "exporter and workaround must move together, in one change: flip U in pdsts.js, rebuild every pack, and delete SET0_OUTWARD in the same commit. Worth doing because the workaround cannot reach the four outer and four inner corner slots — their art is diagonal, and a quarter turn moves it to the wrong diagonal — which is why the road still breaks at every meander step. That is a coordinated tools+hunts change and belongs in one commissioned round, not in an integrator patch to one half of it.",
     "alsoLearned": "the gate has a blind spot worth naming: it reduces frames to luminance and saturation histograms, so it catches brightness, crush and performance regressions and is silent on composition. A layout defect still needs a scanline or an eye.",
-    "secondAttempt": "Tried the coordinated version too \u2014 flip U in the exporter AND delete SET0_OUTWARD in the same change, which was my own prescription. Road scanline at y=700, interior green gaps: workaround only [6px], exporter only [16px], BOTH [16px, 15px]. The coordinated fix is the worst of the three. So the U mirror is real but it is NOT what causes the ribbons, and my prescription was wrong. Both halves reverted; the shipped state (workaround only, 6px) is the best of the three.",
-    "whatIsActuallyLeft": "hunts' own critic already had this right and I should have believed it: 'SET0_OUTWARD turns edge_w/edge_e only; the corner cases are deliberately left mirrored, so each step stamps a green grass comma INSIDE the tan.' The residual gaps are at MEANDER STEPS \u2014 the eight corner slots \u2014 whose art is diagonal, so neither a 180-degree turn nor a U flip can place it correctly. That needs per-slot handling, not a global convention change."
+    "secondAttempt": "Tried the coordinated version too — flip U in the exporter AND delete SET0_OUTWARD in the same change, which was my own prescription. Road scanline at y=700, interior green gaps: workaround only [6px], exporter only [16px], BOTH [16px, 15px]. The coordinated fix is the worst of the three. So the U mirror is real but it is NOT what causes the ribbons, and my prescription was wrong. Both halves reverted; the shipped state (workaround only, 6px) is the best of the three.",
+    "whatIsActuallyLeft": "hunts' own critic already had this right and I should have believed it: 'SET0_OUTWARD turns edge_w/edge_e only; the corner cases are deliberately left mirrored, so each step stamps a green grass comma INSIDE the tan.' The residual gaps are at MEANDER STEPS — the eight corner slots — whose art is diagonal, so neither a 180-degree turn nor a U flip can place it correctly. That needs per-slot handling, not a global convention change."
    }
   ]
  },
@@ -945,6 +972,6 @@
     "issuesRaised": 17
    }
   },
-  "note": "hunts 6.5, encounter 6, ui 6 \u2014 the round-1 scores. All three then ran a fix round that was NOT re-critiqued, so these numbers are stale on the low side. hunts fixed 13 of 20 issues and re-attributed three with controls; encounter fixed its ball art and reports 35/35 selftests; ui made every panel resolution-relative after two of five were being cut off the screen at 1600x900."
+  "note": "hunts 6.5, encounter 6, ui 6 — the round-1 scores. All three then ran a fix round that was NOT re-critiqued, so these numbers are stale on the low side. hunts fixed 13 of 20 issues and re-attributed three with controls; encounter fixed its ball art and reports 35/35 selftests; ui made every panel resolution-relative after two of five were being cut off the screen at 1600x900."
  }
 }

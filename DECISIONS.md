@@ -4062,3 +4062,483 @@ of the frame at exactly rgb(0,0,0) under the round-3 environment. Shot now, ship
 `?showcase=hunts&mode=cave&preset=pool` reads **pure black 0.000 %** at `tod 12` and **0.000 %**
 at `tod 21`, with `belowL8` 0.34 and 1.61 and p50 24 and 23. Unlit rock in there is dark without
 being nothing, which is the request as they wrote it.
+
+
+### 51 — 2026-09-08 — The encounter had five beats and one picture; `advanceToStage` cannot rewind, so two of them were the same frame; and a mirrored instance is an unlit instance
+
+`encounter`'s systems were finished and verified — 35/35 selftests, deterministic from
+`(seed, index)`, the whole eighteen-ball line evaluated through `economy` — and the whole-game
+critic still wrote **"there is no encounter on screen at all: `enc-default.png` shows the catch
+resolving entirely inside a developer readout — odds, roll, shakes, band table."** That verdict
+is correct and it is not about odds. It is about the fact that the module's default frame held
+five same-sized sprites standing in the same grass, no mark on any of them, and a side panel
+narrating which one the picture was supposed to be about.
+
+**(a) The era already solved this and the reference has it in frame.**
+`docs/refs/01-forest-tilemap-frame.png` is a trainer, a Pokemon in grass, and **one white balloon
+with a red exclamation mark**. That balloon is the entire difference between "two characters in a
+field" and "an encounter". So `ball.js` gained `ALERT_ART` — a 12-texel balloon inside the same
+16-texel frame the ball uses, for the same reason (a quad one world unit across is the only size
+at which a texel lands on a whole number of internal pixels, #18) — and `advanceScene` hangs it
+over the wild from the moment it breaks cover until the ball leaves the hand.
+
+Measured on the shipped `docs/progress/encounter/r3/reveal.png` at 1920x1080: balloon paper is a
+114x126 px blob centred at x 545.5, the wild's body 135x141 centred at 583, and the balloon's tail
+clears the wild's ears by 55 px. The 37.5 px horizontal offset is **not** a placement bug — it is
+the 45-degree camera. A point lifted ~2.1 units above the wild's feet is ~1.5 units nearer the
+camera, so it magnifies away from the principal point, and the wild is 377 px left of it:
+377 x 1.5/16.2 = 35 px, which is what was measured. Every tall sprite in this project leans the
+same way; the balloon leans with the world it is in.
+
+Lit `MeshLambertMaterial` with `emissive 0x4a4438`, not `MeshBasic`. A marker whose whole job is
+to be seen has to survive `mode=night`, and an unlit cutout at 21:30 is a black rectangle; a
+basic material instead ignores the hour entirely and floats flat midday white over a graded
+scene. The emissive is a floor, far below every `bloomThreshold` keyframe in `presets.js`
+(1.15 noon / 1.8 golden / 2.6 night), so it never blooms.
+
+**(b) `advanceToStage` cannot rewind, and that silently collapsed two modes into one frame.**
+The showcase staged every mode as
+
+```js
+enc.advanceToStage('appear', 1);      // let the reveal play out
+if (stop.throw) enc.attempt(ball);
+enc.advanceToStage(stop.stage, stop.at);
+```
+
+`advanceToStage` computes an **absolute** target step and calls `advance(max(0, target - step))`.
+Rolling to `('appear', 1)` first therefore parks the scene at the *end* of the appear beat, and
+every later request for a step *inside* that beat advances by zero. So `mode=reveal` asked for
+0.5 of the beat and got 14 of 14 — the settled frame, after the hop had already come back down.
+It is written on the round-2 shot in this module's own panel: `f02-reveal-morning.png` prints
+`animation appear @ step 14`, and the critic's issue [15] ("the reveal does not read as a
+reveal") is exactly this bug seen from the outside rather than the freeze fraction it was filed
+as. The pre-roll is now guarded by `if (stop.throw)`, which is the only case that needs it —
+`attempt()` merely *queues* the throw (`marks()`), and queuing it before the reveal has played
+is what stops `automation`'s synchronous ball skipping the animation in the live game.
+
+**(c) The grass has to react before anything comes out of it, or there is no reveal to see.**
+`T.APPEAR` 14 -> 20 with `T.RUSTLE = 0.4` of it: for the first eight steps the wild is not drawn
+at all and only the disturbance is. That window is what `mode=approach` freezes in (0.3) and
+`mode=reveal` is now unambiguously past it (0.7 — the apex of the hop, with the squash-and-
+stretch at its tallest). Five beats, five modes, each judgeable on its own: `approach`, `reveal`,
+`throw`, `shake`, `caught` / `escaped`.
+
+**(d) The rustle is leaves now, and the first two cuts of it were both wrong in a measurable way.**
+Round 2 drew the disturbance with the capture burst's own four-point stars. At `mode=approach`
+that is ten 65 px stars on a 77 px ring — a solid overlap — and the frame showed one horizontal
+white bar. A white bar in grass reads as *magic*; a capture and a shiny should read as magic, a
+Pokemon pushing through grass should read as grass. So the rustle got its own 8-texel blade art
+and its own lit material.
+
+Two corrections, both from crops rather than from reasoning:
+
+1. **The outline ate the sprite.** The first blade was fully outlined — 8 of 35 filled texels
+   were `o`, plus a dark shade side — and at 3x the ring was a clump of near-black lumps with
+   cream highlights (`docs/progress/encounter/r3/crops/leaf-outlined-3x.png`; the full frame it
+   was cut from is not retained). Same defect the ball had in round 1 (issue [1], 50.4 % pure
+   black) at one-quarter the size. Thinned to a partial outline on the lower-right and the shade
+   lifted to a mid green — `crops/leaf-shipped-3x.png` is the same crop of the shipped build.
+2. **A mirrored instance is an unlit instance.** Varying a pixel sprite by flipping the sign of
+   `scale.x` is free where a rotation is not (#18) — and it is wrong for a *lit* instance. A
+   negative determinant inverts the normal matrix, so every mirrored leaf turned its normal away
+   from the sun. The two crops side by side are unambiguous: pale, dark, pale, dark around the
+   ring, four of nine with no lit face at all, against nine lit blades once the flip was dropped.
+   Size alone carries the variety now, and nine leaves rather than fourteen, because at the
+   opening radius fourteen is closer together than one leaf is wide.
+
+**(e) The game's own message box, in the showcase only.**
+`ui/panels/dialogue.js` says in its own header that `ctx.get('ui').say(text)` is a published
+seam and nothing yet consumes it. It draws a DS message box into `ui`'s low-res canvas, in the
+era's font, at the same pixel pitch as the scene, and `ui`'s `minimal` flag gates the party bar
+and the auto-opened away card — not `app.open`. So a foreign showcase can use it, and this one
+does: *A wild MARILL appeared!*, *Go! GREAT BALL!*, *Gotcha! MARILL was caught!*, *Oh, no! The
+MARILL broke free!*. At 21:30 the box comes through grey because `ui` re-lights its whole palette
+from `tod` — the caption belongs to the world rather than sitting on top of it.
+
+It is **not** used in the live game, and the reason is a deadlock rather than a preference: the
+box waits for a keypress to advance (`dialogue.advance`), and an idle game that opened one every
+time the lead walked through grass would leave a modal in front of a player who is not there.
+`begin()` emits `ui:toast` instead, guarded by `!config.showcase` — a toast fades on a wall-clock
+timer, which is the one thing a reproducible screenshot may not contain (#14).
+
+**(f) Framing, and the panel.** Every picture mode moved from `pixelExactDistance(k=2)` to `k=3`
+— the same integer framing `mode=walk` already used, two thirds of the distance, so a Pokemon is
+~180 px tall in a 1080 frame against ref 01's proportion, and the tail of the conga line leaves
+the frame instead of competing with the subject. The panel lost the spawn table and the ball
+shelf from every mode that is a *picture*: the shelf belongs to `mode=balls`, the step log to
+`mode=walk`, the table to the new `mode=table`. What a picture mode keeps is what its own frame
+is evidence for — what was rolled, what the ball did, and the two-line proof that the roll
+replays identically. The band table the critic named by name is one URL away.
+
+**(g) The ball rests on the cover, not in it.** `arc()` was already passing
+`shadowY = at.y + coverY` because a cell of `tall_grass` stands 0.625 units proud and a blob
+under that is inside the blades — but `rest()` was still placing the ball itself at `at.y`, i.e.
+**0.625 units below its own shadow**, and the blades took its lower shell, band and button. (The
+pre-fix frame was not kept; the claim rests on the two call sites, which disagreed by exactly
+`coverY`.) Shipped, at 2x:
+`docs/progress/encounter/r3/crops/ball-resting-on-cover-2x.png` — the whole ball clear of the
+blades with its contact blob directly under it. A ball that has fallen into deep grass sits on the
+grass. The wobble also went from a 2-texel nudge to 3: at 2 the extreme of the sweep is 27 screen
+px against a 116 px ball, so every frozen frame in the wobble looked like a ball standing still.
+
+**(h) What was re-verified rather than assumed.** The brief asked whether round 2's ball fix
+held. Measured on the shipped `docs/progress/encounter/r3/throw.png` with the critic's own looser
+not-green mask over an 11,160 px silhouette: **0 pixels at exactly (0,0,0) and 0 at exactly
+(1,1,1) — 0.00 %**, against round 1's 50.4 %. The airborne contact shadow is present and lands on
+the cover: the row-mean luminance under the ball dips from 66.5 at `y 718` to 56.7 at `y 734`, and
+the ellipse is plainly visible at 3x in
+`docs/progress/encounter/r3/crops/ball-airborne-shadow-3x.png`. Ball/lead separation at the throw
+is 180 px at the new framing.
+
+**(j) A squash-and-stretch on a pixel sprite is issue [12] with a different actor.**
+The appear beat first shipped with a continuous scale ramp — `0.62 + 0.38*min(1, out/0.55) +
+0.20*sin(out*pi)` — which freezes `mode=reveal` at about 1.10. At the framing every picture mode
+now uses one sprite texel is exactly three internal pixels, so 1.10 of that is 3.3 and texels come
+out three internal pixels wide in some runs and four in others. That is the critic's issue [12]
+verbatim, moved off the ball (where `gridScale` fixed it) and onto the headline sprite in the
+frame an outside critic shoots.
+
+Measured the way the critic measured it, on the same species in the same cell, one frame with the
+ramp and one without — histogram of horizontal texel-edge spacings over the whole sprite:
+
+| frame | gap 9 px | gap 12 px | on whole texels |
+| --- | --- | --- | --- |
+| `mode=escaped`, scale 1 (control) | 408 | 223 | 48.9 % |
+| `mode=reveal`, continuous ramp ~1.10 | 246 | 441 | **27.1 %** |
+| `mode=reveal`, shipped | 415 | 224 | **50.5 %** |
+
+The fix is to quantise rather than to delete: a scale that is a multiple of 1/3 keeps every texel
+a whole number of internal pixels, so the pop is **2/3 -> 1 and nothing in between**. Two sizes
+read as a pop better than a twenty-step ramp does anyway — it is what the era's own sprites do —
+and the frozen reveal lands on the settled 1, the same size as every other Pokemon in the picture.
+The burst is carried by the hop, the leaves and the bubble, none of which cost the grid anything.
+Worth stating as a rule, because this is the third time it has bitten: **anything that scales a
+sprite in this project has to land on a whole number of internal pixels, or it is resampling
+pixel art.**
+
+**(i) The default mode is the reveal now.** `?showcase=encounter` with no mode is the URL an
+outside critic shoots — it is the one that produced `enc-default.png` — and it was defaulting to
+`throw` on the argument that a ball in the air is "the one unambiguous frame". It is unambiguous
+about a *ball*. The reveal is the frame that is unambiguous about an *encounter*: the wild is the
+only thing off the ground, the only thing wearing the "!", the grass it came out of is still open
+under it, and the box at the bottom names it.
+
+---
+
+### 52 — 2026-09-08 — The shadows were hard because `PCFSoftShadowMap` has not existed since r185 and `LightShadow.radius` was never set; a wide kernel needs a receiver-plane bias to be usable; and `mode=biome:cave` was a lawn
+
+Five critics — `city` three times, `tiles`, `hunts` — filed the same defect against their own
+modules this round: hard-edged, hue-killed, near-black bars raked across every open lawn at
+07:00, 08:00 and 17:30. `hunts` called forest golden hour "a corduroy of parallel hard-edged
+near-black bars" and its worst frame. It is one cause, it is `environment`'s, and it is two
+numbers nobody in six rounds had printed.
+
+Every measurement below is 1280x720 with `hudRows: 60` — the same reduction
+`tools/shots/regress.js` uses — and every A/B is the **same URL one flag apart**, taken in the
+same minute, because three other modules were editing the tree while this round ran (#50(e)).
+The control flag is `?envNoShadowFilter=1&envShadowRadius=1`, which is the round-6 rig exactly.
+
+**(a) `THREE.PCFSoftShadowMap` is deprecated, and `LightShadow.radius` defaults to 1.**
+
+`ARCHITECTURE` §2.7 asks for `PCFSoftShadowMap` and `core/render.js:144` sets it. three r185
+**removed that path**: `WebGLShadowMap.render()` line 99 substitutes `PCFShadowMap` on the first
+shadow pass, and `WebGLProgram.js:346`'s `shadowMapTypeDefines` has keys for `PCFShadowMap` and
+`VSMShadowMap` only — constant 2 falls through to `SHADOWMAP_TYPE_BASIC`. Read at runtime
+through the new `window.__ENVSHADOW__()`: `renderer.shadowMap.type` is **1**, so the substitution
+had already happened and the frame was running three's 5-tap Vogel PCF.
+
+Its kernel is `shadowRadius * texelSize`, and `LightShadow.radius` defaults to **1**. Nothing in
+this project had ever assigned it. One texel of a 2048² map over a 56-unit ortho box is
+`56 / 2048 = 0.0273` world units — a thirty-sixth of a tile. **That is the entire "hard shadow"
+defect**: measured on a scanline across the west massif's shadow at `?showcase=environment&tod=17.5`,
+row y=380, the 90 %→10 % transition is **3 pixels** wide and drops 87 → 31 luma in one of them.
+
+Six rounds looked for this in the ortho frustum (`shadowExtent` 56→100→160 moves coverage under a
+point, integrator), the bias pair, `shadowSide`, and the caster list. It was never any of those.
+The standing coreRequest "`PCFSoftShadowMap` has a fixed kernel and `light.shadow.radius` is
+ignored by it" is **wrong** and is withdrawn: `radius` is read, every frame, and always has been.
+
+**(b) Raising `radius` alone does not work: 5 taps over a wide disk is salt and pepper.**
+
+Swept with three's own filter at `tod 17.5` on `city/high-street`. The frame gets *brighter* as
+the radius grows — mean 61.53 / 61.64 / 61.83 / 62.16 / 62.85 at radius 1 / 4 / 8 / 12 / 20 —
+so there is no acne: `src/tiles/instanced.js` keeps flat and decal tiles out of the shadow pass,
+so open ground writes nothing to the map and cannot self-shadow. What there *is* is noise.
+`docs/progress/environment/r7/sweep/crop-lawn-r20.png` is the whole lawn dithered, because 5
+samples rotated per pixel by interleaved gradient noise over a 20-texel disk is a 45 % standard
+error on the coverage estimate, and at `pixelScale 3` each of those errors is a 3×3 screen block.
+
+**(c) So the filter is ours: 24 taps and a receiver-plane depth bias, installed as one shader
+chunk. `src/environment/shadowFilter.js`.**
+
+`THREE.ShaderChunk.shadowmap_pars_fragment`'s PCF `getShadow` is replaced, found by brace-matching
+from its signature rather than by exact text so a patch release cannot silently break it — and if
+the anchor is ever gone the install is skipped with a `warn` and three's own filter runs, because
+a hard shadow is a defect and a failed string replace that emits invalid GLSL is a black screen.
+
+- **24 taps, not 5, and the count is what actually bought the wide kernel.** Swept behind
+  `?envShadowTaps=N` at a fixed radius of 12 on `city/high-street/17.5`, measuring
+  high-frequency energy over the lawn crop (x 40..240, y 20..140) — mean
+  `|luma − avg(4 neighbours)|`, which is the grass texture plus the dither and nothing else
+  because the scene is identical between shots:
+
+  | taps | 5 | 12 | 24 | 32 | (radius 1, the old hard shadow) |
+  | --- | --- | --- | --- | --- | --- |
+  | hf | 2.874 | 2.440 | 2.301 | 2.282 | 2.804 |
+
+  5 taps of *this* filter reads 2.874, identical to three's own 5-tap kernel at the same radius,
+  which is the check that the replacement is like-for-like. 24 → 32 buys 0.019 and is not
+  visible; 12 still carries 0.14 over 24. Each tap is a hardware `sampler2DShadow` fetch under
+  `LinearFilter` — a free 2×2 comparison, so ~96 effective taps — and it costs 0.6 fps at 1080p.
+- **A receiver-plane depth bias**, which is worth less than the theory says and is kept anyway.
+  Three compares all of its taps against the receiver depth at the kernel's centre, so on
+  anything tilted away from the light the uphill taps read as occluded. `dFdx`/`dFdy` of the
+  shadow coordinate give `∂z/∂u`, `∂z/∂v` from a 2×2 solve, and each tap tests
+  `z + dot(∂z/∂uv, offset)`. Two details are load-bearing: the derivatives are taken **before**
+  the frustum test, because a derivative in non-uniform control flow is undefined for any quad
+  straddling the edge of the shadow box; and the fitted slope is clamped **per texel of offset**
+  at 0.004 normalised depth, which is flat ground under a sun 2.3° up — below the 3.4° elevation
+  floor the key already has, so a real receiver is never clipped and a silhouette's runaway
+  derivative always is.
+
+  Priced with `?envNoRpdb=1` at radius 12 (`r7/rpdb/`): it changes **4.31 %** of
+  `city/high-street/17.5`, and those pixels sit at **0.70×** their brightness without it. The
+  diff image says where, and it is not where I expected: **lamp posts, awnings and the strip of
+  ground at the foot of a wall**. Roofs are untouched — region mean 84.17 with against 84.21
+  without — and so is the lawn, because `src/tiles/instanced.js` keeps flat and decal tiles out
+  of the shadow pass entirely, so open ground writes nothing to the map and cannot self-shadow at
+  any radius. That is also why the radius sweep in (b) got *brighter* rather than acneing: on
+  this map the classic acne failure mode mostly cannot happen. So the honest attribution is that
+  the tap count unlocked the wide kernel and the plane bias keeps the narrow steep casters from
+  acneing themselves inside it, at no measurable cost.
+
+**(d) The radius rides the sun's elevation, and the two ends were picked by looking rather than
+derived.** One constant cannot serve both hours and both failures were shot: at 12 texels the
+golden hour is right (`sweep/crop-f-lawn-r12.png`) and noon is wrong — `sweep/crop-bench-f12.png`
+has a bench's shadow blurred to a faint smudge, because 0.33 units of blur across a shadow 1.2
+units long is most of the shadow. At 6 texels noon is right (`sweep/crop-bench-f6.png`) and the
+golden hour keeps too much corduroy. So `radius = clamp(5 + 14 · (graze − 0.35), 5, 14)` with
+`graze = 1 − sin(elevation)`: 6.4 at noon, 12 at 17:30, 13.3 at the elevation floor.
+
+It is **not** derived from `1/sin(e)`, and that matters for whoever tunes it next. The kernel is a
+disk in the shadow map; projecting it onto flat ground already stretches it by `1/sin(e)` along
+the shadow's run for free. Only the width *across* the run — which is what makes a bar a bar —
+needs the ride. Nor is it the per-pixel contact hardening a real filter would do: that needs a
+blocker *distance*, and three's PCF map is a comparison sampler that will not hand back a depth
+value (`castShadows.js` has the note on what reading one through a `sampler2D` costs).
+
+**(e) Measured, control → shipped, same URL one flag apart.**
+
+| frame | what moved | control | shipped |
+| --- | --- | --- | --- |
+| `showcase-17.5` massif edge, y=380 | 90→10 % transition | **3 px** | **26 px** |
+| `city/high-street/21` | `belowL8` | 11.114 | **9.903** |
+| `hunts/meadow/21` | `belowL8` | 4.872 | **3.225** |
+| `hunts/forest/21` | `belowL8` | 11.864 | **10.253** |
+| `hunts/forest/12` | `belowL8` | 2.803 | **2.352** |
+
+At 1920×1080 on `city/high-street/17.5`: **59.4 fps mean, p95 16.7 ms**, 221 draw calls, 19 k
+triangles, 22 programs, 0 console errors — against 60.0 fps with the filter off, so the whole
+filter costs 0.6 fps and stays well inside §7's ≥ 50 fps / p95 ≤ 20 ms.
+
+`mean` moves by under 0.3 on every one of those four, so the softening is very nearly free on
+brightness: it is not lifting the frame, it is removing the hard black core of a raked bar.
+The full gate at the end of the round is **6 improved, 0 regressed, 0 moved** across twelve
+frames. Two of the six (`hunts/meadow/12` and `hunts/coast/12` `drawCalls`) are *not* mine —
+`src/hunts/` was being edited while this ran; the four `belowL8` rows above are, by the A/B.
+
+**(f) What the softening did to "hue-killed", and what it did not. Measured with the shadow-map
+mask (`?envNoShadow=1` differenced against the shipped frame), because the gate is blind to it.**
+
+For the pixels the sun's shadow map darkens, hard → soft:
+
+| | city 17.5 | forest 17.5 |
+| --- | --- | --- |
+| shadow mean RGB | (36.5, 32.4, 12.2) → **(53.3, 49.3, 13.0)** | (31.6, 31.9, 2.3) → **(37.5, 39.8, 2.7)** |
+| per-channel display ratio | (0.29, 0.31, 0.47) → **(0.44, 0.47, 0.52)** | (0.36, 0.33, 0.27) → **(0.43, 0.41, 0.31)** |
+| shadow p50 luma | 31 → **42** | 29 → **32** |
+| pure black inside the shadow | 1.32 % → **0.71 %** | 0.02 % → **0.01 %** |
+| shadow saturation vs lit | 0.799 vs 0.825 | 0.958 vs 0.938 |
+
+The shadow now *darkens* rather than crushing, and its saturation matches the lit surface it
+falls on to within 0.03 in both scenes — which is the critics' "desaturating what they fall on"
+answered, as a number.
+
+**What is left is not the shadow's, and the measurement says so.** 48.5 % of the forest golden
+hour has its **blue channel at exactly 0**. Inside the shadow that figure is 50.5 %; over the
+whole frame it is 48.5 %, and in the city the shadow is *less* zero-blue than the frame (10.5 %
+against 20.0 %). A defect that is no worse inside the shadow than outside it is not the shadow's.
+It is #50(a)'s crush point, still there: `contrast` is `(x−0.5)·c+0.5` with a hard clamp, so at the
+golden hour's `c = 1.307` everything under **0.1173** goes to zero, and the golden lift #50 sized
+against it delivers 0.0423 in blue — still inside. Reference 04, the golden-hour still we are
+judged against, has the same mean blue we do (30.2) and **1.17 %** zero-blue against our 20.0 %.
+
+Four ways to move it were shot and priced on `hunts/forest/17.5`, and **none is shipped**:
+
+| change | zero-blue | mean | verdict |
+| --- | --- | --- | --- |
+| shipped | 48.5 % | 40.08 | — |
+| `saturation 1.57 → 1.30` | 29.7 % | 39.80 | cheapest, and it takes the gold out of the golden hour — looked at, `r7/tune/f175-sat130.png`. Undoes #50's own compensation. |
+| `hemi 0.39 → 0.70` | 39.2 % | 43.28 | +3.2 mean for a partial fix, most of the gate's tolerance |
+| `hemi 0.39 → 1.20` | 18.9 % | 48.18 | +8.1 mean |
+| `contrast 1.31 → 1.18` | 7.0 % | 47.58 | +7.5 mean |
+| `lift → 0x3a4260` | 0.15 % | 50.06 | saturation 0.95 → 0.51; the frame washes out |
+
+**One contact check I could not make, said plainly.** The right test for a 12-texel penumbra is
+a caster standing on *lit* ground at 17:30, and neither shipped framing has one: the city's trees
+are off-frame (#50d) and the showcase's free-standing block and lamp posts are inside the massif's
+shadow — street lamps are not in the caster list at all. The contact evidence is therefore noon's,
+`sweep/crop-bench-f6.png` at 6.4 texels, which is exactly the hour the radius curve narrows for.
+Whoever takes the next round should put a caster on lit ground at 17:30 in the showcase and look.
+
+The honest fix is a **soft toe on the contrast** in `core/render.js` instead of the hard clamp,
+which costs the shadowed blue nothing and the black point almost nothing. Filed as a coreRequest
+with these numbers. Changing the grade from a preset to chase it is #46/#50 territory and would
+have traded a shadow round for a colour regression, which is exactly the failure mode
+`tools/shots/regress.js` exists to stop.
+
+**(g) `?showcase=environment&mode=biome:cave` was a lawn, and now it is a cave.**
+
+The mode changed the *palette* and left the meadow stage under it: grass, a stone road, a hedge
+and street lamps, lit by the cave preset's key of 5.20 with nothing over them. It measured
+**mean 146.07 / p50 150 / belowL8 0.000**, brighter than the noon city. `biome:cave` and
+`biome:interior` now build an enclosed stage instead — chosen by reading `enclosed >= 0.5` off
+`presets.js` rather than by biome name, so a preset that gains or loses a roof cannot leave the
+showcase lying. It is a chamber cut into a sheet of `bw2-cave` rock a metre up, with two
+outcrops, a raised terrace, `cave_big_rock`, `cave_exit` straddling the north wall, and five
+practicals — two cold at the mouth, three warm — sized against `lamps.js`'s own clamps the way
+`hunts` measured them. `estalactita` is deliberately not placed, for the reason
+`hunts/biomes/cave.js` records. Now **mean 77.77 / p50 70 / 56 draw calls / 60 fps**, and it
+looks like `hunts`'s own cave because it uses the same tileset idiom.
+
+The first cut of it is worth writing down because the mistake is easy to repeat: drawing the
+surrounding rock with `set3 cave_dark_border` at y 0 gives a **lavender chequerboard**, because
+that set has nine models and its centre slot is `cave_dark_border_inner_ne` — an inner corner
+doing duty as the fill — and it puts the outcrops level with the floor, so they read as pits. A
+flat `cave_rock_ground_center` sheet at y 1, with the chamber cut out of it, has neither problem
+and is what the rock physically is: the top of the metre of wall the `set0` border slots climb.
+
+`biome:interior` gets the same room and measures `belowL8` **39.6 %**, `pureBlack` 11.6 %. That is
+the interior preset's own lift-vs-crush error, already on the open-issues list and untouched here;
+the difference is that it is now visible in a shot instead of being a note about a preset no scene
+used.
+
+---
+
+### 53 — 2026-09-08 — `set0`'s transition faces sample their texture inverted along their *own* axis, so four slots are fixed by a half turn and eight can only be re-cast as a different slot; and a trunk is hidden by a crown, not by a region
+
+**(a) The mirror is not a mirror, and it is not in U. It is a per-face V flip, and which world
+axis it lands on differs from slot to slot.**
+
+Three attempts have been made on the divided road: this module's `SET0_OUTWARD` (rot 2 on
+`edge_w`/`edge_e`, shipped), the integrator's U flip in `tools/assets/pdsts.js` (reverted, made
+the interior gap 6 px → 16 px), and the two together (reverted, 16 px and 15 px — two gaps).
+All three were built on the same diagnosis, *"the art is mirrored about its own centre"*, and
+that diagnosis is wrong. Dumped from what the game actually loads:
+
+| model | material | `v` at the two ends |
+| --- | --- | --- |
+| 8 `grass_path_side_edge_w` | `michi01a` | **+0.0562 … +0.9438** |
+| 9 `grass_path_center` | `michi01b` | **0 … −0.9999** |
+
+The two materials of **one set** disagree. `michi01a` — the material every transition slot is
+drawn with — keeps the DS convention, `v` measured *down* from the image's top row; `michi01b`
+has already been negated into OpenGL order. `THREE.TextureLoader` uploads with `flipY = true`,
+so the un-negated faces sample upside down. The `.obj` mirror of the same model negates `v`,
+which is why reading `obj/path/grass_path_side_edge_w.obj` says the pack is fine and reading
+`pack.bin` says it is not; `pack.bin` is what the game loads. This also supersedes the note at
+`src/tiles/materials.js:597` that *"a horizontal tile is untouched by a V flip"* — untouched by a
+flip in **height**, yes; these tiles map `v` onto **X or Z**, and each slot picks its own, which
+is why `edge_w` fails east-west and `edge_n` fails north-south.
+
+**(b) Which is why a rotation reaches four slots out of thirteen.**
+
+`edge_w` maps `v` to world X: its fringe lands east, and a 180-degree turn is a mirror in X and
+in Z, of which the Z half is a no-op on a vertical strip. Same for `edge_n`/`edge_s` in the other
+axis. An **outer corner** is two triangles split on the tile's diagonal — one carrying the north
+strip with `v` on Z, one the west strip with `v` on X — so each strip is flipped *out of its own
+triangle* and all that survives is the sliver grazing the diagonal: the green comma stamped
+inside the tan at every meander step, six countable at 1x in `forest-wide-12` and two in the
+default framing. Rotation moves the comma; it cannot put the strips back, because the flip
+happened in texture space before the triangle clipped it. An **inner corner** is one triangle
+whose `v` runs from its right-angle corner to its hypotenuse, so the flip puts the fringe *on*
+the hypotenuse — a green diagonal streak across the road.
+
+**(c) So the corners are re-cast, and the substitute is chosen by measuring the field.**
+
+`palette.draw` gains `remap(case, cx, cz) -> caseName`, which re-names a solved case before the
+model is looked up (through `tiles.autotile.solve`, the same lookup the solver used, so an
+unknown substitute keeps the solver's own model rather than losing the cell). `set0Outward(field)`
+returns `{ rotate: () => 2, remap }`:
+
+* an **outer corner** becomes the `edge_*` of whichever of its two exposed sides carries the
+  longer unbroken shoulder, counted on the field. On the forest's north-south trail that is
+  `edge_w`/`edge_e` and the fringe runs *through* the step instead of stopping at it; on the
+  meadow's and the coast's east-west tracks the same rule returns `edge_n`/`edge_s`. The rule
+  measures rather than names a side, and the selftest asserts both directions on two synthetic
+  fields;
+* an **inner corner** becomes `center` — plain dirt. The artist's nub for that slot is
+  unreachable at every rotation and the streak that stands in for it is worse than nothing.
+
+Measured twice, offline and on screen. Offline, by rebuilding the shipped seed-1337 trail from
+`pack.bin` + `michi01a.png` with the solver's own conventions (`outsideIsFilled = true`): green
+pixels enclosed by dirt **960 → 0**, dirt meeting bare lawn with no fringe between **720 → 222**.
+On screen at 1920x1080, `src/hunts` reverted to its session-start state and built again for the
+control: the six stubs in `forest-wide-12` and the two in the default framing are **gone**, and
+the dirt-enclosed-green scanline count falls 3987 → 1224 (wide), 4770 → 1818 (default),
+22815 → 9900 (coast). `docs/progress/hunts/r6/before/` against `after/`. Draw calls drop with it —
+forest 86 → 74, meadow 127 → 115, coast 113 → 101 — because eight of the thirteen slot models are
+no longer drawn at all.
+
+The exporter fix is still the right one and the coreRequest is restated with the `pack.bin`
+repro, because one rule there covers every slot of every pack; `set0` is simply the only family
+in `bw2-adastra` whose art is asymmetric enough to show it.
+
+**(d) A trunk is hidden by a crown, and round 5 tested for woodland.**
+
+The critic measured the front rank honestly in both directions — *"trunk-brown pixels fall 2.71 %
+to 2.29 % while trees rise 28 %"*, but *"about 11 bare trunk-and-root decals in a straight line
+across x 40-900"* and *"four crowns on lit lawn each with its full trunk and root decal exposed"*.
+Round 5 covered them with a Poisson scatter at radius 1.35 over the `face` row, and a scatter has
+gaps by construction and does not know where the trunks are. The cover is now driven off the
+**tree list**: every crown that was really planted knows its own footprint, and the cover goes on
+the footprint's southern row, which is where the surviving Z-facing card's foot stands.
+
+Two things had to be got right and the first cut got both wrong:
+
+* **exposure is measured against the crowns, not against `wood`.** Asking whether the cell south
+  of the footprint was woodland covered 91 of 689 crowns, because `wood` is a region and the
+  canopy is a scatter inside it — the southernmost *crown* of a column is usually not on the
+  southernmost *wood* cell. Testing the crown footprints themselves takes it to 170.
+* **the `lane` guard was the wrong guard.** It refused the two crowns the close framing is
+  actually about — (23,36) and (29,34), standing beside the trail, whose bases are inside
+  `path.grow(2)`. Their bases are already `collision: 'block'`, because their own trunks blocked
+  them a moment earlier, so a bush there cannot change what is walkable. Asserting
+  `draft.collisionAt(x, bz) === 'block'` is both stricter and less conservative than naming a
+  region: 170 → 180 crowns, and the two decals are covered.
+
+The width is a fit, not a guess — a 2x2 crown takes `hedge2`, a 3x3 takes `hedge3`, so the cover
+is exactly as wide as the card whose trunk it hides; a 1x1 bush on one of the two cells covers
+only the half of the trunk on its own side of the boundary, because the card is centred on that
+boundary, and that is the other half of why round 5's scatter left so much showing even where it
+landed. Half the crowns take the single run and half take one 1x1 per cell, hashed, because sixty
+identical flat-topped boxes along a tree line is the same defect as one crown silhouette at one
+yaw. Looked at both ways before choosing (`docs/progress/hunts/r6/after2/` is the run-only
+version, `after3/` the mix).
+
+Trunk-brown pixels at 1920x1080, same controlled A/B: `forest-wide-12` **0.818 % → 0.284 %**,
+default **0.983 % → 0.416 %**, `forest-close-12` **0.946 % → 0.596 %**, and the close framing's
+four fully-exposed decals are **zero**. Gate: 6 improved, 0 regressed, 0 moved.
+
+**(e) The guards, and the proof they are guards.** The selftest asserts that no crown with an
+uncovered row to its south keeps a bare cell on its own base row, and that the re-cast happens at
+all; both fail when the file is reverted (`180 of 180 front-rank crowns uncovered`, and the two
+shoulder-rule checks flip), which is the only reason to believe them. 315 → 324 checks.
+
+**(f) `git stash` is not a control in this repo and must not be used as one.** Taking a "before"
+shot by stashing the working tree stashed **three other agents' concurrent edits** as well —
+`src/encounter/*`, `src/environment/index.js`, `tools/judge/plan.json` — and `git stash pop` then
+restored only the untracked-adjacent files and kept the entry. Recovered with
+`git checkout stash@{0} -- <paths>` + `git reset`. The control that is actually safe is the one
+this module used in round 5 and used again here: copy `src/hunts` aside, `git checkout HEAD --
+src/hunts/`, shoot, copy back. It touches one folder, which is the only folder this agent owns.

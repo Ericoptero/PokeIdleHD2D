@@ -25,7 +25,7 @@ import {
   wildCells,
 } from '../compose.js';
 import { makePropYard } from '../props.js';
-import { SET0_OUTWARD } from '../palette.js';
+import { set0Outward } from '../palette.js';
 
 /**
  * Grass under a closed canopy is not the same green as grass in the open — but it is not a
@@ -117,6 +117,14 @@ export function buildForest(draft, ctx, palette, rng, log) {
   const tallFlat = tallGrass.filter((m) => (m.bounds?.max?.[1] ?? 0) <= 0.3);
   const hedges = palette.all({ category: 'plant', tags: ['hedge'] });
   const hedge1 = hedges.filter((m) => m.w === 1 && m.h === 1);
+  /**
+   * East-west hedge runs, indexed by how many cells wide they are.
+   *
+   * `bw2-adastra` ships `hedge2` (2x1) and `hedge3` (3x1) as well as the 1x1, and the widths
+   * are exactly the footprints of the two tree models this map plants — which is what makes
+   * the trunk cover below a *fit* rather than a scatter that happens to land nearby.
+   */
+  const hedgeRow = (n) => hedges.filter((m) => m.w === n && m.h === 1);
   const flowers = palette.all({ category: 'plant', tags: ['flower'] });
   // `sunken` is excluded on purpose and not as tidiness: the `michi03b` family is `set2`'s
   // centre, a 4-bit indexed PNG whose whole palette is green (DECISIONS #30), so dropping one
@@ -403,12 +411,13 @@ export function buildForest(draft, ctx, palette, rng, log) {
 
   // Worn dirt through it all. `set0` is the grass/path palette; its border slots are the
   // transition the artist drew, so the path meets the lawn instead of ending at a seam —
-  // and `SET0_OUTWARD` is what puts that transition on the *outside* of the trail instead of
-  // twice down the middle of it. See the comment on the constant: without it this three-cell
-  // trail draws as three tan runs split by two grass ribbons, which is what every round of
-  // this module has shipped and what round 1's header wrongly claimed to have fixed.
+  // and `set0Outward` is what puts that transition on the *outside* of the trail instead of
+  // twice down the middle of it, **and re-casts the eight corner slots**, whose art is
+  // unusable at every rotation and which drew a green comma inside the dirt at every meander
+  // step for five rounds. See the comment on the function: it carries the `pack.bin` dump the
+  // diagnosis rests on and the before/after pixel counts.
   palette.draw(draft, 'set0', path, { collision: 'walk', layer: 1, tags: ['path'],
-    rotate: (kase) => SET0_OUTWARD[kase] ?? 0 });
+    ...set0Outward(path) });
 
   // Scuffs where the path bends. Spaced rather than thresholded, and rotated: a threshold
   // over the path cells put the same wheel-rut glyph on two adjacent cells at the same
@@ -544,10 +553,12 @@ export function buildForest(draft, ctx, palette, rng, log) {
   };
 
   let bigs = 0, conifers = 0;
+  /** Every crown actually planted, with the footprint it occupies — see `coverTrunk`. */
+  const standing = [];
   for (const [cx, cz] of treeCells) {
     // A 3x3 crown wherever there is room for one and the grove is dense: ref01's canopy is
     // clumps "at varying scale", and one footprint everywhere is the other half of why ours
-    // read as a plantation. The threshold is 0.42 rather than 0.58 because the critic's
+    // read as a plantation. The threshold is 0.54 rather than 0.58 because the critic's
     // reading of round 4 was "the same crown silhouette at the same scale" — with the wood
     // packed at 0.95 there is far more room for the wide crown than there was, and the wide
     // crown is the only scale variation this tileset ships (`place` carries a quarter turn
@@ -574,6 +585,7 @@ export function buildForest(draft, ctx, palette, rng, log) {
     // Hashed off the cell so it is a pure function of the seed, not of draw order.
     const rot = valueNoise(cx, cz, seed ^ 0x5c8b, 1) > 0.5 ? 2 : 0;
     draft.place(model, cx, cz, { collision: 'block', layer: 3, claim: false, rot });
+    standing.push({ cx, cz, w: model.w ?? 1, h: model.h ?? 1 });
   }
 
   // Hedges fill the knee-height gap between the trunks and the grass, so the tree line does
@@ -680,8 +692,9 @@ export function buildForest(draft, ctx, palette, rng, log) {
     return distToPath[cz * W + cx] > 2;
   };
   for (const [cx, cz] of rimTrees) {
-    draft.place(palette.pick(trees2, cx, cz, { salt: 9, baseWeight: 2 }), cx, cz,
-      { collision: 'block', layer: 3, claim: false });
+    const lead = palette.pick(trees2, cx, cz, { salt: 9, baseWeight: 2 });
+    draft.place(lead, cx, cz, { collision: 'block', layer: 3, claim: false });
+    if (lead) standing.push({ cx, cz, w: lead.w ?? 1, h: lead.h ?? 1 });
     rimPlaced++;
     const n = 1 + (valueNoise(cx, cz, seed ^ 0x9d31, 3) > 0.62 ? 1 : 0);
     const start = Math.floor(valueNoise(cx, cz, seed ^ 0x1c07, 4) * CLUMP.length);
@@ -689,10 +702,125 @@ export function buildForest(draft, ctx, palette, rng, log) {
       const [dx, dz] = CLUMP[(start + k) % CLUMP.length];
       const x = cx + dx, z = cz + dz;
       if (!canStand(x, z)) continue;
-      draft.place(palette.pick(trees2, x, z, { salt: 13, baseWeight: 2 }), x, z,
-        { collision: 'block', layer: 3, claim: false });
+      const mate = palette.pick(trees2, x, z, { salt: 13, baseWeight: 2 });
+      draft.place(mate, x, z, { collision: 'block', layer: 3, claim: false });
+      if (mate) standing.push({ cx: x, cz: z, w: mate.w ?? 1, h: mate.h ?? 1 });
       added++; rimPlaced++;
     }
+  }
+
+  // ------------------------------------------------------- the trunks in front
+  /**
+   * **A hedge across the foot of every crown whose base the camera can actually see.**
+   *
+   * Round 5 covered these with a *scatter* over the `face` row — a Poisson scatter at radius
+   * 1.35 over a one-cell-deep band, which lands a bush on roughly every other cell of it, and
+   * the critic counted what that leaves: *"about 11 bare trunk-and-root decals in a straight
+   * line across x 40-900"*, plus *"four crowns on lit lawn each with its full trunk and root
+   * decal exposed"* in the clearing, where the rim trees were outside the scatter's `accept`
+   * altogether. A scatter cannot fix that, because a scatter has gaps by construction and the
+   * gaps do not know where the trunks are.
+   *
+   * So this pass is driven off the **tree list**, not off a field: every crown that was really
+   * planted knows its own footprint, and the cover is laid on the footprint's **southern row**
+   * — which is where the visible billboard's foot stands (`tiles/instanced.js#dropEdgeOnTwins`:
+   * the surviving card is the Z-facing one, so its base sits on the footprint's south edge and
+   * its root decal spreads south of that, towards the camera).
+   *
+   * The width is a **fit, not a guess**: a 2x2 crown gets `hedge2`, a 3x3 gets `hedge3`, so the
+   * cover is exactly as wide as the card whose trunk it hides. A 1x1 hedge on one of the two
+   * cells covers only the half of the trunk on its own side of the cell boundary, because the
+   * card is centred on that boundary — which is the other half of why round 5's scatter left
+   * so much showing even where it did land.
+   *
+   * It cannot read as a garden bed for the same reason the crowns do not read as a plantation:
+   * the runs inherit the trees' own spacing, which `packAt` made irregular, and where two
+   * crowns overlap only the southern one is a front rank at all.
+   *
+   * Three guards, all of them load-bearing:
+   *  - only crowns with **no wood south of the footprint** — a crown standing behind another
+   *    crown has its base hidden already, and a hedge there is a hedge inside a wood;
+   *  - **never in the `lane`**, which is the five cells the scripted east walk needs, because
+   *    `makeScriptedRoute` drops an impassable step silently and the party turns north;
+   *  - `claim: false`, so the litter scatter keeps the same cells available it had before and
+   *    this pass cannot move anything it is not aiming at.
+   */
+  //
+  // **Two silhouettes, hashed, because one repeated glyph is the fault this whole round is
+  // about.** A `hedge2` under every 2x2 crown covers the trunk in one piece, but sixty of them
+  // along a tree line is sixty identical flat-topped boxes — the same failure as the wheel-rut
+  // glyph stamped on two adjacent cells (see the scuff scatter above) and as the crowns all at
+  // one yaw. So half the crowns get the single run and half get one 1x1 bush per cell, each
+  // with its own mirror and its own pick from the two 1x1 variants the set ships. The cover is
+  // the same width either way; only the outline differs.
+  //
+  // **Exposure is measured against the crowns, not against `wood`.** The first cut of this
+  // asked whether the cell south of the footprint was woodland, and it covered 91 of 689
+  // crowns and left the two the close framing is actually about — because `wood` is a
+  // *region* and the canopy is a *scatter* in it, so the southernmost crown of a column is
+  // very often not on the southernmost wood cell of it. What hides a trunk is another crown
+  // standing in front of it, 4.5 units of it drawn over the top; so the test is the crown
+  // footprints themselves.
+  const crown = new Uint8Array(W * H);
+  for (const t of standing) {
+    for (let dz = 0; dz < t.h; dz++) {
+      for (let dx = 0; dx < t.w; dx++) {
+        const x = t.cx + dx, z = t.cz + dz;
+        if (x >= 0 && z >= 0 && x < W && z < H) crown[z * W + x] = 1;
+      }
+    }
+  }
+  const crownAt = (x, z) => (x >= 0 && z >= 0 && x < W && z < H ? crown[z * W + x] : 0);
+  let covered = 0, coverCells = 0, coverRuns = 0;
+  for (const t of standing) {
+    // The row one step south of the footprint: if every cell of it is under another crown,
+    // this trunk is already hidden and a bush there is a bush inside a wood.
+    let exposed = false;
+    for (let dx = 0; dx < t.w; dx++) if (!crownAt(t.cx + dx, t.cz + t.h)) exposed = true;
+    if (!exposed) continue;
+    const bz = t.cz + t.h - 1;
+    /**
+     * **The cover may only go on cells the crown itself has already blocked.**
+     *
+     * `bz` is the last row of the tree's own footprint, and `draft.place` wrote
+     * `collision: 'block'` across that footprint a moment ago — so a bush here cannot change
+     * what is walkable, and that is the whole safety argument. The first cut refused `lane`
+     * cells instead, on the theory that a `block` prop in the walk is a framing whose east leg
+     * `makeScriptedRoute` drops silently. True in general, irrelevant here, and it cost the
+     * two trees the close framing is actually about: the crowns at (23,36) and (29,34) stand
+     * beside the trail, so their bases are inside `path.grow(2)` — already blocked by their own
+     * trunks — and they were the two full trunk-and-root decals still on lit lawn after the
+     * first pass. Asserting the collision directly is both safer and less conservative than
+     * naming a region.
+     */
+    let ok = true;
+    for (let dx = 0; dx < t.w; dx++) {
+      const x = t.cx + dx;
+      if (!draft.inside(x, bz) || draft.collisionAt(x, bz) !== 'block') ok = false;
+    }
+    if (!ok) continue;
+    const run = hedgeRow(t.w);
+    const asRun = run.length && valueNoise(t.cx, bz, seed ^ 0x6ba9, 2) > 0.5;
+    if (asRun) {
+      // rot 2 is a mirror and keeps the footprint; the odd turns would stand a 3x1 run on end
+      // across three rows of somebody else's crown.
+      draft.place(palette.pick(run, t.cx, bz, { salt: 17 }), t.cx, bz, {
+        collision: 'block', layer: 4, claim: false,
+        rot: valueNoise(t.cx, bz, seed ^ 0x1f5d, 1) > 0.5 ? 2 : 0,
+      });
+      coverCells += t.w; coverRuns++;
+    } else {
+      if (!hedge1.length) continue;
+      for (let dx = 0; dx < t.w; dx++) {
+        const x = t.cx + dx;
+        draft.place(palette.pick(hedge1, x, bz, { salt: 17, baseWeight: 1 }), x, bz, {
+          collision: 'block', layer: 4, claim: false,
+          rot: valueNoise(x, bz, seed ^ 0x1f5d, 1) > 0.5 ? 2 : 0,
+        });
+        coverCells++;
+      }
+    }
+    covered++;
   }
 
   // --------------------------------------------------------------- the litter
@@ -769,6 +897,7 @@ export function buildForest(draft, ctx, palette, rng, log) {
   return {
     stats: {
       trees: treeCells.length, bigTrees: bigs, conifers, rimTrees: rimPlaced,
+      standing: standing.length, trunksCovered: covered, coverCells, coverRuns,
       path: path.count(), ride: rideLine.count(), trodden: trodden.count(),
       grass: grassField.count(),
       litter: yard.count(), wild: wild.length,

@@ -36,7 +36,7 @@ import { Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff } from './compos
 import { makeRng } from '../core/rng.js';
 import terrainModule from '../terrain/index.js';
 import { BIOMES } from './index.js';
-import { makePalette, SET0_OUTWARD } from './palette.js';
+import { makePalette, set0Outward, SET_CASE_SIG } from './palette.js';
 
 /**
  * `MapDraft` comes off `terrain`'s **published API**, not off `terrain/draft.js`.
@@ -180,6 +180,7 @@ function stubTiles() {
   mk('estalactita', 'prop', ['cave', 'multicell', 'stalactite', 'tall'], 2, 1, 8.24);
   mk('sea', 'water', ['sunken', 'water'], 1, 1, 0.3125);
   const byId = new Map(models.map((m) => [m.id, m]));
+  const KNOWN_SIGS = new Set(Object.values(SET_CASE_SIG));
   const SETS = ['set0', 'set1', 'set3', 'set4', 'set7', 'set9'].map((id) => ({
     id, name: id, kind: id === 'set9' ? 'line' : 'surface', riseY: 0, sinkY: 0,
     digsIn: false, flat: true, underlay: id === 'set1' || id === 'set4' || id === 'set7',
@@ -206,18 +207,26 @@ function stubTiles() {
         }
         return out;
       },
+      // The join `palette.draw`'s `remap` goes through: a case signature back to a model id.
+      // The stub answers with the *dirt* model rather than the ground one so a re-cast cell is
+      // distinguishable from a cell the solver chose, and −1 for a signature it does not know,
+      // which is the real API's contract for a set that never enumerated that slot.
+      solve: (_slug, _setId, sig) => (KNOWN_SIGS.has(sig) ? models[1].id : -1),
     },
   };
 }
 
 const quietLog = { info() {}, warn() {}, error() {} };
 
-// ------------------------------------------------------- palette.draw honours `rotate`
+// -------------------------------------- palette.draw honours `rotate` and `remap`
 //
-// `SET0_OUTWARD` is the only thing standing between the trail and the three-tan-runs-split-
-// by-two-grass-ribbons it shipped as for four rounds, and it works by turning two of the
-// thirteen solved cases. If `draw` ever stops passing the turn through, the road silently
-// goes back to being divided and nothing says so.
+// `set0Outward` is the only thing standing between the trail and the three-tan-runs-split-by-
+// two-grass-ribbons it shipped as for four rounds, and between the meander steps and the green
+// comma they stamped inside the dirt for five. It works by turning all thirteen solved cases
+// 180 degrees and re-casting the eight corners as a neighbouring case. If `draw` ever stops
+// passing either hook through, the road silently goes back to being divided and nothing says
+// so — which is exactly how three rounds of this module's own header came to claim a fix that
+// was never applied.
 {
   const tiles = stubTiles();
   const draft = new MapDraft({ id: 'rot', w: 8, h: 8, tileset: 'stub', biome: 'meadow', seed: 1 });
@@ -227,9 +236,51 @@ const quietLog = { info() {}, warn() {}, error() {} };
   check('palette.draw passes `rotate` through to the placement',
     draft.placements.length > 0 && draft.placements.every((p) => p.rot === 2),
     `${draft.placements.filter((p) => p.rot === 2).length}/${draft.placements.length} at rot 2`);
-  check('SET0_OUTWARD turns the two side cases and nothing else',
-    SET0_OUTWARD.edge_w === 2 && SET0_OUTWARD.edge_e === 2
-    && Object.keys(SET0_OUTWARD).length === 2, JSON.stringify(SET0_OUTWARD));
+
+  const draft2 = new MapDraft({ id: 'remap', w: 8, h: 8, tileset: 'stub', biome: 'meadow', seed: 1 });
+  const pal2 = makePalette(tiles, 'stub', quietLog);
+  pal2.draw(draft2, 'set0', field, { collision: 'walk', layer: 1, remap: () => 'edge_w' });
+  check('palette.draw passes `remap` through and re-casts every cell',
+    (pal2.lastDraw()?.recast ?? 0) === draft2.placements.length && draft2.placements.length > 0,
+    JSON.stringify(pal2.lastDraw()));
+
+  const draft3 = new MapDraft({ id: 'remap0', w: 8, h: 8, tileset: 'stub', biome: 'meadow', seed: 1 });
+  const pal3 = makePalette(tiles, 'stub', quietLog);
+  pal3.draw(draft3, 'set0', field, { collision: 'walk', layer: 1, remap: () => 'not_a_case' });
+  check('an unknown `remap` target keeps the solver’s own model rather than losing the cell',
+    draft3.placements.length === draft2.placements.length && (pal3.lastDraw()?.recast ?? -1) === 0,
+    JSON.stringify(pal3.lastDraw()));
+
+  check('SET_CASE_SIG names all thirteen blob slots',
+    Object.keys(SET_CASE_SIG).length === 13 && SET_CASE_SIG.edge_w === 11
+    && SET_CASE_SIG.center === 255 && SET_CASE_SIG.inner_se === 127,
+    Object.keys(SET_CASE_SIG).join(','));
+}
+
+// ------------------------------------------------ set0Outward: the corner re-cast rule
+//
+// Two synthetic fields, no textures needed. A north-south band and an east-west band, each
+// with one meander step in it, and the assertion is that the *same* rule reads the shoulder
+// off the field and picks the longitudinal edge in both — a hard-coded `edge_w` would pass the
+// first and fail the second, and the coast's strand is the second.
+{
+  // A 3-wide north-south band that steps one cell west half way down.
+  const ns = new Field(12, 12, (cx, cz) => (cz < 6 ? cx >= 5 && cx <= 7 : cx >= 4 && cx <= 6));
+  const pol = set0Outward(ns);
+  check('set0Outward turns every case 180 degrees', pol.rotate() === 2, String(pol.rotate()));
+  check('set0Outward re-casts an inner corner to plain dirt',
+    pol.remap('inner_nw', 5, 6) === 'center' && pol.remap('inner_se', 7, 5) === 'center');
+  check('set0Outward leaves the four straight edges and the centre alone',
+    ['edge_n', 'edge_s', 'edge_w', 'edge_e', 'center'].every((k) => pol.remap(k, 5, 3) === null));
+  // (4,6) is the outward corner of the step: exposed west (a 6-cell shoulder) and north (1).
+  check('on a north-south trail an outer corner takes the long north-south shoulder',
+    pol.remap('corner_nw', 4, 6) === 'edge_w', pol.remap('corner_nw', 4, 6));
+
+  // The same band transposed: 3 cells tall, running east, stepping one cell north.
+  const ew = new Field(12, 12, (cx, cz) => (cx < 6 ? cz >= 5 && cz <= 7 : cz >= 4 && cz <= 6));
+  const pol2 = set0Outward(ew);
+  check('on an east-west track the same rule takes the long east-west shoulder',
+    pol2.remap('corner_nw', 6, 4) === 'edge_n', pol2.remap('corner_nw', 6, 4));
 }
 
 for (const biome of BIOMES) {
@@ -406,6 +457,54 @@ for (const biome of BIOMES) {
     const rots = new Set(a.draft.placements
       .filter((p) => tiles.byId(biome.tileset, p.modelId)?.category === 'tree').map((p) => p.rot));
     check('forest: the crowns are not all at one yaw', rots.size > 1, `rots ${[...rots].join(',')}`);
+
+    // ------------------------------------------------ the front rank keeps no bare trunks
+    //
+    // The critic counted the failure in pixels — *"about 11 bare trunk-and-root decals in a
+    // straight line across x 40-900"* and *"four crowns on lit lawn each with its full trunk
+    // and root decal exposed"* — and the cause was that round 5 covered them with a Poisson
+    // scatter over the `face` row, which has gaps by construction and does not know where the
+    // trunks are. The rule now is exact and therefore assertable: **a crown with no crown
+    // standing in the row south of its footprint carries a plant on every cell of its own
+    // southern row.** One uncovered cell is one visible trunk.
+    const plant = new Uint8Array(biome.w * biome.h);
+    for (const p of a.draft.placements) {
+      const m = tiles.byId(biome.tileset, p.modelId);
+      if (!m || m.category !== 'plant' || m.tags?.includes('tallgrass')) continue;
+      const fw = (p.rot & 1) ? (m.h ?? 1) : (m.w ?? 1);
+      const fh = (p.rot & 1) ? (m.w ?? 1) : (m.h ?? 1);
+      for (let dz = 0; dz < fh; dz++) {
+        for (let dx = 0; dx < fw; dx++) {
+          const x = p.cx + dx, z = p.cz + dz;
+          if (x < biome.w && z < biome.h) plant[z * biome.w + x] = 1;
+        }
+      }
+    }
+    let front = 0, bare = 0;
+    for (const p of a.draft.placements) {
+      const m = tiles.byId(biome.tileset, p.modelId);
+      if (!m || m.category !== 'tree') continue;
+      const w = m.w ?? 1, h = m.h ?? 1;
+      let exposed = false;
+      for (let dx = 0; dx < w; dx++) {
+        const x = p.cx + dx, z = p.cz + h;
+        if (z >= biome.h || x >= biome.w || !cover[z * biome.w + x]) exposed = true;
+      }
+      if (!exposed) continue;
+      front++;
+      const bz = p.cz + h - 1;
+      for (let dx = 0; dx < w; dx++) {
+        const x = p.cx + dx;
+        if (x < biome.w && bz < biome.h && !plant[bz * biome.w + x]
+          && a.draft.collisionAt(x, bz) === 'block') { bare++; break; }
+      }
+    }
+    check('forest: no crown on the front rank keeps a bare trunk',
+      front > 20 && bare === 0, `${bare} of ${front} front-rank crowns uncovered`);
+    check('forest: the trunk cover is reported and is not empty',
+      (a.report?.stats?.trunksCovered ?? 0) > 20
+      && (a.report?.stats?.coverCells ?? 0) >= (a.report?.stats?.trunksCovered ?? 0),
+      JSON.stringify({ covered: a.report?.stats?.trunksCovered, cells: a.report?.stats?.coverCells }));
   }
 }
 

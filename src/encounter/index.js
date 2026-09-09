@@ -70,7 +70,17 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * of `tick()` calls.
  */
 const T = {
-  APPEAR: 14,      // the wild rises out of the grass and settles
+  APPEAR: 20,      // the grass moves, then the wild comes out of it and settles
+  /**
+   * How much of `APPEAR` is the **grass alone**, as a fraction.
+   *
+   * The brief for this round is that a player should see the beat rather than read it: "the
+   * grass reacts, the wild Pokemon appears". Those are two pictures, and the first one only
+   * exists if there is a window in which the disturbance is on screen and the Pokemon is not.
+   * Eight of the twenty steps, so `mode=approach` (frozen at 0.3 of the beat) is unambiguously
+   * inside it and `mode=reveal` (0.62) is unambiguously past it.
+   */
+  RUSTLE: 0.4,
   READY: 8,        // a beat, during which a player (or `automation`) may throw
   /**
    * How long the wild waits after that before the party settles it and it leaves.
@@ -323,6 +333,35 @@ export default {
       if (scene?.wildActor && isLive(pokemon)) pokemon.sprites.set(scene.wildActor, patch);
     }
 
+    /**
+     * How high above a wild Pokemon's feet its "!" balloon hangs.
+     *
+     * Measured off the actor rather than guessed: `pokemon.sprites.get()` reports the quad's
+     * world height, which is the 32-texel frame over 16 texels per unit and then stretched by
+     * `1/cos(pitch)` (pokemon/sprites.js `frameWorldSize`). The art sits low in its own frame
+     * — the top rows are the clearance a sprite sheet leaves — so the balloon hangs at 0.58 of
+     * the quad rather than on top of it, which is where the reference puts it: overlapping the
+     * head's own airspace, not floating a body-length above it.
+     */
+    function headLiftOf(actorId) {
+      const pokemon = ctx.get('pokemon');
+      const a = isLive(pokemon) ? pokemon.sprites.get?.(actorId) : null;
+      return Number.isFinite(a?.h) ? a.h * 0.58 : 1.62;
+    }
+
+    /**
+     * The bubble's own 0..1, spanning the moment the wild pops to the end of the throw window.
+     *
+     * One phase across both stages, not one per stage: the balloon pops once and then holds,
+     * and a phase that restarted at the stage boundary would pop it a second time in the
+     * middle of the beat a player is deciding in.
+     */
+    function alertPhase(s, step) {
+      const pop = T.APPEAR * T.RUSTLE;
+      const span = Math.max(1, T.APPEAR + T.READY - pop);
+      return Math.min(1, Math.max(0, (step - pop) / span));
+    }
+
     function clearWild() {
       const pokemon = ctx.get('pokemon');
       if (scene?.wildActor && isLive(pokemon)) pokemon.sprites.remove(scene.wildActor);
@@ -358,16 +397,52 @@ export default {
       const at = s.at;
       const step = s.step;
 
-      // 1. the wild rises out of the grass
+      // 1. the grass moves, and then the wild comes out of it
+      //
+      // Two beats inside one, and the split is the whole point. Round 2's appear had the
+      // Pokemon on screen from step 0 and merely rising, which in the frozen frame a critic
+      // actually looks at is a Pokemon standing in grass — the reveal that the whole-game
+      // critic could not find. `T.RUSTLE` of the beat is the grass alone: the wild is not
+      // drawn at all, only the disturbance is, so the frame before the reveal is a *cause*.
+      // Then it bursts out over the rest of the beat, and `mode=approach` freezes in the
+      // first half while `mode=reveal` freezes in the second.
       if (step <= T.APPEAR) {
         const k = step / T.APPEAR;
-        const hop = Math.sin(Math.min(1, k) * Math.PI) * 0.55;
-        moveWild({ y: at.y + hop, visible: true });
+        const out = k <= T.RUSTLE ? 0 : (k - T.RUSTLE) / (1 - T.RUSTLE);
+        const hop = Math.sin(out * Math.PI) * 0.5;
+        /**
+         * It grows as it comes out — **in two discrete steps, on thirds**, and the
+         * quantisation is the whole point rather than a simplification of a nicer curve.
+         *
+         * The first cut ran a continuous squash-and-stretch (`0.62 + 0.38·min(1, out/0.55) +
+         * 0.20·sin(out·pi)`), which freezes `mode=reveal` at about 1.10. That is critic issue
+         * [12] moved from the ball onto the headline sprite: at the framing every picture mode
+         * now uses one sprite texel is exactly three internal pixels, and 1.10 of that is 3.3,
+         * so texels come out three internal pixels wide in some runs and four in others.
+         * Measured on the same species in the same cell, one frame with the ramp and one
+         * without — histogram of horizontal texel-edge spacings across the whole sprite:
+         *
+         *   scale 1     (mode=escaped)  gap 9 px x408, gap 12 px x223   48.9 % on whole texels
+         *   scale ~1.10 (mode=reveal)   gap 9 px x246, gap 12 px x441   27.1 % on whole texels
+         *
+         * A scale that is a multiple of 1/3 keeps every texel a whole number of internal
+         * pixels, so the pop goes 2/3 -> 1 and nothing in between. Two sizes read as a pop
+         * *better* than a ramp does at twenty steps a second — it is what the era's own
+         * sprites do — and the frame `mode=reveal` freezes on is the settled 1, on the grid,
+         * the same size as every other Pokemon in the picture. The burst is carried by the
+         * hop, the leaves and the bubble, which cost the grid nothing.
+         *
+         * `pokemon.sprites.set` takes `scale` and re-derives the quad from it (field.js:207).
+         */
+        moveWild(out <= 0
+          ? { visible: false }
+          : { y: at.y + hop, visible: true, scale: out < 0.34 ? 2 / 3 : 1 });
         // A shiny announces itself, the way the mainline does — and it is the only thing
         // that makes one legible: a shiny Azurill is green in green grass. Everything else
         // gets the grass parting under it, which is what makes a 24-pixel hop read as a
         // *reveal* in a still frame rather than as a Pokemon sitting in a field.
-        if (s.shiny) sprite.shimmer(at, step); else sprite.rustle(at, k);
+        if (s.shiny && out > 0) sprite.shimmer(at, step); else sprite.rustle(at, k);
+        if (out > 0) sprite.alert(at, alertPhase(s, step), at.y + hop + s.headLift);
         s.stage = 'appear';
       } else if (step < m.throwAt) {
         // 1b. the beat in which a ball may be thrown — and, if none is, the exit.
@@ -379,12 +454,15 @@ export default {
           const k = (step - m.leaveAt) / T.LINGER;
           if (k >= 1) { endScene(); return; }
           // Two quick hops away and gone, which reads as leaving rather than as vanishing.
-          moveWild({ y: at.y + Math.abs(Math.sin(k * Math.PI * 2)) * 0.45, visible: k < 0.75 });
+          moveWild({ y: at.y + Math.abs(Math.sin(k * Math.PI * 2)) * 0.45, visible: k < 0.75, scale: 1 });
           sprite.hide();
           s.stage = 'left';
         } else {
-          moveWild({ y: at.y, visible: true });
+          moveWild({ y: at.y, visible: true, scale: 1 });
           if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
+          // The bubble stays up for the whole beat in which a ball may be thrown, because
+          // that is exactly what it means: this is an encounter, and it is waiting on you.
+          sprite.alert(at, alertPhase(s, step), at.y + s.headLift);
           s.stage = 'ready';
         }
       } else if (step < m.land) {
@@ -395,26 +473,36 @@ export default {
         s.stage = 'throw';
       } else if (step < m.suck) {
         // 3. the wild is drawn in
+        //
+        // **On the cover, not on the soil**, and the arc's shadow already knew it: `arc()` is
+        // passed `shadowY = at.y + coverY` because a cell of `tall_grass` stands 0.625 units
+        // proud and a blob under that is inside the blades (see `shadow()` in ball.js). The
+        // ball itself was still being rested at `at.y`, so it was drawn *below its own
+        // shadow* and the blades took the bottom third of it: measured on `f-shake.png`, the
+        // ball is 116 px tall and the grass in front of it covers 40 of them, which is the
+        // whole lower shell, the button and the band. A ball that has fallen into deep grass
+        // sits on the grass — the same surface its shadow lands on.
+        const rest = { x: at.x, y: at.y + (s.coverY ?? 0), z: at.z };
         const k = (step - m.land) / T.SUCK;
         moveWild({ visible: false });
-        sprite.rest({ x: at.x, y: at.y, z: at.z }, -1, 0);
-        sprite.burst({ x: at.x, y: at.y, z: at.z }, 1 - k * 0.6, { keepBall: true });
+        sprite.rest(rest, -1, 0);
+        sprite.burst(rest, 1 - k * 0.6, { keepBall: true });
         s.stage = 'capture';
       } else if (step < m.shakeEnd) {
         // 4. the wobbles
         const into = step - m.suck;
         const shake = Math.floor(into / T.SHAKE);
-        sprite.rest({ x: at.x, y: at.y, z: at.z }, shake, (into % T.SHAKE) / T.SHAKE);
+        sprite.rest({ x: at.x, y: at.y + (s.coverY ?? 0), z: at.z }, shake, (into % T.SHAKE) / T.SHAKE);
         s.stage = 'shake';
         s.shake = shake + 1;
       } else if (step < m.resultEnd) {
         // 5. the click, or the break-out
         const k = (step - m.shakeEnd) / T.RESULT;
         if (s.caught) {
-          sprite.burst({ x: at.x, y: at.y, z: at.z }, k, { keepBall: true });
+          sprite.burst({ x: at.x, y: at.y + (s.coverY ?? 0), z: at.z }, k, { keepBall: true });
         } else {
           const hop = Math.sin(Math.min(1, k * 2) * Math.PI) * 0.7;
-          moveWild({ y: at.y + hop, visible: true });
+          moveWild({ y: at.y + hop, visible: true, scale: 1 });
           sprite.hide();
         }
         s.stage = s.caught ? 'caught' : 'escaped';
@@ -473,11 +561,16 @@ export default {
         },
         ball: ballId, shakes: 0, caught: false, throwAt: Infinity, shake: 0,
         shiny: !!active.shiny,
+        // Overwritten once the actor exists and its real frame size is known.
+        headLift: 1.62,
       };
       // The sprite sheet may not be in the atlas yet, so the actor arrives a microtask (or
       // a fetch) later. The promise is kept so a showcase can await it before it freezes the
       // timeline — a scene frozen before the wild exists is a screenshot of empty grass.
-      scene.ready = showWild(active, at).then((id) => { if (scene) scene.wildActor = id; return id; });
+      scene.ready = showWild(active, at).then((id) => {
+        if (scene) { scene.wildActor = id; scene.headLift = headLiftOf(id); }
+        return id;
+      });
 
       bus.emit('encounter:started', {
         species: active.species, level: active.level, shiny: active.shiny, biome: active.biome,
@@ -486,6 +579,26 @@ export default {
         // of what happened and an index it cannot see is an index nobody can replay.
         index: active.index, tod: active.tod, ivs: active.ivs, catchRate: active.catchRate,
       });
+
+      /**
+       * The line the games print, in the live game only.
+       *
+       * A toast and never `ui.say()`: the message box waits for a keypress before it closes
+       * (ui/panels/dialogue.js `advance`), and an idle game that opens one every time the
+       * lead walks through grass would stack a modal in front of a player who is not there.
+       * A toast says the same sentence and stands itself down.
+       *
+       * `!config.showcase` because a toast fades on a wall-clock timer, and the one thing a
+       * screenshot may not contain is something that is a different colour every capture
+       * (DECISIONS #14). Another module's showcase gets the bubble and the animation, which
+       * are both functions of the sim step, and none of the text.
+       */
+      if (!config.showcase) {
+        bus.emit('ui:toast', {
+          text: `A wild ${active.display ?? active.species}${active.shiny ? ' ★' : ''} appeared!`,
+          kind: active.shiny ? 'good' : 'info',
+        });
+      }
       return active;
     }
 
@@ -717,6 +830,14 @@ export default {
       active: () => active,
       last: () => last,
       scene: () => (scene ? { stage: scene.stage, step: scene.step, shake: scene.shake } : null),
+      /**
+       * Whether the "!" bubble is on screen right now.
+       *
+       * Published because a claim about a picture has to be checkable from the shot's own
+       * JSON log, not from reading the source: the showcase prints it into `ctx.log.info`,
+       * which the harness captures alongside the PNG.
+       */
+      alerting: () => !!sprite.alerting?.(),
       /**
        * Re-fits the airborne ball to the camera. Driven by the module's `frame` hook; see
        * `ball.js` `refit()` for why it cannot be done once at placement time.
