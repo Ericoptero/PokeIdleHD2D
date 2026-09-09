@@ -571,7 +571,10 @@ export { clamp01, lerp, smooth };
  * @returns {{start:{cx:number,cz:number,dir:number}, route:string, cells:{cx:number,cz:number}[],
  *            w:number, h:number}|null}
  */
-export function findLoop(draft, around, { min = 7, max = 20, step = 1, margin = 11 } = {}) {
+export function findLoop(draft, around, {
+  min = 7, max = 20, step = 1, margin = 11,
+  corners = 12, depth = 3, preferTags = ['path'], rng = null, straightLead = 4,
+} = {}) {
   // `around` may be one cell or a list of them. A cave is a system of galleries and its
   // showcase marker sits in one of them; searching only there found nothing at all and left
   // the biome standing still, so every marker on the draft gets a turn (DECISIONS #65).
@@ -580,7 +583,58 @@ export function findLoop(draft, around, { min = 7, max = 20, step = 1, margin = 
     .map((a) => ({ cx: Math.round(a.cx ?? draft.w / 2), cz: Math.round(a.cz ?? draft.h / 2) }));
   if (!anchors.length) anchors.push({ cx: draft.w >> 1, cz: draft.h >> 1 });
 
-  /** Walks the perimeter clockwise from the north-west corner, checking every step. */
+  const base = findRectangle(draft, anchors, { min, max, step, margin });
+  if (!base) return null;
+
+  // **The rectangle is the FLOOR, not the shape.** It is what can be guaranteed — a
+  // perimeter that is closed by construction and checkable in one pass — and a circuit that
+  // turns four square corners does not read as a trail through a wood. So it is bent: each
+  // `bump` displaces a straight run one cell sideways, which adds four corners and **cannot
+  // open the ring**, because it replaces a path between two cells with another path between
+  // the same two cells. Every bump is verified against the draft before it is kept, and a map
+  // with no room for any of them keeps the rectangle rather than failing (DECISIONS #66).
+  const cells = growCorners(draft, base.cells, {
+    corners, depth, preferTags, rng, margin,
+  });
+
+  // **The ring must START on a straight, and long enough for the whole queue.**
+  //
+  // `hunts.enter` stands the trainer on `cells[0]` and the lead Pokemon — the walker that
+  // follows the route — lands `gap` cells ahead of it. That is only on the ring when the first
+  // `gap` steps all go the same way, which a rectangle gives for free at a corner and a bent
+  // circuit does not: the coast at twelve corners started one cell before a turn, put the head
+  // off the path, and spent 690 of 800 ticks away from its own loop while `audit` called the
+  // loop clean — because it was. Nobody was standing on it (DECISIONS #65(c), again).
+  const ordered = rotateToStraight(cells, straightLead);
+
+  return {
+    start: { cx: ordered[0].cx, cz: ordered[0].cz, dir: dirBetween(ordered[0], ordered[1]) },
+    route: routeOf(ordered),
+    cells: ordered,
+    corners: cornerCount(ordered),
+    w: base.w,
+    h: base.h,
+  };
+}
+
+/**
+ * Rotates a closed ring so it begins at the start of a run of at least `minRun` steps.
+ *
+ * Prefers the longest run, so the queue has the most room to string itself out before the
+ * first turn. Returns the ring unchanged when nothing is long enough — which can only happen
+ * on a circuit bent past the point of having any straights, and is then correctly the caller's
+ * problem rather than silently the wrong start.
+ */
+export function rotateToStraight(cells, minRun = 3) {
+  const runs = straightRuns(cells).filter((r) => r.len >= minRun);
+  if (!runs.length) return cells;
+  const best = runs.reduce((a, b) => (b.len > a.len ? b : a));
+  const n = cells.length;
+  return Array.from({ length: n }, (_, i) => cells[(best.start + i) % n]);
+}
+
+/** The guaranteed circuit: the largest passable rectangle perimeter that fits. */
+function findRectangle(draft, anchors, { min, max, step, margin }) {
   const perimeter = (x, z, w, h) => {
     const cells = [];
     const legs = [[EAST_, w - 1], [SOUTH_, h - 1], [WEST_, w - 1], [NORTH_, h - 1]];
@@ -601,36 +655,229 @@ export function findLoop(draft, around, { min = 7, max = 20, step = 1, margin = 
     return (cx === x && cz === z) ? cells : null;
   };
 
-  // Largest first, and the anchors in the order the caller gave them, so a biome gets the
-  // biggest circuit its terrain allows near the ground it thinks is worth looking at.
   for (let size = max; size >= min; size -= step) {
     for (let w = size; w >= min; w -= step) {
       const h = size;
       for (const anchor of anchors) {
-        // Nudge around the anchor rather than only centring on it: a marker often sits against
-        // a cliff, and a few cells of give is the difference between a loop and none.
         for (const [ox, oz] of NUDGES) {
           const x = anchor.cx - ((w / 2) | 0) + ox;
           const z = anchor.cz - ((h / 2) | 0) + oz;
           // **A camera-width clear of every edge.** The camera follows the trainer and the
           // trainer is ON the loop, so a circuit that runs near a border walks the frame off
           // the end of the world — the first meadow capture had a third of the screen in flat
-          // sky (docs/progress/hunts/r6). At ppu 32 a 640-wide buffer sees twenty cells across
-          // and about sixteen deep, so eleven is the half-width plus a tile of slack.
+          // sky. At ppu 32 a 640-wide buffer sees twenty cells across and about sixteen deep,
+          // so eleven is the half-width plus a tile of slack.
           if (x < margin || z < margin) continue;
           if (x + w > draft.w - margin || z + h > draft.h - margin) continue;
           const cells = perimeter(x, z, w, h);
-          if (!cells) continue;
-          return {
-            start: { cx: x, cz: z, dir: EAST_ },
-            route: `e${w - 1} s${h - 1} w${w - 1} n${h - 1}`,
-            cells, w, h,
-          };
+          if (cells) return { cells, w, h, x, z };
         }
       }
     }
   }
   return null;
+}
+
+/**
+ * Bends a closed ring until it has about `corners` corners.
+ *
+ * One **bump** takes a straight run of the ring and pushes it `d` cells sideways. The run's
+ * two end cells stay where they are, so the result is still one closed circuit through the
+ * same cells as before plus the displaced middle — closure is structural, not checked
+ * afterwards and hoped for.
+ *
+ * Bumps that would leave the map, cross the ring, land on impassable ground or come within a
+ * cell of the ring elsewhere are rejected. Among the survivors the one that puts the most
+ * `preferTags` cells under the party wins, so a circuit drifts onto the composed trail rather
+ * than ignoring it.
+ */
+function growCorners(draft, ring, { corners, depth, preferTags, rng, margin }) {
+  let cells = ring.slice();
+  const want = Math.max(4, corners | 0);
+  const next = rng ? () => rng.next() : () => 0.5;
+  const tagged = (c) => (preferTags.some((t) => draft.tagsAt(c.cx, c.cz).includes(t)) ? 1 : 0);
+  const score = (list) => list.reduce((a, c) => a + tagged(c), 0);
+
+  // **A circuit may not balloon into the whole room.** Without this the same bump wins every
+  // pass — the highest-scoring one is always the deepest on the longest run — and it just
+  // deepens one notch over and over: a 92-cell rectangle became a 216-cell one, still with six
+  // corners, because deepening a notch adds none after the first (DECISIONS #66).
+  const cap = Math.round(ring.length * 1.55);
+
+  for (let pass = 0; pass < 64 && cornerCount(cells) < want; pass++) {
+    const runs = straightRuns(cells).filter((r) => r.len >= 6);
+    if (!runs.length) break;
+    // Shuffled, so bumps land all round the ring instead of stacking on the longest run.
+    for (let k = runs.length - 1; k > 0; k--) {
+      const q = Math.floor(next() * (k + 1));
+      [runs[k], runs[q]] = [runs[q], runs[k]];
+    }
+
+    const before = cornerCount(cells);
+    const baseScore = score(cells);
+    const candidates = [];
+    for (const run of runs) {
+      for (const side of [1, -1]) {
+        for (let d = Math.max(1, depth | 0); d >= 1; d--) {
+          const bumped = applyBump(draft, cells, run, side, d, margin);
+          if (!bumped) continue;
+          if (bumped.length > cap) continue;
+          // The point of a bump is a corner. One that adds none is a longer walk for nothing.
+          if (cornerCount(bumped) <= before) continue;
+          candidates.push({ cells: bumped, gain: score(bumped) - baseScore, d });
+          break;                       // deepest that fits on this run and side
+        }
+      }
+      // Eight is plenty to choose between and keeps a 200-cell ring from being O(n^2) a pass.
+      if (candidates.length >= 8) break;
+    }
+    if (!candidates.length) break;
+
+    // Whichever puts the most `preferTags` ground under the party — the composed trail, in
+    // practice — and the shallower one when they tie, because a shallow bend reads as a bend
+    // and a deep one reads as a detour.
+    candidates.sort((a, b) => b.gain - a.gain || a.d - b.d);
+    cells = candidates[0].cells;
+  }
+  return cells;
+}
+
+/** Contiguous runs of the ring that travel in one direction. */
+function straightRuns(cells) {
+  const n = cells.length;
+  const dirs = cells.map((c, i) => dirBetween(c, cells[(i + 1) % n]));
+  const runs = [];
+  let start = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i < n && dirs[i] === dirs[start]) continue;
+    if (i - start >= 3) runs.push({ start, len: i - start, dir: dirs[start] });
+    start = i;
+  }
+  return runs;
+}
+
+/**
+ * Displaces the middle of one run sideways by `d`, keeping both ends anchored.
+ *
+ * Returns a new ring, or `null` when any of the new ground is unusable. The rejection tests
+ * are the ones that keep a bump from turning a circuit into a figure of eight: the displaced
+ * cells may not touch the rest of the ring, and every step of the new path is checked in the
+ * direction it is walked.
+ */
+function applyBump(draft, cells, run, side, d, margin) {
+  const n = cells.length;
+  const dir = run.dir;
+  // Left or right of travel, in the 4-way basis.
+  const perp = side > 0 ? (dir + 1) & 3 : (dir + 3) & 3;
+
+  // The two cells that stay put. Everything between them is replaced, so the ring is still one
+  // path between the same two points and closure is structural rather than hoped for.
+  //
+  // **One cell in from each end of the run, not right at the corners.** At a corner the
+  // perpendicular to this run is parallel to the adjacent one, so the ladder's first step
+  // lands exactly ON the neighbouring side — every one of the eight candidates a pass
+  // produced was rejected as an overlap, and the corner count never moved off four.
+  const from = run.start + 2;
+  const to = run.start + run.len - 2;
+  if (to - from < 1) return null;
+  const A = cells[(from - 1) % n];
+  const L = to - from + 2;                      // steps along `dir` from A to B
+  const at = (a, b) => ({ cx: A.cx + DX[perp] * a + DX[dir] * b, cz: A.cz + DZ[perp] * a + DZ[dir] * b });
+
+  // A -> out to depth d -> along the run -> back in, landing exactly on B.
+  //
+  // The first cut stitched straight from A to the displaced run and the two are a knight's
+  // move apart (one along `dir`, d along `perp`), so every candidate failed the closed-walk
+  // check and NO bump was ever applied — four corners on every biome at every setting. The
+  // ladder out and the ladder back are what make the two ends meet.
+  const inserted = [];
+  for (let a = 1; a <= d; a++) inserted.push(at(a, 0));
+  for (let b = 1; b <= L; b++) inserted.push(at(d, b));
+  for (let a = d - 1; a >= 1; a--) inserted.push(at(a, L));
+
+  const keep = [];
+  for (let i = 0; i < n; i++) if (i < from || i > to) keep.push(cells[i]);
+  const occupied = new Set(keep.map((c) => `${c.cx},${c.cz}`));
+
+  for (const c of inserted) {
+    if (c.cx < margin || c.cz < margin) return null;
+    if (c.cx > draft.w - margin || c.cz > draft.h - margin) return null;
+    if (!draft.passable(c.cx, c.cz, 0)) return null;
+    // Overlap only, not adjacency: the ladder's first cell is a diagonal step from A, which is
+    // *supposed* to be beside the ring. What must not happen is the bump landing ON the ring
+    // somewhere else and turning one circuit into a figure of eight.
+    if (occupied.has(`${c.cx},${c.cz}`)) return null;
+  }
+
+  const out = [];
+  for (let i = 0; i < from; i++) out.push(cells[i]);
+  out.push(...inserted);
+  for (let i = to + 1; i < n; i++) out.push(cells[i]);
+
+  return isClosedWalk(draft, out) ? out : null;
+}
+
+const dedupe = (cells) => {
+  const seen = new Set();
+  const out = [];
+  for (const c of cells) {
+    const k = `${c.cx},${c.cz}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(c);
+  }
+  return out;
+};
+
+/** Every consecutive pair one 4-way step apart, passable, and the last pair closing the ring. */
+function isClosedWalk(draft, cells) {
+  const n = cells.length;
+  if (n < 8) return false;
+  for (let i = 0; i < n; i++) {
+    const a = cells[i];
+    const b = cells[(i + 1) % n];
+    const dx = b.cx - a.cx;
+    const dz = b.cz - a.cz;
+    if (Math.abs(dx) + Math.abs(dz) !== 1) return false;
+    const dir = dx === 1 ? EAST_ : dx === -1 ? WEST_ : dz === 1 ? SOUTH_ : NORTH_;
+    if (!draft.passable(b.cx, b.cz, dir)) return false;
+  }
+  return true;
+}
+
+const dirBetween = (a, b) => {
+  if (b.cx > a.cx) return EAST_;
+  if (b.cx < a.cx) return WEST_;
+  return b.cz > a.cz ? SOUTH_ : NORTH_;
+};
+
+/** How many times the walk turns. Four for a rectangle, and the number this file is about. */
+export function cornerCount(cells) {
+  const n = cells.length;
+  let turns = 0;
+  for (let i = 0; i < n; i++) {
+    const a = dirBetween(cells[i], cells[(i + 1) % n]);
+    const b = dirBetween(cells[(i + 1) % n], cells[(i + 2) % n]);
+    if (a !== b) turns++;
+  }
+  return turns;
+}
+
+/** Run-length encodes a ring back into the `'e8 s10 w8 n10'` spelling `parseRoute` reads. */
+export function routeOf(cells) {
+  const n = cells.length;
+  const letter = ['s', 'w', 'n', 'e'];
+  const out = [];
+  let run = 0;
+  let dir = dirBetween(cells[0], cells[1]);
+  for (let i = 0; i < n; i++) {
+    const d = dirBetween(cells[i], cells[(i + 1) % n]);
+    if (d === dir) { run++; continue; }
+    out.push(`${letter[dir]}${run}`);
+    dir = d; run = 1;
+  }
+  out.push(`${letter[dir]}${run}`);
+  return out.join(' ');
 }
 
 /**

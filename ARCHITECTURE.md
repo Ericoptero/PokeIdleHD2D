@@ -749,9 +749,24 @@ played under (§5.4) and applies it inside `enter()`, before it places the playe
 - **The circuit is derived from the draft that was built** (`compose.findLoop`), not written
   as a route string. A route is a list of relative directions with no idea where it is,
   `makeScriptedRoute` skips a blocked step, and a route authored against a map stays correct
-  only until the composition changes — which it does every round. It is a rectangle, because a
-  rectangle's perimeter is closed by construction and checkable in one pass, and the search
-  takes the largest that fits near the biome's own markers.
+  only until the composition changes — which it does every round.
+- **It has as many corners as it is asked for, and the rectangle is the floor.** The search
+  guarantees a passable rectangle perimeter — closed by construction, checkable in one pass —
+  and then *bends* it: each **bump** displaces a straight run one to three cells sideways,
+  which adds four corners and **cannot open the ring**, because it replaces a path between two
+  cells with another path between the same two cells. Terrain with no room for a bend keeps the
+  straight it had, so the shape degrades to the rectangle rather than failing.
+  `config.loopCorners` (default 12, `?loopCorners=` to sweep) and `config.loopDepth` set it; a
+  biome overrides either with a `loop: { corners, depth, preferTags }` field of its own, and
+  `loop: { corners: 4 }` asks for the plain rectangle back.
+- **Bends prefer the composed trail.** Among the bumps that fit, the one that puts the most
+  `path`/`tallgrass` cells under the party wins — so a circuit drifts onto the road the biome
+  laid instead of ignoring it. Measured on the shipped forest: 37 of 52 cells on a tagged cell
+  at four corners, 51 of 60 at twelve.
+- **The ring opens on a straight at least as long as the walker queue** (`straightLead`,
+  `config.followerGapTiles + 2`), because `enter()` places the trainer on `cells[0]` and the
+  head lands `gap` cells ahead of it — on a bent ring, a start one cell before a turn puts the
+  route-walker off its own path.
 - **It must stay a camera-width clear of every edge** (`margin`, 11 cells). The camera follows
   the trainer and the trainer is *on* the loop, so a circuit near a border walks the frame off
   the end of the world.

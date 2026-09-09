@@ -144,6 +144,24 @@ export const DEFAULTS = {
 
   // --- gameplay -------------------------------------------------------------
   walkSecondsPerTile: 0.25,
+
+  /**
+   * How many corners a hunt's circuit is bent to (ARCHITECTURE §5.14, DECISIONS #66).
+   *
+   * A hunt is walked on a closed loop found on the map, and the guaranteed shape is a
+   * rectangle — four corners, and it reads like one. Each extra pair comes from displacing a
+   * straight run sideways, which cannot open the ring, so this is a *target* and not a
+   * promise: terrain that has no room for a bend keeps the straight it had.
+   *
+   * 4 is the plain rectangle. Above about 20 a circuit starts to read as a maze rather than
+   * as a trail, and each bend costs the lap a little of its length.
+   *
+   * A biome may override it (and `loopDepth`) with a `loop` field of its own; `?loopCorners=`
+   * sweeps it without editing code.
+   */
+  loopCorners: 12,
+  /** How far one bend may push a run sideways, in cells. */
+  loopDepth: 3,
   /**
    * Tiles between one walker in the conga line and the next.
    *

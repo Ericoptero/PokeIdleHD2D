@@ -82,6 +82,24 @@ const HUNT_FORMATION = {
  * round.
  */
 const LOOP = { min: 6, max: 22, margin: 11 };
+
+/**
+ * The shape knobs, resolved per biome.
+ *
+ * Three layers, most specific first: whatever the biome's own `loop` field says, then
+ * `config` (which `?loopCorners=` reaches without touching code), then the defaults above.
+ * A biome that wants a plain rectangle asks for `loop: { corners: 4 }` and gets one.
+ */
+const loopOptions = (biome, config) => ({
+  ...LOOP,
+  corners: biome.loop?.corners ?? config.loopCorners ?? 12,
+  depth: biome.loop?.depth ?? config.loopDepth ?? 3,
+  preferTags: biome.loop?.preferTags ?? ['path', 'tallgrass'],
+  // The queue is `gap` walkers long, so the ring has to open with at least that many steps in
+  // one direction or the head is placed off its own path.
+  straightLead: (config.followerGapTiles ?? 2) + 2,
+  ...(biome.loop ?? {}),
+});
 /** Slots per lap. `WILD_CAP` is the ceiling; a lap wants encounters, not a wall of them. */
 const SLOTS = 9;
 
@@ -248,7 +266,12 @@ export default {
           .sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0))
           .map(([, m]) => m);
         anchors.push(draft.spawn);
-        const loop = findLoop(draft, anchors, LOOP);
+        const loop = findLoop(draft, anchors, {
+          ...loopOptions(biome, c.config),
+          // Seeded off the biome and the map seed, so the bends are a property of the world
+          // rather than of when the page happened to load.
+          rng: c.rng.fork(`hunts/loop/${biome.id}/${draft.seed}`),
+        });
         const slots = loop
           ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
             { count: SLOTS })
@@ -334,7 +357,10 @@ export default {
         // Only known once the map has been built — a biome that has never been entered
         // reports null rather than a guess.
         loop: built.get(b.id)?.loop
-          ? { route: built.get(b.id).loop.route, w: built.get(b.id).loop.w, h: built.get(b.id).loop.h }
+          ? {
+            route: built.get(b.id).loop.route, w: built.get(b.id).loop.w, h: built.get(b.id).loop.h,
+            corners: built.get(b.id).loop.corners, length: built.get(b.id).loop.cells.length,
+          }
           : null,
         slots: built.get(b.id)?.slots?.length ?? 0,
       })),
@@ -595,7 +621,11 @@ export default {
       /** The circuit this biome is played on: `{ start, route, cells, w, h }` or `null`. */
       loop: (id = currentId) => {
         const l = built.get(id ?? 'forest')?.loop ?? null;
-        return l ? { start: { ...l.start }, route: l.route, w: l.w, h: l.h, cells: l.cells.map((c) => ({ ...c })) } : null;
+        return l ? {
+          start: { ...l.start }, route: l.route, w: l.w, h: l.h,
+          corners: l.corners, length: l.cells.length,
+          cells: l.cells.map((c) => ({ ...c })),
+        } : null;
       },
 
       /** The fixed respawn points on it, with whatever is standing on each right now. */

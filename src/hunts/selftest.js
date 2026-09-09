@@ -670,6 +670,57 @@ function floodFrom(draft, cx, cz) {
       slots.every((s2) => room.passable(s2.cx, s2.cz, 0)));
   }
 
+  // --- corners: configurable, and closure survives every one of them ------
+  // The rectangle is the floor. Each bend displaces a straight run sideways, which cannot open
+  // the ring because it replaces a path between two cells with another path between the same
+  // two cells — but "cannot" is worth checking at every setting rather than asserted once.
+  const big = new MapDraft({ id: 'corners', w: 60, h: 56, seed: 1 });
+  for (let z = 1; z < 55; z++) for (let x = 1; x < 59; x++) big.setCollision(x, z, 'walk');
+
+  const walkRing = (draft, ring) => {
+    const DXr = [0, -1, 0, 1]; const DZr = [1, 0, -1, 0];
+    let bad = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const a2 = ring[i]; const b2 = ring[(i + 1) % ring.length];
+      const dx = b2.cx - a2.cx; const dz = b2.cz - a2.cz;
+      if (Math.abs(dx) + Math.abs(dz) !== 1) { bad++; continue; }
+      const dir = dx === 1 ? 3 : dx === -1 ? 1 : dz === 1 ? 0 : 2;
+      if (!draft.passable(b2.cx, b2.cz, dir)) bad++;
+      void DXr; void DZr;
+    }
+    return bad;
+  };
+
+  let cornersTracked = 0; let allClosed = 0; let allStraightLead = 0;
+  const ASKED = [4, 8, 12, 16, 24];
+  for (const want of ASKED) {
+    const l = findLoop(big, { cx: 30, cz: 28 },
+      { min: 8, max: 24, margin: 2, corners: want, depth: 2, straightLead: 4, rng: makeRng(1, `c${want}`) });
+    if (!l) continue;
+    if (l.corners === want) cornersTracked++;
+    if (walkRing(big, l.cells) === 0) allClosed++;
+    // The ring must OPEN on a straight at least as long as the walker queue, or `hunts.enter`
+    // places the head — the walker that follows the route — off its own path.
+    const d0 = (a2, b2) => (b2.cx > a2.cx ? 3 : b2.cx < a2.cx ? 1 : b2.cz > a2.cz ? 0 : 2);
+    let lead = 0;
+    while (lead + 1 < l.cells.length
+      && d0(l.cells[lead], l.cells[lead + 1]) === d0(l.cells[0], l.cells[1])) lead++;
+    if (lead >= 4) allStraightLead++;
+  }
+  check('the corner count is configurable and tracks the request', cornersTracked === ASKED.length,
+    `${cornersTracked}/${ASKED.length}`);
+  check('a bent circuit is still closed and walkable at every setting', allClosed === ASKED.length,
+    `${allClosed}/${ASKED.length}`);
+  check('every circuit opens on a straight long enough for the queue',
+    allStraightLead === ASKED.length, `${allStraightLead}/${ASKED.length}`);
+
+  // Bending must not turn a lap into a marathon.
+  const plain = findLoop(big, { cx: 30, cz: 28 }, { min: 8, max: 24, margin: 2, corners: 4, rng: makeRng(1, 'p') });
+  const bent = findLoop(big, { cx: 30, cz: 28 }, { min: 8, max: 24, margin: 2, corners: 24, depth: 2, rng: makeRng(1, 'b') });
+  check('bending a circuit does not balloon it', bent.cells.length <= plain.cells.length * 1.55,
+    `${plain.cells.length} -> ${bent.cells.length}`);
+  check('four corners really is a plain rectangle', plain.corners === 4, `${plain.corners}`);
+
   // A map with nowhere to walk must say so rather than inventing a circuit.
   const solid = new MapDraft({ id: 'solid', w: 20, h: 20, seed: 1 });
   check('a map with no walkable ring reports no loop', findLoop(solid, { cx: 10, cz: 10 }, { margin: 1 }) === null);

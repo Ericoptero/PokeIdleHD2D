@@ -6297,3 +6297,72 @@ no two share a cell, every one is standable, and a map with no walkable ring rep
 than inventing a circuit. `simulation/selftest.js` 34/34. Live, across all four biomes: audits
 clean, 9 slots each, 100 % loop coverage, 0 ticks off-loop, **0 console errors and 0 hunt
 warnings** in all eight captures. `docs/progress/hunts/r6/`.
+
+---
+
+### 66 — 2026-09-09 — The hunt circuit bends: the rectangle is the floor, the corner count is a config key, and three separate reasons it stayed at four
+
+DECISIONS #65 shipped the loop as a rectangle and said so in its own open issues — *"it is
+closed, verified and camera-safe, which is what phase 3 needed, but a circuit that turns four
+square corners does not read as a trail through a wood."* Asked to guarantee multiple corners and
+to make it configurable, this is that.
+
+**(a) A bump cannot open the ring, and that is why the shape is built this way.** The rectangle
+stays: it is what can be *guaranteed*, a perimeter closed by construction and checkable in one
+pass. It is then bent. One **bump** takes a straight run of the circuit and displaces its middle
+one to three cells sideways, laddering out at one end and back in at the other. The two anchor
+cells never move, so the result is still **one path between the same two points** — closure is
+structural rather than checked afterwards and hoped for. Every bump is verified against the draft
+before it is kept, and terrain with no room for one keeps the straight it had. A map that can take
+no bend at all keeps the rectangle rather than failing.
+
+`config.loopCorners` (12) and `config.loopDepth` (3) are the knobs; `?loopCorners=` sweeps without
+editing code; a biome overrides either with its own `loop: { corners, depth, preferTags }`, and
+`loop: { corners: 4 }` asks for the plain rectangle back. Measured across all four shipped biomes
+at 4, 12 and 20: **the corner count tracks the request exactly, every audit stays clean, and the
+party covers 100 % of every circuit with zero ticks off it.**
+
+**(b) Bends prefer the composed trail, which closes the other open issue #65 left.** Among the
+bumps that fit, the one that puts the most `path`/`tallgrass` cells under the party wins. The
+forest circuit goes from **37 of 52 cells on tagged ground at four corners to 51 of 60 at twelve**;
+the meadow from 31/42 to 43/50. The cave stays at zero, correctly — a cave has no `path` tag.
+
+**Three bugs, and each one hid behind the last.**
+
+1. **The stitch was a knight's move.** The first cut joined the anchor straight to the displaced
+   run, and the two are one step along the run and *d* steps across it — never adjacent. Every
+   candidate failed the closed-walk check, so **no bump was ever applied**: four corners on every
+   biome at every setting, silently. The ladder out and the ladder back are what make the ends
+   meet.
+2. **One notch, deepened forever.** With the stitch fixed, the highest-scoring bump won every
+   pass — and the highest-scoring bump is always the deepest one on the longest run, which is the
+   one just made. A 92-cell rectangle grew into a 216-cell one *still with six corners*, because
+   deepening a notch adds none after the first four. Bumps are now drawn from a shuffled run list,
+   a candidate that adds no corner is discarded, and a circuit may not grow past 1.55× its
+   rectangle.
+3. **The bump anchored on the corner cell.** At a corner the perpendicular to this run is parallel
+   to the *adjacent* run, so the ladder's first step landed exactly on the neighbouring side.
+   All eight candidates a pass produced were rejected as overlaps and the count sat at four again.
+   Anchoring one cell in from each end fixes it, which is also why a run must be at least six
+   long to be bumpable.
+
+**(c) A bent ring must OPEN on a straight, and this is #65(c) arriving from the other end.**
+`enter()` stands the trainer on `cells[0]` and the lead Pokémon — the walker that follows the
+route — lands `gap` cells ahead. A rectangle gives that for free, because its cell list starts at
+a corner and the first leg is long. A bent circuit does not: the coast at twelve corners started
+one cell before a turn, put the head off the path, and spent **690 of 800 ticks away from its own
+loop** while `audit()` reported the loop clean — because it *was* clean. Nobody was standing on
+it. `rotateToStraight` now begins the ring at its longest straight, and `straightLead` is
+`config.followerGapTiles + 2` so the rule follows the queue rather than a constant.
+
+**One thing worth knowing before tuning it up.** A bent circuit has fewer cells at Chebyshev
+distance exactly 2 from the path, so slots thin out as corners rise: the forest gets 9 slots at
+four corners, 6 at twelve and 5 at twenty. Twelve is the default because it is where the trail
+preference has clearly kicked in and the slot count is still most of the `WILD_CAP` budget.
+
+**Measured.** `hunts/selftest.js` 358/358, five of them new: the corner count is configurable and
+tracks the request at 4/8/12/16/24; a bent circuit is still closed and walkable at every one of
+them; every circuit opens on a straight long enough for the queue; bending does not balloon a lap
+(92 → 112 cells at 24 corners); and four corners really is a plain rectangle. Live, all four
+biomes at three settings: audits clean, 100 % coverage, 0 ticks off-loop. Eight captures in
+`docs/progress/hunts/r6/` at 0 console errors and 0 hunt warnings.
