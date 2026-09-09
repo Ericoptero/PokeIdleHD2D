@@ -164,8 +164,16 @@ export function makeBattle(app) {
   function throwBall() {
     const enc = get('encounter');
     if (!isLive(enc) || typeof enc.attempt !== 'function') return;
-    enc.attempt(typeof enc.ball === 'function' ? enc.ball() : undefined);
+    const id = typeof enc.ball === 'function' ? enc.ball() : undefined;
+    enc.attempt(ballsLeft(id) > 0 ? id : (bestBall() ?? id));
     app.markDirty();
+  }
+
+  /** `economy`'s pick among the balls actually in the bag, when the selected one has run out. */
+  function bestBall() {
+    const enc = get('encounter');
+    if (!isLive(enc) || typeof enc.bestBall !== 'function') return null;
+    return enc.bestBall()?.id ?? null;
   }
 
   function run() {
@@ -358,7 +366,10 @@ export function makeBattle(app) {
       // it for you, and it is off by default, so without these buttons a player at the keyboard
       // watches every Pokemon they beat walk away.
       if (buttons && y + 13 <= box.y + box.h) {
-        const left = ballsLeft(b.ball);
+        // The selected ball, or the best one still in the bag. Without the fallback a bag with
+        // no Poké Balls and twelve Great Balls reads NO BALLS and the throw is unreachable.
+        const id = ballsLeft(b.ball) > 0 ? b.ball : (bestBall() ?? b.ball);
+        const left = ballsLeft(id);
         const half = Math.floor((barW - 3) * 0.66);
         action(g, { x, y, w: half, h: 13 },
           left > 0 ? `THROW ${left}` : 'NO BALLS', {
@@ -370,8 +381,8 @@ export function makeBattle(app) {
         });
         // The ball's own name, under the button that spends it — "THROW 26" says how many, not
         // of what, and the bag holds five kinds by the time this matters.
-        if (b.ball && y + 22 <= box.y + box.h) {
-          g.text(x, y + 15, `Z ${ballName(b.ball)}    R run`, C.stoneShadow, { max: barW });
+        if (id && y + 22 <= box.y + box.h) {
+          g.text(x, y + 15, `Z ${ballName(id)}    R run`, C.stoneShadow, { max: barW });
         }
       }
     },

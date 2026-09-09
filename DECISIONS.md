@@ -6616,8 +6616,8 @@ everything: one broken module costs a feature, never the game (§2.1). That half
 this phase's first hour.
 
 The half that was **wrong** was found by looking at a capture. `?showcase=travel&mode=hunt-cave`
-came back as an empty blue void at **9 draw calls**: `travel.showcase()` asks `go(mode)`, `go()
-`refused the locked cave, and no scene was ever entered. Every hunt but the meadow is gated above
+came back as an empty blue void at **9 draw calls**: `travel.showcase()` asks `go(mode)`, `go()`
+refused the locked cave, and no scene was ever entered. Every hunt but the meadow is gated above
 level 1 and the harness boots a fresh save, so this broke *every* biome mode of the `travel`
 showcase at once — silently, because refusing is a `return false` and not a throw.
 
@@ -6625,6 +6625,26 @@ The gate is a rule of *progression*, not a property of a *scene*, so it does not
 `config.showcase`. `destinations()` is untouched, so the locked rows are still drawn locked; only
 the refusal steps aside. The same capture now frames the cave at 118 draws with `Hollow Deep`
 marked HERE and `Lv5`/`Lv12` still red on the rows above and below it.
+
+**And then the same bug one knob over.** `?scene=` is the *other* way in — it is how
+`tools/shots` frames a hunt at `/` rather than only in a showcase, and it is the command
+ARCHITECTURE's own verification section runs. `?scene=hunt-cave` came back at 9 draw calls too;
+the phase's live testing had only ever used `hunt-meadow`, the one biome gated at level 1. Both
+knobs stand down now: `dest.locked && !config.showcase && id !== config.scene`.
+
+**The saved-scene path is the one that would have reached a player**, and it is fixed
+differently. A save written before this gate existed — or restored onto an `economy` that has
+been reset — can name `hunt-cave` with the wins for level 3. `main.js` calls `go(boot())` and
+had no fallback, so that save booted into an empty map. `travel.boot()` now refuses a *locked*
+pending scene and answers the lobby (at `info`, because it is a correct outcome and not a
+fault), and `main.js` falls back to the lobby if `go()` returns false for any reason at all. The
+one thing a boot may not do is leave the player looking at nothing.
+
+**`?break=`, `?showcase=` and `?scene=` are excluded from `config.persist()` and from the
+`localStorage` load.** `persist()` writes every value that differs from its default and nothing
+in `src/` calls it today — but a persisted `break` would quarantine a module on every later boot
+of that browser, from a URL nobody typed, and that is a trap worth closing while the key is a
+day old rather than a year.
 
 #### (c) A locked row that swallows the keypress is the fault the party panel was rewritten to avoid
 

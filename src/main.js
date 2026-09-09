@@ -114,7 +114,11 @@ async function boot() {
     try {
       const nav = registry.get('travel');
       if (nav && nav.__missing === undefined && typeof nav.go === 'function') {
-        await nav.go(nav.boot());
+        // `go()` answers `false` rather than throwing — a locked destination, a scene whose
+        // owner is quarantined, a map that failed to build. The one thing a boot may not do is
+        // leave the player looking at an empty view, so a refusal falls back to the lobby.
+        const ok = await nav.go(nav.boot());
+        if (!ok && nav.current?.() == null) await nav.go('demo-city');
       } else {
         const lobby = registry.has('city') ? 'city' : 'hunts';
         await registry.get(lobby).enter?.();

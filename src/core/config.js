@@ -237,6 +237,13 @@ export const DEFAULTS = {
   break: null,
 };
 
+/**
+ * Per-session diagnostics. Read from the URL, never from storage and never written to it — a
+ * persisted `break` would quarantine a module on every later boot of that browser from a URL
+ * nobody typed, and `showcase`/`scene` would pin the game to one screen.
+ */
+const SESSION_ONLY = new Set(['break', 'showcase', 'scene']);
+
 const NUMERIC = new Set(Object.entries(DEFAULTS).filter(([, v]) => typeof v === 'number').map(([k]) => k));
 const BOOLEAN = new Set(Object.entries(DEFAULTS).filter(([, v]) => typeof v === 'boolean').map(([k]) => k));
 
@@ -254,7 +261,7 @@ export function makeConfig(search = typeof location !== 'undefined' ? location.s
 
   try {
     const stored = JSON.parse(localStorage.getItem('pokeidle.config') ?? '{}');
-    for (const [k, v] of Object.entries(stored)) if (k in DEFAULTS) values[k] = v;
+    for (const [k, v] of Object.entries(stored)) if (k in DEFAULTS && !SESSION_ONLY.has(k)) values[k] = v;
   } catch { /* a corrupt config is not worth failing the boot over */ }
 
   const params = new URLSearchParams(search);
@@ -280,7 +287,10 @@ export function makeConfig(search = typeof location !== 'undefined' ? location.s
     onChange: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     persist() {
       const diff = {};
-      for (const [k, v] of Object.entries(values)) if (v !== DEFAULTS[k]) diff[k] = v;
+      for (const [k, v] of Object.entries(values)) {
+        if (SESSION_ONLY.has(k)) continue;
+        if (v !== DEFAULTS[k]) diff[k] = v;
+      }
       try { localStorage.setItem('pokeidle.config', JSON.stringify(diff)); } catch { /* private mode */ }
     },
     reset() { Object.assign(values, DEFAULTS); try { localStorage.removeItem('pokeidle.config'); } catch {} },

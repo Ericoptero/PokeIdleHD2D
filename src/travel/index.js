@@ -106,14 +106,15 @@ export default {
       const dest = find(id);
       if (!dest) { log.warn(`travel: no destination "${id}"`); return false; }
       // **The gate is a rule of progression, not a property of the scene**, so it does not
-      // apply under `?showcase=`. Every hunt biome is gated above trainer level 1 and the
-      // showcase harness boots a fresh save, so a gate that applied here would make
-      // `?showcase=travel&mode=hunt-cave` — and the same mode on `hunts` and `encounter` —
-      // photograph an empty blue void instead of the cave. Measured, not reasoned about: that
-      // is exactly what the first capture after the gate landed did (DECISIONS #70). The row
-      // is still drawn locked, because `destinations()` is untouched; it is only the *refusal*
-      // that stands down for a screenshot.
-      if (dest.locked && !config.showcase) {
+      // apply to the two diagnostic knobs that ask for a scene by name: `?showcase=` and
+      // `?scene=`. Every hunt biome is gated above trainer level 1 and the harness boots a
+      // fresh save, so a gate that applied to them would frame an empty blue void instead of a
+      // map. Measured, not reasoned about, and twice: `?showcase=travel&mode=hunt-cave` came
+      // back at 9 draw calls, and after that was fixed `?scene=hunt-cave` — which is how
+      // `tools/shots` frames a hunt at `/` — did exactly the same thing (DECISIONS #70). The
+      // row is still drawn locked, because `destinations()` is untouched; it is only the
+      // *refusal* that stands down.
+      if (dest.locked && !config.showcase && id !== config.scene) {
         // Refused, not thrown: the caller gets `false` the same way it does for an unknown
         // destination, and the player gets a sentence rather than a dead button.
         log.info(`travel: "${id}" needs trainer level ${dest.requiredLevel}`);
@@ -181,7 +182,16 @@ export default {
         const asked = config.scene;
         if (asked && find(asked)) return asked;
         if (asked) log.warn(`travel: ?scene=${asked} is not a destination — booting the lobby`);
-        if (pending && find(pending)) return pending;
+        // **A saved scene the trainer can no longer enter must not boot the game into
+        // nothing.** A save written before the gate existed — or restored onto an `economy`
+        // that has been reset — can name `hunt-cave` with the wins for level 3, and `go()`
+        // would refuse it with `main.js` holding an empty map. The lobby is always enterable,
+        // so that is where a refused save lands. `info`, not `warn`: it is a correct outcome.
+        if (pending && find(pending)) {
+          const saved = find(pending);
+          if (!saved.locked) return pending;
+          log.info(`travel: the saved scene "${pending}" needs trainer level ${saved.requiredLevel} — booting the lobby`);
+        }
         return 'demo-city';
       },
 
