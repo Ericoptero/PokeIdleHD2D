@@ -12,7 +12,7 @@ import { InstancedWorld, footprint } from './instanced.js';
 import {
   ALPHA, alphaProfile, materialGeometryRoles, emissiveStrength, makeGlowTexture,
   liftNormalsAboveHorizon, rewindDownwardFaces, uprightUvToImageOrder, dropEdgeOnTwins,
-  makeMaterial,
+  makeMaterial, globalUvStep, crownNormalsToSetConvention,
   liftNormalsInShader, makeFoliagePatch, foliageHueScales, applyShaderPatches,
   FOLIAGE_LIT_KNEE_DEG, FOLIAGE_LIT_NIGHT_LIFT,
 } from './materials.js';
@@ -94,6 +94,13 @@ async function loadTileset(slug, { log }) {
   // Fourth: half of every crossed billboard pair is edge-on to a camera that never yaws, and
   // draws a pale pole through the crown plus a hard shadow wedge across its own twin.
   const twins = params.get('crossed') === '1' ? 0 : dropEdgeOnTwins(pack, wholeBuffer, STRIDE);
+  // OFF by default and deliberately so — see `crownNormalsToSetConvention` for the trade it
+  // makes and the numbers behind it. `?crownN=1` turns it on, which is the whole rig for
+  // re-measuring it once environment's fills are stable. It runs after the twin drop so a card
+  // that is about to be collapsed cannot vote on, or be corrected to, the set's convention.
+  const crowns = params.get('crownN') === '1'
+    ? crownNormalsToSetConvention(pack, wholeBuffer, STRIDE)
+    : { moved: 0, cards: 0, dir: null };
   const foliageMode = params.get('foliage');
   const harmonise = foliageMode !== '0';
   // `?foliage=knee` is the round-3 build exactly: every sheet scale pinned to 1 *and* the
@@ -102,6 +109,24 @@ async function loadTileset(slug, { log }) {
   const roundThree = foliageMode === 'knee';
   const sheetScales = harmonise && !roundThree;
   const foliageBand = params.has('foliageBand') ? Number(params.get('foliageBand')) : undefined;
+  /** `?uvstep=0` puts the global-UV V step back on the catalog's `+uvScale` for the A/B. */
+  const uvStepFromGeometry = params.get('uvstep') !== '0';
+  /**
+   * The off-grid scatter that replaces round 2's four-cell block phase (`makeGroundScatterPatch`).
+   * `?scatter=0` restores the block phase exactly; `?scatterRegion=`, `?scatterAngle=` (degrees)
+   * and `?scatterJitter=` are the sweeps. The defaults are the ones that were shot and looked at:
+   * a 2.9-cell period so a region can never contain two copies of a sheet that spans four, an
+   * angle off both the cell axes and the camera's own 45 degrees, and a jitter of 0.12 lattice
+   * units (0.35 cells, about six texels) of ragged boundary.
+   */
+  const scatter = {
+    /** `?flatvary=0` puts the `raised` exclusion back in `varies()` for the A/B. */
+    flatVary: params.get('flatvary') !== '0',
+    on: params.get('scatter') !== '0',
+    region: params.has('scatterRegion') ? Number(params.get('scatterRegion')) || 2.9 : 2.9,
+    angleDeg: params.has('scatterAngle') ? Number(params.get('scatterAngle')) : 31.7,
+    jitter: params.has('scatterJitter') ? Number(params.get('scatterJitter')) : 0.12,
+  };
   // `?foliageLit=<deg>` moves the ceiling on the lit colour; `?foliageLit=0` removes it.
   const foliageLit = roundThree ? 0
     : params.has('foliageLit') ? Number(params.get('foliageLit')) : undefined;
@@ -207,7 +232,12 @@ async function loadTileset(slug, { log }) {
         geo.name = `${m.name}#${gi}`;
         geometries.set(key, geo);
       }
-      return { geometry: geo, material: materials[g.material] ?? materials[0], materialId: g.material, count: g.count };
+      // The UV a global tile advances per cell, measured off its own vertices rather than
+      // taken from the catalog's `uvScale` (see `globalUvStep`: V runs backwards against the
+      // catalog on every global model in the pack). `?uvstep=0` restores the old assumption.
+      const uvStep = m.globalUv && uvStepFromGeometry ? globalUvStep(wholeBuffer, g, STRIDE) : null;
+      return { geometry: geo, material: materials[g.material] ?? materials[0], materialId: g.material,
+        count: g.count, uvStep };
     });
     const model = {
       ...m, groups,
@@ -237,6 +267,9 @@ async function loadTileset(slug, { log }) {
   log.info(`tileset "${slug}": ${models.length} models, ${materials.length} materials `
     + `(${softCount} soft, ${decalCount} decal, ${emissives.length} emissive), `
     + `${lifted} normals lifted, ${rewound} faces rewound, ${uvFixed} upright uvs righted, ${twins} edge-on twins dropped`
+    + (crowns.cards
+      ? `, crown cards ${crowns.moved}/${crowns.cards} snapped to (${crowns.dir?.map((v) => v.toFixed(2)).join(', ')})`
+      : '')
     + (foliage.moved.length
       ? `, foliage median ${foliage.median.toFixed(1)} deg -> ceiling ${foliage.ceiling.toFixed(1)}, `
         + `${foliage.moved.length} sheets scaled (`
@@ -248,7 +281,7 @@ async function loadTileset(slug, { log }) {
   let emissiveScale = 0;
 
   return {
-    slug, pack, models, byId, byName, materials, textures, autotile, emissives, clones,
+    slug, pack, models, byId, byName, materials, textures, autotile, emissives, clones, scatter,
 
     /**
      * The night ramp seam (ARCHITECTURE §5.3: environment "owns city window/lamp emissives

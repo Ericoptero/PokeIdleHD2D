@@ -1,36 +1,77 @@
 {
-  "note": "Blind A/B plan for the final gate (ARCHITECTURE §11 / brief step 5). Each entry pairs one of our scenes against the nearest Gamma Emerald still. Our shot is captured at the reference's own pixel dimensions so neither image is resampled and resolution is not a tell.",
-  "pairs": [
-    {
-      "id": "forest-day",
-      "ref": "01-forest-tilemap-frame.png",
-      "shot": { "showcase": "hunts", "mode": "forest", "preset": "route", "tod": 11 },
-      "question": "Which is the more convincing, better-looking overworld route?"
-    },
-    {
-      "id": "forest-night",
-      "ref": "03-forest-voxel-night.png",
-      "shot": { "showcase": "hunts", "mode": "forest", "preset": "route", "tod": 21.5 },
-      "question": "Which night scene reads better — light, depth, mood?"
-    },
-    {
-      "id": "cave",
-      "ref": "02-cave-tilemap.png",
-      "shot": { "showcase": "hunts", "mode": "cave", "preset": "route", "tod": 12 },
-      "question": "Which cave interior looks better built and better lit?"
-    },
-    {
-      "id": "cave-golden",
-      "ref": "04-cave-golden-hour.png",
-      "shot": { "showcase": "hunts", "mode": "cave", "preset": "mouth", "tod": 17.5 },
-      "question": "Which handles low-angle warm light more convincingly?"
-    },
-    {
-      "id": "city",
-      "ref": "03-forest-voxel-night.png",
-      "refIsNearest": true,
-      "shot": { "showcase": "city", "preset": "plaza", "tod": 21 },
-      "question": "Which is the more attractive lit HD2D scene at night?"
-    }
-  ]
+ "note": "Blind A/B plan for the final gate (brief step 5). Each entry pairs one of our scenes against the nearest Gamma Emerald still. Our shot is captured at the reference's own pixel dimensions so neither image is resampled and resolution is not a tell.",
+ "pairs": [
+  {
+   "id": "forest-day",
+   "ref": "01-forest-tilemap-frame.png",
+   "shot": {
+    "showcase": "hunts",
+    "mode": "forest",
+    "tod": 11
+   },
+   "question": "Which is the more convincing, better-looking overworld route?"
+  },
+  {
+   "id": "forest-night",
+   "ref": "03-forest-voxel-night.png",
+   "shot": {
+    "showcase": "hunts",
+    "mode": "forest",
+    "tod": 21
+   },
+   "question": "Which night scene reads better - light, depth, mood?"
+  },
+  {
+   "id": "cave",
+   "ref": "02-cave-tilemap.png",
+   "shot": {
+    "showcase": "hunts",
+    "mode": "cave",
+    "tod": 12
+   },
+   "question": "Which cave interior looks better built and better lit?"
+  },
+  {
+   "id": "cave-golden",
+   "ref": "04-cave-golden-hour.png",
+   "shot": {
+    "showcase": "hunts",
+    "mode": "cave",
+    "tod": 17.5
+   },
+   "question": "Which handles low-angle warm light more convincingly?"
+  },
+  {
+   "id": "meadow-day",
+   "ref": "01-forest-tilemap-frame.png",
+   "shot": {
+    "showcase": "hunts",
+    "mode": "meadow",
+    "tod": 11
+   },
+   "question": "Which is the more convincing, better-looking overworld route?"
+  },
+  {
+   "id": "city",
+   "ref": "03-forest-voxel-night.png",
+   "refIsNearest": true,
+   "shot": {
+    "showcase": "city",
+    "preset": "plaza",
+    "tod": 21
+   },
+   "question": "Which is the more attractive lit HD2D scene at night?"
+  },
+  {
+   "id": "city-day",
+   "ref": "01-forest-tilemap-frame.png",
+   "refIsNearest": true,
+   "shot": {
+    "showcase": "city",
+    "preset": "high-street",
+    "tod": 12
+   },
+   "question": "Which looks more like a finished, art-directed game world?"
+  }
+ ]
 }

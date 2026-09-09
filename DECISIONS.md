@@ -4542,3 +4542,638 @@ restored only the untracked-adjacent files and kept the entry. Recovered with
 `git checkout stash@{0} -- <paths>` + `git reset`. The control that is actually safe is the one
 this module used in round 5 and used again here: copy `src/hunts` aside, `git checkout HEAD --
 src/hunts/`, shoot, copy back. It touches one folder, which is the only folder this agent owns.
+
+---
+
+### 54 — 2026-09-08 — A comparison sampler will not return a blocker depth but it will answer questions about one, so the penumbra is per pixel now; and DECISIONS #48 removed the lamp from the shadow map at 21:00, not at 17:30
+
+`environment`, round 8. Two jobs: repair what round 7's softening cost the contacts, and make
+every caster in the frame cast. Both are answers to the same finding across four rounds of
+blind judging — **every pair we have ever won had a motivated light source in it** — and to the
+two judges who wrote, without knowing whose frame it was, *"two incompatible lighting models in
+one frame: characters cast long, soft, offset shadows implying a low key light, while the
+bushes, trees and several creatures cast only a thin straight-down edge or nothing at all."*
+
+Everything below is 1280×720 with `hudRows: 60`, and every A/B is the **same URL one flag
+apart**, taken back to back, because `src/hunts/` and `src/tiles/` were being edited by other
+agents while this round ran. That is not a formality: the twelve-minute gap between two
+otherwise identical `city/high-street/21` captures put **0.44 %** of the frame's pixels apart,
+while the same pair taken back to back is **0 of 921 600**. Any measurement in this round that
+is not back-to-back is worth nothing.
+
+**(a) PCSS with a comparison sampler: the blocker distance is *probed*, not read.**
+
+Round 7's own note and its critic agree on the defect: `LightShadow.radius` is **one width per
+frame**, ridden on the sun's elevation, so a shadow at its caster's feet gets the same 12
+texels as one 26 units away. Round 7 called the fix "the per-pixel contact hardening a real
+filter would do" and did not attempt it, for a stated reason: *"that needs a blocker distance,
+and three's PCF map is a comparison sampler that will not hand back a depth value"* — the same
+type mismatch DECISIONS #43 paid a round for, where reading a `COMPARE_REF_TO_TEXTURE` texture
+through a `sampler2D` silently drops the whole draw call.
+
+That reason is true and it is not an obstacle. A comparison sampler will not *say* where the
+blocker is; it will answer **"is the blocker nearer to the light than this?"** as often as you
+like. Probe a ladder of references marching from the receiver toward the light and the count of
+lit rungs **is** the distance:
+
+```
+texture( map, vec3( uv, z − t ) ) == 1   ⟺   t ≥ (z − blockerDepth) = d
+```
+
+so a tap's lit-count over a ladder `t = Δ … KΔ` is `K − d/Δ`, and summing over the whole search
+disk collapses to two accumulators and one division:
+
+```
+Σ over blockers of d  =  Δ · ( N·K − Σ lit )        blockerCount = N − Σ lit at t = 0
+```
+
+`src/environment/shadowFilter.js` now spends **8 search taps × (5 rungs + 1)** on that estimate
+and feeds it to the PCF loop as a per-pixel radius, `MIN_TEXELS + (max − MIN) · d/dSat`, where
+`LightShadow.radius` is re-read as **the widest penumbra this hour** rather than the only one.
+Every rung is still a hardware `sampler2DShadow` fetch under `LinearFilter` — a free 2×2
+comparison — so the rungs come back *fractional* near an edge and the estimate is smooth rather
+than quantised to the K+1 levels a naive count would give.
+
+Two details are load-bearing:
+
+- **The search needs the receiver-plane bias more than the PCF does.** Without it every tap on
+  the uphill half of a 12-texel disk reads the receiving ground itself as a blocker at distance
+  ≈ 0, and the estimate collapses to `MIN_TEXELS` everywhere — a hard shadow with extra steps.
+- **A blocker count of zero is not "lit".** Eight taps over a twelve-texel disk sit about seven
+  texels apart and a lamp's crook is about seven texels wide, so a thin caster can slip between
+  them. The code therefore falls through to the **tightest** kernel rather than returning
+  early, which finds it if it is there and is also the correct answer for a caster that close.
+
+**The ladder is calibrated in world units, and that calibration was wrong for twenty minutes.**
+`installShadowFilter` reads `far − near` off the sun's ortho shadow camera. At `environment.init`
+that camera is still three's untouched default (0.5…500), because `core/render.js` writes
+`cam.near = 0.5; cam.far = extent * 3` from inside `sun.update()`, which `main.js` first calls
+*after* `registry.frame()` on frame one. Baked at 499.5 against a real 167.5, every blocker
+distance came out three times short. The fix is not to copy core's formula here — a change to
+`config.shadowExtent` would desync the copy — but to ask core to fill in its own camera first:
+`three.sun.update({x:0,y:0,z:0})` is idempotent and main.js calls it again a moment later.
+`window.__ENVSHADOW__()` now reports the live camera range **and** the range compiled into the
+chunk, so the next agent reads the mismatch instead of deducing it.
+
+**(b) What it is worth, measured on the one caster that shows it: a lamp post at noon.**
+
+`city/high-street` at `tod 12`, cross-section of the post's own shadow, as `luma(no caster) −
+luma(with caster)` so the profile is the shadow and nothing else. Three filters, same frame:
+`hard` is `?envNoShadowFilter=1&envShadowRadius=1` (the round-6 rig), `r7` is `?envNoPcss=1`
+(**round 7's kernel** — one width per frame; the receiver-plane ceiling is this round's 0.003 in
+that column, and `castShadows.js`'s ring sample is in all three, neither of which touches a
+shadow-map profile), `r8` is shipped.
+
+| row | | hard | r7 | **r8** |
+| --- | --- | --- | --- | --- |
+| y=300 (at the foot) | 10→90 % rise | 4 px | **18 px** | **6 px** |
+| | peak darkening | 95.7 | **90.7** | **95.7** |
+| y=270 | rise / fall | 3 / 4 px | 18 / 18 px | **6 / 6 px** |
+| | peak darkening | 102.2 | 100.1 | **102.2** |
+| y=240 | rise / fall | 3 / 4 px | 15 / 15 px | **9 / 7 px** |
+| | peak darkening | 109.0 | 109.0 | **109.0** |
+
+That is the critic's *"the shadow never reaches full occlusion, it only manages about 40 % of
+its darkening"* answered as a number: **PCSS restores the hard filter's plateau exactly** —
+95.7, 102.2, 109.0 at the three rows — over a 6–9 px edge instead of the hard filter's 3–4 px
+razor. Round 7 both softened the edge to 15–18 px *and* lost 5 points of the plateau at the
+foot, which is also the critic's *"at x=1100 a 7-pixel shadow band that exists in the control is
+GONE entirely"*: at y=300 round 7's band is 39 px wide and shallow where the control's is 24,
+and PCSS's is 25.
+
+**And the far field keeps round 7's win**, which is the whole point of doing this per pixel.
+`city/high-street/17.5`, scanline y=40 across a tree bar whose caster is off-frame, shadow→lit
+transition: **hard 9 px, r7 46 px, r8 39 px.** PCSS gives up 15 % of the softening on a shadow
+26 units from its caster to buy back a factor of three at the contact.
+
+**(c) The receiver-plane clamp moved 0.004 → 0.003, and it matters less than it did.**
+
+The round-7 critic priced the old ceiling: one unit of `shadowCoord.z` is 167.5 world units, so
+`0.004 × 12 texels × 167.5` is **8 world units** of depth push at the edge of a golden-hour
+kernel — 3.6× more slack than the 0.0011 flat ground needs at 8.6°. It is now **0.003**, which
+is flat ground at 3.4°, the `KEY_ELEVATION_FLOOR` `index.js` enforces, so a real receiver is
+still never clipped and the runaway derivative at a screen-space depth discontinuity is clipped
+25 % harder. The other factor of six went away on its own: the push scales with `|offset|`, and
+PCSS *is* the thing that makes `|offset|` small exactly where a contact shadow lives. Swept
+behind `?envRpdbSlope=N`; `?envNoRpdb=1` still turns it off entirely.
+
+**(d) It fits the budget, and the cost was probed before a line of it was written — but say
+what the probe can and cannot see.**
+
+Round 7 already exposed `?envShadowTaps=N`, so the cost of tripling the fetch count was measured
+first, at 1920×1080 on `city/high-street/17.5`: **24 / 48 / 72 / 96 taps → p95 16.7 / 16.7 / 16.8
+/ 16.8 ms**, 60 fps throughout. Shipped (72 fetches per pixel plus a 9-tap `sunAlreadyGone`) at
+1080p: **60 fps, p95 16.8 ms**, ≤ 222 draw calls, 22–23 programs, 0 console errors on
+`city/17.5`, `city/21`, `hunts/forest/12`, the `environment` showcase and the boot city.
+
+**That is not a measurement of the shader's cost and it must not be quoted as one.** The frame
+is vsync-locked, so a p95 frame *interval* has a floor at 16.7 ms and cannot resolve GPU work
+under it — 96 taps reads the same 16.8 as 72, which is the tell. What the sweep does establish
+is the thing §7 actually asks: four times round 7's fetch count does not break the 60 fps lock,
+so the budget is met with headroom whose bottom nobody has measured. Round 7's own "the filter
+costs 0.6 fps" came from the same instrument and deserves the same caveat.
+
+**(e) Every caster casts, and the one object that did not was taken out on purpose.**
+
+Audited before it was written, not after: the predicate below was run over all fifteen judged
+frames — city plaza and high street, forest, meadow, cave, coast, tiles, this module's showcase,
+encounter and the boot city — and across every one of them it flips **exactly one object**,
+`street_lamp#0`, eleven instances, 3.86 units tall, parented to `city:lamps`. Everything else
+tall enough to matter was already in the shadow pass. The predicate (`src/environment/casters.js`)
+is: not already casting, height ≥ 1.0, opaque, `alphaTest === 0`, `side === FrontSide`,
+`depthWrite`, no `aUvRect` attribute, not `env:*` or `sky`. **It can only ever add**, because
+`src/tiles/instanced.js` deliberately keeps flat and decal tiles out of the shadow pass and that
+exclusion is load-bearing (#52(b): it is why open ground cannot self-shadow at any radius).
+
+DECISIONS #48 removed that lamp on purpose and priced it, and this does not re-litigate it,
+because **every number in #48 is at 21:00**: *"at 21:00 the post drew a hard streak across the
+grass and the head, hanging a cell out on the arm, dropped a detached black lozenge clear of
+it."* At 21:00 a street lamp *is* the light source, the moon is 30° up so its shadow is short,
+and a cowl on an arm drops a lozenge that touches nothing. At 17:30 the same lamp is an unlit
+pole under an 8.6° sun and post, arm and cowl rake into one continuous 20-unit shadow. So the
+override is gated on the sun still being the key — `!night && lampsOn < 0.5`, both numbers
+`index.js` already computes — and the gate was checked rather than assumed:
+
+| tod | `look.lamps` | policy |
+| --- | --- | --- |
+| 12 | 0 | casting |
+| 17.5 | 0.113 | casting |
+| 21 | 1.0 | **not casting** |
+
+**`city/high-street/21` with the policy against `?envNoCasterFix=1`, back to back: 0 of 921 600
+pixels different.** #48's frame is byte-for-byte what it shipped.
+
+At 17:30 the policy changes **0.87 %** of `city/high-street`, at a mean absolute channel sum of
+92.3 on those pixels — eleven posts that stood on lit ground with nothing under them now throw
+20-unit raked shadows across the path and the lawn (`docs/progress/environment/r8/crop/
+lampshadow-r8.png` against `lampshadow-nolamp.png`). Draw calls 221 → 222. The `structures`
+lamp's **lens** is its own material group, 0.3 units tall, and the height term keeps it out of
+the shadow pass — which is right twice over, because an emissive lens is the last thing that
+should be blocking light, while the cowl above it (the `post` material) does occlude.
+
+**(f) `sunAlreadyGone()` was a single hard tap against a penumbra that is now per pixel.**
+
+Round 7 filed this against itself and did not fix it. `castShadows.js` asks the sun's shadow map
+whether the sun has *already* gone from a piece of ground before removing it a second time —
+the fix for the "overlapping shadows compound to literal black" defect — and it asked with one
+hardware comparison, a hard 2×2 edge. Against a penumbra that now runs from 2 to 12 texels
+*within one frame*, a sprite crossing it would have its projected shadow snap from full depth to
+the ambient-occlusion branch at the 50 % line while the ground around it ramped smoothly. That
+is the judges' "two incompatible lighting models" wearing its other hat, at the scale of one
+character. It now reads a **nine-point ring at the key's own current radius**, with the same
+receiver-plane fit and the same 0.003 ceiling — and the fit is not optional here, because this
+receiver is the horizontal shadow plane and a twelve-texel offset along the light's axis is 2.2
+world units of depth at 8.6°: without it a sprite in **full sun** would be told the sun had
+already gone and would lose its shadow entirely. Checked on `city/plaza/12`, where the party
+stands in open sun: shadows present, starting at the feet, on the pixel grid
+(`r8/crop/sprite12-r8.png`, and the `?envNoCast=1` A/B).
+
+**(g) The gate cannot see any of this, and that is the honest report.**
+
+`node tools/shots/regress.js` over the fifteen judged frames came back **6 improved, 0
+regressed** — and **none of the six is this round's.** They are `hunts/forest` p99 91→152, max
+161→255 and `over200Pct` 0→0.427 at 21:00, which is `src/hunts/biomes/forest.js` gaining a
+campfire practical while this ran; a shadow filter cannot move a night frame's peak by 94.
+
+The attributable number is a whole-matrix A/B, control against shipped, **alternating per row**
+so a concurrent edit cannot land between the two arms of one comparison. Control is
+`?envNoPcss=1&envNoCasterFix=1&envRpdbSlope=0.004`. Result, run twice: **0 improved, 0 regressed,
+0 moved, across fifteen frames.**
+
+One honest gap in that control, because it would be easy to overclaim: it restores round 7's
+*shadow map* exactly, but **(f)'s nine-tap `sunAlreadyGone` is not behind a flag** and is in both
+arms. Its gate effect is therefore bounded rather than isolated — by the two full gate runs
+taken either side of this round, neither of which moved a city or encounter row (the frames
+where projected sprite shadows are on screen at all), and by the `?envNoCast=1` A/B on
+`city/high-street/21`, which puts the whole projected-shadow rig at 0.08 of a point of
+`belowL8`. Whoever touches that file next should give it a flag first.
+
+That is the right answer and it is worth stating plainly rather than dressing up: **this round
+is histogram-neutral.** The gate reduces a frame to luminance and saturation histograms, and
+what changed here is *where* the penumbra is and *which objects* are in the shadow map — 0.87 %
+of one frame's pixels for the lamps, and a redistribution within the shadow's own footprint for
+PCSS. It costs nothing on brightness and buys nothing on brightness. The evidence for the round
+is in (b), (e) and (f), which are scanlines and crops, because that is what the gate is blind to
+and what the blind judges are actually looking at.
+
+**(h) Still open, and not this module's to close.**
+
+The judges' *"bushes and trees cast only a thin straight-down edge"* is now, in the city at
+least, **not the shadow map**: the audit in (e) shows every tree, hedge and fence family already
+casting. What is left wearing that description is `src/tiles/instanced.js`'s **generated contact
+quad** — `CONTACT_COLOR 0x1d2122` at `opacity 0.42`, a soft disc laid straight down under a prop
+at every hour — sitting under the same prop as its raked map shadow. Two shadows from two
+different lights on one object is exactly the defect the judges name, and the quad is tiles'.
+Filed there rather than fixed here.
+
+Also carried forward: `config.shadowExtent` is now load-bearing in a second place. The blocker
+ladder is calibrated in world units off the shadow camera's depth range, and the penumbra
+constants (`MIN_TEXELS`, `SLOPE_TEXELS_PER_UNIT`) are in shadow-map texels, whose world size is
+`extent / mapSize`. Changing `shadowExtent` rescales both. `__ENVSHADOW__()` prints every one of
+them for exactly this reason.
+
+---
+
+### 55 — 2026-09-08 — The lawn's V step ran backwards for four rounds, so *every* cell row was a seam; the block phase put what was left on a four-cell grid; and the golden-hour crown split is four authored normals the set itself disagrees with
+
+Four blind rounds, four different panels, one sentence about our ground: *"the grass shows
+rectangular tile-sized brightness patches"*, *"one texture tiled with obvious repetition and
+visible rectangular seams and patchy lighter blocks"*, *"the grass shows raw tiling seams"*.
+`tools/shots/regress.js` reduces a frame to a luminance and a saturation histogram and is
+**silent** on all of it, so this round is measured with its own rig and the numbers are below.
+
+#### (a) The rig: put the lawn flat-on and axis-aligned, then read the cell grid off the picture
+
+```
+?showcase=tiles&mode=ground&tod=12   with  pixelScale=1  cameraPitch=89  fov=20  cameraDistance=42
+```
+
+At `cameraDistance 42` that is **73 px per cell** and one texture texel is 4.6 px, which is what
+makes a one-pixel seam separable from the texel steps around it. The grid is not assumed: the
+vertical path is cells 14..22 and the horizontal one starts at cz 18, so their tan/green
+transitions give px-per-cell and the origin. The statistic is mean `|dI/dx|` over a five-pixel
+window centred on each cell boundary, split by `cx mod 4` — the lawn sheet spans four cells, so
+if the defect is on the four-cell grid exactly one residue class stands out. `cameraDistance 60`
+(44.8 px/cell) is the same measurement with twice the sample and half the resolution; it agrees
+in direction and is the weaker rig, which is worth knowing before anyone re-shoots it wider.
+
+At the game camera the same defect is `docs/progress/tiles/r5/ab/hunts_coast_12-off.png` against
+`-on.png`, which is the pair to look at rather than the numbers.
+
+#### (b) The V step ran backwards, and it was a seam at **every** cell row, not every fourth
+
+`GLOBALMAPPING` means the artist drew one picture across `1/GLOBALTEXSCALE` cells and each cell
+is a window onto it, so `instanced.js` shifts each instance's UVs by its own cell. It shifted by
+`+uvScale` on **both** axes. Fitting `u = a·x + b·z` and `v = c·x + d·z` by least squares over
+the vertices of all eleven global-mapped models in `bw2-adastra` gives
+
+```
+du/dx = +s    du/dz = 0        dv/dx = 0    dv/dz = -s        on every one of them
+```
+
+— PDSMS is Y-south and the exporter swaps two axes (#5), so V runs against Z. A `+s` step
+therefore dropped **half a texture** at every cell boundary along Z. It survived four rounds
+because the jump is 32 texels of a 64-texel sheet whose own horizontal band period is ~16, so
+the bands re-aligned across the tear even though the picture did not. Measured, at 73 px/cell:
+
+| row boundaries, peak `\|dI/dy\|` | round 4 | V step fixed | shipped |
+| --- | --- | --- | --- |
+| `cz%4 == 0` | 6.79 | 2.75 | 3.14 |
+| `cz%4 == 1` | 6.60 | 2.33 | 2.95 |
+| `cz%4 == 2` | 7.24 | 2.68 | 3.28 |
+| `cz%4 == 3` (the block row) | **10.45** | **10.22** | **3.92** |
+| lawn interior | 1.46 | 1.47 | 1.62 |
+
+Round 4's three non-block classes sit at 4.5–5.0x the interior — that is the tear, on every row.
+Fixing the sign alone drops them to 1.6–1.9x and leaves only the real four-cell boundary.
+
+`globalUvStep` now measures the step off the model's own vertices instead of reading `uvScale`,
+which also recovers two magnitudes the catalog has wrong: `sea` declares `GLOBALTEXSCALE 0.5` and
+spans 0.25 per cell, `lake_water_center` declares 1 and spans 0.5. `?uvstep=0` restores the
+assumption.
+
+#### (c) The block phase traded a period for a grid of cuts; the cut has to move off the grid
+
+Round 2 broke the four-cell period by giving each 4x4 block a hashed whole-texel offset, keeping
+the artist's picture continuous inside a block and shifting it between blocks. **A shift between
+two crops of a tiling sheet is a cut**, and those cuts landed on a perfect four-cell grid in both
+axes — which is the rectangle four panels described. Columns, 73 px/cell:
+
+| column boundaries, peak `\|dI/dx\|` | round 4 | shipped |
+| --- | --- | --- |
+| `cx%4 == 0` (the block column) | **5.11**  (3.28x interior) | 2.67  (1.58x) |
+| `cx%4 == 1` | 2.48 | 2.91 |
+| `cx%4 == 2` | 2.52 | 2.95 |
+| `cx%4 == 3` | 2.58 | 3.02 |
+
+The grid excess — block class over the mean of the other three — is **2.02x → 0.90x** on columns
+and **1.52x → 1.26x** on rows. After the change no residue class is distinguishable from any
+other, which is the whole claim: there is no longer a period to find.
+
+One sheet cannot cover a field without repeating, so the cut is not removed, it is moved
+(`makeGroundScatterPatch`, `src/tiles/materials.js`):
+
+- **off the grid** — the offset is chosen per *region* of a lattice rotated 31.7 degrees off the
+  cell axes with a **non-integer** period of 2.9 cells, computed in the fragment shader from the
+  global UV. No boundary is axis-aligned, no two are a whole number of cells apart, none lands on
+  a cell edge. 2.9 is under the sheet's own four-cell span on purpose: a region can never contain
+  two copies of the picture.
+- **and off the line** — the lattice coordinate is jittered per *texel* by a hash before it is
+  floored, so a boundary is not an edge but a ragged band a few texels wide in which texels from
+  both crops interleave. On a noise sheet that reads as clumping. The interior `|dI/dx|` rises
+  1.56 → 1.69 and that rise **is** the dither, spread over the field instead of stacked on lines.
+
+It costs **one** texture fetch — the same one that was already happening — because the offset is
+applied to the coordinate, not blended between samples. Blending is what the literature does
+(Heitz & Neyret) and it is wrong here: these sheets have twelve colours and a blend invents a
+thirteenth. Two facts were checked *before* a line was written and both are load-bearing:
+`index.js` sets `NearestFilter` on **both** filters with `generateMipmaps false`, so there is no
+derivative to blow up at a discontinuity and no mip level to jump; and `RepeatWrapping` is on, so
+any offset wraps. The offset is always whole texels (`floor(h·size)/size`), so nothing resamples.
+
+Program count: **+1 across the whole game and no more**, because every number that differs
+between materials — texture size, per-cell step, period, angle, jitter — is a **uniform** and
+never a baked constant, so all four ground materials compile identical source under one cache
+key. Measured on all fifteen gate frames: 13→14 (tiles), 21→22 (city, boot, encounter), 23→24
+(coast, meadow), 14→14 in the cave, which places nothing that scatters. Draw calls: **unchanged
+on every frame**.
+
+`?scatter=0` restores the block phase, and `?scatter=0&uvstep=0` restores round 4 **exactly**:
+the same URL captured against the round-4 build differs by **0 of 6,220,800 subpixels**. The
+sweeps are `?scatterRegion=<cells>`, `?scatterAngle=<deg>`, `?scatterJitter=<lattice units>`.
+
+#### (d) `varies()` excluded `raised`, which is elevation, when the test it wanted was `flat`
+
+`raised` is set by `tools/assets/classify.js` from `bounds.min[1] >= 0.5` — a tile authored on
+top of a cliff — while the silhouette test the predicate actually wants is `flat`
+(`bounds.max[1] - bounds.min[1] < 0.02`), and that clause was already there. The exclusion left
+`cliff_top_center` as the one ground surface in the game with no variation at all, and left
+`grass_v2` treated differently from the `grass` beside it, which is a hard seam wherever both are
+placed. It has not been visible because `tiles.find` hides `raised` models from a blind query
+(`index.js:384`), so no shipped scene places `grass_v2` — but a plateau top is a flat square of
+one surface at height and varies like any other floor. `?flatvary=0` restores the exclusion.
+
+#### (e) The round's own footprint, separated from two agents editing the tree at the same time
+
+`environment` and `hunts` were both mid-round in the same working tree (`src/environment/*`,
+`src/hunts/*` modified, `casters.js` new), so a straight before/after of `regress.js` attributes
+their work to this one. The honest measurement is the matrix run **twice back to back**, shipped
+against `?scatter=0&uvstep=0&flatvary=0`, and it is
+**0 metric movements across all fifteen frames**, 0 draw-call change, 0 console errors, run twice
+hours apart. The gate itself finished the round 9 improved / 0 regressed / 2 moved; every one of
+those nine is a lamp or a highlight in `hunts`' frames and none of them is this.
+
+#### (f) Golden hour splits the trees because four authored normals disagree with their own set — measured, **not** shipped
+
+The panel, twice: *"at tod 17.5 the four solo trees stand in identical light on flat lawn and the
+two populations still read as two tilesets."* Round 4 closed the *hue* gap to 9.0 degrees at noon
+and the split came back at 17.30 anyway, so it was never only hue.
+
+First, the measurement everyone before this got wrong, including round 4's: a box around a solo
+tree in `mode=trees` is **two thirds lawn**, and an unmasked read reports the grass. Masking the
+lawn out first (build the cluster from a clear patch between two trees, drop everything within
+2.2 standard deviations of it) changes the answer completely. Masked, at tod 17.5:
+
+```
+tree 0.169   round_tree 0.451   darker_pine 0.137   big_tree_dark 0.471      3.43x, hue p50 spread 39.7 deg
+```
+
+It is not the shadow map: `--envNoShadow 1` gives 1.30x at noon and the split persists at 17.30.
+It is the **stored vertex normal of the upright card that carries the whole tree picture**:
+
+```
+tree, darker_pine   ( 0.00,  0.00, -1.00 )   due north, horizontal
+round_tree          (-0.71,  0.71,  0.00 )   45 degrees, up and west
+big_tree_dark       (-1.00,  0.00,  0.00 )   due west, horizontal
+every other card    ( 0.00,  1.00,  0.00 )   straight up
+```
+
+Counted over the upright foliage cards of **every** shipped pack — geometric `|ny| < 0.5`, model
+tagged `billboard`, category `tree` or `plant` — **180 of 222 triangles are within a few degrees
+of straight up**, 100 of 134 in `bw2-adastra` alone, and all of them are category `tree`. Up is
+the set's own convention. A horizontal normal makes a crown card behave like a wall, so
+`dot(N, L)` collapses the moment the sun's azimuth turns off it — which is what a low sun does,
+and why the split appears at 17.30 and not at noon, where the fills mask it.
+
+`crownNormalsToSetConvention` derives the convention from the pack (the direction holding the most
+cards inside a 25-degree cone, used only if it holds 60 % of them, area-weighted) and snaps the
+outliers — 26 of 124 cards in `bw2-adastra`, to `(-0.0005, 0.99997, 0.0079)`. It works:
+
+| tod 17.5, lawn-masked | authored | snapped |
+| --- | --- | --- |
+| crown value, max/min | **3.43x** | **1.61x** |
+| crown hue p50 spread | **39.7 deg** | **16.4 deg** |
+
+and it is **off by default**, because at noon the same change goes the other way:
+
+| tod 12, lawn-masked | authored | snapped |
+| --- | --- | --- |
+| crown value, max/min | 2.25x | **5.07x** |
+| crown hue p50 spread | 17.4 deg | **89.0 deg** |
+
+`tree` and `darker_pine` fall to value 0.118 / 0.125 at hue 201 / 214 — a flat cyan. Not the
+shadow map (`--envNoShadow 1`: 1.30x authored against 3.41x snapped), and not the sheets: an
+**up-facing normal on the lawn in the same frame reads value 0.569**, so a crown card at 0.125 is
+losing something the ground keeps, and that is not pinned. Noon is five of the fifteen judged
+frames, so the trade is refused: `?crownN=1` turns it on and the default path does not call it.
+`?showcase=tiles&mode=trees&tod=17.5` with and without `&crownN=1`, and the same at `tod=12`, is
+the whole rig for whoever picks this up against a lighting stack that is not being edited
+underneath them. The shipped frame is byte-identical to the build before the function existed
+(0 of 6,220,800 subpixels on `mode=trees&tod=17.5`).
+
+One hint for that round: `round_tree`'s authored normal is the only one in the set that survives
+both hours (0.459 at noon, 0.451 at 17.30), and it is **45 degrees up and horizontal**, not
+straight up. The answer is probably that shape, with the horizontal component chosen once for the
+set rather than four different ways.
+
+---
+
+### 56 — 2026-09-08 — The coast's "lost fringe" was the defect being removed, not a feature; a wood and a field each get one practical, and the daylight half of it has to be albedo because an instanced tint cannot brighten
+
+#### (a) The −39% coastline fringe is round 5's misplaced fringe, and restoring it would put the green commas back inside the sand
+
+The brief for this round opened with an order to restore something round 6 removed: the critic's
+A/B measured *"sand/grass boundary length 21577 → 13076 (−39 %)"* on the coast and *"junctions
+20949 → 18304, fringe ratio 0.71 → 0.59"* on the meadow, and read both as this module having
+stripped the strand's fringe while fixing the road's meander steps.
+
+Reproduced first, because the number is real even when the reading is not. Control built the way
+DECISIONS #53f prescribes — `src/hunts` copied aside, `git checkout c041114^ -- src/hunts/`, shot,
+copied back, so only this folder moves while other agents edit `src/environment` and `src/tiles`
+in the same tree. Same seed 1337, same framing, 1920x1080, classifier `r > g >= b && r − b > 18`
+for sand against `g > r && g > b && g − r > 10` for grass:
+
+| frame | sand/grass boundary px | interior-green **runs** |
+| --- | --- | --- |
+| coast-12 r5 | 12270 | 1633 |
+| coast-12 r6 | **6023** | **755** |
+| meadow-12 r5 | 18960 | 2453 |
+| meadow-12 r6 | **17396** | **2298** |
+| forest-12 r5 | 5246 | 424 |
+| forest-12 r6 | **4203** | **222** |
+
+The direction reproduces. The attribution does not. An "interior-green run" is a run of grass
+pixels with sand on **both** sides on the same scanline — the shape of the defect #53 is about —
+and it halves in all three biomes at the same time as the boundary length falls. Both numbers are
+the same fact: round 5's fringe was drawn one cell *inside* the tan, so every scallop of it
+contributed two extra sand/grass junctions that a correct fringe does not.
+
+Cropped the same 340x200 window of the strand at 3x in both and looked, which is the only step
+that settles it: `docs/progress/hunts/r7/ab/r5-strand-3x.png` has a green scalloped ribbon
+floating in the middle of the sand with a **hard, straight** tan/green edge at the real boundary
+below it; `r6-strand-3x.png` has the scallop **on** the boundary and no ribbon. Full frames beside
+them as `r5-coast-12.png` / `r6-coast-12.png`.
+
+**So the round did not restore it.** The measurement the brief quoted counts a defect as a
+feature, and putting it back would put a green comma back inside the sand at every step of the
+strand. What *is* genuinely gone is smaller and already filed: the one-cell short face of each
+meander step draws no fringe at all, 222 px of it across the whole trail against 720 before
+(#53), because an outer corner can only spend its art on one of its two exposed sides. That needs
+the exporter's V negation, which is a standing `coreRequest` against `tools/assets`, and no
+workaround inside `src/hunts` reaches it.
+
+#### (b) Every pair we have ever won had a practical in it, so the wood and the field get one
+
+Four blind rounds, seven pairs each, scores 3/7 → 1/7 → 1/7 → 2/7. The pairs we have ever won are
+`city` at night, on its lamp pools, and `cave` when its torches read. The pairs we have never won
+are `forest-day`, `forest-night`, `meadow-day` and `cave-golden` — every frame with no practical
+in it — and the judges write the same sentence each time: the reference *"has one committed light
+direction"*, ours is *"a uniform tint with no light source anywhere; no moon, no lamp, no rim, no
+falloff"*.
+
+Both biomes now have exactly one lit place, and the judged framing is built round it:
+
+- `forest`: a **camp** at cell (36, 35), two cells east of the trail and four north of the walk
+  lane, inside the clearing the `clearing` framing is shot on. One bulb through
+  `environment.lamps` — `color 0xff7d24, intensity 4.2, radius 11, size 0.17` — plus `rot_rocks`
+  as the ring and two single-cell logs from the prop yard.
+- `meadow`: the same camp at (25, 32) on the brook bank north of the lane, plus a second
+  **pool-only** bulb (`point: false, size 0.02`) two cells toward the lane, which is the cave's
+  own trick for light with no visible emitter.
+
+The sizes are read off `environment/lamps.js`, not guessed: the `PointLight` reach is clamped to
+`POOL_REACH` 3.9 world units whatever `radius` says, the painted decal reaches
+`min(4.2, radius * 0.42)`, and its strength is `min(1, 0.205 * intensity + 0.035)`. The **glow**
+quad is the part that has to be small: `size` is a half-width in world units and the fragment
+shader multiplies its core by 3.2, so the first cut — `size 0.30` plus a second `size 0.85` halo
+bulb — rendered a **white disc two hundred pixels across** with no flame in it. Shot, looked at,
+and replaced by one bulb at 0.17, which blooms into a glare instead of being one.
+
+Isolated by setting the day grade to white and re-running the gate: **the fire alone is 5 improved
+/ 0 regressed** on the three forest rows, and 3/0 on the two meadow rows.
+
+#### (c) The daylight half cannot be a light, because a tint is a multiply
+
+`environment` holds `look.lamps` at **0** from dawn to dusk (`presets.js`: the four day
+keyframes), so a registered bulb contributes nothing at all to `forest-11` or `meadow-11` — the
+two pairs that have never been won. The only lever a biome has on a daylight frame is
+`instanceColor`, and that is a **multiply**: it can never brighten. So the light in the day frames
+is made by shading everything that is not it.
+
+`compose.js` gains two primitives for it. `mulTint(a, b)` composes two gradings (laying a second
+over the first with `mixTint` throws the first away — that is how the forest floor's canopy ramp
+vanished the first time the pool was laid on it), and `litAt(cx, cz, spec, seed)` is the pool
+itself: a wobbled, smoothstepped ellipse. Each biome then grades floor, path, tall grass, flowers
+and shoulder decals off it.
+
+**Three numbers in that grade were set by the gate rather than by taste, and each was a
+regression before it was a number:**
+
+1. `SUN_SHADE` at 0.78 of white gave `forest/21 belowL8Pct 5.671 → 6.796` (tolerance 0.8) and
+   `forest/12 p99 154 → 148` (tolerance 4). 0.83 fits under both.
+2. In the wood the grade is damped by the canopy to **nothing** — `(1 − canopyAt)`, not
+   `(1 − canopyAt * 0.7)` — because the floor under a closed crown is what is already near black
+   at 21:00 and the open clearing is not.
+3. In the field there is no canopy to hide behind, so the lawn takes **0.76** of the grade and the
+   **track takes all of it**, through its own deeper `PATH_SHADE`. The dirt is the brightest
+   surface in the frame at every hour (`meadow/21 p50` 41 against dirt near 100), so a third off
+   it lands nowhere near luma 8, and it is the line the eye follows, so it is where a gradient
+   reads. Measured down the middle of the judged forest framing at 1920, every 60 rows: the trail
+   ran **130–142 with no gradient at all** before this round and runs **140 in the gap to 99 at
+   the ends** now.
+
+Two things are deliberately **not** graded, and both are highlight protection rather than
+aesthetics: flowers (the palest thing on the floor, and therefore what the noon frame's top
+percentile is made of — grading them is half of why `p99` fell on the first attempt), and the
+`ue_grass` patches, which are authored at 0.73–0.92 and are the **only** surface with headroom
+left, so inside the pool they are lifted *toward white*. That lift is the one brightening
+available, and `forest/12 p99` ends at **160 against 154**, up rather than down.
+
+#### (d) A tint is one value per cell, so a gradient across a floor is a staircase
+
+The first version of the grade shipped visible **horizontal bands across the trail** — three of
+them down the top of the judged framing, cropped at 3x and looked at. A cell is ~70 screen pixels
+wide at this camera and the ramp was falling 7 % per cell. Two changes: `mixTint`'s jitter (the
+same dither the canopy ramp has used since #37) at 7, and the ellipse feather widened from 0.42 to
+0.80 so the ramp spends ~6 cells instead of ~3. The gate improved with it — `forest/12 p99` 159 →
+160, `forest/17.5 p99` 136 → 138 — because a softer ramp keeps more full-albedo cells.
+
+#### (e) The camps are drawn by the auto-tiler, not out of decals
+
+The first camp was a pad of `dirtPatch` glyphs, and at 3x it was **six near-identical tan blobs on
+a grid** — the same repeated-glyph failure the scuff scatter and the crown yaws are written to
+avoid. The site is now unioned into the field `palette.draw('set0')` resolves, so it gets the
+artist's own grass transition all the way round and reads as a worn lay-by. The union is on a
+**copy** of the field: `path` is what `verge`, `lane`, `trodden` and `distToPath` were built from,
+and widening it under them would move the walk. Everything on the site goes down as
+`collision: 'walk'` — the forest camp sits inside `path.grow(2)` and the meadow's is one cell from
+the row the `bridge` framing audits, and `makeScriptedRoute` drops an impassable step in silence.
+
+#### (f) The gate, and this round's own footprint separated from two other agents' edits
+
+Full matrix at the end of the round: **9 improved, 2 regressed, 2 moved across 15 frames** — and
+one of those two regressions is not this module's. `src/environment` and `src/tiles` were being
+edited by other agents throughout (mtimes 20:27–20:44 during this session, plus a new
+`src/environment/casters.js`), and `environment/12 belowL8Pct 0.683 → 1.673` is a row `hunts` does
+not appear in.
+
+So the round was measured the #53f way as well — round-6 `src/hunts` against round-7 `src/hunts`,
+with every other module left exactly as the other agents currently have it:
+
+| row | baseline | control (r6 hunts, today's tree) | this round |
+| --- | --- | --- | --- |
+| forest/12 belowL8Pct | 0.995 | 1.717 | **1.245** |
+| forest/12 p99 | 154 | 154 | **159** |
+| forest/21 belowL8Pct | 5.671 | **7.207** | **5.609** |
+| forest/21 p99 | 91 | 92 | **163** |
+| forest/21 over200Pct | 0 | 0 | **0.557** |
+| meadow/21 p99 | 75 | 75 | **183** |
+| meadow/21 belowL8Pct | 1.819 | 2.347 | 2.589 |
+| coast/12, cave/12 | — | — | byte-identical to control |
+
+That table was captured **before** the dither/feather pass in (d), so its "this round" column
+differs from the final gate by at most 1 (`forest/12 p99` 159 against 160, `forest/21 p99` 163
+against 162); the final gate numbers supersede it.
+
+`forest/21 belowL8Pct` is the row worth reading twice: the control — round-6 `hunts`, untouched,
+against today's other modules — **regresses it to 7.207 on its own**, and the camp fire takes it
+back under the baseline at 5.609. This round did not cause that regression and it repairs it.
+`meadow/21 belowL8Pct` is the only metric this module moved in the wrong direction, by 0.24 of its
+0.8 tolerance, and it is the price of the daylight grade in the one biome with no canopy.
+
+`--accept` was **not** run. 60 fps, 0 console errors and 0 console warnings on all eleven hunt
+frames plus the plain boot at `/`, verified by reading every sibling JSON. Selftest 324 → 343, and
+**five** of the nineteen new checks are proved by reversion rather than asserted: moving `CAMP` out
+of the framing fails "the practical is inside the judged framing" and "the camp cell stays
+walkable", returning `lights: []` fails "registers a practical" and "at least one bulb takes a
+PointLight slot", and moving `SUN_GAP` off the trail fails "the lit pool covers part of the trail".
+
+---
+
+### 57 — 2026-09-08 — The tiles lamp stage had four glowing heads and no bulb registered, so the pool it was being marked down for was never asked for
+
+Two critics wrote the same sentence about `docs/progress/tiles/r4/13-lamps-night-after.png`: *"a
+lit lamp casts no light pool"*. `environment` filed it as a request against this file and was
+right: the pool has worked since its round 2 and is demonstrable in the city, and `tiles`' own
+stage simply never called `environment.lamps.add()`, so there was nothing for the pool to be.
+That is the shape of this whole wave — every pair we have won had a practical in it — and it cost
+four lines.
+
+`lampsMode` and `treesMode` now register one bulb per lamp they place. Three things are worth
+recording rather than re-deriving:
+
+- **The bulb is not the cell centre.** An AdAstra street lamp is a post in its own cell with an
+  arm reaching a cell and a half out of it — `lamp_h_v3` spans `x -1.00..0.69` — and the lit lens
+  is at the far end of that arm. A bulb at the cell centre lights the post's foot and leaves the
+  head glowing over dark ground, which is the same defect one cell to the side. `bulbOf` takes the
+  largest overhang (the quantity `overhangOf` already measures and `orientation` already names)
+  and walks 0.75 of it, at `0.92 · bounds.max[1]`.
+- **`isLive`, not `typeof`.** The registry's null object answers a `typeof` check TRUE on every
+  property and logs a `warn` per read, so `typeof env.lamps.add === 'function'` passes against a
+  quarantined `environment` and then spends the zero-warning budget. `api.__missing === undefined`
+  is the marker, and it is the same one `ui`, `city` and `hunts` use.
+- **tiles says where, environment says how bright.** No `PointLight` is created here and no hour
+  is read here; `environment` owns the eight-light pool and the ramp (§5.3), which is why the
+  lamps are dark at noon without this file knowing what noon is.
+
+Measured on `?showcase=tiles&mode=lamps&tod=21`, same framing as round 4's shot: the paving beside
+the `lamp_h_v3` head goes `rgb(52.6, 35.3, 27.1)` at luminance 38.4 to `rgb(87.8, 45.2, 36.8)` at
+53.7 — 40 % brighter and warm. 24 draw calls, 12 programs, 60 fps, 0 errors, **0 warnings**, which
+is the `isLive` clause doing its job. `docs/progress/tiles/r5/09-lamps-night.png`. Honest caveat:
+`environment` was mid-round in the same tree, so that pair is not a one-variable control — what is
+controlled is the panel readout, which now says `4 bulbs registered with environment.lamps`, and
+said nothing before because nothing was registered.
+
+Still not fixed and still not tiles': the long hard black bars the lamps throw at 21:00 from a sun
+below the horizon (tiles coreRequest 6 against `environment`), and `slamp03.png`, which has no
+fixture drawn on it at all (the integrator's authored-asset job).

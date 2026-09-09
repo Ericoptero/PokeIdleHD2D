@@ -150,6 +150,54 @@ function stamp(stage, tiles, ts, set, ox, oz, shape, { y0 = 0, layer = 1, clear 
 const topOf = (model, y) => y + (model?.bounds?.max?.[1] ?? 0);
 
 /**
+ * The registry's null object answers a `typeof` check TRUE on every property, so a dead
+ * sibling passes `typeof env.lamps.add === 'function'` and then logs a warn for every read.
+ * `__missing` is the marker that actually separates a live API from a quarantined one.
+ */
+const isLive = (api) => !!api && api.__missing === undefined;
+
+/**
+ * Where a lamp's lit head is, so `environment` can put a light pool under it.
+ *
+ * Two critics wrote the same sentence about `tiles-lamps-21.png`: "a lit lamp casts no light
+ * pool". The pool is real and `environment` has been able to serve it since its round 2 — this
+ * stage simply never registered a bulb, so there was nothing to light (environment filed it as
+ * a request against this file). `environment.lamps` owns the eight-light pool and the night
+ * ramp; tiles only says where the bulbs are, which is the same split `src/city/structures.js`
+ * uses and the reason the lamps stay dark at noon without this file knowing the hour.
+ *
+ * The head is not the cell centre. An AdAstra street lamp is a post in its own cell with an arm
+ * that reaches a cell and a half out of it (that overhang is what `overhangOf` measures and what
+ * `orientation` names), and the lit lens is at the far end of that arm. Placing the bulb at the
+ * cell centre would light the post's foot and leave the head glowing over dark ground — the same
+ * defect one cell to the side. 0.75 of the reach lands it under the lens rather than past it.
+ */
+function bulbOf(model, cx, cz) {
+  const b = model?.bounds;
+  const w = model?.w ?? 1, h = model?.h ?? 1;
+  if (!b) return { x: cx + w / 2, y: 2.4, z: cz + h / 2 };
+  const reach = { w: -b.min[0], e: b.max[0] - w, n: -b.min[2], s: b.max[2] - h };
+  const [dir, out] = Object.entries(reach).sort((a, c) => c[1] - a[1])[0];
+  const r = Math.max(0, out) * 0.75;
+  return {
+    x: cx + w / 2 + (dir === 'w' ? -r : dir === 'e' ? r : 0),
+    y: b.max[1] * 0.92,
+    z: cz + h / 2 + (dir === 'n' ? -r : dir === 's' ? r : 0),
+  };
+}
+
+/** Registers one bulb per placed lamp. A no-op when `environment` is quarantined. */
+function lightLamps(ctx, bulbs) {
+  const env = ctx.get('environment');
+  if (!isLive(env) || typeof env.lamps?.add !== 'function') return 0;
+  env.lamps.clear?.();
+  for (const b of bulbs) {
+    env.lamps.add({ ...b, color: 0xffab55, intensity: 1.6, radius: 12, size: 0.9 });
+  }
+  return bulbs.length;
+}
+
+/**
  * How a set has to be staged to be seen honestly.
  *
  *  - a coastal cliff (`sea_cliff`) descends into water, so the ground around it is the sea,
@@ -535,12 +583,15 @@ function lampsMode({ ctx, tiles, ts, overlay, lawn }) {
     for (let cx = -2; cx < stage.w + 2; cx++) stage.setGround(cx, cz, paving);
   }
 
+  const bulbs = [];
   lamps.forEach((m, i) => {
     const cx = 2 + i * PITCH, cz = 6;
     stage.place(m, cx, cz, { layer: 2 });
+    bulbs.push(bulbOf(m, cx, cz));
     overlay.add([m.name, `arm ${m.orientation ?? '—'}  ${m.tris} tris`],
       cx + 0.5, topOf(m, 0) + 0.5, cz + 0.5, 'case');
   });
+  const lit = lightLamps(ctx, bulbs);
   // Two benches, on the paving, flanking the row. They were at (3,9) and (w-4,9), which is
   // outside the framing this mode uses: the left one landed behind the readout panel and the
   // right one was cut in half by the frame edge, so the proof shot's only extra content read
@@ -565,6 +616,8 @@ function lampsMode({ ctx, tiles, ts, overlay, lawn }) {
       + `z ${m.bounds.min[2].toFixed(2)}..${m.bounds.max[2].toFixed(2)}`),
     '',
     driven ? 'setEmissiveScale — driven from ?emissive=' : 'setEmissiveScale — following the clock',
+    lit ? `${lit} bulbs registered with environment.lamps — the ground pool is theirs, not ours`
+      : 'environment is not live: the glass glows and the ground stays dark',
     'the head is real geometry; the arm reaches a cell and a half out of the tile,',
     'so a lamp placed with the arm on the camera axis hides its own post.',
   ], { corner: 'bottom-left' });
@@ -673,6 +726,7 @@ function treesMode({ ctx, tiles, ts, overlay, lawn }) {
     const cx = stage.w - 4;
     for (let cz = 2; cz < 6; cz++) stage.setGround(cx, cz, paving);
     stage.place(lamp, cx, 4, { layer: 2 });
+    lightLamps(ctx, [bulbOf(lamp, cx, 4)]);
     overlay.add([lamp.name, `${lamp.tris} tris  slamp03 16x32`],
       cx + 0.5, topOf(lamp, 0) + 0.5, 4.5, 'case');
   }

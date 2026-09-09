@@ -32,7 +32,9 @@
  * the number in front of it is the thing people read.
  */
 
-import { Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff } from './compose.js';
+import {
+  Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff, mulTint, litAt,
+} from './compose.js';
 import { makeRng } from '../core/rng.js';
 import terrainModule from '../terrain/index.js';
 import { BIOMES } from './index.js';
@@ -125,6 +127,24 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
     const v = fbm2(i * 3, i * 5, 7, 12, 0.35);
     return v >= 0 && v < 1;
   }));
+  // ---- the light the biomes are graded off -------------------------------------------
+  //
+  // `mulTint` is the operation `instanceColor` performs, done at author time so a cell can
+  // carry two independent gradings at once. If it stopped being a multiply the forest floor
+  // would lose either its canopy ramp or its sun pool, silently, and only a screenshot would
+  // say which.
+  check('mulTint by white is the identity', mulTint(0x8ab3c4, 0xffffff) === 0x8ab3c4,
+    mulTint(0x8ab3c4, 0xffffff).toString(16));
+  check('mulTint by black is black', mulTint(0x8ab3c4, 0x000000) === 0);
+  check('mulTint halves each channel independently',
+    mulTint(0xff8040, 0x808080) === 0x804020, mulTint(0xff8040, 0x808080).toString(16));
+  const gap = { x: 10, z: 10, rx: 4, rz: 3, feather: 0.8 };
+  check('litAt is full inside the pool', near(litAt(9, 9, gap, 7), 1));
+  check('litAt is dark well outside it', near(litAt(30, 30, gap, 7), 0));
+  check('litAt is a pure function of the cell', litAt(12, 11, gap, 7) === litAt(12, 11, gap, 7));
+  check('litAt falls off rather than stepping',
+    litAt(15, 10, gap, 7) > 0 && litAt(15, 10, gap, 7) < 1, String(litAt(15, 10, gap, 7)));
+
   check('ellipseFalloff peaks at the centre', near(ellipseFalloff(9, 9, { x: 10, z: 10, rx: 5, rz: 5 }), 1));
   check('ellipseFalloff bottoms out beyond the rim',
     ellipseFalloff(30, 10, { x: 10, z: 10, rx: 5, rz: 5 }) === 0);
@@ -283,6 +303,9 @@ const quietLog = { info() {}, warn() {}, error() {} };
     pol2.remap('corner_nw', 6, 4) === 'edge_n', pol2.remap('corner_nw', 6, 4));
 }
 
+/** The two biomes round 7 gave a practical to — see the block inside the loop. */
+const LIT_BIOMES = new Set(['forest', 'meadow']);
+
 for (const biome of BIOMES) {
   const tiles = stubTiles();
   const ctxStub = { get: (id) => (id === 'tiles' ? tiles : { __missing: true }), rng: makeRng(1337, 'selftest') };
@@ -318,6 +341,50 @@ for (const biome of BIOMES) {
     s.cx > 0 && s.cz > 0 && s.cx < biome.w - 1 && s.cz < biome.h - 1, JSON.stringify(s));
   check(`${biome.id}: spawn is walkable`, a.draft.passable(s.cx, s.cz, 2),
     `collision "${a.draft.collisionAt(s.cx, s.cz)}"`);
+
+  // ---- the motivated light (round 7) --------------------------------------------------
+  //
+  // Four blind rounds said the same thing about `forest-day`, `forest-night` and
+  // `meadow-day`: *"a uniform tint with no light source anywhere"*, against references that
+  // each have one committed source. A bulb that exists but sits outside the framing the pair
+  // is shot on fixes nothing, so what is asserted here is not "there is a light" but "the
+  // light is in the picture and it falls on the line the eye follows".
+  if (LIT_BIOMES.has(biome.id)) {
+    const lights = a.report?.lights ?? [];
+    check(`${biome.id}: registers a practical with environment`, lights.length >= 1,
+      `${lights.length} lights`);
+    check(`${biome.id}: every bulb is inside the map and near the floor`,
+      lights.every((L) => L.x > 0 && L.z > 0 && L.x < biome.w && L.z < biome.h
+        && L.y > 0 && L.y < 3),
+      JSON.stringify(lights.map((L) => [L.x, L.z, L.y])));
+    check(`${biome.id}: at least one bulb takes a PointLight slot`,
+      lights.some((L) => L.point !== false));
+    // **In frame.** `showcaseDefault` is the framing both blind pairs are shot on; at
+    // distance 30 the camera shows ground from 12.7 cells north of the focus to 8 south and
+    // about 12.5 either side, and the focus is the party three tiles east of the marker.
+    const dflt = (biome.presets ?? {})[biome.showcaseDefault];
+    const dm = dflt && a.draft.marker(dflt.marker ?? biome.showcaseDefault);
+    if (dm) {
+      const fx = dm.cx + 3, fz = dm.cz;
+      const inFrame = lights.every((L) => Math.abs(L.x - fx) <= 12
+        && L.z - fz >= -12 && L.z - fz <= 7);
+      check(`${biome.id}: the practical is inside the judged framing`, inFrame,
+        `focus ~${fx},${fz}; bulbs ${JSON.stringify(lights.map((L) => [L.x, L.z]))}`);
+    }
+    // **And it lights the trail.** `docs/refs/03` is a party on a *lit path*; a pool that
+    // falls entirely on lawn beside the track is the same frame with a lamp bolted onto it.
+    const onTrail = a.report?.stats?.litPathCells ?? a.report?.stats?.litTrackCells ?? 0;
+    check(`${biome.id}: the lit pool covers part of the trail`, onTrail >= 6,
+      `${onTrail} path cells inside the pool`);
+    // **And nothing it put down blocks the walk.** The camps sit inside `path.grow(2)`, and
+    // `makeScriptedRoute` drops an impassable step in silence and files the party north.
+    const camp = String(a.report?.stats?.camp ?? '').split(',').map(Number);
+    if (camp.length === 2 && Number.isFinite(camp[0])) {
+      check(`${biome.id}: the camp cell stays walkable`,
+        a.draft.collisionAt(camp[0], camp[1]) === 'walk',
+        `collision "${a.draft.collisionAt(camp[0], camp[1])}" at ${camp}`);
+    }
+  }
 
   // Every camera framing has to have somewhere to stand, or `--preset` silently shows the
   // default view and a whole contact sheet is one picture four times (DECISIONS #28j).

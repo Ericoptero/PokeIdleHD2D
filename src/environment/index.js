@@ -28,9 +28,10 @@ import * as THREE from 'three';
 import { solarPosition, kelvinToRGB, DAY_OF_YEAR } from './sky.js';
 import { PRESETS, blendPreset, applyWeather, WEATHERS } from './presets.js';
 import { makeLamps } from './lamps.js';
+import { makeCasterPolicy } from './casters.js';
 import { makeWeather } from './weather.js';
 import { makeCastShadows } from './castShadows.js';
-import { installShadowFilter, shadowFilterInstalled, SHADOW_FILTER_TAPS } from './shadowFilter.js';
+import { installShadowFilter, shadowFilterInstalled, SHADOW_FILTER_TAPS, shadowFilterInfo } from './shadowFilter.js';
 
 const SKY_VERT = /* glsl */`
 varying vec3 vDir;
@@ -123,6 +124,15 @@ void main() {
  *   ?envShadowIntensity=N  how much of the shadow map's shadow is applied (three's
  *                    `LightShadow.intensity`). Also measured and not shipped.
  *   ?envTune=contrast:1.12,lift:0x2a2f3c   the grade, from the URL.
+ *   ?envNoCasterFix=1  the caster policy off, so an object `city` or `hunts` kept out of the
+ *                    shadow map stays out — the A/B for DECISIONS #54(e), and the control
+ *                    that proves `city/high-street/21` is byte-identical to #48's frame.
+ *   ?envNoPcss=1     the penumbra goes back to one width per frame — round 7 exactly. With
+ *                    `&envNoCasterFix=1&envRpdbSlope=0.004` it is the whole of round 8's
+ *                    control, which is how #54's matrix A/B was taken.
+ *   ?envShadowTaps=N / ?envPcssSearch=N / ?envPcssRungs=K / ?envPcssMin=T / ?envPcssSlope=T
+ *   ?envRpdbSlope=S / ?envNoRpdb=1        the whole shadow filter, swept from the URL — see
+ *                    shadowFilter.js for what each one buys and what it was measured at.
  *
  * Every one defaults to the shipping behaviour, so a normal load is unaffected.
  */
@@ -393,9 +403,19 @@ export default {
      * dirty afterwards. `?envNoShadowFilter=1` leaves three's own 5-tap filter in place, so
      * the whole change is one URL parameter apart. See shadowFilter.js.
      */
+    // The blocker ladder is calibrated in world units, so it needs the sun's ortho depth
+    // range — and at `init` the shadow camera is still three's untouched default (0.5..500),
+    // because `core/render.js` writes `cam.near = 0.5; cam.far = extent * 3` from inside
+    // `sun.update()`, which main.js first calls *after* `registry.frame()` on frame one.
+    // Reading it now would bake a 499.5-unit range against a real 167.5 and every blocker
+    // distance this filter measures would come out three times short. So core is asked to
+    // fill its own camera in first: `sun.update` is idempotent and main.js calls it again
+    // with the real focus a moment later, and this way the range is core's own arithmetic
+    // rather than a copy of it here that a change to `config.shadowExtent` could desync.
+    three.sun.update({ x: 0, y: 0, z: 0 });
     const shadowFilter = devFlag('envNoShadowFilter')
       ? { installed: false, why: '?envNoShadowFilter=1' }
-      : installShadowFilter(three.renderer, log);
+      : installShadowFilter(three.renderer, log, { shadowCamera: three.sun.light.shadow.camera });
     if (!shadowFilter.installed && !devFlag('envNoShadowFilter')) {
       log?.warn?.(`environment: soft shadow filter not installed — ${shadowFilter.why}`);
     }
@@ -465,10 +485,20 @@ export default {
         rendererType: three.renderer.shadowMap.type,
         rendererTypeName: { 0: 'Basic', 1: 'PCF', 2: 'PCFSoft(deprecated)', 3: 'VSM' }[three.renderer.shadowMap.type],
         filterInstalled: shadowFilterInstalled(), taps: SHADOW_FILTER_TAPS,
-        radiusTexels: s.radius, mapSize: s.mapSize.x, extent: config.shadowExtent,
-        penumbraWorldUnits: +(s.radius * (config.shadowExtent / s.mapSize.x)).toFixed(4),
+        filter: shadowFilterInfo(),
+        // Under PCSS `radius` is the WIDEST penumbra this hour, not the only one: a pixel
+        // whose blocker is directly overhead gets `filter.minTexels` instead.
+        maxRadiusTexels: s.radius, mapSize: s.mapSize.x, extent: config.shadowExtent,
+        maxPenumbraWorldUnits: +(s.radius * (config.shadowExtent / s.mapSize.x)).toFixed(4),
+        minPenumbraWorldUnits: +(shadowFilterInfo().minTexels * (config.shadowExtent / s.mapSize.x)).toFixed(4),
+        // The live camera against the depth range baked into the compiled chunk. They must
+        // agree: the ladder is calibrated in world units and a mismatch silently rescales
+        // every blocker distance. `filter.depthRangeWorld` is what the shader believes.
+        shadowCamera: { near: s.camera.near, far: s.camera.far, rangeWorld: +(s.camera.far - s.camera.near).toFixed(2) },
         bias: s.bias, normalBias: s.normalBias, intensity: s.intensity,
         casting: three.sun.light.castShadow,
+        casterPolicy: casterFix.report(),
+        lampsOn: look?.lamps ?? null,
       };
     };
 
@@ -546,6 +576,13 @@ export default {
     // castShadows.js. It needs the same shadow depth and colour the shadow map produces, so
     // `apply()` computes that once, below, and hands it over.
     const castFx = makeCastShadows(THREE, scene);
+    /**
+     * Every caster casts. The lamp posts stand on lit ground and write nothing to the
+     * shadow map, which two blind judges filed as "two incompatible lighting models in one
+     * frame". `?envNoCasterFix=1` is the A/B. See casters.js for the audit and for why the
+     * override is gated on the sun still being the key.
+     */
+    const casterFix = makeCasterPolicy(scene, { off: devFlag('envNoCasterFix') });
     const noCast = devFlag('envNoCast');
     const noClamp = devFlag('envNoShadowClamp');
     /** `?envNoConeBend=1` — put the night key back on the moon's raw antipode azimuth. */
@@ -586,6 +623,13 @@ export default {
      * shadow *cooler* than the floor around it without any second colour being authored.
      */
     const practicalMul = { r: 0.5, g: 0.5, b: 0.5 };
+    /**
+     * Whether the moon rather than the sun is the key, written by `apply()` and read by the
+     * frame step. `casters.js` needs it to know whether a street lamp is an occluder or a
+     * light this hour — see DECISIONS #48, which measured the night case and kept it.
+     */
+    let keyIsMoon = false;
+
     /** 0..1. 1 = sealed interior: no sun, no sun shadow, practicals do the modelling. */
     let enclosed = 0;
     /** Look keys `tune()` may override; anything else in a tune patch goes to config. */
@@ -622,6 +666,7 @@ export default {
       // branches now clamp to the same 0.06 and the crossing is continuous; by `tod 21` the
       // moon is 30° up on its own and the floor does nothing at all.
       const night = solar.altitude < -0.035;
+      keyIsMoon = night;
       if (night) {
         // The moon is the sun's antipode, so `sunAzimuthOffset` arrives on it already; what
         // it does not do is keep the moon's *shadow* off the camera axis at any hour but
@@ -908,6 +953,7 @@ export default {
     activeFx = {
       step(dt, focus) {
         if (!config.timeFrozen) fxTime += dt;
+        casterFix.update({ night: keyIsMoon, lampsOn: look?.lamps ?? 0 });
         lamps.update(look?.lamps ?? 0, fxTime, focus, lampDev);
         weatherFx.update(look?.particles, tmpFog, fxTime, focus);
         // Indoors `?envNoShadow=1` must change nothing: the sun already casts no shadow
@@ -924,7 +970,7 @@ export default {
         });
       },
     };
-    api.dispose = () => { activeFx = null; lamps.dispose(); weatherFx.dispose(); castFx.dispose(); };
+    api.dispose = () => { activeFx = null; lamps.dispose(); weatherFx.dispose(); castFx.dispose(); casterFix.dispose(); };
     return api;
   },
 

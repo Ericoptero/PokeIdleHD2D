@@ -382,6 +382,51 @@ export function mixTint(a, b, t, { jitter = 0, cx = 0, cz = 0, seed = 0 } = {}) 
 }
 
 /**
+ * **Two tints, multiplied** — the operation `instanceColor` itself performs, done at author
+ * time so one cell can carry two independent gradings at once.
+ *
+ * A tile's tint is a multiply into its albedo, so a biome that wants to say both "how much
+ * canopy is over this cell" *and* "how far this cell is from the light the scene is built
+ * around" has to compose the two itself. Laying the second over the first with `mixTint`
+ * does not compose them, it throws the first away — which is how the forest floor's canopy
+ * ramp disappeared the first time the sun pool was laid over it.
+ */
+export function mulTint(a, b) {
+  let out = 0;
+  for (let ch = 0; ch < 3; ch++) {
+    const shift = 16 - ch * 8;
+    const v = Math.round((((a >> shift) & 0xff) * ((b >> shift) & 0xff)) / 255);
+    out |= (v < 0 ? 0 : v > 255 ? 255 : v) << shift;
+  }
+  return out >>> 0;
+}
+
+/**
+ * **How lit a cell is by the scene's one practical**, in [0,1]: 1 inside the pool, 0 outside
+ * it, smoothstepped, with the boundary broken by a low-frequency wobble so the edge of the
+ * light is not a drawn ellipse.
+ *
+ * This is the shared half of "put a motivated light in the frame". A lamp registered with
+ * `environment` lights the *geometry* around it and paints a pool on the floor — but only
+ * while `look.lamps` is up, which is night and nothing else. The daylight half of the same
+ * composition is albedo: the ground under the gap in the canopy keeps its full colour and
+ * everything else is graded down and cooler, which is the only lever a biome has, because an
+ * instanced tint is a multiply and can never brighten (`tiles/instanced.js`). One field, two
+ * hours, one place — the same trick `biomes/cave.js` grades its floor with.
+ *
+ * @param {number} cx @param {number} cz
+ * @param {{x:number,z:number,rx:number,rz:number,feather?:number,wobble?:number,period?:number}} spec
+ * @param {number} seed
+ */
+export function litAt(cx, cz, spec, seed = 0) {
+  const t = ellipseFalloff(cx, cz, spec);
+  const wob = spec.wobble
+    ? (valueNoise(cx, cz, seed, spec.period ?? 6) - 0.5) * 2 * spec.wobble
+    : 0;
+  return smooth(clamp01(t + wob));
+}
+
+/**
  * True when a model's geometry stays inside the cells it claims.
  *
  * Three AdAstra "1x1" path tiles do not: `sterr_patch` is a 2x2 bald patch and

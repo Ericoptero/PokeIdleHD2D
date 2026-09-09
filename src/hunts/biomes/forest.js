@@ -21,8 +21,8 @@
  */
 
 import {
-  Field, fbm2, valueNoise, warpedFbm, scatterSpaced, clamp01, snug, mixTint, laneNear,
-  wildCells,
+  Field, fbm2, valueNoise, warpedFbm, scatterSpaced, clamp01, snug, mixTint, mulTint, litAt,
+  laneNear, wildCells,
 } from '../compose.js';
 import { makePropYard } from '../props.js';
 import { set0Outward } from '../palette.js';
@@ -40,6 +40,62 @@ import { set0Outward } from '../palette.js';
  */
 const FLOOR_SHADE = 0xb9c3ae;
 const CLEARING_SHADE = 0xffffff;
+
+/**
+ * **The one motivated light in this wood, and the thing the judged framing is now built
+ * around.**
+ *
+ * Four blind A/B rounds have said the same sentence about this frame: *"a uniform tint with
+ * no light source anywhere — no moon, no lamp, no rim, no falloff"*, against a reference
+ * (`docs/refs/03`) that is a party standing on a **lit** trail. Every pair this project has
+ * ever won had a practical in it. So the clearing gets one place where light comes from, and
+ * it is the same place at both hours:
+ *
+ *  - a **gap in the canopy** over the trail (`SUN_GAP`), which is what the daylight frame is
+ *    lit by. It is albedo, not a light: an instanced tint is a multiply and can only darken
+ *    (`tiles/instanced.js`), so the pool is the ground that keeps its *full* colour while
+ *    everything around it is graded down and cooler. That is also physically what a clearing
+ *    floor does — the middle of the opening takes the whole sky, the edges take a slice of it.
+ *  - a **camp fire** on the verge under that gap (`CAMP`), registered with `environment`'s
+ *    lamp system, which is what the night frame is lit by: a point light that models the
+ *    trunks and the party, a painted pool on the trail, and an additive glow above the bloom
+ *    threshold so the flame is the one thing in the frame that blooms.
+ *
+ * They are within four cells of each other on purpose. A wood does not have two lit places;
+ * it has one, and the composition is the trail running into it.
+ */
+const CAMP = { x: 36, z: 35 };
+/** The pool of sky the gap lets down, in cells. `feather` is the ramp beyond `rx`/`rz`. */
+const SUN_GAP = { x: 33.4, z: 35.0, rx: 7.2, rz: 4.8, feather: 0.80, wobble: 0.22, period: 4 };
+/**
+ * What ground outside the pool is graded to.
+ *
+ * Cool rather than merely dark, and that is the half that reads. The pool cannot be made
+ * brighter than the tile art already is — an instanced tint is a multiply — so the only
+ * contrast available is *between* the pool and its surroundings, and a surround that is only
+ * darker reads as underexposure while a surround that is darker **and bluer** reads as shade
+ * with a warm sun on the other side of it.
+ *
+ * **The depth is set by the gate, not by taste.** At 0.78 of white the regression matrix came
+ * back `forest/21 belowL8Pct 5.671 -> 6.796` (tolerance 0.8) and `forest/12 p99 154 -> 148`
+ * (tolerance 4): the grade was taking already-dark moon-shadow on the open lawn under luma 8,
+ * and it was taking the top percentile of the noon frame with it. Isolated by setting this to
+ * white and re-running: the camp fire on its own is 5 improved / 0 regressed, so both
+ * regressions were this number and nothing else. 0.83 is what fits under both.
+ */
+const SUN_SHADE = 0xc9d5dc;
+/**
+ * And the deeper one the **trail** is graded with.
+ *
+ * The dirt takes its own colour because it can afford to and the lawn cannot: at 21:00 the
+ * path is the brightest surface in the frame by a factor of two, so a third off it lands
+ * nowhere near the luma-8 floor the night row is measured against, while the same third off
+ * the lawn is what pushed `belowL8Pct` through its tolerance. Measured on the trail's own
+ * pixels down the middle of the judged framing: before this file had a light in it the dirt
+ * ran 130-142 from the top of the frame to the bottom with no gradient at all (`r6`, scanned
+ * at 1920 every 60 rows); it now runs 140 in the gap to 99 at the ends of the same line.
+ */
+const PATH_SHADE = 0xa9b9c5;
 
 export const FOREST = {
   id: 'forest',
@@ -398,15 +454,65 @@ export function buildForest(draft, ctx, palette, rng, log) {
     return 3.3 - closed * 2.35;
   }
 
+  // --------------------------------------------------------------- the light
+  //
+  // `lit` is 1 on the floor the gap lights and 0 out under the closed canopy, and `sunShade`
+  // is what every *ground-level* surface is multiplied by because of it. Declared here, above
+  // the drawing, for the same reason `biomes/cave.js` declares its bulbs above its floor: the
+  // albedo is graded off the light, so the light has to exist first.
+  //
+  // **It is damped to nothing by the canopy rather than stacked on it, and that is measured
+  // rather than tidy.** The floor under a closed crown is already at `FLOOR_SHADE`; grading it
+  // again took `forest/21 belowL8Pct` from 5.671 to 7.446 on the regression gate — a hard
+  // regression on the tightest row `hunts` owns — because the wood's floor is what is already
+  // near black at night and the open clearing is not. `(1 - canopy)` spends the whole grade on
+  // the open ground the composition is about and none of it on the dark the gate is counting.
+  // The tall grass takes half of it for the same reason: `ue_grass` is already tinted to 0.73
+  // and it is the darkest thing standing on the lawn.
+  const lit = (cx, cz) => litAt(cx, cz, SUN_GAP, seed ^ 0x5a77);
+  /**
+   * **Every ramp below is dithered, and that is not decoration.**
+   *
+   * A tint is one value per *cell*, so a gradient laid across a floor steps at every cell
+   * boundary — and at this camera a cell is 70 screen pixels wide, so the steps read as
+   * horizontal bands across the trail. Shot and looked at before this was added: the forest
+   * trail carried three visible seams down the top of the judged framing. `mixTint`'s jitter
+   * is the same fix the canopy ramp already uses two hundred lines below (DECISIONS #37).
+   */
+  const DITHER = (cx, cz) => ({ jitter: 7, cx, cz, seed: seed ^ 0x40b2 });
+  const shadeT = (cx, cz) => (1 - lit(cx, cz)) * (1 - canopyAt(cx, cz));
+  const sunShade = (cx, cz) => mixTint(0xffffff, SUN_SHADE, shadeT(cx, cz), DITHER(cx, cz));
+  /** Half the grade, for the darkest things on the floor — see the note on `SUN_SHADE`. */
+  const sunShadeHalf = (cx, cz) => mixTint(0xffffff, SUN_SHADE, shadeT(cx, cz) * 0.5, DITHER(cx, cz));
+  /**
+   * **And half again as much for the trail, because the trail is where it reads.**
+   *
+   * The dirt is the largest single-hue surface in every framing of this map and the only one
+   * that runs from the top of the frame to the bottom, so a gradient laid on it is a gradient
+   * the eye follows — which is the whole of what `docs/refs/03` does with its path. It is also
+   * the safest surface to grade hard: at 21:00 it is the *brightest* thing in the frame
+   * (`p50` 41 against dirt near 100), so taking a third off it cannot push anything under
+   * luma 8, which is the constraint every other surface here is fighting.
+   */
+  const sunShadeDeep = (cx, cz) => mixTint(0xffffff, PATH_SHADE, clamp01(shadeT(cx, cz) * 1.25), DITHER(cx, cz));
+
+  /**
+   * The three cells the fire stands on, kept clear of undergrowth before anything is drawn.
+   *
+   * A camp with tall grass growing through it is not a camp, and carving it out after the
+   * fact would mean two passes disagreeing about what is on the cell.
+   */
+  const campSite = new Field(W, H, (cx, cz) => Math.abs(cx - CAMP.x) <= 1 && Math.abs(cz - CAMP.z) <= 1);
+
   // ------------------------------------------------------------------- floor
   //
-  // Ground everywhere first, shaded by how much canopy is over it. The tint costs nothing
-  // (an instanced colour attribute the instancer already carries) and the dither is what
-  // stops a per-cell ramp from banding into a quilt.
+  // Ground everywhere first, shaded by how much canopy is over it *and* by how far it is
+  // from the gap. The tint costs nothing (an instanced colour attribute the instancer
+  // already carries) and the dither is what stops a per-cell ramp from banding into a quilt.
   draft.fill({ x: 0, z: 0, w: W, h: H }, (cx, cz) => palette.pick(grass, cx, cz), (cx, cz) => ({
     collision: 'walk', layer: 0,
-    tint: mixTint(CLEARING_SHADE, FLOOR_SHADE, canopyAt(cx, cz),
-      { jitter: 5, cx, cz, seed: seed ^ 0x40b1 }),
+    tint: mulTint(mixTint(CLEARING_SHADE, FLOOR_SHADE, canopyAt(cx, cz),
+      { jitter: 5, cx, cz, seed: seed ^ 0x40b1 }), sunShade(cx, cz)),
   }));
 
   // Worn dirt through it all. `set0` is the grass/path palette; its border slots are the
@@ -416,8 +522,23 @@ export function buildForest(draft, ctx, palette, rng, log) {
   // unusable at every rotation and which drew a green comma inside the dirt at every meander
   // step for five rounds. See the comment on the function: it carries the `pack.bin` dump the
   // diagnosis rests on and the before/after pixel counts.
-  palette.draw(draft, 'set0', path, { collision: 'walk', layer: 1, tags: ['path'],
-    ...set0Outward(path) });
+  //
+  // **The trail carries the pool.** `docs/refs/03` is a trail that is the brightest thing in
+  // its own picture and ours was a flat tan ribbon at one value from the top of the frame to
+  // the bottom; the dirt is the largest single-hue surface in the frame and grading it is
+  // most of what makes the gap read as light rather than as a green patch.
+  //
+  // **The camp is drawn as part of the trail, not as loose decals.** The first cut laid a pad
+  // of `dirtPatch` glyphs across the site and the result at 3x was six near-identical tan
+  // blobs on a grid — the same repeated-glyph failure the scuff scatter below is written to
+  // avoid. Unioning the site into the field the auto-tiler resolves gives it the artist's own
+  // grass transition all the way round instead, so the fire stands in a worn lay-by off the
+  // path rather than on a smear. The union is on a *copy*: `path` itself is what `verge`,
+  // `lane`, `trodden` and `distToPath` were built from, and widening it under them would move
+  // the walk.
+  const pathDraw = path.clone().union(campSite);
+  palette.draw(draft, 'set0', pathDraw, { collision: 'walk', layer: 1, tags: ['path'],
+    tint: (cx, cz) => sunShadeDeep(cx, cz), ...set0Outward(pathDraw) });
 
   // Scuffs where the path bends. Spaced rather than thresholded, and rotated: a threshold
   // over the path cells put the same wheel-rut glyph on two adjacent cells at the same
@@ -457,7 +578,7 @@ export function buildForest(draft, ctx, palette, rng, log) {
   });
   grassField.ragged(seed ^ 0x5a12, { amount: 0.55, period: 2 }).despeckle(3);
   grassField.fringe(seed ^ 0x5a13, { reach: 2, density: 0.5, period: 2 });
-  grassField.intersect(open.clone().subtract(trodden));
+  grassField.intersect(open.clone().subtract(trodden)).subtract(campSite);
 
   // A patch has a *middle* and an *edge*, and drawing both from one model is what made
   // round 1's grass read as rows of hedge blocks: every cell was a 0.6-tall cube and the
@@ -471,8 +592,16 @@ export function buildForest(draft, ctx, palette, rng, log) {
   // Taking it down to ~0.85 with a per-cell wobble puts the patch under the lawn in value,
   // so the edge is a change in shade rather than a change in poster, and no two neighbouring
   // cells land on exactly the same green.
-  const grassTint = (cx, cz) => mixTint(0xb6c8a4, 0xe2ecd6, fbm2(cx, cz, seed ^ 0x6ac1, 4, 0.5),
-    { jitter: 6, cx, cz, seed: seed ^ 0x33f7 });
+  //
+  // **In the pool it is lifted toward white, and that is the one brightening this file can
+  // do.** `ue_grass` is authored at 0.73-0.92 of full, so unlike the lawn and the trail it has
+  // headroom above it: a patch standing in the sun can be given some of that headroom back
+  // without darkening anything else at all, which is the only move that raises the noon
+  // frame's top percentile instead of spending it.
+  const grassTint = (cx, cz) => mixTint(
+    mixTint(0xb6c8a4, 0xe2ecd6, fbm2(cx, cz, seed ^ 0x6ac1, 4, 0.5),
+      { jitter: 6, cx, cz, seed: seed ^ 0x33f7 }),
+    0xffffff, lit(cx, cz) * 0.85);
   const grassCore = grassField.clone().shrink(1);
   grassField.forEach((cx, cz) => {
     const d = Math.min(9, distToPath[cz * W + cx]);
@@ -482,7 +611,8 @@ export function buildForest(draft, ctx, palette, rng, log) {
     const model = palette.pick(pool, cx, cz);
     if (model) {
       draft.place(model, cx, cz, {
-        collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'], tint: grassTint(cx, cz),
+        collision: 'walk', layer: 5, tags: ['tallgrass', 'encounter'],
+        tint: mulTint(grassTint(cx, cz), sunShadeHalf(cx, cz)),
       });
     }
   });
@@ -506,11 +636,13 @@ export function buildForest(draft, ctx, palette, rng, log) {
       rect: { x: 1, z: 1, w: W - 2, h: H - 2 },
       spacing: 2.1,
       accept: (cx, cz) => shoulder.get(cx, cz) && draft.collisionAt(cx, cz) === 'walk'
-        && !grassField.get(cx, cz) && valueNoise(cx, cz, seed ^ 0x6f22, 3) > 0.30,
+        && !grassField.get(cx, cz) && !campSite.get(cx, cz)
+        && valueNoise(cx, cz, seed ^ 0x6f22, 3) > 0.30,
     })) {
       const useFlower = flowers.length && valueNoise(cx, cz, seed ^ 0x6f23, 4) > 0.62;
       const pool = useFlower ? flowers : (tallFlat.length ? tallFlat : tallGrass);
-      draft.place(palette.pick(pool, cx, cz), cx, cz, { collision: 'walk', layer: 5 });
+      draft.place(palette.pick(pool, cx, cz), cx, cz,
+        { collision: 'walk', layer: 5, ...(useFlower ? {} : { tint: sunShadeHalf(cx, cz) }) });
     }
   }
 
@@ -638,10 +770,18 @@ export function buildForest(draft, ctx, palette, rng, log) {
 
   // Flowers only where light reaches: the clearing and the glade, never under the canopy.
   if (flowers.length) {
-    const lit = clearing.clone().union(glade).union(rideVerge);
-    lit.forEach((cx, cz) => {
-      if (trodden.get(cx, cz) || grassField.get(cx, cz) || draft.collisionAt(cx, cz) !== 'walk') return;
-      if (fbm2(cx, cz, seed ^ 0xb17, 5, 0.5) > 0.74) {
+    // Named `sunny` rather than `lit`, because `lit` is now the gap's own falloff and a
+    // shadowed name here is a bug waiting for the next round to write.
+    const sunny = clearing.clone().union(glade).union(rideVerge);
+    sunny.forEach((cx, cz) => {
+      if (trodden.get(cx, cz) || grassField.get(cx, cz) || campSite.get(cx, cz)) return;
+      if (draft.collisionAt(cx, cz) !== 'walk') return;
+      // **Thicker under the gap, and never graded down.** Flowers grow where light reaches —
+      // this file already said so — so the pool is where they belong, and they are also the
+      // palest thing on the floor: they are what the noon frame's top percentile is made of,
+      // and grading them is half of why `p99` fell when the shade first went in. Left at full
+      // brightness they *raise* it instead.
+      if (fbm2(cx, cz, seed ^ 0xb17, 5, 0.5) > 0.74 - lit(cx, cz) * 0.16) {
         draft.place(palette.pick(flowers, cx, cz), cx, cz, { collision: 'walk', layer: 5 });
       }
     });
@@ -670,6 +810,11 @@ export function buildForest(draft, ctx, palette, rng, log) {
         }
       }
       const d = distToWood[cz * W + cx];
+      // **Never in the gap.** The daylight half of this map's light is "the canopy is open
+      // *here*", and a crown standing in the middle of the opening is the argument against
+      // the thing the frame is about. `lit > 0.5` is the pool's own core, so the clumps still
+      // ring it — which is what makes the gap read as a gap rather than as a paint effect.
+      if (lit(cx, cz) > 0.5) return false;
       // The **far half only**. A tree standing in the near half of an opening throws its
       // shadow across the one part of the frame that has light in it — measured: moving the
       // rim clumps out of the southern half took forest-21 from 59.7 % crushed back to 52.0 %
@@ -849,6 +994,7 @@ export function buildForest(draft, ctx, palette, rng, log) {
       rect: { x: 3, z: 3, w: W - 8, h: H - 8 },
       spacing: 7,
       accept: (cx, cz) => open.get(cx, cz) && !trodden.get(cx, cz) && !grassField.get(cx, cz)
+        && !campSite.get(cx, cz)
         && draft.collisionAt(cx, cz) === 'walk' && distToPath[cz * W + cx] > 1.5
         && fbm2(cx, cz, seed ^ 0xd41, 6, 0.4) > 0.46,
     })) {
@@ -856,6 +1002,53 @@ export function buildForest(draft, ctx, palette, rng, log) {
       yard.place(pool[Math.floor(valueNoise(cx, cz, seed ^ 0x17, 3) * pool.length)], cx, cz);
     }
   }
+
+  // ----------------------------------------------------------------- the camp
+  //
+  // **The practical, and the objects that explain it.**
+  //
+  // A glow quad on bare lawn is a light with nothing making it, which reads as engine rather
+  // than as art; a fire ring reads as a fire ring at every hour, including the two daylight
+  // framings where `environment` holds `look.lamps` at 0 and the bulbs contribute nothing at
+  // all. So the site is built out of what the tileset actually has: a pad of worn dirt where
+  // the grass has been scuffed off, `rot_rocks` — AdAstra's flat stone decal — as the ring,
+  // and two of the rebuilt single-cell logs pulled up to sit on.
+  //
+  // **Nothing here blocks.** The camp sits inside `path.grow(2)`, which is the five cells the
+  // scripted east walk needs, and `makeScriptedRoute` drops an impassable step in silence and
+  // files the whole party north — the defect four blind rounds named. The ring is a decal and
+  // the logs go down with `blocks: false`, so the walk is exactly the walk it was.
+  const ringStone = palette.all({ category: 'prop', tags: ['rock'] })
+    .filter((m) => m.w === 1 && m.h === 1 && m.tags.includes('flat'))[0] ?? null;
+  if (ringStone) {
+    draft.place(ringStone, CAMP.x, CAMP.z, { collision: 'walk', layer: 5, tint: sunShade(CAMP.x, CAMP.z) });
+  }
+  // Two of the rebuilt single-cell logs pulled up to sit on, and only on cells that are still
+  // walkable at this point in the build — the tree line and its skirt went down thirty lines
+  // ago, and a log dropped inside a hedge is a clipping bug rather than a camp.
+  let seats = 0;
+  if (logs.length) {
+    for (const [dx, dz, rot] of [[-1, 1, 0], [1, 0, 2]]) {
+      const x = CAMP.x + dx, z = CAMP.z + dz;
+      if (!draft.inside(x, z) || draft.collisionAt(x, z) !== 'walk') continue;
+      if (yard.place(logs[Math.abs(dx + dz * 2) % logs.length], x, z, { rot, blocks: false })) seats++;
+    }
+  }
+  /**
+   * **The fire itself, sized off `environment/lamps.js` rather than guessed.**
+   *
+   * Read from that file: the `PointLight`'s reach is clamped to `POOL_REACH` 3.9 world units
+   * whatever `radius` says, the painted ground pool reaches `min(4.2, radius * 0.42)`, and its
+   * strength is `min(1, 0.205 * intensity + 0.035)` — so `radius 11, intensity 5` is the full
+   * 4.2-cell pool at full strength, which is the same size a `cave` brazier is authored at.
+   * Two bulbs on one spot: a small bright core that claims a point-light slot and models the
+   * trunks and the party, and a wider dimmer halo at `point: false, pool: false` so the flame
+   * has a glare around it without taking a second of the eight slots or painting the ground
+   * twice. Both sit low — a camp fire is on the floor, not on a post.
+   */
+  const lights = [
+    { x: CAMP.x + 0.5, z: CAMP.z + 0.5, y: 0.52, color: 0xff7d24, intensity: 4.2, radius: 11, size: 0.17 },
+  ];
 
   // -------------------------------------------------------------- the markers
   //
@@ -901,8 +1094,11 @@ export function buildForest(draft, ctx, palette, rng, log) {
       path: path.count(), ride: rideLine.count(), trodden: trodden.count(),
       grass: grassField.count(),
       litter: yard.count(), wild: wild.length,
+      camp: `${CAMP.x},${CAMP.z}`, seats, lights: lights.length,
+      litPathCells: path.clone().intersect(new Field(W, H, (cx, cz) => lit(cx, cz) > 0.5)).count(),
     },
     extras: yard.extras(),
+    lights,
     wild,
   };
 }

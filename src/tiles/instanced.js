@@ -8,7 +8,7 @@
  */
 
 import * as THREE from 'three';
-import { applyShaderPatches, contactShadowPatch } from './materials.js';
+import { applyShaderPatches, contactShadowPatch, makeGroundScatterPatch } from './materials.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -32,7 +32,7 @@ function uvOffsetPatch(shader) {
 }
 uvOffsetPatch.key = 'uvOffset';
 
-function attachUvOffset(mesh, offsets, tileset, label) {
+function attachUvOffset(mesh, offsets, tileset, label, scatter) {
   mesh.geometry = mesh.geometry.clone();
   mesh.geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(offsets, 2));
 
@@ -43,7 +43,8 @@ function attachUvOffset(mesh, offsets, tileset, label) {
   // differently from the path beside it. Both patches are re-applied together, and the key is
   // their names joined: every material carrying the same set compiles one program, which is
   // what keeps the count at 13 (ARCHITECTURE §7 budgets 60).
-  applyShaderPatches(mat, [...(mesh.material.userData.shaderPatches ?? []), uvOffsetPatch]);
+  applyShaderPatches(mat, [...(mesh.material.userData.shaderPatches ?? []), uvOffsetPatch,
+    ...(scatter ? [makeGroundScatterPatch(scatter)] : [])]);
   mesh.material = mat;
   mesh.userData.globalUv = true;
   // The clone has to keep following the night ramp, or a lit ground material would go dark
@@ -61,12 +62,13 @@ function attachUvOffset(mesh, offsets, tileset, label) {
  * picker uses, which turns the quilt into per-cell noise at no cost: it is two more floats
  * per instance on a mesh that was already instanced.
  */
-function uvOffsets(items, scale, phase) {
+function uvOffsets(items, step, phase) {
+  const su = step?.u ?? 0, sv = step?.v ?? 0;
   const offsets = new Float32Array(items.length * 2);
   for (let i = 0; i < items.length; i++) {
     const { cx, cz } = items[i];
-    offsets[i * 2] = cx * scale + (phase ? phase(cx, cz, 0) : 0);
-    offsets[i * 2 + 1] = cz * scale + (phase ? phase(cx, cz, 1) : 0);
+    offsets[i * 2] = cx * su + (phase ? phase(cx, cz, 0) : 0);
+    offsets[i * 2 + 1] = cz * sv + (phase ? phase(cx, cz, 1) : 0);
   }
   return offsets;
 }
@@ -147,6 +149,15 @@ function hash2(x, z, salt) {
  * piece has a shape, and anything with height has a silhouette a rotation would spin —
  * all three are excluded. What is left is the lawn, the paving field and the dirt patches,
  * which is exactly the ground the boot shot repeats.
+ *
+ * `raised` used to be excluded here as well and should never have been. It is set by
+ * `tools/assets/classify.js` from `bounds.min[1] >= 0.5` — *elevation*, a tile authored on top
+ * of a cliff — while the silhouette test this predicate actually wants is `flat`
+ * (`bounds.max[1] - bounds.min[1] < 0.02`), which is already on the line above. A plateau top
+ * is a flat square of one surface at height, so it varies like any other floor; excluding it
+ * left `cliff_top_center` as the one ground surface in the game that is still pure wallpaper,
+ * and left `grass_v2` — the lawn's own `_v2` twin — treated differently from the lawn beside
+ * it, which is a hard seam wherever both are placed.
  */
 /**
  * Smooth value noise on the cell lattice.
@@ -249,12 +260,12 @@ function dropBakedShadowDecals(model, group, contact, keepBaked) {
     && wantsContactShadow(model);
 }
 
-function varies(model) {
+function varies(model, flatVary = true) {
   return (model.autotile == null || model.tags.includes('autotile-center'))
     && (model.w ?? 1) === 1 && (model.h ?? 1) === 1
     && (model.category === 'ground' || model.category === 'path')
     && model.tags.includes('flat')
-    && !model.tags.includes('raised');
+    && (flatVary || !model.tags.includes('raised'));
 }
 
 export class InstancedWorld {
@@ -312,7 +323,7 @@ export class InstancedWorld {
 
       // Ground variety: a quarter turn per cell on a square of one surface, which costs a
       // different matrix in an array of matrices we were writing anyway.
-      const vary = variety > 0 && varies(model);
+      const vary = variety > 0 && varies(model, tileset.scatter?.flatVary ?? true);
       // A palette's centre tile gets tone and phase but never a quarter turn: its twelve
       // siblings meet it at a seam the artist drew, and spinning it would break that join
       // wherever the texture is not isotropic.
@@ -323,8 +334,19 @@ export class InstancedWorld {
       // zoom (`docs/progress/tiles/critic/hedge-close-12.png`). So a global tile is varied by
       // its **block**: the whole 4x4 patch shifts together and stays continuous inside itself,
       // and the repeat is broken at the scale it actually repeats at.
-      const block = (model.globalUv && model.uvScale) ? Math.max(1, Math.round(1 / model.uvScale)) : 1;
+      // Measured off the model's own vertices, not read off `uvScale`: `globalUvStep` records
+      // why, and the V half of it is a four-round-old bug. `null` on `?uvstep=0` or on a group
+      // whose UVs do not move with X or Z, and the old assumption is the fallback.
+      const step = g.uvStep ?? (model.globalUv && model.uvScale
+        ? { u: model.uvScale, v: model.uvScale } : null);
+      const block = step ? Math.max(1, Math.round(1 / Math.abs(step.u))) : 1;
       const spin = vary && model.autotile == null && block === 1;
+      // A sheet that spans more than one cell is the one that shows a *field* period, and it is
+      // the one the panels keep naming. Its repeat is broken in the fragment shader instead —
+      // off the cell grid entirely — so it must not also take the block phase, which is what put
+      // the cut on the grid in the first place. `?scatter=0` swaps them back.
+      const scatters = vary && block > 1 && (tileset.scatter?.on ?? false)
+        && g.material.userData?.alphaClass === 'opaque';
 
       let needsColor = false;
       for (let i = 0; i < items.length; i++) {
@@ -342,7 +364,7 @@ export class InstancedWorld {
       // are cutout *decals* — a crack, a bald patch — and shifting one under RepeatWrapping
       // wraps it around the cell edge, so a centred crack comes back as two torn halves on
       // opposite sides of the square. They keep the turn and the tone and lose the phase.
-      const phasable = vary && g.material.userData?.alphaClass === 'opaque';
+      const phasable = vary && !scatters && g.material.userData?.alphaClass === 'opaque';
       const tw = g.material.map?.image?.width || 16;
       const th = g.material.map?.image?.height || tw;
       const phase = phasable
@@ -352,10 +374,19 @@ export class InstancedWorld {
           return Math.floor(hash2(bx, bz, 3 + axis) * n) / n * variety;
         }
         : null;
-      if (vary && !phasable) mesh.userData.noPhase = true;
-      if ((model.globalUv && model.uvScale) || phasable) {
-        attachUvOffset(mesh, uvOffsets(items, model.globalUv ? (model.uvScale ?? 0) : 0, phase),
-          tileset, model.globalUv ? 'globalUv' : 'phase');
+      if (vary && !phasable && !scatters) mesh.userData.noPhase = true;
+      if (step || phasable) {
+        const s = tileset.scatter;
+        attachUvOffset(mesh, uvOffsets(items, step, phase), tileset,
+          scatters ? 'scatter' : step ? 'globalUv' : 'phase',
+          scatters ? {
+            tex: new THREE.Vector2(tw, th),
+            step: new THREE.Vector2(step.u, step.v),
+            cfg: new THREE.Vector4(Math.max(0.25, s.region),
+              Math.cos(s.angleDeg * Math.PI / 180), Math.sin(s.angleDeg * Math.PI / 180),
+              Math.max(0, s.jitter)),
+            amount: variety,
+          } : null);
       }
       if (needsColor || vary) {
         mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(items.length * 3), 3);
