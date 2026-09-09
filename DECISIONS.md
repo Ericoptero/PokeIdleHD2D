@@ -6134,3 +6134,76 @@ than forty frames of a hundred and fifty, the scale never collapses or exceeds 1
 interval at 1.8 s is less than half what it is at 0.5 s. Driven live in the page: eleven swaps
 across both sheets, twenty-three blink frames, peak scale 1.35, settled on `dewott`, zero console
 errors. Seams green at 136 files / 17 modules; regression 0/0/0 across fifteen frames.
+
+---
+
+### 64 — 2026-09-09 — The evolution animation was playing behind the full-screen panel that starts it; it is a CSS cutscene now
+
+"Evolving is not working." It was working — pressing **E** in the party panel really did turn an
+Oshawott into a Dewott, and driving the shipped input path with `__HOOKS__.key('KeyE')` confirms
+it. What was not working was **seeing it**: DECISIONS #63 animated the *overworld sprite*, the
+button that starts an evolution is in the party panel, and the party panel is full-screen. A
+correct animation, on a 32-pixel sprite, behind an opaque window.
+
+**(a) It is DOM and CSS, and that is not a stylistic preference.** `pokemon/field.js` patches a
+single `aUvRect` attribute into the sprite material and nothing else, so the overworld sprite mesh
+has **no per-instance colour**. The white silhouette that *is* the mainline's evolution animation
+cannot be drawn there at all. In CSS it is one filter — `brightness(0) invert(1)` — and so are the
+glow, the ray fans, the white-out and the sparkle ring. `ui/evolution.js` is a full-resolution
+overlay inside `#ui`, above the pixel canvas. It is **not a panel**: it takes no input and
+dismisses itself, because the button that starts it lives inside a panel.
+
+Six beats on one clock — dim, flash-in, alternate, burst, reveal, hold — totalling 5.75 s.
+
+**(b) The swap keyframes are generated from `pokemon.evolutionTiming()`, not written by hand.**
+The accelerating alternation is the same `swapsBy` the engine already published and the same one
+`pokemon/selftest.js` pins. A hand-written `@keyframes` block over in `ui` would have been a
+second copy of the swap schedule free to drift from the first — which is precisely what
+`tools/seams/run.js` rule 5 exists to catch, after `economy/pacing.js` drifted from
+`idle/accrual.js` by 55 % with nothing at runtime able to notice.
+
+**(c) It stays reproducible, and that is why there are frozen captures.** It never plays under
+`config.showcase` — the harness spins ninety frames between `__READY__` and the shutter, so a
+5.75-second cutscene would be a different picture every run (§6.3). `ui.evolution.freeze(spec, t)`
+holds it at an exact instant with a negative `animation-delay` and `animation-play-state: paused`:
+**the browser's own timeline, sampled**, rather than a second implementation of the timing.
+`?showcase=ui&mode=evolution`, `…-burst` and `…-reveal` are the three beats.
+
+**(d) The overworld sprite-swap animation is deleted, not kept alongside.** Nothing called
+`sprites.playEvolution` any more and dead code that looks like a feature is worse than no feature.
+`evolve-anim.js` survives as **timing only** — the thing the cutscene generates its keyframes
+from — and its seven checks still mean something because they check the schedule, not the sprites.
+`simulation`'s listener keeps the half that was a bug fix (#63(a)): the walking sprite must stop
+being the old species, and it now defers that swap by 62 % of a cutscene so it lands *under* the
+white-out rather than in front of it.
+
+**Four things that were wrong, and every one of them was found by looking at a capture.**
+
+1. **The sprites never rendered.** `background-image: url("…")` was interpolated into a
+   `style="…"` attribute in a template literal, and the first inner `"` closed the attribute —
+   so `width` and `height` applied and everything after them was thrown away. The computed style
+   read `url("")`, which is what gave it away. The element is built with DOM properties now, and
+   no part of this overlay goes through `innerHTML`.
+2. **The whole cutscene was off-screen.** Every layer was stacked in one grid cell — correct —
+   but the cell was `auto`-sized, and the ray fan is `190vmax`. So the single track came out
+   **3648 px wide**, everything centred against *that*, and the cutscene sat at (1573, 1573) with
+   only the veil's corner visible. Measured, not guessed: a layer asking for `width: 100%`
+   reported 3648×3648. The track is pinned to the overlay and each layer is centred with
+   `place-self`.
+3. **The silhouette was a featureless white blob**, and it was two separate faults. The glow
+   ramped from `T.alternate` to `T.burst` — but every `T.x` is the *start* of beat x, so that is
+   the entire 2.4-second alternation spent fading a 475 px white disc up to 0.67 behind a 337 px
+   sprite. And then, with the glow fixed, the silhouette was *still* a blob: an overworld sprite
+   is 32 texels, and a 32-texel shape flooded to one colour has no readable form. **The two forms
+   keep their own colours while they cut between each other** — that is the part the player is
+   meant to read — and the silhouette arrives as the flash into the burst, where it belongs.
+4. **"Dewott evolved into Dewott!"** `evolveTo` mutates `inst.species` in place, and the toast
+   read the display name *after* the swap. It reads it before now.
+
+**Measured.** `pokemon` 56/56, `ui` all checks pass with four new ones on the cutscene's timeline
+(the beats sum to its duration; every generated keyframe stop is inside 0–100 % and monotonic —
+one bad percentage silently drops an entire `@keyframes` rule with nothing throwing; and the two
+sprite tracks differ, or nothing is alternating). Driven live: no console errors through the whole
+sequence, the toast reads "Oshawott evolved into Dewott!", and the walking sprite is a Dewott
+afterwards. Seams green at 136 files / 17 modules. Shots:
+`docs/progress/pokemon/r3/{evolution,evolution-burst,evolution-reveal}.png`.

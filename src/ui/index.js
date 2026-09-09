@@ -29,6 +29,7 @@ import { makeBoxes } from './panels/boxes.js';
 import { makeDex } from './panels/dex.js';
 import { makeParty } from './panels/party.js';
 import { makeDialogue } from './panels/dialogue.js';
+import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
 
 /**
@@ -119,6 +120,16 @@ export default {
       dialogue: makeDialogue(app),
     };
 
+    /**
+     * The evolution cutscene.
+     *
+     * Not a panel: it takes no input, dismisses itself, and has to sit over whatever is
+     * already open — the button that starts it is IN the party panel, and the previous
+     * attempt at this animated the overworld sprite behind that panel where nobody could see
+     * it (DECISIONS #64).
+     */
+    const evolution = makeEvolutionOverlay(app);
+
     const input = makeInput({ ctx, app });
 
     /** The payload `offline` publishes, if it has one and it has not been dismissed. */
@@ -135,6 +146,20 @@ export default {
       bus.on('economy:changed', () => screen.markDirty()),
       bus.on('collection:added', () => screen.markDirty()),
       bus.on('party:leadChanged', () => screen.markDirty()),
+      /**
+       * The cutscene. Never in a showcase: it is five seconds long and the harness spins
+       * ninety frames between `__READY__` and the shutter, so a running one would give a
+       * different capture every time (§6.3). `?showcase=ui&mode=evolution` freezes it instead.
+       */
+      bus.on('pokemon:evolved', ({ from, to, shiny }) => {
+        if (config.showcase) return;
+        const pk = ctx.get('pokemon');
+        if (!isLive(pk) || typeof pk.species !== 'function') return;
+        const a = pk.species(from);
+        const b = pk.species(to);
+        if (a && b) evolution.play({ from: a, to: b, shiny: !!shiny });
+        screen.markDirty();
+      }),
       bus.on('tod:changed', ({ phase }) => { hud.onPhase(phase); screen.markDirty(); }),
       // The event, never `summary() != null`: in showcase mode `offline` builds a summary
       // and deliberately does not emit (DECISIONS #15), and a card driven by the getter
@@ -320,6 +345,8 @@ export default {
        */
       say(text, opts = {}) { return app.open('dialogue', { ...opts, text }); },
       close: () => app.close(),
+      /** The cutscene, exposed so a showcase can freeze it at an exact beat. */
+      evolution,
       isOpen: () => !!state.panel,
       openPanel: () => state.panel?.id ?? null,
       /** The away card, on demand — the menu's REPORT entry and the showcase both use it. */

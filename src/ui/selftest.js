@@ -26,6 +26,9 @@ import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
+// `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
+// is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
+import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -177,6 +180,42 @@ const check = (name, ok, detail = '') => {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   check('the palette is restored exactly at noon', same(C.wallLight, '#F5E9CE') && same(C.ink, '#241E1B'),
     `${C.wallLight} ${C.ink}`);
+}
+
+// --- the evolution cutscene's timeline --------------------------------------
+// The cutscene is CSS, so almost all of it has to be judged by looking (the three frozen
+// captures in docs/progress/pokemon/r3/). What can be wrong on its own is the timeline: one
+// clock drives every layer, and a keyframe percentage outside 0..100 or out of order silently
+// drops the whole `@keyframes` rule with nothing throwing.
+{
+  const sum = Object.values(BEATS).reduce((a, b) => a + b, 0);
+  check('the cutscene beats sum to its own duration', Math.abs(sum - TOTAL) < 1e-9, `${sum} vs ${TOTAL}`);
+  check('every beat is a real length', Object.values(BEATS).every((n) => n > 0.1),
+    JSON.stringify(BEATS));
+
+  // The generator is fed the SAME accelerating schedule `pokemon` publishes, which is the
+  // point: a hand-written @keyframes block here would be a second copy of the swap timing.
+  const swapsBy = (t) => {
+    let e = 0; let n = 0;
+    for (let i = 0; i < 512; i++) {
+      const k = Math.max(0, Math.min(1, e / 2));
+      const step = 0.30 + (0.05 - 0.30) * (k * k);
+      if (e + step > t) return { n, into: t - e, step };
+      e += step; n++;
+    }
+    return { n, into: 0, step: 0.05 };
+  };
+  const tracks = swapKeyframes(swapsBy, 2);
+  for (const [name, css] of Object.entries(tracks)) {
+    const stops = [...css.matchAll(/([\d.]+)%\{/g)].map((m) => Number(m[1]));
+    check(`the ${name} track stays inside 0..100%`, stops.every((p) => p >= 0 && p <= 100),
+      `${Math.min(...stops)}..${Math.max(...stops)}`);
+    check(`the ${name} track never runs backwards`,
+      stops.every((p, i) => i === 0 || p >= stops[i - 1]), `${stops.length} stops`);
+    check(`the ${name} track ends where the burst starts`, /100%\{opacity:[01]\}$/.test(css), css.slice(-30));
+  }
+  // The two tracks are the alternation: they must disagree, or nothing is swapping.
+  check('the two sprite tracks are not the same animation', tracks.old !== tracks.neu);
 }
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nui: all checks pass');

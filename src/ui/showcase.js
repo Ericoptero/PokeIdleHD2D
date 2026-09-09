@@ -92,6 +92,16 @@ export async function showcaseUi(mode = 'default', ctx) {
     case 'boxes': ui.open('boxes'); break;
     case 'dex': ui.open('dex'); break;
     case 'party': ui.open('party'); break;
+    case 'evolution': case 'evolution-burst': case 'evolution-reveal': {
+      // The cutscene, HELD. It is 5.75 s long and the harness spins ninety frames between
+      // `__READY__` and the shutter, so a running one is a different picture every time —
+      // `freeze(t)` gives the browser's own timeline a negative delay and pauses it, which is
+      // the real animation sampled rather than a second drawing of it (ARCHITECTURE §6.3).
+      const pk = ctx.get('pokemon');
+      const at = wanted === 'evolution-burst' ? 3.42 : wanted === 'evolution-reveal' ? 4.35 : 1.70;
+      ui.evolution?.freeze({ from: pk.species('oshawott'), to: pk.species('dewott') }, at);
+      break;
+    }
     case 'evolve': {
       // The state a fresh save cannot show: a Pokemon at the level, with the materials in the
       // bag, and the button live. Everything here goes through the published API — the level

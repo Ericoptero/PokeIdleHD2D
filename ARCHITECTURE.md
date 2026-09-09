@@ -524,12 +524,11 @@ ivs, stats, maxHp, hp, moves: [{ id, pp, maxPp }] × 4, priority, status }`. Two
 - **A refusal says which of the three reasons it is** — no route, too low, or short of
   materials — because a greyed-out button that does not say why is the defect the party panel
   exists to avoid.
-- **An evolution is animated, and the animation is a pure function of time.** The overworld
-  sprite mesh has no per-instance colour, so the flash is built from the three things an actor
-  does expose — the sheet it reads, its scale and its visibility: an accelerating alternation
-  between the two forms, a one-frame blink at each swap, and a pop onto the new one. It runs on
-  `lateFrame` in real seconds, because it is presentation and must not change what the world
-  does. `simulation` owns the actor and therefore plays it (§5.4).
+- **An evolution is a cutscene, and it lives in `ui` (§5.12).** `pokemon` publishes the
+  timing (`evolutionTiming()`); the picture is a full-resolution DOM overlay, because the
+  overworld sprite mesh has no per-instance colour and the white-out that *is* an evolution
+  is one CSS filter there and impossible in the mesh. `simulation`'s only job on
+  `pokemon:evolved` is to restage the walking sprite (§5.4).
 
 The save seam here is **native and mandatory**: `offline`'s adapter rebuilds a party through
 `createInstance` and would silently drop moves, PP and HP.
@@ -689,12 +688,25 @@ zero draw calls (DECISIONS #34a — this section used to say "DOM overlay at ful
 and it was never true of the shipped module). Owns: HUD, party bar, dex/box screens, shop,
 dialogue boxes, the "while you were away" modal, the **battle panel** (both HP bars, the move,
 its PP, status and the effectiveness line), the **EVOLVE button and its bill** in the party
-panel, the **pity meter**, the trainer's level, the per-Pokémon move-priority list, and the
-**debug overlay** (`?debug=1`: fps, draw calls, tris,
+panel, the **evolution cutscene**, the **pity meter**, the trainer's level, the per-Pokémon
+move-priority list, and the **debug overlay** (`?debug=1`: fps, draw calls, tris,
 module status, tod, seed).
 
 **`ui` is what throws the ball.** Until DECISIONS #61 nothing in the game called
 `encounter.attempt(ballId)` and a player could not catch anything by hand.
+
+**The evolution cutscene is the one thing here that is DOM and CSS rather than the canvas**
+(`ui/evolution.js`, DECISIONS #64), and the reason is concrete: a white silhouette is one
+`filter: brightness(0) invert(1)` in CSS and is *impossible* on the overworld sprite mesh,
+which carries no per-instance colour. It is a full-resolution overlay inside `#ui`, above the
+pixel canvas, and it takes no input and dismisses itself — it is not a panel, because the
+button that starts it is *inside* a panel.
+
+It stays reproducible the way §6.3 requires: it never plays under `config.showcase`, and
+`ui.evolution.freeze(spec, t)` holds the whole thing at an exact moment with a negative
+`animation-delay` and `animation-play-state: paused` — the browser's own timeline sampled,
+rather than a second implementation of it. Its swap keyframes are **generated** from
+`pokemon.evolutionTiming()` so the alternation cannot drift from the module that defines it.
 
 ### 5.13 `city` — the lobby
 `needs: ['terrain', 'environment']` — `simulation`, `pokemon` and `ui` are reached through

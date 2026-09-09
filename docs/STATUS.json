@@ -1,5 +1,5 @@
 {
- "updatedMs": 1788982227472,
+ "updatedMs": 1788983511056,
  "wave": "REFACTOR phases 0-2 of 7 complete, plus DECISIONS #62 (manual, paid-for evolution) on top at the user's request. Awaiting the user's validation of the evolve system before phase 3.",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
@@ -185,8 +185,8 @@
     "[POKEMON] The evolution bill is DERIVED and has never been played against. The counts (2..12) and the rung bands (420/520 BST) are reasoned, not tuned — nothing can drop a treasure item until phase 5, so no one has yet had to actually grind one.",
     "[POKEMON] `evolutions(id)` returns every route priced, and nothing draws the fork yet: the party panel shows only the single closest offer. An Eevee player cannot see the other seven without opening the console.",
     "[POKEMON] The EVOLVE button lives only in the party panel. The user asked for \"the HUD or the party box\"; the party panel is one keypress from the HUD (P) and the HUD has no room for a per-Pokemon action, but if a HUD button is wanted it is a small addition to ui/hud.js.",
-    "[POKEMON] The evolution flash has no sound, no particles and no white silhouette — the overworld sprite mesh has no per-instance colour, so a real flash would need a colour attribute in field.js. That is a bigger change than this was and it is the obvious next step if the moment still feels thin.",
-    "[POKEMON] The flash plays wherever the party is standing, including mid-step. It does not pause the walk, because pause() is phase 3 API and inventing it early would have coupled this to unlanded work."
+    "[UI] The cutscene has no sound and cannot be skipped. 5.75s is a long time to sit through on the tenth evolution; a keypress-to-skip is a small addition and probably wanted before this ships to anyone.",
+    "[UI] It plays wherever the party is standing and does not pause the walk — pause() is phase 3 API and inventing it early would couple this to unlanded work."
    ],
    "lastShots": [
     "docs/progress/pokemon/r3/evolved-overworld.png",
@@ -1151,7 +1151,7 @@
   "honestSummary": "No module passes the 8.5 bar and no critic passes. The game is real and runs clean — a populated town with authored buildings and lamps, four biomes, a walking party, an idle system proven to accrue in a backgrounded tab, 1253 Gen 1-9 species with sprites, and a UI you can play through — but it is scored at roughly 7/10 against Gamma Emerald, not 8.5, and blind judges pick the reference 5 times out of 7."
  },
  "refactor": {
-  "decision": "61 + 62 + 63",
+  "decision": "61 + 62 + 63 + 64",
   "plan": "a hunt is a closed loop past fixed spawn slots; proximity starts a real turn-based battle; a defeated wild is thrown at with a per-species pity floor; money is earned by selling, never accrued; and evolution is a button that costs a level plus a pile of drops",
   "phases": [
    {
@@ -1269,17 +1269,24 @@
    "awaiting": "USER VALIDATION. Look at ?showcase=ui&mode=evolve (button live), ?showcase=ui&mode=party (the shopping list) and ?showcase=pokemon&mode=levelup (the whole transcript). Phase 3 does not start until this is signed off."
   },
   "evolutionAnimation": {
-   "decision": 63,
-   "bugFixed": "The overworld sprite never changed. pokemon.evolve() swaps the species IN PLACE, so the HUD and the party bar updated — but simulation.members holds the species object captured at its last rebuildMembers and Cast.keyOf derives the sheet from that. The game drew a Dewott name over an Oshawott sprite for the rest of the session with nothing throwing and no failing check. Fixed by a bus.on(\"pokemon:evolved\") that does what party:leadChanged already did.",
-   "animation": "An accelerating alternation between the two sheets (0.30s -> 0.05s, 11 swaps over 2s), a one-frame blink at each swap, and a 1.35 pop onto the new form. Built from key/scale/visible because the overworld sprite mesh has NO per-instance colour — there is no white silhouette and no fade available. Driven from pokemon lateFrame in real seconds; poseWalker never patches key or scale, so the walk and the flash do not fight.",
-   "ownership": "simulation plays it (it owns the actor and knows which slot the lead is in); pokemon owns the animation (it owns the sprite field and the atlas, and both sheets must be prepared before an alternation can read from either). An actor id goes one way, a promise comes back.",
-   "showcase": "Suppressed under config.showcase — a 2.5s flash caught 90 settle-frames after __READY__ is a different picture every run. ?showcase=pokemon&mode=evolving lays it out as nine sprites each holding frameAt() at a fixed instant, so the strip IS the animation.",
-   "verifiedLive": "Driven in the real page with puppeteer: oshawott -> dewott, 6 pearls spent, bag 0; the lead actor showed BOTH sheets during the flash, 11 swaps, 23 blink frames, peak scale 1.35, settled on dewott; the staged cast afterwards contains dewott and no oshawott; 0 console errors.",
-   "selftest": "56/56",
-   "foundByLooking": "The first strip picked its nine timestamps by eye and three landed exactly on swap boundaries — which are blink frames, so three of nine sprites were invisible — while three others fell on the same form in a row. A strip of an alternation that did not alternate. Sampled at swap midpoints now, with one boundary kept on purpose so the gap is visible.",
+   "decision": "63 (the sprite fix) + 64 (the cutscene)",
+   "whatWasWrong": "\"Evolving is not working\" — it WAS working (E in the party panel really evolved), but the animation was on the 32px overworld sprite BEHIND the full-screen party panel that starts it. A correct animation in a place nobody was looking.",
+   "cutscene": "ui/evolution.js — a full-resolution DOM+CSS overlay inside #ui, six beats on one clock over 5.75s: dim, flash-in, an accelerating alternation between the two forms, a white-out burst with a sparkle ring, the reveal in colour, and the \"X evolved into Y!\" line.",
+   "whyCss": "pokemon/field.js patches one aUvRect attribute and nothing else, so the sprite mesh has NO per-instance colour — the white silhouette that IS an evolution animation cannot be drawn there. In CSS it is one filter: brightness(0) invert(1).",
+   "noDrift": "The swap keyframes are GENERATED from pokemon.evolutionTiming(), not hand-written — a second copy of the swap schedule in ui would be free to drift, which is what seams rule 5 exists to catch.",
+   "reproducible": "Never plays under config.showcase. ui.evolution.freeze(spec, t) holds it with a negative animation-delay and animation-play-state:paused — the browser timeline sampled, not re-implemented. ?showcase=ui&mode=evolution / -burst / -reveal.",
+   "removed": "sprites.playEvolution and the overworld sprite-swap are deleted — nothing called them and dead code that looks like a feature is worse than none. evolve-anim.js survives as TIMING only; simulation keeps the restage (the #63 bug fix) and defers it 62% of a cutscene so the swap lands under the white-out.",
+   "selftest": "pokemon 56/56; ui all pass with four new cutscene-timeline checks (beats sum to the duration; every generated keyframe stop inside 0..100 and monotonic — one bad percentage silently drops a whole @keyframes rule; the two sprite tracks differ or nothing alternates).",
+   "fourBugsFoundByLooking": [
+    "The sprites never rendered: background-image url(\"...\") was interpolated into a style=\"...\" attribute and the first inner quote closed it. Computed style read url(\"\"). The tree is built with DOM properties now; no innerHTML anywhere in the overlay.",
+    "The whole cutscene was OFF-SCREEN: layers stacked in one auto-sized grid cell, and the ray fan is 190vmax — so the track came out 3648px wide, everything centred against that, and it sat at (1573,1573). A layer asking for width:100% reported 3648x3648.",
+    "The silhouette was a featureless blob, twice over: the glow ramped from T.alternate to T.burst, and every T.x is the START of a beat — the entire 2.4s alternation spent fading a 475px white disc to 0.67 behind a 337px sprite. And with that fixed it was STILL a blob, because a 32-texel sprite flooded to one colour has no readable form. The two forms keep their colours through the alternation now and the silhouette arrives as the flash into the burst.",
+    "\"Dewott evolved into Dewott!\" — evolveTo mutates inst.species in place and the toast read the name after the swap."
+   ],
    "shots": [
-    "docs/progress/pokemon/r3/evolving-strip.png",
-    "docs/progress/pokemon/r3/evolved-overworld.png"
+    "docs/progress/pokemon/r3/evolution.png",
+    "docs/progress/pokemon/r3/evolution-burst.png",
+    "docs/progress/pokemon/r3/evolution-reveal.png"
    ]
   }
  }

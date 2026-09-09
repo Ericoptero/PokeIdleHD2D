@@ -555,16 +555,19 @@ export default {
       const actorId = pokemonIndex >= 0 ? cast.actorId(pokemonIndex) : 0;
       const lead = isLive(pokemon) && typeof pokemon.lead === 'function' ? pokemon.lead() : null;
 
-      // Never in a showcase: the harness spins ninety frames between `__READY__` and the
-      // shutter, so a 2.5-second flash would be caught at a different point every run and the
-      // capture would stop being a function of the URL (ARCHITECTURE §6.3).
-      if (actorId && !config.showcase && isLive(pokemon) && typeof pokemon.sprites?.playEvolution === 'function') {
-        try {
-          await pokemon.sprites.playEvolution({ actorId, from, to, shiny: !!lead?.shiny });
-        } catch (err) {
-          log.warn('simulation: the evolution flash did not play', err);
-        }
-      }
+      // **The restage is the load-bearing half and it is unconditional.** The flourish moved
+      // to `ui`'s full-screen cutscene (DECISIONS #64): animating a 32-pixel overworld sprite
+      // behind the full-screen party panel that starts the evolution was a correct animation
+      // in a place nobody was looking. What has to happen HERE is that the sprite walking in
+      // front of the trainer stops being the old species.
+      //
+      // Deferred by most of one cutscene so the swap lands under the white-out rather than in
+      // front of it. `ui` is asked how long that is rather than guessed at, and a quarantined
+      // `ui` just means it happens immediately — which is correct, not degraded.
+      const ui = ctx.get('ui');
+      const wait = !config.showcase && isLive(ui) && ui.evolution ? ui.evolution.TOTAL * 620 : 0;
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      void actorId; void lead;
       rebuildMembers();
       restage();
     });
