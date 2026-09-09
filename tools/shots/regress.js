@@ -40,6 +40,12 @@ export const MATRIX = [
   { id: 'city/high-street/17.5', showcase: 'city', preset: 'high-street', tod: 17.5 },
   { id: 'city/high-street/21', showcase: 'city', preset: 'high-street', tod: 21 },
   { id: 'tiles/12', showcase: 'tiles', tod: 12 },
+  // environment's own showcase, because its critic caught the gate missing half a round:
+  // "MATRIX has no showcase:'environment' row, so every pixel of the showcase.js rewrite
+  // passed the gate untested". A gate nobody can see through is worse than no gate.
+  { id: 'environment/12', showcase: 'environment', tod: 12 },
+  { id: 'environment/17.5', showcase: 'environment', tod: 17.5 },
+  { id: 'encounter/12', showcase: 'encounter', tod: 12 },
   { id: 'boot/12', tod: 12 },
 ];
 

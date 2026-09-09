@@ -195,7 +195,7 @@ scene ──▶ [ low-res HDR target  W/pixelScale × H/pixelScale ]      ← al
   It follows the trainer with a critically damped spring. Never rotates. See §3.
 - Shadows: one `DirectionalLight` (the sun/moon) with a **tight ortho frustum snapped to
   texel grid** around the camera focus (default 48×48 world units, 2048² map,
-  `PCFSoftShadowMap`). Texel snapping is mandatory — unsnapped shadow maps shimmer, and
+  `PCFShadowMap`). Texel snapping is mandatory — unsnapped shadow maps shimmer, and
   shimmering reads as "programmer art" instantly.
 
 ---

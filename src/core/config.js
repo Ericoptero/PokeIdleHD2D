@@ -39,6 +39,14 @@ export const DEFAULTS = {
   grain: 0.018,
   saturation: 1.06,
   contrast: 1.04,
+  /**
+   * Width of the contrast operator's soft toe. Contrast pivots about 0.5, so anything below
+   * `0.5 - 0.5/contrast` goes negative and a hard clamp deletes that channel outright — at
+   * the golden hour that was 49.1% of a frame with blue at exactly 0, against the reference
+   * still's 1.17%, which is what every critic has been calling "hue-killed". The toe is a
+   * smooth maximum against zero, so shade keeps its channel ratios. 0 restores the clamp.
+   */
+  contrastToe: 0.055,
 
   // --- world ----------------------------------------------------------------
   /** Fictional latitude used to place the sun; keeps shadows physically plausible. */

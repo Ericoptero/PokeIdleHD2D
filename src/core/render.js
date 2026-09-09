@@ -63,7 +63,7 @@ uniform sampler2D tScene;       // NEAREST — the pixel grid
 uniform sampler2D tBloom0;      // LINEAR  — smooth light
 uniform sampler2D tBloom1;
 uniform sampler2D tBloom2;
-uniform float uExposure, uBloom, uVignette, uGrain, uSaturation, uContrast, uTime;
+uniform float uExposure, uBloom, uVignette, uGrain, uSaturation, uContrast, uToe, uTime;
 uniform vec3  uLift, uGain;
 in vec2 vUv;
 
@@ -109,7 +109,19 @@ void main() {
   c = clamp(c * uGain + uLift, 0.0, 1.0);
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uSaturation);
-  c = clamp((c - 0.5) * uContrast + 0.5, 0.0, 1.0);
+  // Contrast with a soft toe instead of a hard clamp.
+  //
+  // (x - 0.5) * c + 0.5 sends everything below 0.5 - 0.5/c negative, and clamping that
+  // to zero does not darken a colour — it DELETES a channel. At the golden hour's contrast
+  // of 1.307 the crush point is 0.117, and 49.1% of a forest frame came out with its blue
+  // channel at exactly 0 against docs/refs/04's 1.17%. That is why every critic has called
+  // our shade "hue-killed" and "one orange": half the frame genuinely had no blue in it.
+  //
+  // 0.5 * (t + sqrt(t*t + w*w)) is a smooth maximum against zero. It tends to t well above
+  // the toe, tends to 0 from above as t falls, and never clips — so a shadow keeps the
+  // ratios between its channels and stays the colour of the sky that fills it.
+  vec3 t = (c - 0.5) * uContrast + 0.5;
+  c = min(0.5 * (t + sqrt(t * t + uToe * uToe)), vec3(1.0));
 
   float d = distance(vUv, vec2(0.5));
   c *= 1.0 - uVignette * smoothstep(0.32, 0.86, d);
@@ -193,6 +205,7 @@ export function makeRenderer({ container, config, log }) {
       uExposure: { value: config.exposure }, uBloom: { value: config.bloomStrength },
       uVignette: { value: config.vignette }, uGrain: { value: config.grain },
       uSaturation: { value: config.saturation }, uContrast: { value: config.contrast },
+      uToe: { value: config.contrastToe },
       uTime: { value: 0 },
       uLift: { value: new THREE.Vector3(0, 0, 0) },
       uGain: { value: new THREE.Vector3(1, 1, 1) },
@@ -242,6 +255,7 @@ export function makeRenderer({ container, config, log }) {
     u.uGrain.value = config.grain;
     u.uSaturation.value = config.saturation;
     u.uContrast.value = config.contrast;
+    u.uToe.value = config.contrastToe;
     brightMat.uniforms.uThreshold.value = config.bloomThreshold;
   }
 
