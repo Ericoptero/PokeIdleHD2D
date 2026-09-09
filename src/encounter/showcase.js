@@ -446,7 +446,9 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
  */
 function probeOf(enc, rolled) {
   const battle = enc.autoResolve(rolled);
-  return { ...rolled, hpFraction: battle?.hpFraction ?? 1, turn: 0 };
+  // `hpFraction` is the wild's HP after the exchange: 0-ish when the party won, 1 when it did
+  // not. `won` is carried explicitly so the scan does not have to infer it from a fraction.
+  return { ...rolled, hpFraction: battle?.hpFraction ?? 1, won: battle?.outcome === 'win', turn: 0 };
 }
 
 /** How many of `economy`'s eighteen balls have a live condition on this encounter. */
@@ -487,10 +489,15 @@ function findIndex(enc, { want, ball, biome, tod, limit = 400, shinyRate = null,
     // encounter that fires the *most* conditions rather than the hardest one, which is still
     // the seed's own encounter and not a rigged context.
     if (want === 'variety') continue;
+    // **A ball is illegal until the wild is beaten** (DECISIONS #67), so an encounter the
+    // party loses has no throw in it at all — and a mode that then asks to be frozen at the
+    // `capture` beat is asking for a beat that does not exist. The scan skips them.
+    const probe = probeOf(enc, rolled);
+    if ((want === 'caught' || want === 'escaped') && probe.hpFraction > 0.99) continue;
     // A catch at 100 % odds is not a picture of a gamble. `mode=caught` wants an encounter
     // whose outcome was genuinely in doubt, so the scan asks for one and the panel reports
     // the odds it found.
-    if (want === 'caught' && enc.oddsFor(ball, probeOf(enc, rolled), 1) >= 0.96) continue;
+    if (want === 'caught' && enc.oddsFor(ball, probe, 1) >= 0.96) continue;
     const odds = enc.oddsFor(ball, probeOf(enc, rolled), 1);
     const roll = enc.catchRollAt(i, 1);
     const caught = roll < odds;
@@ -670,7 +677,8 @@ function render(ctx, mode, staged) {
       ${e?.ivs ? ivRow(e.ivs) : ''}
       <div class="row"><span class="k">IV total</span><span class="v">${e?.ivTotal ?? 0} / 186 (${Math.round(((e?.ivTotal ?? 0) / 186) * 100)}%)</span></div>
       <div class="row"><span class="k">battle</span><span class="v">${e?.battle
-        ? `${e.battle.win ? 'party won' : 'party lost'} · p ${pct(e.battle.winChance)} · roll ${e.battle.roll.toFixed(3)} → wild HP ${pct(e.hpFraction)}`
+        ? `${e.battle.win ? 'party won' : 'party lost'} · ${e.battle.turns} turn${e.battle.turns === 1 ? '' : 's'}`
+          + `${e.battle.engine ? '' : ' (no engine)'} → wild HP ${pct(e.hpFraction)}`
         : '—'}</span></div>
     </section>
 

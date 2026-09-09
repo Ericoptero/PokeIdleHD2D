@@ -320,7 +320,8 @@ integrator polices.
 | `encounter:resolved` | `{ outcome, species, rewards }` | encounter |
 | `catch:succeeded` | `{ instanceId, species, shiny }` | encounter |
 | `catch:failed` | `{ species, shiny, ball, odds, shakes, turn, index }` | encounter |
-| `slot:respawned` | `{ biome, slot, species, level, shiny }` | encounter |
+| `slot:respawned` | `{ biome, slot, species, shiny }` | hunts |
+| `hunt:lap` | `{ biome, length }` | hunts |
 | `drop:collected` | `{ items: [{ id, n }], index }` | encounter |
 | `battle:started` | `{ index, ally, wild, moves }` | battle |
 | `battle:turn` | `{ index, turn, actor, move, damage, effect }` | battle |
@@ -549,7 +550,11 @@ The save seam here is **native and mandatory**: `offline`'s adapter rebuilds a p
   screenshot-verified, not guessed.
 
 ### 5.6 `encounter` — spawn tables, spawn slots, catching
-`needs: ['pokemon', 'terrain', 'economy', 'battle']`
+`needs: ['pokemon', 'terrain', 'economy']` — **`battle` is reached through `ctx.get`, not
+declared.** A quarantined engine has to cost the game its *combat*, not its *encounters*: with
+`battle` in `needs` a failure there would block this module, and blocking this module blocks the
+hunt. Without it the wild still appears, the exchange degrades to a level comparison, and the
+animation and catch flow are untouched.
 
 ```js
 {
@@ -572,9 +577,26 @@ time and the offline replay in a loop.
 
 **How an encounter starts depends on the place, the way the formation does (§0).** A scene the
 player *drives* rolls on a tall-grass step, as it always has. A scene walking a **loop path**
-rolls when the head of the queue comes within a tile of an occupied **spawn slot** — a fixed
-cell authored by the scene (§5.14), holding a wild that may wander ±1 tile around it and
-respawns on its own stream once it is beaten.
+engages when the head of the queue comes within `config.slotEngageTiles` of an occupied **spawn
+slot**.
+
+That distance is **2, because that is where a slot is** — `hunts` authors every one at Chebyshev
+2 from the circuit (§5.14). The tether's ±1 drift is what makes the meeting read as a creature
+noticing the party; it is not extra reach, and treating it as such left the trigger silent
+through 23 encounters.
+
+`hunts.takeSlot(k)` hands the creature over **and takes its sprite off the map**, so the wild
+that walks out to fight is the one that was standing there rather than a second copy beside it,
+and the slot is scheduled to refill — which is what makes it a respawn point rather than
+scenery. The species is the slot's; the level, the shiny roll and the six IVs are still
+`rollAt(index)`'s, so a hunt replayed offline meets the same creature it met live.
+
+**The walk stops for a fight and keeps its place.** `simulation.pause(true)` on `begin`,
+`pause(false)` on `resolve` — never `halt()`, which would restart the lap (§5.4).
+
+**A party with nothing conscious does not start fights**, and a fainted lead steps aside for one
+that can. Otherwise a single loss ends the session: measured before the guard existed as
+thirty-six consecutive losses, one turn each.
 
 **`attempt(ballId)` refuses until the wild is beaten**, and still returns a plain boolean
 (#35(f) — anything object-shaped reads as a catch every single time). `economy` still owns the

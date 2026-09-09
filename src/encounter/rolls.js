@@ -145,28 +145,17 @@ export function rollAt(seed, index, { table, band, shinyRate = SHINY_RATE, bumps
 }
 
 /**
- * The resolved battle (ARCHITECTURE §5.6 — battles are resolved, not turn-by-turn).
+ * RETIRED (DECISIONS #67). A battle was eleven lines comparing two levels and rolling a coin;
+ * it is `src/battle/`'s turn engine now — four moves with PP, the type chart, criticals,
+ * statuses and stat stages — on its own `root/battle/<index>/<turn>` streams.
  *
- * Keyed to the **lead's level**, not to summed party power: DECISIONS #21 measured that
- * keying it to a sum over six members made every encounter a foregone win the moment the
- * bench filled up (97 % wins). The wild band scales with the same number, so the odds stay
- * interesting at every stage instead of trending to 1.
- *
- * The loser of the exchange is not knocked out — `hpFraction` is what the wild Pokemon has
- * left, which is exactly the input `economy.catchOdds` wants. Softening a target before
- * throwing is the whole reason the Gen 3/4 formula has an HP term.
+ * The function is **deleted rather than left exported**: a pure function nothing calls is a
+ * second model of combat sitting next to the real one, and the next person to need a battle
+ * outcome would find two. What it measured is pinned in `src/battle/selftest.js`, and the
+ * `battle/12` clause it anchored is deleted from this module's stream pin with a note saying
+ * why. The other three pins did not move, which is the evidence the index space survived.
  */
-export function resolveBattle(seed, index, leadLevel, wildLevel) {
-  const rng = streamFor(seed, 'battle', index);
-  const advantage = Math.max(0.1, (Number(leadLevel) || 1) / Math.max(2, Number(wildLevel) || 1));
-  const winChance = clamp(0.26 + 0.40 * advantage, 0.12, 0.95);
-  const roll = rng.next();
-  const win = roll < winChance;
-  // A won exchange leaves the target between 8 % and 40 % HP; a lost one barely scratches
-  // it. Drawn from the same stream *after* the outcome, so the outcome cannot shift with it.
-  const hpFraction = win ? clamp(0.08 + rng.next() * 0.32, 0.05, 1) : clamp(0.72 + rng.next() * 0.28, 0.05, 1);
-  return { index, outcome: win ? 'win' : 'flee', win, winChance, roll, hpFraction };
-}
+
 
 /**
  * The ball roll for attempt `turn` (1-based) at encounter `index`.

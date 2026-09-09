@@ -24,7 +24,7 @@
 import { makeRng } from '../core/rng.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
-  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, resolveBattle, catchRoll,
+  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
   shakesFor,
 } from './rolls.js';
 import {
@@ -110,15 +110,17 @@ export function runSelfTest({ species = null } = {}) {
     const s7 = streamFor(SEED, 'roll', 7).next();
     const c51 = catchRoll(SEED, 5, 1);
     const s0 = stepValue(SEED, 0);
-    const b = resolveBattle(SEED, 12, 20, 10);
+    // **`battle/12` is gone from this pin, and that is a deletion rather than a relaxation.**
+    // `resolveBattle` was eleven lines comparing two levels; a fight is `src/battle/`'s turn
+    // engine now, on `root/battle/<index>/<turn>`, and its own golden transcript is pinned in
+    // `src/battle/selftest.js` (DECISIONS #67). The three streams that still exist are pinned
+    // exactly as they were — that they did NOT move is the evidence the index space survived
+    // the switchover.
     check('every stream still starts where it started',
       Math.abs(s7 - 0.9075717055238783) < 1e-15
       && Math.abs(c51 - 0.16200905269943178) < 1e-15
-      && Math.abs(b.roll - 0.8988670797552913) < 1e-15
-      && Math.abs(b.hpFraction - 0.21394539445638655) < 1e-15
       && Math.abs(s0 - 0.8985949635971338) < 1e-15,
-      `roll/7 ${s7.toFixed(12)}, catch/5/1 ${c51.toFixed(12)}, `
-      + `battle/12 ${b.roll.toFixed(12)}, step/0 ${s0.toFixed(12)}`);
+      `roll/7 ${s7.toFixed(12)}, catch/5/1 ${c51.toFixed(12)}, step/0 ${s0.toFixed(12)}`);
   }
 
   // --- 4 index-addressed, not stream-continued ---------------------------------
@@ -244,37 +246,13 @@ export function runSelfTest({ species = null } = {}) {
   }
 
   // --- 15 battles ---------------------------------------------------------------
-  {
-    const a = resolveBattle(SEED, 12, 20, 10);
-    const b = resolveBattle(SEED, 12, 20, 10);
-    let wins = 0, badHp = 0;
-    for (let i = 0; i < 2000; i++) {
-      const r = resolveBattle(SEED, i, 12, 10);
-      if (r.win) wins++;
-      if (!(r.hpFraction > 0 && r.hpFraction <= 1)) badHp++;
-    }
-    check('a battle resolves the same way twice', JSON.stringify(a) === JSON.stringify(b),
-      `${a.outcome} p=${a.winChance.toFixed(3)} hp=${a.hpFraction.toFixed(3)}`);
-    check('hpFraction is always a real fraction', badHp === 0, `${2000 - badHp}/2000`);
-    // A level-12 lead against level-10 wildlife: 0.26 + 0.40*1.2 = 0.74.
-    check('win rate matches the declared curve', Math.abs(wins / 2000 - 0.74) < 0.04,
-      `${((wins / 2000) * 100).toFixed(1)}% against 74.0%`);
-    // The ceiling is reachable; the 0.12 floor is a guard the curve never reaches, because
-    // `advantage` is itself floored at 0.1 so the worst possible chance is 0.26 + 0.04 = 0.30.
-    // Asserted as it really behaves rather than as the clamp reads: a hopeless matchup still
-    // wins three times in ten, which is a balance fact worth pinning, and a test that only
-    // restates the clamp expression proves nothing.
-    let lo = 1, hi = 0;
-    for (const lead of [1, 2, 5, 20, 100]) {
-      for (const wild of [1, 5, 20, 100]) {
-        const p = resolveBattle(SEED, 0, lead, wild).winChance;
-        lo = Math.min(lo, p); hi = Math.max(hi, p);
-      }
-    }
-    check('the win curve stays inside its clamp, and reaches the ceiling',
-      lo >= 0.12 && hi === 0.95 && Math.abs(lo - 0.30) < 0.001,
-      `observed ${lo.toFixed(3)}-${hi.toFixed(3)} inside 0.12-0.95`);
-  }
+  // RETIRED with `resolveBattle` (DECISIONS #67). What this checked — that a battle resolves
+  // the same way twice, that `hpFraction` is a real fraction, and that the win curve stays
+  // inside its clamp — was a property of an eleven-line coin flip that no longer exists. The
+  // equivalents now live in `src/battle/selftest.js`: a golden transcript at seed 1337, a
+  // 300-matchup sweep asserting every fight is reproducible and has a loser, and PP that never
+  // goes negative. Deleting it rather than leaving it green against dead code is the point:
+  // a check that passes against a path nothing calls is worse than no check.
 
   // --- 16 catch rolls -------------------------------------------------------------
   {

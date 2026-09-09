@@ -47,7 +47,7 @@
 import { makeBallSprite } from './ball.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
-  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, resolveBattle, catchRoll,
+  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
   shakesFor, rewardsFor,
 } from './rolls.js';
 import {
@@ -533,13 +533,163 @@ export default {
      * `attempt()` from inside the emit, so `active` has to be set *before* the bus sees the
      * event or the automation's throw would find nothing to throw at.
      */
+    /**
+     * The occupied slot the head has just walked up to, or `null`.
+     *
+     * Chebyshev, and the reach is the distance a slot is authored at — 2 (§5.14). The
+     * tether's ±1 drift is what makes the meeting read as a creature noticing the party; it is
+     * not extra reach, and treating it as such left the trigger silent.
+     */
+    /** One warning per wipe, not one per step. */
+    let faintedWarned = false;
+
+    /**
+     * The most sim steps one `advance()` call may run.
+     *
+     * The whole animation is `APPEAR + READY + THROW + SUCK + 5*SHAKE + RESULT + LINGER`, well
+     * under two hundred; a thousand is room for any future beat and still a number a wedged
+     * page cannot hide behind.
+     */
+    const MAX_ADVANCE = 1000;
+
+    function slotNear(cx, cz) {
+      const hunts = ctx.get('hunts');
+      if (!isLive(hunts) || typeof hunts.slots !== 'function') return null;
+      // Nothing to fight with: a party that is entirely fainted walks past its wildlife
+      // rather than losing to it twenty-three times in a row, which is what it did before
+      // this guard existed (DECISIONS #67).
+      const pokemon = ctx.get('pokemon');
+      if (isLive(pokemon) && typeof pokemon.firstConscious === 'function' && !pokemon.firstConscious()) return null;
+      const reach = Math.max(0, Number(config.slotEngageTiles ?? 2));
+      for (const s2 of hunts.slots()) {
+        if (!s2.occupied) continue;
+        if (Math.max(Math.abs(s2.cx - cx), Math.abs(s2.cz - cz)) <= reach) return s2;
+      }
+      return null;
+    }
+
+    /**
+     * Starts the fight with whatever is standing on a slot.
+     *
+     * `hunts.takeSlot` hands the creature over **and takes its sprite off the map**, so the
+     * wild that walks out is the one that was standing there rather than a second copy beside
+     * it — and the slot is then scheduled to refill, which is what makes it a respawn point.
+     *
+     * The level, the shiny roll and the IVs still come from `rollAt(index)`: the slot decides
+     * *which species* and *where*, and the index space decides everything else, so a hunt
+     * replayed offline meets the same creature it met live (DECISIONS #35(a)).
+     */
+    function engage(slot) {
+      const hunts = ctx.get('hunts');
+      const taken = isLive(hunts) && typeof hunts.takeSlot === 'function' ? hunts.takeSlot(slot.k) : null;
+      if (!taken) return null;
+      const index = encounters++;
+      const enc = rollIndex(index);
+      if (!enc) return null;
+      // The species is the slot's; everything else is the index's.
+      const species = taken.species;
+      const merged = {
+        ...enc,
+        species: species.name,
+        display: species.display ?? species.name,
+        sheet: species,
+        shiny: enc.shiny || !!taken.shiny,
+        catchRate: authoredCatchRate(species.name) ?? catchRateFor(species.bst) ?? enc.catchRate,
+        slot: slot.k,
+      };
+      return begin(merged);
+    }
+
+    /**
+     * The fight itself, run by `battle` (§5.17).
+     *
+     * This replaces `rolls.resolveBattle` — eleven lines that compared two levels and rolled a
+     * coin — with a real turn engine: four moves with PP, the type chart, criticals, statuses
+     * and stat stages (DECISIONS #67). The engine is pure and index-addressed, so the same
+     * `(seed, index)` gives the same fight live, backgrounded and on a closed-tab replay.
+     *
+     * Degrades rather than throws. A quarantined `battle` costs the game its combat, not its
+     * encounters: the wild appears, the exchange is a walkover for whoever has the higher
+     * level, and the module's own animation and catch flow are untouched.
+     */
+    function fight(lead, enc, { apply = true } = {}) {
+      const bt = ctx.get('battle');
+      const pokemon = ctx.get('pokemon');
+      if (!isLive(bt) || typeof bt.resolve !== 'function' || !isLive(pokemon)) {
+        const win = (lead?.level ?? topLevel()) >= (enc.level ?? 5);
+        return { win, hpFraction: win ? 0 : 1, turns: 0, transcript: [], engine: false };
+      }
+      const wildSpecies = enc.sheet ?? pokemon.species(enc.species);
+      if (!lead || !wildSpecies) {
+        return { win: false, hpFraction: 1, turns: 0, transcript: [], engine: false };
+      }
+
+      const ally = bt.makeCombatant({
+        species: lead.species, level: lead.level, ivs: lead.ivs, shiny: lead.shiny,
+        // The party's REAL moves, PP and current HP — a fight that started from full health
+        // every time would make the per-lap heal (§5.7) and the whole idea of attrition
+        // meaningless.
+        moves: lead.moves?.length ? lead.moves.map((m) => ({ ...m })) : undefined,
+        hp: lead.hp, status: lead.status, instanceId: lead.instanceId,
+      });
+      const wild = bt.makeCombatant({
+        species: wildSpecies, level: enc.level, ivs: enc.ivs, shiny: enc.shiny,
+      });
+
+      // **`apply` is what keeps `autoResolve` a pure probe** (§5.6 has always called it "a
+      // pure function of state and seed"). `encounter/showcase.js findIndex` runs it up to
+      // four hundred times to search the index space for an encounter worth photographing;
+      // with the writeback and the bus emits on, that scan hospitalised the party and flooded
+      // the spy ring, and the showcase then hung waiting for a `begin()` that refused because
+      // nothing was conscious. A probe reads the world; it does not change it.
+      if (apply) {
+        bus.emit('battle:started', {
+          index: enc.index, ally: ally.species, wild: wild.species, level: enc.level,
+          moves: ally.moves.map((m) => m.id),
+        });
+      }
+
+      const out = bt.resolve(ally, wild, seed, enc.index);
+      const win = out.winner === 'a';
+
+      // What the fight cost, applied through `pokemon`'s published API. The ledger of HP and
+      // PP belongs to the creature's owner, not to the module that staged the encounter.
+      if (apply && typeof pokemon.damage === 'function' && lead.instanceId) {
+        const lost = Math.max(0, ally.maxHp - out.a.hp) - Math.max(0, ally.maxHp - (lead.hp ?? ally.maxHp));
+        if (lost > 0) pokemon.damage(lead.instanceId, lost);
+      }
+      if (apply && Array.isArray(lead.moves)) {
+        for (const slot of lead.moves) {
+          const spent = out.a.moves.find((m) => m.id === slot.id);
+          if (spent) slot.pp = Math.max(0, Math.min(slot.pp, spent.pp));
+        }
+      }
+
+      if (apply) {
+        bus.emit('battle:ended', {
+          index: enc.index, won: win, turns: out.turns, hpFraction: out.hpFraction,
+          allyHp: out.a.hp, allyMaxHp: out.a.maxHp, stalled: out.stalled,
+        });
+      }
+
+      return {
+        win, hpFraction: out.hpFraction, turns: out.turns,
+        transcript: out.transcript, engine: true, allyHp: out.a.hp,
+      };
+    }
+
     function begin(enc) {
       if (!enc) return null;
+      // **Nothing to fight with, nothing to fight.** The slot trigger already checks this, but
+      // the tall-grass path did not — and a wiped party kept starting encounters and losing
+      // them, thirty-six in a row, one turn each (DECISIONS #67).
+      const roster = ctx.get('pokemon');
+      if (isLive(roster) && typeof roster.firstConscious === 'function' && !roster.firstConscious()) return null;
       if (active) flee();
       endScene();
 
       const lead = leadOf();
-      const battle = resolveBattle(seed, enc.index, lead?.level ?? topLevel(), enc.level);
+      const battle = fight(lead, enc);
       active = {
         ...enc,
         battle,
@@ -572,12 +722,18 @@ export default {
         return id;
       });
 
+      // The party stops to fight. It keeps its place in the loop, so the lap continues from
+      // where it was interrupted rather than starting again.
+      const walker = ctx.get('simulation');
+      if (isLive(walker) && typeof walker.pause === 'function' && !config.showcase) walker.pause(true);
+
       bus.emit('encounter:started', {
         species: active.species, level: active.level, shiny: active.shiny, biome: active.biome,
         // Extras beyond §4's fixed four. `collection` reads none of them and everything
         // ignores what it does not know, but the bus spy is the screenshot log's only record
         // of what happened and an index it cannot see is an index nobody can replay.
         index: active.index, tod: active.tod, ivs: active.ivs, catchRate: active.catchRate,
+        slot: Number.isFinite(active.slot) ? active.slot : null,
       });
 
       /**
@@ -609,6 +765,13 @@ export default {
      * on `last()`.
      */
     function attempt(ball = null) {
+      // **A ball is illegal until the wild is beaten** (§5.6, DECISIONS #67). It used to be
+      // legal on turn one because a battle was a coin flip resolved before the animation
+      // started; now the exchange is a real fight and a Pokemon that just won it is the one
+      // you get to throw at. `automation` moved onto `battle:ended` for this reason — a
+      // subscription still firing on `encounter:started` would get `false` forever and its
+      // auto-catch would die with no console error at all.
+      if (active && active.battle && active.battle.win === false) return false;
       if (!active) return false;
       const economy = ctx.get('economy');
       if (!isLive(economy)) { log.warn('encounter: economy is down, so no ball can be thrown'); return false; }
@@ -721,6 +884,41 @@ export default {
       const economy = ctx.get('economy');
       if (isLive(economy) && rewards.money > 0) economy.add?.('money', rewards.money, 'battle');
 
+      // **The experience a won fight is worth, finally paid to the Pokemon that won it.**
+      // `source: 'hunt'` is what lets the evolution it may unlock be taken at all — the rule
+      // lives at one point, in `pokemon.grantExp` (§0, DECISIONS #62).
+      const pokemon = ctx.get('pokemon');
+      const bt = ctx.get('battle');
+      if (win && isLive(pokemon) && typeof pokemon.grantPartyExp === 'function') {
+        const wild = enc.sheet ?? pokemon.species?.(enc.species);
+        const gained = isLive(bt) && typeof bt.expYield === 'function' && wild
+          ? bt.expYield(wild.baseExp, enc.level)
+          : Math.max(1, Math.round((enc.level ?? 5) * 6));
+        pokemon.grantPartyExp(gained, { source: 'hunt' });
+      }
+
+      // **A fainted lead steps aside.** Without this the party kept sending a 0 HP Oshawott
+      // out and lost twenty-three fights in a row, each in one turn. The full heal rule — a
+      // potion below a threshold, and a partial heal per completed lap — is phase 6; this is
+      // the floor that keeps the loop from degenerating in the meantime.
+      if (isLive(pokemon) && typeof pokemon.party === 'function') {
+        const party = pokemon.party();
+        if (party[0] && party[0].hp <= 0) {
+          const next = party.findIndex((m) => m.hp > 0);
+          if (next > 0) pokemon.setLead(next);
+          else if (!faintedWarned) {
+            faintedWarned = true;
+            log.warn('encounter: the whole party is fainted — no more slots will be engaged');
+            bus.emit('ui:toast', { text: 'Your party is out cold — visit the Pokémon Center', kind: 'warn' });
+          }
+        } else faintedWarned = false;
+      }
+
+      // The walk resumes wherever it stopped. `pause` and not `halt`, so a scripted loop keeps
+      // its place in the circuit rather than restarting it (§5.4).
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.pause === 'function') sim.pause(false);
+
       bus.emit('encounter:resolved', {
         outcome, species: enc.species, rewards,
         caught: !!caught, ball, level: enc.level, shiny: enc.shiny,
@@ -757,8 +955,17 @@ export default {
      * That is the entire reason the event exists, and this is its only consumer.
      */
     const off = [
-      bus.on('player:enteredTile', ({ tags }) => {
+      bus.on('player:enteredTile', ({ cx, cz, tags }) => {
         if (!armed || frozen || active || scene) return;
+
+        // **A hunt meets its wildlife where the wildlife is standing.** A scene walking a
+        // closed loop has fixed spawn slots two cells off the path (§5.14), and coming within
+        // `slotEngageTiles` of an occupied one is the encounter — no roll, no grass, and the
+        // same creature every lap until it is beaten. A walkable map the player drives keeps
+        // the tall-grass step roll it has always had (DECISIONS #67).
+        const slot = slotNear(cx, cz);
+        if (slot) { engage(slot); return; }
+
         if (!Array.isArray(tags)) return;
         if (!tags.includes('tallgrass') && !tags.includes('encounter')) return;
         const enc = roll();
@@ -791,14 +998,20 @@ export default {
        */
       autoResolve(enc, lead = null) {
         if (!enc) return { outcome: 'flee', species: null, rewards: { money: 0, exp: 0 } };
-        const leadLevel = Number.isFinite(lead) ? lead : (lead?.level ?? leadOf()?.level ?? topLevel());
         const index = Number.isFinite(enc.index) ? enc.index : encounters;
-        const battle = resolveBattle(seed, index, leadLevel, enc.level ?? 5);
+        // The SAME engine the visible fight runs, so a battle resolved with nobody watching is
+        // the battle that would have been watched (DECISIONS #67). `fight` degrades to a level
+        // comparison when `battle` is quarantined, which is the only place the old
+        // `resolveBattle` shape survives — and it survives as a fallback, not as a second
+        // model of combat.
+        const who = Number.isFinite(lead) ? { level: lead } : (lead ?? leadOf());
+        const battle = fight(who, { ...enc, index, level: enc.level ?? 5 }, { apply: false });
         return {
-          outcome: battle.outcome,
+          outcome: battle.win ? 'win' : 'flee',
           species: enc.species ?? null,
           rewards: rewardsFor(enc.level ?? 5, { win: battle.win, caught: false, shiny: !!enc.shiny }),
           hpFraction: battle.hpFraction,
+          turns: battle.turns,
           index,
         };
       },
@@ -879,7 +1092,27 @@ export default {
       freeze(on = true) { frozen = !!on; return api; },
       frozen: () => frozen,
       /** Advances the timeline by `n` sim steps whatever `frozen` says. */
-      advance(n = 1) { for (let i = 0; i < n; i++) advanceScene(); return api.scene(); },
+      /**
+       * Steps the animation `n` sim steps.
+       *
+       * **Clamped, and that is not defensive tidiness.** `marks()` returns `Infinity` for a
+       * throw that was never queued, so `advanceToStage('capture')` on an encounter nobody
+       * threw at computes an infinite target — and this loop then wedged the browser's main
+       * thread so completely that even a CDP evaluate timed out. It was reachable before
+       * DECISIONS #67 and unreachable in practice, because `attempt()` always queued; now that
+       * a ball is illegal until the wild is beaten, a lost battle reaches it every time.
+       */
+      advance(n = 1) {
+        const want = Number(n);
+        if (!Number.isFinite(want) || want < 0) {
+          log.warn(`encounter: advance(${n}) is not a number of steps — ignored`);
+          return api.scene();
+        }
+        const steps = Math.min(want, MAX_ADVANCE);
+        if (steps < want) log.warn(`encounter: advance(${want}) clamped to ${MAX_ADVANCE}`);
+        for (let i = 0; i < steps; i++) advanceScene();
+        return api.scene();
+      },
       /**
        * Advances to a named stage, `frac` of the way through it.
        *
@@ -903,6 +1136,13 @@ export default {
                   : stage === 'shake' ? m.suck + f * shakeSpan
                     : stage === 'result' ? m.shakeEnd + f * T.RESULT
                       : m.resultEnd + f * T.LINGER);
+        if (!Number.isFinite(target)) {
+          // The throw never happened — on a lost battle it cannot — so there is no `capture`,
+          // `shake` or `result` beat to advance to. Saying so is better than advancing by
+          // infinity, which is what this did.
+          log.warn(`encounter: stage "${stage}" has no beat in this scene (nothing was thrown)`);
+          return api.scene();
+        }
         return api.advance(Math.max(0, target - scene.step));
       },
       /** Rewinds the counters, so a showcase can stage index N without walking to it. */
@@ -911,7 +1151,19 @@ export default {
         if (Number.isFinite(e)) encounters = Math.max(0, Math.floor(e));
         return api.progress();
       },
-      cancel() { active = null; endScene(); },
+      cancel() {
+        active = null;
+        endScene();
+        const sim = ctx.get('simulation');
+        if (isLive(sim) && typeof sim.pause === 'function') sim.pause(false);
+      },
+
+      /** The occupied slot the head is next to, or null. The panel and the selftest read it. */
+      slotsNear: (cx, cz) => slotNear(cx, cz),
+      /** Starts a fight with whatever is on a slot. Returns the encounter, or null. */
+      engage: (slot) => (slot ? engage(slot) : null),
+      /** The last fight's turn-by-turn transcript, for a battle panel to replay. */
+      transcript: () => (last?.battle?.transcript ?? []).map((e) => ({ ...e })),
 
       // --- persistence (§5, the native seam) --------------------------------
       saveState: () => ({ v: SAVE_VERSION, steps, encounters, ball: ballId }),

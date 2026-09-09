@@ -686,10 +686,27 @@ export default {
       bus.on('offline:applied', (p) => { if (p?.gains) absorb(p.gains, 'offline'); }),
 
       // The foreground path: a real encounter, where a real ball is really thrown.
-      bus.on('encounter:started', (p) => {
+      /**
+       * **`battle:ended`, not `encounter:started`** (DECISIONS #67).
+       *
+       * This used to throw from inside the `encounter:started` emit, on turn one, because a
+       * battle was a coin flip already resolved before the animation began. It is a real
+       * fight now and a ball is illegal until the wild is beaten — so a subscription still
+       * listening on `encounter:started` would call `attempt()`, get `false` forever, and
+       * auto-catch would die **with no console error and no failing check**: the pure ball
+       * optimiser this module's selftest exercises would keep answering perfectly.
+       */
+      bus.on('battle:ended', (b2) => {
+        if (!b2?.won) return;
         if (!engine.isActive('catch') || paused('catch')) return;
+        const mod0 = mod('encounter');
+        const p = typeof mod0.active === 'function' ? mod0.active() : null;
+        if (!p) return;
         const subject = wildSubject({
-          species: p?.species, level: p?.level, shiny: p?.shiny, hpFraction: 1, turn: 1,
+          species: p?.species, level: p?.level, shiny: p?.shiny,
+          // The HP the fight actually left it on, not an assumption.
+          hpFraction: Number.isFinite(b2.hpFraction) ? b2.hpFraction : 1,
+          turn: 1,
         });
         const decision = engine.compiled('catch').evaluate(wildFacts(subject, world()));
         if (decision.action !== 'catch') {

@@ -162,6 +162,30 @@ export const DEFAULTS = {
   loopCorners: 12,
   /** How far one bend may push a run sideways, in cells. */
   loopDepth: 3,
+
+  /**
+   * How close the walking head has to come to an occupied spawn slot to start a fight.
+   *
+   * **Two, because that is where a slot IS.** `hunts` authors every slot at Chebyshev 2 from
+   * the circuit (§5.14), so a reach of one can never fire from a cell on the path — measured:
+   * 23 encounters over four laps and every one of them came from tall grass, with the
+   * proximity trigger silent the whole time. The tether's ±1 drift is what makes the meeting
+   * read as a creature noticing the party rather than as a tripwire; it is not extra reach.
+   *
+   * Three would engage a slot from the far side of the path. Zero would need the party to
+   * stand on a cell a tethered wild is already standing on.
+   */
+  slotEngageTiles: 2,
+
+  /**
+   * How much of its maximum HP the party gets back for completing one lap of a hunt.
+   *
+   * Per LAP and not per second, because that is what survives being chunked: `offline` applies
+   * a gap in one call and `idle` drains it in slices, and a heal counted in whole laps lands
+   * identically either way. Without it one lost fight ends the session — the lead faints, the
+   * next member steps up, and a wiped party walks its circuit forever meeting nothing.
+   */
+  lapHealFraction: 0.34,
   /**
    * Tiles between one walker in the conga line and the next.
    *

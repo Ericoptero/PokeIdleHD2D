@@ -1,6 +1,6 @@
 {
- "updatedMs": 1788986115727,
- "wave": "REFACTOR phases 0-3 of 7 complete (DECISIONS #61-#65). A hunt is now a closed loop walked past fixed spawn slots. The encounter trigger has NOT moved yet — that is phase 4.",
+ "updatedMs": 1788987776191,
+ "wave": "REFACTOR phases 0-4 of 7 complete (DECISIONS #61-#67). The hunt loop is the game now: a closed circuit past fixed slots, real turn-based battles, XP, evolution and respawns. The economy is next and the balance is knowingly wrong until it lands.",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
@@ -196,11 +196,15 @@
    "selftest": "56/56"
   },
   "encounter": {
-   "round": 3,
+   "round": 2,
    "score": 7,
-   "status": "round 3 done: the module's beats are on screen instead of in the readout. NOT re-scored — no critic has run since the round-1 6/10. Round 3 answered the whole-game critic (\"there is no encounter on screen at all\") rather than this module's own list: the era's \"!\" bubble over the wild, a rustle beat before the reveal drawn with leaf particles, the game's own message box via ui.say(), k=3 framing on every picture mode, a new mode=approach and mode=table, and the default mode moved from throw to reveal. See DECISIONS #51.",
+   "status": "round 2: the switchover (DECISIONS #67). Not re-scored — no critic since r1 7.",
    "errors": 0,
    "openIssues": [
+    "[ENCOUNTER] `advance(n)` is clamped at 1000 steps and `advanceToStage` refuses a non-finite target. Both are guards against a real wedge, not tidiness — but the underlying shape is still that `marks()` reports Infinity for a beat that does not exist, and every caller has to know that.",
+    "[ENCOUNTER] THE BALANCE IS WRONG AND IT IS THE TOP ITEM. The party wins 3 of 60 at level 5-6 in the forest. The cause is legible: a level-5 Oshawott whole moveset is Tackle (40 power, no STAB) and a level-7 Combee has Bug Bite (60). It improves with levels — an earlier run reached 10-11 and won 13 of 51 — but a starter should not lose to route wildlife nineteen times in twenty. Phase 5/6 owns it; tuning it here without the economy that pays for it would be guesswork done twice.",
+    "[ENCOUNTER] NOTHING THROWS A BALL YET on the slot path. auto-catch is gated on dexCaught:5 and there is no hand-throw binding until phase 7, so a won fight currently produces experience and nothing else. The pity ledger and the drop table are phase 5.",
+    "[ENCOUNTER] The fight is resolved at `begin` and the animation plays over the top of it. The transcript is on `encounter.transcript()` and nothing draws it — a battle panel replaying it turn by turn is phase 7.",
     "[FIXED r3, root cause was not the one filed] [15] THE REVEAL DOES NOT READ AS A REVEAL. Filed as a freeze fraction; it was a rewind bug. encounter.advanceToStage computes an ABSOLUTE target and advances by max(0, target - step), so showcase.js's unconditional pre-roll to ('appear', 1) parked the scene at the END of the appear beat and every later request for a step inside it advanced by zero. mode=reveal asked for 0.5 of the beat and got 14 of 14 — the settled frame. The round-2 shot prints its own evidence: f02-reveal-morning.png says `animation appear @ step 14`. The pre-roll is now guarded by `if (stop.throw)`, which is the only case that needs it.",
     "[FIXED r3] THE WILD WAS INDISTINGUISHABLE FROM THE PARTY. Five same-sized sprites in the same grass with no mark on any of them. ball.js now draws the era's own signal — docs/refs/01 is a trainer, a Pokemon and one white balloon with a red '!' — on the same 16-texel grid as the ball, hung over the wild from the moment it breaks cover until the ball leaves the hand. Measured on r3/reveal.png: balloon paper 111x126 px, wild 138x126, 34 px apart horizontally, which is the 45-degree camera's lean on anything lifted 2.1 units, not a placement error.",
     "[FIXED r3] THERE WAS NO BEAT IN WHICH THE GRASS REACTED AND NOTHING HAD APPEARED. T.APPEAR 14 -> 20 with T.RUSTLE = 0.4 of it: for eight steps the wild is not drawn at all and only the disturbance is. mode=approach freezes at 0.3 (inside it), mode=reveal at 0.7 (the apex of the burst). Five beats, five modes: approach, reveal, throw, shake, caught/escaped.",
@@ -219,14 +223,7 @@
     "[NOT ENCOUNTER-OWNED — for `ui`] IN THE LIVE GAME NOBODY CAN THROW. `ui` has no key bound to a ball, and `automation` is off by default (ARCHITECTURE 5.11), so at `/` a player walks into grass, sees the rustle, the wild rise, the '!' and the \"A wild X appeared!\" toast — and then T.LEAVE fires and it goes. Everything needed is already published: `encounter.active()`, `encounter.bestBall()` and `encounter.attempt(ballId) -> boolean`. One key in ui/input.js gated on `encounter.scene()?.stage === 'ready'` closes the loop. Filed here rather than as a coreRequest because it is a module's job, not core's."
    ],
    "lastShots": [
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/approach.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/reveal.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/throw.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/shake.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/caught.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/escaped.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/shiny.png",
-    "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/night.png"
+    "docs/progress/hunts/r6/forest_battle.png"
    ],
    "measured": {
     "at": "12 shots at 1920x1080 plus one at 1600x900, tod 8 / 12 / 17.5 / 21.5, modes approach reveal throw shake caught escaped shiny night walk balls table",
@@ -251,7 +248,8 @@
     },
     "evidenceCrops": "docs/progress/encounter/r3/crops/ — leaf-outlined-3x.png and leaf-shipped-3x.png (the mirrored-normal finding), ball-airborne-shadow-3x.png (the contact shadow under the arc), ball-resting-on-cover-2x.png (the ball clear of the blades)"
    },
-   "pass": false
+   "pass": false,
+   "selftest": "31/31"
   },
   "idle": {
    "round": 1,
@@ -1143,7 +1141,7 @@
   "honestSummary": "No module passes the 8.5 bar and no critic passes. The game is real and runs clean — a populated town with authored buildings and lamps, four biomes, a walking party, an idle system proven to accrue in a backgrounded tab, 1253 Gen 1-9 species with sprites, and a UI you can play through — but it is scored at roughly 7/10 against Gamma Emerald, not 8.5, and blind judges pick the reference 5 times out of 7."
  },
  "refactor": {
-  "decision": "61 + 62 + 63 + 64 + 65 + 66",
+  "decision": "61 + 62 + 63 + 64 + 65 + 66 + 67",
   "plan": "a hunt is a closed loop past fixed spawn slots; proximity starts a real turn-based battle; a defeated wild is thrown at with a per-species pity floor; money is earned by selling, never accrued; and evolution is a button that costs a level plus a pile of drops",
   "phases": [
    {
@@ -1173,13 +1171,13 @@
    {
     "n": 4,
     "name": "the switchover",
-    "state": "next",
+    "state": "done",
     "delivers": "proximity trigger, slot NPC becomes the combatant, battle.resolve replaces resolveBattle, automation onto battle:ended"
    },
    {
     "n": 5,
     "name": "drops, price, pity",
-    "state": "todo",
+    "state": "next",
     "delivers": "encounter/drops.js, economy/pricing.js + pity.js — money gets a source before the faucet is cut"
    },
    {
@@ -1311,6 +1309,21 @@
    "fourthBug": "A bent ring must OPEN on a straight — #65(c) arriving from the other end. The coast at 12 corners started one cell before a turn, put the head off the path, and spent 690 of 800 ticks away from its own loop while audit() called the loop clean, BECAUSE IT WAS. rotateToStraight begins the ring at its longest straight and straightLead is config.followerGapTiles + 2.",
    "tradeoff": "A bent circuit has fewer cells at Chebyshev exactly 2, so slots thin as corners rise: forest 9 at four corners, 6 at twelve, 5 at twenty. Twelve is the default because the trail preference has clearly kicked in and the slot count is still most of the WILD_CAP budget.",
    "selftest": "hunts 358/358 (five new)"
+  },
+  "phase4Measured": {
+   "delivers": "proximity trigger on spawn slots; hunts.takeSlot hands the creature over and removes its NPC; seeded slot respawns; battle.resolve replaces rolls.resolveBattle everywhere including autoResolve; XP and HP written back through pokemon; attempt() refuses until the wild is beaten; automation moved onto battle:ended; simulation.pause during a fight; per-lap partial heal",
+   "loop": "Forest, 60 encounters over 19 laps: 46 FROM SLOTS, 60 battles fought and resolved, 43 slot respawns, 3297 of 9000 ticks paused for a fight, party levelled 5 -> 6, zero console errors.",
+   "reachBug": "The trigger reach was set to 1 and reasoned about in the comment — true of the CREATURE (which drifts to 1) and false of the SLOT (which is at 2), and slotNear measures the slot. 23 encounters over four laps and EVERY ONE came from tall grass with the proximity trigger silent. At 2: 46 of 60 from slots.",
+   "determinism": "resolveBattle DELETED, not left exported. encounter/selftest.js drops the battle/12 clause and retires check 15. THE THREE SURVIVING STREAM PINS DID NOT MOVE and all four rollAt goldens still pass — that is the evidence the index space survived the switchover. 31/31.",
+   "faintFloors": "A wiped party fought on forever: 36 consecutive losses, one turn each. Three floors now — begin() refuses with nothing conscious, a fainted lead steps aside, and a completed lap restores config.lapHealFraction (0.34). Per LAP because that is what survives chunking.",
+   "respawnClock": "Respawns were timed off clock.simTime, which advances in clock.beginFrame — not in registry.tick, which is what drives them. A slot emptied under the harness never came back. hunts accumulates its own seconds from its own tick.",
+   "testArtifacts": "Two of the three faults in the first run were the TEST: simulation.advanceSteps is that module own showcase tool and never ticks the registry, and a 9000-iteration synchronous loop never yields so the respawn prepare().then() could not land before the assertions read the slots.",
+   "shots": [
+    "docs/progress/hunts/r6/forest_battle.png",
+    "docs/progress/hunts/r6/cave_battle.png"
+   ],
+   "wedgedThePage": "The regression gate caught it: encounter/12 went \"ok -> capture failed\" and four of the nine encounter showcase modes hung so hard that a CDP evaluate timed out. `marks()` returns Infinity for a throw that was never queued, so advanceToStage(\"capture\") computed an infinite target and `advance(n)` looped on it — a latent landmine since the module was written, unreachable while attempt() always queued, and reachable on EVERY lost battle now that a ball is illegal before a win. advance() is clamped to MAX_ADVANCE and advanceToStage refuses a non-finite target with a warning; the showcase scan skips encounters the party loses, because a mode that freezes at the capture beat needs a beat that exists.",
+   "pureProbe": "autoResolve is documented as \"a pure function of state and seed\" and my first cut made it mutate: encounter/showcase.js findIndex runs it up to 400 times to search for a photogenic encounter, and with the HP writeback and bus emits on, that scan hospitalised the party and flooded the spy ring. fight() takes { apply } now — false from autoResolve."
   }
  }
 }

@@ -6366,3 +6366,85 @@ them; every circuit opens on a straight long enough for the queue; bending does 
 (92 → 112 cells at 24 corners); and four corners really is a plain rectangle. Live, all four
 biomes at three settings: audits clean, 100 % coverage, 0 ticks off-loop. Eight captures in
 `docs/progress/hunts/r6/` at 0 console errors and 0 hunt warnings.
+
+---
+
+### 67 — 2026-09-09 — The switchover: a hunt meets its wildlife where the wildlife is standing, and the fight is a real one
+
+Phase 4 of the refactor (DECISIONS #61), and the one the plan called the riskiest. Three things
+change at once and each was measured before and after.
+
+**(a) The trigger moved from a tile to a slot.** A scene walking a closed loop engages when the
+head comes within `config.slotEngageTiles` of an occupied spawn slot. A walkable map the player
+drives keeps the tall-grass step roll it has always had — the two triggers coexist because the
+two *places* are played differently (§0).
+
+**Two, because that is where a slot IS.** The first cut set the reach to 1 and reasoned about it
+in the comment: "a slot is at Chebyshev 2 and the creature on it drifts one tile, so a reach of
+one is contact." That is true of the *creature* and false of the *slot*, and `slotNear` measures
+the slot. Measured: **23 encounters over four laps and every single one came from tall grass**,
+with the proximity trigger silent throughout. At 2 the same run gives **46 of 60 from slots**.
+
+**(b) The wild that fights is the one that was standing there.** `hunts.takeSlot(k)` hands the
+creature over and removes its NPC, so there is never a second copy beside the first, and the slot
+goes on a refill timer. The species is the slot's; the level, the shiny roll and the six IVs stay
+`rollAt(index)`'s, so the index space — and with it the offline replay — is untouched. Respawns
+roll from `root/hunts/slot/<biome>/<k>/<generation>`, addressed by the slot and how many times it
+has refilled, so a respawn is a property of the seed rather than of when the player walked past.
+
+**(c) `rolls.resolveBattle` is deleted.** Eleven lines comparing two levels and rolling a coin,
+replaced by `src/battle/`'s turn engine — four moves with PP, the type chart, criticals, statuses,
+stat stages — and the same `resolve()` now serves the visible fight *and* `autoResolve`, so a
+battle nobody watched is the battle that would have been watched. HP lost and PP spent are written
+back through `pokemon`'s published API; a won fight pays `grantPartyExp(…, { source: 'hunt' })`,
+which is what makes the evolution it may unlock takeable at all (#62).
+
+Deleted rather than left exported: a pure function nothing calls is a second model of combat
+sitting beside the real one, and the next person to want a battle outcome would find two.
+`encounter/selftest.js` drops the `battle/12` clause from its stream pin and retires check 15 with
+a note saying where the equivalents went. **The three surviving pins did not move, and that is the
+evidence the index space survived the switchover** — as did all four `rollAt` goldens.
+
+**`battle` is reached through `ctx.get`, not `needs`.** A quarantined engine must cost the game
+its combat, not its encounters: in `needs` it would block this module, and blocking this module
+blocks the hunt.
+
+**(d) `attempt()` refuses until the wild is beaten, and `automation` had to move with it.** A ball
+was legal on turn one because a battle was already decided before the animation started. It is a
+real fight now. `automation` threw synchronously from inside the `encounter:started` emit
+(#35(f)); left there it would have called `attempt()`, got `false` forever, and auto-catch would
+have died **with no console error and no failing check** — its selftest exercises the pure ball
+optimiser, which would have kept answering perfectly. It listens on `battle:ended` now and reads
+the HP the fight actually left, rather than assuming full.
+
+**Three things that only showed up by running laps.**
+
+1. **A wiped party fought on forever.** The lead fainted, nothing healed it, and it lost every
+   subsequent fight in one turn — thirty-six in a row. Three floors now: `begin` refuses when
+   nothing in the party is conscious, a fainted lead steps aside for one that is, and **a
+   completed lap restores `config.lapHealFraction` (0.34) of everyone's maximum HP**. Per lap and
+   not per second, because that is what survives being chunked — `offline` applies a gap in one
+   call and `idle` drains it in slices, and a heal counted in whole laps lands identically either
+   way. The full rule (a potion below a threshold, and the Pokémon Center) is phase 6.
+2. **Respawns never fired.** They were timed off `clock.simTime`, and the clock advances in
+   `clock.beginFrame` — which `registry.tick`, the thing that drives this, does not touch. A slot
+   emptied under the screenshot harness or a stepped sim never came back. `hunts` accumulates its
+   own seconds from its own `tick` now.
+3. **Two of the three "bugs" in the first test run were the test.** `simulation.advanceSteps` is
+   that module's own showcase tool and never ticks the registry, so nothing else in the game ran;
+   and a 9000-iteration synchronous loop never yields, so the respawn's `prepare().then()` could
+   not land before the assertions read the slots. Both were re-run through `__HOOKS__.step` with
+   periodic yields, which is what a frame does.
+
+**Measured, forest, sixty encounters over nineteen laps:** 46 from slots, 60 battles fought and
+resolved, 43 slot respawns, 3297 of 9000 ticks paused for a fight, party levelled 5 → 6, and
+**zero console errors**. `docs/progress/hunts/r6/forest_battle.png` is the party halted with a
+wild Applin alerting in front of it.
+
+**The balance is wrong and this entry is not going to pretend otherwise.** The party wins **3 of
+60** at level 5-6 in the forest. The cause is legible: a level-5 Oshawott's whole moveset is
+Tackle (40 power, no STAB) and a level-7 Combee has Bug Bite (60). It improves as levels rise —
+an earlier run reached level 10-11 and won 13 of 51 — but a starter should not lose to route
+wildlife nineteen times out of twenty. That is phase 5/6's problem (drops, prices, the accrual
+model) and tuning it here, without the economy that has to pay for it, would be guesswork done
+twice. It is the top open issue on `encounter` rather than a number quietly nudged.

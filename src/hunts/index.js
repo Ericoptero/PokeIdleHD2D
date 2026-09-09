@@ -102,6 +102,8 @@ const loopOptions = (biome, config) => ({
 });
 /** Slots per lap. `WILD_CAP` is the ceiling; a lap wants encounters, not a wall of them. */
 const SLOTS = 9;
+/** Seconds an emptied slot stays empty before something new walks onto it. */
+const RESPAWN_S = 26;
 
 /** How many wild Pokemon a biome stands up, and how they are chosen. */
 const WILD_CAP = 11;          // MAX_NPCS is 32 and `city` uses a dozen of them
@@ -122,6 +124,24 @@ export default {
   init(ctx) {
     const { log, bus } = ctx;
     const terrain = ctx.get('terrain');
+    /**
+     * What is standing on each slot right now, keyed by slot index.
+     *
+     * `encounter` engages a slot by index and this module hands over the creature and takes
+     * its sprite off the map — so the wild that walks out to fight is the one that was
+     * standing there, rather than a second copy of it spawned beside the first.
+     * @type {Map<number, {npcId:number, species:object, shiny:boolean, cx:number, cz:number, dir:number}>}
+     */
+    const occupancy = new Map();
+    /** Slots waiting to be refilled: `{ k, at }` in `clock.simTime` seconds. */
+    const refills = [];
+    /** How many times each slot has refilled — the index its respawn roll is addressed by. */
+    const generations = new Map();
+    /** Seconds of simulated time this module has seen, accumulated from its own `tick`. */
+    let elapsed = 0;
+    /** Landings since the party last completed a lap of the circuit. */
+    let lapSteps = 0;
+
     /** @type {Map<string, object>} what the last build of each map reported. */
     const built = new Map();
     /** Worlds drawn from a tileset that is not the draft's — see the note in `enter`. */
@@ -146,6 +166,30 @@ export default {
       wildIds = [];
     }
     bus.on('world:unloaded', clearWild);
+
+    /**
+     * **A lap is a rest.** Without it one lost fight ends the session: the lead faints, the
+     * next member steps up, and a wiped party walks its circuit forever meeting nothing.
+     *
+     * Per LAP and not per second, because that is what survives being chunked: `offline`
+     * applies a gap in one call and `idle` drains it in slices, and a heal counted in whole
+     * laps lands identically either way (§5.7). The full rule — a potion below a threshold,
+     * and the Pokemon Center — is phase 6; this is the floor.
+     */
+    bus.on('player:enteredTile', () => {
+      const loop = built.get(currentId)?.loop;
+      if (!loop) return;
+      if (++lapSteps < loop.cells.length) return;
+      lapSteps = 0;
+      const pokemon = ctx.get('pokemon');
+      if (!isLive(pokemon) || typeof pokemon.party !== 'function') return;
+      const frac = Math.max(0, Math.min(1, Number(ctx.config.lapHealFraction ?? 0.34)));
+      for (const m of pokemon.party()) {
+        if (!m || m.hp >= m.maxHp) continue;
+        pokemon.heal?.(m.instanceId, { hp: Math.max(1, Math.round(m.maxHp * frac)), status: false });
+      }
+      bus.emit('hunt:lap', { biome: currentId, length: loop.cells.length });
+    });
 
     /**
      * Stands wild Pokemon in the biome's own grass.
@@ -184,6 +228,9 @@ export default {
      */
     async function spawnWild(biome) {
       clearWild();
+      occupancy.clear();
+      refills.length = 0;
+      generations.clear();
       const sim = ctx.get('simulation');
       const pokemon = ctx.get('pokemon');
       if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
@@ -193,9 +240,9 @@ export default {
       // party meets the same wildlife in the same places on every lap — which is what makes a
       // hunt a route rather than a lucky dip. Falls back to the old scatter when a map could
       // not be given a loop, so a biome with no circuit still has animals in it.
-      const cells = built.get(biome.id)?.slots?.length
+      const cells = (built.get(biome.id)?.slots?.length
         ? built.get(biome.id).slots
-        : (built.get(biome.id)?.wild ?? []);
+        : (built.get(biome.id)?.wild ?? [])).map((c, i) => ({ ...c, k: i }));
       if (!cells.length) return 0;
 
       const env = ctx.get('environment');
@@ -226,7 +273,7 @@ export default {
       // seed and the hour rather than of when the shutter opened.
       const shinyAt = rng.next() < 0.35 ? rng.int(0, n - 1) : -1;
       const picked = cells.slice(0, n).map((c, i) => ({
-        ...c, species: roster[i % roster.length], shiny: i === shinyAt,
+        ...c, k: c.k ?? i, species: roster[i % roster.length], shiny: i === shinyAt,
       }));
 
       await pokemon.sprites?.prepare?.(picked.map((p) => ({ species: p.species, shiny: p.shiny })));
@@ -242,7 +289,14 @@ export default {
           // already on the map.
           name: `wild/${biome.id}/${p.cx},${p.cz}`,
         });
-        if (npc) wildIds.push(npc.id);
+        if (npc) {
+          wildIds.push(npc.id);
+          // The slot remembers what is standing on it, so `encounter` can engage it by index
+          // and this module can put something new there when the fight is over.
+          occupancy.set(p.k ?? wildIds.length - 1, {
+            npcId: npc.id, species: p.species, shiny: !!p.shiny, cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
+          });
+        }
       }
       return wildIds.length;
     }
@@ -631,10 +685,107 @@ export default {
       /** The fixed respawn points on it, with whatever is standing on each right now. */
       slots: (id = currentId) => {
         const list = built.get(id ?? 'forest')?.slots ?? [];
-        return list.map((s2, k) => ({ k, cx: s2.cx, cz: s2.cz, dir: s2.dir ?? 0 }));
+        return list.map((s2, k) => {
+          const held = id == null || id === currentId ? occupancy.get(k) : null;
+          return {
+            k, cx: s2.cx, cz: s2.cz, dir: s2.dir ?? 0,
+            occupied: !!held,
+            species: held?.species?.name ?? null,
+            shiny: !!held?.shiny,
+            npcId: held?.npcId ?? 0,
+          };
+        });
+      },
+
+      /**
+       * Hands the creature on slot `k` to whoever asked, and takes its sprite off the map.
+       *
+       * This is what makes a slot a *respawn point* rather than scenery: the wild that walks
+       * out to fight is **the one that was standing there**, not a second copy spawned beside
+       * it. The slot is scheduled to refill on this module's own tick, so the next lap meets
+       * something new in the same place.
+       */
+      takeSlot(k) {
+        const held = occupancy.get(k);
+        if (!held) return null;
+        occupancy.delete(k);
+        const sim = ctx.get('simulation');
+        if (isLive(sim) && typeof sim.removeNpc === 'function') sim.removeNpc(held.npcId);
+        const i = wildIds.indexOf(held.npcId);
+        if (i >= 0) wildIds.splice(i, 1);
+        refills.push({ k, at: elapsed + RESPAWN_S });
+        return { species: held.species, shiny: held.shiny, cx: held.cx, cz: held.cz, k };
+      },
+
+      /** Seconds an emptied slot stays empty. `encounter` times its own beats against it. */
+      respawnSeconds: RESPAWN_S,
+
+      /** Driven by the descriptor's `tick`; not part of the §5.14 surface. */
+      _refill(dt = 0) {
+        // **This module's own accumulator, not `clock.simTime`.** The clock advances in
+        // `clock.beginFrame`, and `registry.tick` — which is what drives this — does not touch
+        // it. Timing a respawn off `simTime` meant a slot emptied under the screenshot
+        // harness or a stepped sim never came back at all (DECISIONS #67).
+        elapsed += Math.max(0, dt);
+        if (!refills.length || !currentId) return;
+        const now = elapsed;
+        const biome = byId(currentId);
+        const list = built.get(currentId)?.slots ?? [];
+        const sim = ctx.get('simulation');
+        const pokemon = ctx.get('pokemon');
+        if (!isLive(sim) || !isLive(pokemon)) return;
+
+        for (let i = refills.length - 1; i >= 0; i--) {
+          if (refills[i].at > now) continue;
+          const { k } = refills.splice(i, 1)[0];
+          const cell = list[k];
+          if (!cell || occupancy.has(k)) continue;
+
+          // Rolled fresh, from a stream addressed by the slot and how many times it has
+          // refilled — so a respawn is reproducible from the seed rather than from when the
+          // player happened to walk past (DECISIONS #67).
+          const gen = (generations.get(k) ?? 0) + 1;
+          generations.set(k, gen);
+          const encounter = ctx.get('encounter');
+          const env = ctx.get('environment');
+          const tod = isLive(env) && typeof env.getTimeOfDay === 'function' ? env.getTimeOfDay() : (ctx.config.tod ?? 12);
+          const table = isLive(encounter) && typeof encounter.tablesFor === 'function'
+            ? (encounter.tablesFor(biome.id, tod) ?? []) : [];
+          if (!table.length) continue;
+          const rng = ctx.rng.fork(`hunts/slot/${biome.id}/${k}/${gen}`);
+          const species = pokemon.species(table[rng.int(0, table.length - 1)]);
+          if (!species) continue;
+          const shiny = rng.next() < 1 / 512;
+
+          // Fire and forget: the atlas may need the sheet and `spawnNpc` is synchronous, so
+          // the sprite is prepared first and the NPC lands a microtask later.
+          Promise.resolve(pokemon.sprites?.prepare?.([{ species, shiny }])).then(() => {
+            if (occupancy.has(k) || currentId !== biome.id) return;
+            const npc = sim.spawnNpc({
+              species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
+              tether: { cx: cell.cx, cz: cell.cz, radius: 1 },
+              name: `wild/${biome.id}/${cell.cx},${cell.cz}/${gen}`,
+            });
+            if (!npc) return;
+            wildIds.push(npc.id);
+            occupancy.set(k, { npcId: npc.id, species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0 });
+            bus.emit('slot:respawned', { biome: biome.id, slot: k, species: species.name, shiny });
+          }).catch(() => {});
+        }
       },
     };
     return api;
+  },
+
+  /**
+   * Refills emptied slots.
+   *
+   * On `tick` and not on a timer, because `clock.simTime` is the only clock gameplay may read
+   * (§2.4) and a slot that refilled on wall time would repopulate a frozen screenshot.
+   */
+  tick(dt, ctx) {
+    const api = ctx.get('hunts');
+    if (typeof api?._refill === 'function') api._refill(dt);
   },
 
   async showcase(mode, ctx) {
