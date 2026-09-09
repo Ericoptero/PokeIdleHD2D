@@ -38,9 +38,9 @@ export function parseRoute(spec) {
  * map that later grew a fence stumbles once instead of wedging the whole game.
  *
  * @param {string|number[]} spec
- * @param {{loop?:boolean, running?:boolean}} [opts]
+ * @param {{loop?:boolean}} [opts]
  */
-export function makeScriptedRoute(spec, { loop = true, running = false } = {}) {
+export function makeScriptedRoute(spec, { loop = true } = {}) {
   const dirs = parseRoute(spec);
   let i = 0;
   return {
@@ -55,7 +55,7 @@ export function makeScriptedRoute(spec, { loop = true, running = false } = {}) {
           i = 0;
         }
         const dir = dirs[i++];
-        if (world.passable(head.cx + DIR_DX[dir], head.cz + DIR_DZ[dir], dir)) return { dir, running };
+        if (world.passable(head.cx + DIR_DX[dir], head.cz + DIR_DZ[dir], dir)) return { dir };
       }
       return null;
     },
@@ -75,7 +75,7 @@ export function makeScriptedRoute(spec, { loop = true, running = false } = {}) {
  * @param {{next:() => number}} rng  a `ctx.rng.fork(label)` stream
  */
 export function makeWander(rng, {
-  straight = 6, side = 1.6, preferTags = ['path'], preferWeight = 3.2, running = false,
+  straight = 6, side = 1.6, preferTags = ['path'], preferWeight = 3.2,
 } = {}) {
   return {
     kind: 'wander',
@@ -100,15 +100,15 @@ export function makeWander(rng, {
       if (total <= 0) {
         const back = opposite(facing);
         return world.passable(head.cx + DIR_DX[back], head.cz + DIR_DZ[back], back)
-          ? { dir: back, running }
+          ? { dir: back }
           : null;
       }
       let r = rng.next() * total;
       for (let i = 0; i < options.length; i++) {
         r -= weights[i];
-        if (r < 0) return { dir: options[i][0], running };
+        if (r < 0) return { dir: options[i][0] };
       }
-      return { dir: options[options.length - 1][0], running };
+      return { dir: options[options.length - 1][0] };
     },
   };
 }

@@ -9,9 +9,12 @@
     :root { color-scheme: dark; }
     html, body { margin: 0; height: 100%; background: #05070c; overflow: hidden;
       font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #e8eef7; }
-    #stage { position: fixed; inset: 0; }
+    /* `overflow: hidden` because the scene canvas overscans by up to `pixelScale - 1` px
+       on each edge, so that the low-res buffer is blown up by a whole number and never by
+       3.002 (src/core/render.js). */
+    #stage { position: fixed; inset: 0; overflow: hidden; }
     #stage canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-    #ui { position: fixed; inset: 0; pointer-events: none; }
+    #ui { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
     #ui > * { pointer-events: auto; }
     #boot { position: fixed; inset: 0; display: grid; place-items: center; background: #05070c;
       transition: opacity .35s ease; z-index: 50; }

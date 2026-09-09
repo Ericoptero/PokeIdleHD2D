@@ -2,10 +2,12 @@
  * simulation showcase — a walk a critic can actually judge.
  *
  * A screenshot cannot show motion, so what a still frame has to prove is *the shape of the
- * queue*: the lead Pokemon at the head, the trainer behind it, the rest of the party behind
- * that, and the whole line bending around a corner one cell at a time. Four sprites walking
- * in a straight line are indistinguishable from four sprites standing in a row; four sprites
- * rounding a corner are not — so the default shot is the corner.
+ * queue*: the head, the walker behind it, and the pair bending around a corner one cell at a
+ * time. Two sprites walking in a straight line are indistinguishable from two sprites
+ * standing in a row; two sprites rounding a corner are not — so the default shot is the
+ * corner. The queue is a **pair**, not the old four: only the active Pokemon is in the field
+ * (DECISIONS #58), and this showcase never calls `setFormation`, so it keeps the default
+ * hunt arrangement — the Pokemon at the head, the trainer behind it.
  *
  * Modes (`?showcase=simulation&mode=…`):
  *   default / corner  the line turning west off the north road, frozen mid-stride
@@ -13,8 +15,6 @@
  *   grass             the lead has stepped into the tall grass while the trainer is still on
  *                     the path — the reason encounters roll on the *Pokemon's* cell
  *   south             the whole line walking at the camera, every face visible
- *   run               `south` at running speed (0.15 s/tile) — the same cells, so the two
- *                     crop side by side and the leaning run frames are the only difference
  *   wide              the corner pulled back, so the road and the fields read as a place
  *   city              the party on the lobby's paving, the lobby's own cast around them
  *
@@ -86,23 +86,17 @@ function routeFor(gap) {
 }
 
 /**
- * Distance at which one sprite texel lands on a whole number of internal pixels.
+ * The zoom each stop is shot at, in internal pixels per world unit.
  *
- * The scene is rendered into a buffer `floor(width / pixelScale)` across and blown up with
- * NEAREST (ARCHITECTURE §2.7), so a perspective camera at `fov` and distance D puts
- * `inW / (2·D·tan(fov/2)·aspect)` internal pixels on a world unit. Sprites carry 16 texels
- * per unit (DECISIONS #18), so `D = inW / (2·tan(fov/2)·aspect·16·k)` makes one sprite texel
- * exactly `k` internal pixels — and one tile texel, at twice the density, exactly `k/2`.
- * Measured off the real window rather than hardcoded for 1080p, because this module is shot
- * at 1600x900 as well and a distance fitted to the wrong buffer puts the art off the grid.
+ * This used to be `pixelExactDistance(config, k)`, which solved for the camera distance that
+ * happened to put one sprite texel on `k` whole internal pixels *at the window it was measured
+ * at* — the density fell out of `fov`, distance and buffer height, so the number had to be
+ * recomputed per shot and was only ever right for one screen. It is a config key now
+ * (DECISIONS #60) and the ladder has three rungs, because those are the only densities at
+ * which both 16-texel sprite art and 32-texel tile art land on whole pixels: 16 (wide), 32
+ * (one sprite texel = 2 px, the game's own zoom) and 64 (close).
  */
-function pixelExactDistance(config, k = 2) {
-  const w = typeof innerWidth === 'number' && innerWidth > 0 ? innerWidth : 1920;
-  const h = typeof innerHeight === 'number' && innerHeight > 0 ? innerHeight : 1080;
-  const scale = Math.max(1, Math.round(config.pixelScale));
-  const inW = Math.max(2, Math.min(config.maxInternalWidth, Math.floor(w / scale)));
-  return inW / (2 * Math.tan((config.fov * Math.PI) / 360) * (w / h) * 16 * k);
-}
+const PPU = { wide: 16, normal: 32, close: 64 };
 
 /**
  * Every cell the walk touches, dilated by one, so nothing decorative is ever planted in the
@@ -280,30 +274,22 @@ const NPCS = [
 const STOPS = {
   // One step past the corner: the tail is still climbing the road, a member is on the corner
   // cell and the lead has already turned west. That is the pose that reads as a queue.
-  corner: { after: 1, sub: 3, k: 2 },
-  closeup: { after: 1, sub: 3, k: 4 },
+  corner: { after: 1, sub: 3, ppu: PPU.normal },
+  closeup: { after: 1, sub: 3, ppu: PPU.close },
   // Thirteen steps down the spur puts the lead inside the tall grass with the trainer still
   // on the last cell of the road behind it — encounters roll on the *lead's* cell.
-  grass: { after: LEG.west, sub: 3, k: 2 },
-  // Six steps into the south leg: the whole queue walking at the camera, all four faces up,
-  // frozen on the walk's stride frame so `run` can be laid next to it.
-  south: { after: LEG.west + 6, sub: 3, k: 2 },
-  // The run is `south` at 0.15 s/tile, on the same cells on purpose.
+  grass: { after: LEG.west, sub: 3, ppu: PPU.normal },
+  // Six steps into the south leg: the whole queue walking at the camera, every face up,
+  // frozen on the walk's stride frame.
   //
-  // Frozen at the corner it proved nothing: the gait frame did differ (the critic pixel-
-  // diffed 61,671 of 176,800 pixels in the party strip) but with nothing to compare it
-  // against, "a slightly different sprite" is not evidence of running. The trainer sheet
-  // ships a genuinely separate leaning trio for the run — south walk is frames 21/22/23 and
-  // south run is 11/12/13 (DECISIONS #17) — so the way to make that legible in a still is a
-  // controlled pair: same cells, same facing, same stride half of the cycle, one variable.
-  // Crop the trainer out of `south` and out of `run` and the lean is the only difference.
-  // Running is 3 ticks a tile against the walk's 5, so sub 2 and sub 3 both land on the
-  // stride phase (`floor((steps + t) * 2)` odd) at very nearly the same point in the tile.
-  run: { after: LEG.west + 6, sub: 2, k: 2, running: true },
+  // There was a `run` mode here, pairing this framing at 0.15 s/tile so the trainer's leaning
+  // run trio could be cropped against the walk. Run is gone from the game (DECISIONS #58) and
+  // docs/STATUS.json had already asked for the mode on its own merits, so it went with it.
+  south: { after: LEG.west + 6, sub: 3, ppu: PPU.normal },
   // Pulled back so the road, the fields and the grass read as a place. `k` is 1.5 rather than
   // 1: at k=1 a tile texel lands on half an internal pixel and the ground goes to mush, and
   // the queue — the point of the shot — was 4% of the frame height. See DECISIONS.
-  wide: { after: 1, sub: 3, k: 1.5 },
+  wide: { after: 1, sub: 3, ppu: PPU.wide },
 };
 
 /**
@@ -359,7 +345,7 @@ export async function showcaseSimulation(mode, ctx) {
   const reground_ = reground(ctx);
 
   sim.placePlayer(SPAWN.cx, SPAWN.cz, SPAWN.dir);
-  sim.walk(routeFor(sim.gap()), { loop: true, running: !!stop.running });
+  sim.walk(routeFor(sim.gap()), { loop: true });
   // Life at the edges of the frame, on their own seeded routes: an NPC is a one-member line
   // walking the same grid with the same collision, so this exercises `spawnNpc` on screen
   // without ever crowding the queue the shot is about.
@@ -367,7 +353,7 @@ export async function showcaseSimulation(mode, ctx) {
   const at = sim.advanceTo(legNorth(sim.gap()) + stop.after, stop.sub);
   sim.freeze(true);
 
-  ctx.config.set({ cameraDistance: pixelExactDistance(ctx.config, stop.k) });
+  ctx.config.set({ pixelsPerUnit: stop.ppu ?? PPU.normal });
 
   const lineup = sim.lineup();
   ctx.log.info(`simulation showcase "${key}": stopped at step ${at.steps} t=${at.t}, gap ${sim.gap()}; ` +
@@ -437,7 +423,7 @@ async function showcaseCity(ctx, sim) {
   // routes — in behind it. The line is staged, but the lobby around it is not.
   sim.frameOffset(0, 2);
 
-  ctx.config.set({ cameraDistance: pixelExactDistance(ctx.config, 2) });
+  ctx.config.set({ pixelsPerUnit: PPU.normal });
   const l = sim.lineup();
   const straight = l.every((m) => m.cz === l[0].cz) && new Set(l.map((m) => m.cx)).size === l.length;
   // A lane can still be crossed by something the walker had to step round, and a queue that

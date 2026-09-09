@@ -207,10 +207,15 @@ export default {
         totals.ballsShort += gains.ballsUsed - spend;
       }
 
-      // The party learns from idling too, once `pokemon` grows somewhere to put it.
-      // Until then the experience is banked in `totals` and reported on `idle:tick`.
+      // The party learns from idling. This call sat here pointing at a method that did not
+      // exist for the whole life of the project (DECISIONS #61) — every point of experience
+      // the game produced was discarded by a `typeof` guard that always failed.
+      //
+      // `source: 'idle'` and not `'hunt'`: experience is granted, and the evolution it
+      // unlocks is deliberately NOT taken. §0's rule is that a Pokemon evolves in a hunt, and
+      // a backgrounded tab is not one — the pending evolution is reported and waits.
       const pokemon = ctx.get('pokemon');
-      if (typeof pokemon.grantExp === 'function') pokemon.grantExp(gains.exp, { reason: 'idle' });
+      if (typeof pokemon.grantPartyExp === 'function') pokemon.grantPartyExp(gains.exp, { source: 'idle' });
 
       if (visibility.hidden) visibility.moneyWhileHidden += gains.money;
     }

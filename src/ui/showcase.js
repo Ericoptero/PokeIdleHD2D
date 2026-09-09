@@ -92,6 +92,24 @@ export async function showcaseUi(mode = 'default', ctx) {
     case 'boxes': ui.open('boxes'); break;
     case 'dex': ui.open('dex'); break;
     case 'party': ui.open('party'); break;
+    case 'evolve': {
+      // The state a fresh save cannot show: a Pokemon at the level, with the materials in the
+      // bag, and the button live. Everything here goes through the published API — the level
+      // through `grantExp`, the materials through `economy.give` — so the picture is the game
+      // and not a mock-up of it.
+      const pk = ctx.get('pokemon');
+      const eco = ctx.get('economy');
+      const lead = pk.party?.()?.[0];
+      if (lead && typeof pk.grantExp === 'function') {
+        // Enough for the level, granted as a hunt would grant it. It still does not evolve:
+        // that is the point of the mode (DECISIONS #62).
+        pk.grantExp(lead.instanceId, 60000, { source: 'hunt' });
+        const need = pk.canEvolve?.(lead.instanceId);
+        for (const m of need?.materials ?? []) eco.give?.(m.id, m.n, 'showcase:drop');
+      }
+      ui.open('party');
+      break;
+    }
     case 'offline': ui.open('offline', { summary: previewSummary(offline, ctx) }); break;
     case 'toasts':
       ui.toast('★ Shiny Ditto caught!', 'good');

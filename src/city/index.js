@@ -21,7 +21,7 @@
 import { buildCityMap, CITY_SIZE } from './map.js';
 import { dressCity } from './structures.js';
 import { populateCity, stageCityForShot } from './npcs.js';
-import { PRESETS, SPAWN } from './layout.js';
+import { FORMATION, PRESETS, SPAWN } from './layout.js';
 
 /** The registry hands out a null-object proxy for a dead module, and it answers
  *  `typeof api.foo === 'function'` with true. `__missing` is the only honest tell. */
@@ -37,6 +37,7 @@ export default {
   showcaseNeeds: ['tiles', 'terrain', 'environment', 'pokemon', 'simulation'],
 
   init(ctx) {
+    const { bus } = ctx;
     const terrain = ctx.get('terrain');
     terrain.register('demo-city', (draft, c) => buildCityMap(draft, c));
 
@@ -44,6 +45,23 @@ export default {
     let dressing = null;
     /** @type {{dispose:() => void, ids:number[]}|null} */
     let cast = null;
+
+    /**
+     * The town takes itself down when its map is unloaded.
+     *
+     * `enter()` has always torn down first, which covers entering the city twice. It does not
+     * cover *leaving*: travelling to a hunt calls `terrain.load('hunt-…')`, and without this
+     * the Pokemon Center, the Mart, the cottages, the lamps and thirteen NPCs would still be
+     * standing in the middle of the forest. `hunts` has had the same listener since it was
+     * written; this is the half that was missing.
+     */
+    bus.on('world:unloaded', ({ mapId }) => {
+      if (mapId !== 'demo-city') return;
+      cast?.dispose();
+      cast = null;
+      dressing?.dispose();
+      dressing = null;
+    });
 
     /**
      * The nearest cell to `(cx, cz)` a walker can actually stand on, searched outward in
@@ -82,6 +100,9 @@ export default {
     }
 
     const api = {
+      /** How the lobby is played, so `travel` can show it without entering it. */
+      formation: () => ({ ...FORMATION }),
+
       /** Builds the town and stands everybody in it. Safe to call again; it tears down first. */
       async enter() {
         cast?.dispose();
@@ -89,7 +110,11 @@ export default {
         dressing?.dispose();
         dressing = null;
 
-        ctx.get('environment').setBiomePreset?.('city');
+        const env = ctx.get('environment');
+        env.setBiomePreset?.('city');
+        // `hunts.enter()` sets the weather and this never did, so arriving from the coast
+        // used to leave it raining in the lobby.
+        env.setWeather?.('clear', 0);
 
         const handle = await terrain.load('demo-city', {
           w: CITY_SIZE, h: CITY_SIZE, tileset: 'bw2-adastra', biome: 'city', seed: ctx.config.seed,
@@ -100,6 +125,9 @@ export default {
         const spawn = handle?.spawn ?? SPAWN;
         const sim = ctx.get('simulation');
         if (isLive(sim) && typeof sim.placePlayer === 'function') {
+          // Before `placePlayer`, not after: it lays the queue out through `formation.head`,
+          // so a formation applied afterwards would leave the line cut the wrong way round.
+          sim.setFormation?.({ ...FORMATION, label: 'simulation/wander/demo-city' });
           sim.placePlayer(spawn.cx, spawn.cz, spawn.dir ?? SPAWN.dir);
         }
         ctx.three.rig.setFocus(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);

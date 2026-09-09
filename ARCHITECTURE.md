@@ -13,9 +13,31 @@ A browser Pokémon **idle / progression** game rendered in the **HD2D** style of
 art, a physically plausible sun, long soft shadows, atmospheric fog and depth, a fixed
 45°-pitch camera behind the player, and 4-way grid movement in the Black & White idiom.
 
-The player's **active Pokémon leads**; the **trainer follows** it. The city is the lobby
-(Pokémon Center, Mart, plaza, NPCs, night lighting). Hunts happen in distinct biomes.
-Progress accrues while the tab is backgrounded and while the game is closed.
+**How the party walks is a property of the place, not of the game** (DECISIONS #58). In a
+hunt the player's **active Pokémon leads** and the **trainer follows** it, the keyboard does
+not move them and a **closed loop path** does; in a walkable map like the city the **trainer
+leads**, the active Pokémon walks behind it, and the player drives with WASD. Exactly one
+Pokémon is ever in the field. The city is the lobby (Pokémon Center, Mart, plaza, NPCs, night
+lighting); hunts happen in distinct biomes; a travel panel connects them. Progress accrues
+while the tab is backgrounded and while the game is closed.
+
+**The hunt is the game** (DECISIONS #61). A hunt is a closed circuit the party walks forever
+past **fixed spawn slots**; coming within a tile of an occupied slot starts a battle that is
+entered in real time and **resolved turn by turn** — four moves with PP, a type chart, statuses
+and stat stages. A defeated wild is thrown at, with a per-species **pity** counter that floors
+the odds once enough has been spent on it. Three rules fall out and are load-bearing everywhere
+below:
+
+- **Money is earned, never accrued.** Nothing in the game grows with the clock. Money comes
+  from selling drops at the Mart and from releasing Pokémon, and from nowhere else. What
+  accrues in a backgrounded or closed tab is experience, drops and catches.
+- **Evolution is manual, and it is paid for.** Nothing evolves by itself: a Pokémon that
+  reaches its level is *offered* an evolution and waits until the player presses **EVOLVE**
+  in the party panel. The price is a level **and a pile of materials**, and every material is
+  a drop — so the hunt gate moved from *where the player is standing* to *what they had to
+  grind for*, which is a stronger version of the same rule (DECISIONS #62).
+- **The trainer has a level**, earned by winning battles, and it gates which maps travel will
+  take the party to.
 
 **Never programmer art.** Anything that would ship as an untextured box, a magenta
 placeholder, or a flat-shaded primitive is a bug, not a milestone.
@@ -51,8 +73,9 @@ placeholder, or a flat-shaded primitive is a bug, not a milestone.
 │   ├── terrain/             §5.2  heightfield, map authoring, collision
 │   ├── environment/         §5.3  sky, sun, weather, post-processing
 │   ├── simulation/          §5.4  the tick loop and world state
-│   ├── pokemon/             §5.5  species data, party, sprites, followers
-│   ├── encounter/           §5.6  spawn tables, catch, battle resolution
+│   ├── pokemon/             §5.5  species data, party, instances, sprites, followers
+│   ├── encounter/           §5.6  spawn tables, spawn slots, catching
+│   ├── battle/              §5.17 type chart, moves, the turn engine
 │   ├── idle/                §5.7  background accrual
 │   ├── offline/             §5.8  closed-tab catch-up
 │   ├── economy/             §5.9  currency, items, shop
@@ -61,6 +84,7 @@ placeholder, or a flat-shaded primitive is a bug, not a milestone.
 │   ├── ui/                  §5.12 HUD, panels, dialogue
 │   ├── city/                §5.13 demo city (lobby)
 │   ├── hunts/               §5.14 demo hunt biomes
+│   ├── travel/              §5.16 where the player is, and how they leave
 │   └── preview/             §5.15 asset viewer — INTEGRATOR ONLY
 ├── tools/
 │   ├── assets/              .pdsts → obj → catalog → runtime pack
@@ -91,9 +115,11 @@ Every subsystem registers itself as a **module descriptor**:
 /** @typedef {Object} ModuleDescriptor
  *  @property {string}   id            'terrain' | 'pokemon' | …  (folder name)
  *  @property {string[]} needs         ids that must be ready first
+ *  @property {string[]} [showcaseNeeds] extra ids `showcase()` needs on top of `needs` (§6)
  *  @property {(ctx: Ctx) => Promise<any>|any} init    build and return the public API
  *  @property {(dt: number, ctx: Ctx) => void} [tick]  fixed-step simulation, seconds
  *  @property {(dt: number, alpha: number, ctx: Ctx) => void} [frame]  render-rate update
+ *  @property {(dt: number, alpha: number, ctx: Ctx) => void} [lateFrame]  after the camera moves
  *  @property {() => void} [dispose]
  *  @property {(mode: string, ctx: Ctx) => Promise<void>} [showcase]  §6
  */
@@ -103,7 +129,12 @@ Guarantees:
 
 - `init` runs in topological order of `needs`. A cycle is a fatal startup error, reported
   once, and the app still boots with the offending modules disabled.
-- **Every** `init`, `tick`, `frame` and `showcase` call is wrapped. A throw:
+- `lateFrame` runs after `makeCameraRig.update()` has placed the camera for this frame and
+  before anything is drawn. `frame` cannot: the camera's focus is set from inside a `frame`
+  hook (`simulation`), so the rig can only move once `frame` is done — and a module that reads
+  `camera.matrixWorld` from `frame` therefore gets the *previous* frame's camera. `pokemon`
+  lands its sprites on the internal pixel grid, so it is on `lateFrame`; DECISIONS #59.
+- **Every** `init`, `tick`, `frame`, `lateFrame` and `showcase` call is wrapped. A throw:
   1. is logged once with the module id and the full stack,
   2. **quarantines** that module (`status: 'failed'`) so it is never ticked again,
   3. marks its dependents `status: 'blocked'`,
@@ -119,21 +150,27 @@ Guarantees:
 > server stays up and `/` stays screenshottable at all times, because other agents are
 > looking at it.
 
-### 2.2 `core/ctx.js` — the context object
+### 2.2 The context object
 
-The single argument passed to every module. Read-mostly.
+The single argument passed to every module. Read-mostly. **There is no `core/ctx.js`** — it is
+built inline in `src/main.js`, which is therefore the only place that can add to it.
 
 ```js
 ctx = {
+  THREE,                    // the three.js namespace, so modules do not import it twice
   registry,                 // §2.1
   bus,                      // §2.3 event bus
   clock,                    // §2.4
   rng,                      // §2.5  seeded root RNG
   config,                   // §2.6  frozen tunables + URL overrides
-  three: { renderer, scene, camera, composer },   // §2.7 owned by environment/render
+  log,                      // the console wrapper; §7 counts what goes through it
+  three: { renderer, scene, camera, view, rig, sun },   // §2.7 owned by core, tuned by environment
   get(id)                   // -> another module's public API (or the null-object)
 }
 ```
+
+There is no `composer`: the post stack is hand-written in `core/render.js` and reached
+through `three.view.grade`.
 
 ### 2.3 `core/bus.js` — event bus
 
@@ -188,11 +225,28 @@ scene ──▶ [ low-res HDR target  W/pixelScale × H/pixelScale ]      ← al
             canvas
 ```
 
-- `config.pixelScale` default **3** at 1080p (internal 640×360). Integer only.
+- **`config.pixelsPerUnit` = 32 is the pixel grid, and it is the primitive** (DECISIONS #60).
+  One world unit is 32 internal pixels, at every depth, on every device. Everything else about
+  the camera is derived from it. It takes **16, 32 or 64 and nothing else**: sprites carry 16
+  texels/unit so `ppu/16` must be whole, tiles carry 32 so `ppu/32` must be whole or an exact
+  half, and 48 satisfies the first and not the second.
+- `config.pixelScale` is the *upscale*, not the zoom: how many output pixels one internal pixel
+  becomes. **0 derives it from the viewport** (`round(width / targetInternalWidth)`, bumped
+  until the buffer fits `maxInternalWidth`), so a phone gets a buffer it can actually draw a
+  street into and a 4K monitor gets a bigger pixel rather than a wider world. Integer only, and
+  the canvas **overscans** rather than letterboxing. Both internal dimensions are rounded up to
+  **even**, so the world and the sprites round onto the same grid with no half-pixel phase.
 - Geometry pixels stay chunky; light and bloom stay smooth. This is exactly the split seen
   in `docs/refs/03-forest-voxel-night.png` and `04-cave-golden-hour.png`.
-- Camera: **perspective**, `fov 26°`, pitch **45°** below horizontal, yaw fixed, no roll.
-  It follows the trainer with a critically damped spring. Never rotates. See §3.
+- Camera: **orthographic**, pitch **45°** below horizontal, yaw fixed, no roll, rotation set
+  rather than aimed (`lookAt` does not hit `cameraPitch` and the 3.9% error reached the
+  sprites, DECISIONS #60). Frustum = internal buffer ÷ `pixelsPerUnit`. It follows the trainer
+  with a critically damped spring and snaps to whole internal pixels; under orthographic that
+  one snap grids the **entire frame**, because there is no depth divide to make other planes
+  disagree with it. `cameraDistance` is a standoff for near/far headroom, **not** a zoom. See §3.
+- The cross-device claim is gated: `node tools/shots/parity.js` asserts one density, one sprite
+  size and one grid across phone, tablet, laptop, HD, FullHD and ultrawide, and `--walk` asserts
+  a walk is a whole-pixel translation.
 - Shadows: one `DirectionalLight` (the sun/moon) with a **tight ortho frustum snapped to
   texel grid** around the camera focus (default 48×48 world units, 2048² map,
   `PCFShadowMap`). Texel snapping is mandatory — unsnapped shadow maps shimmer, and
@@ -202,7 +256,11 @@ scene ──▶ [ low-res HDR target  W/pixelScale × H/pixelScale ]      ← al
 
 ## 3. Units, axes, and the grid
 
-**One tile = one world unit.** No exceptions, no scale factors in module code.
+**One tile = one world unit.** No exceptions, no scale factors in module code. On screen a
+world unit is `config.pixelsPerUnit` internal pixels — 32 — everywhere in the frame, because
+the camera is orthographic (§2.7). Zoom is that number and nothing else: there is no camera
+distance to solve for, and a showcase asks for a rung with `rig.frame(cx, cz, y, { ppu })` or
+lets `rig.fitFraming(cellsWide, cellsDeep)` pick one.
 
 | Axis | Direction | Notes |
 | --- | --- | --- |
@@ -254,12 +312,22 @@ integrator polices.
 | `module:failed` | `{ id, error }` | core |
 | `world:loaded` | `{ mapId, w, h, biome }` | terrain |
 | `world:unloaded` | `{ mapId }` | terrain |
-| `player:moved` | `{ cx, cz, dir, running }` | simulation |
-| `player:enteredTile` | `{ cx, cz, tags }` | simulation |
+| `player:moved` | `{ cx, cz, dir }` — always the **trainer** | simulation |
+| `player:enteredTile` | `{ cx, cz, tags }` — the **head** of the queue, whichever it is | simulation |
+| `scene:entered` | `{ sceneId, mapId, biome, formation }` | travel |
 | `party:leadChanged` | `{ instanceId, species }` | pokemon |
 | `encounter:started` | `{ species, level, shiny, biome }` | encounter |
 | `encounter:resolved` | `{ outcome, species, rewards }` | encounter |
 | `catch:succeeded` | `{ instanceId, species, shiny }` | encounter |
+| `catch:failed` | `{ species, shiny, ball, odds, shakes, turn, index }` | encounter |
+| `slot:respawned` | `{ biome, slot, species, level, shiny }` | encounter |
+| `drop:collected` | `{ items: [{ id, n }], index }` | encounter |
+| `battle:started` | `{ index, ally, wild, moves }` | battle |
+| `battle:turn` | `{ index, turn, actor, move, damage, effect }` | battle |
+| `battle:ended` | `{ index, won, turns, hpFraction }` | battle |
+| `pokemon:levelled` | `{ instanceId, from, to, learned }` | pokemon |
+| `pokemon:evolved` | `{ instanceId, from, to }` | pokemon |
+| `trainer:levelled` | `{ level, exp }` | economy |
 | `idle:tick` | `{ elapsedS, gains }` | idle |
 | `offline:applied` | `{ awayS, gains, capped }` | offline |
 | `economy:changed` | `{ currency, delta, total }` | economy |
@@ -269,6 +337,11 @@ integrator polices.
 | `perf:sample` | `{ fps, drawCalls, tris, ms }` | core (1 Hz) |
 
 Adding an event is a core change (§12).
+
+`catch:failed` had been emitted since DECISIONS #35(e) with nothing subscribed and no row here;
+promoting it is part of DECISIONS #61, not a new event. Three more are in flight and still
+off-contract — `tiles:loaded`, `automation:changed`, `automation:configured` — and are filed
+in `coreRequests` rather than quietly added.
 
 ---
 
@@ -362,35 +435,89 @@ bloom threshold, per-`tod` colour grade, city window/lamp emissives at night.
 ### 5.4 `simulation` — the world tick
 `needs: ['terrain', 'pokemon']`
 
-Owns the player entity, grid movement (one cell per step, no diagonals, BW timing:
-walk 0.25 s/tile, run 0.15 s/tile), the **lead-Pokémon-first / trainer-follows** conga
-line, NPC pathing, and the fixed-step loop that drives `encounter`.
+Owns the player entity, grid movement (one cell per step, no diagonals, BW timing: **one
+cadence, 0.25 s/tile — there is no run**), the two-walker queue, NPC pathing, and the
+fixed-step loop that drives `encounter`.
+
+**The queue is the trainer and the active Pokémon, and nothing else.** Which of the two is
+at the head, whether the keyboard moves them and what walks them otherwise is handed in by
+the scene through `setFormation` before it places the player (§5.13, §5.14). The camera
+always follows the trainer.
+
+**`autopilot` takes three values and a hunt uses the third.** `'none'` stands still,
+`'wander'` strolls from a seeded stream, and `'route'` walks the `route` spec the scene hands
+in, forever, because `makeScriptedRoute` loops by default. A `'route'` formation is `strict`
+unless it says otherwise: a blocked step **stalls and warns once** rather than being silently
+skipped, because a route that quietly drifts off its own path is a defect three separate places
+in `hunts` have already had to document (DECISIONS #61(a)).
+
+**Three ways to stop, and they are not interchangeable.** `halt()` *replaces* the route with
+`STILL` and so loses a scripted route's position in its loop; `pause(on)` stops the party and
+keeps that position, which is what a battle needs; `freeze(on)` is the screenshot tool and also
+stops every NPC and the idle animation (§6).
 
 ```js
 {
-  player(),                         // -> { cx, cz, dir, moving, running }
-  moveIntent(dir, running),
-  follower(),                       // -> lead pokemon entity
-  spawnNpc(spec), npcs(),
-  teleport(cx, cz, dir)
+  player(),                         // -> { cx, cz, dir, moving }   the TRAINER
+  moveIntent(dir),                  // -> boolean; false where the scene forbids input
+  setFormation({ head, input, autopilot, route, strict, preferTags }),
+  formation(),                      // -> the record in force
+  follower(),                       // -> the active pokemon, whichever end it walks at
+  followerCell(),                   // -> the HEAD's cell: where an encounter rolls
+  spawnNpc(spec), npcs(),           // spec.tether: { cx, cz, radius } keeps a wild by its slot
+  pause(on), paused(),              // stop without losing the route's place in its loop
+  teleport(cx, cz, dir)             // same map only; `travel` changes maps
 }
 ```
 
-### 5.5 `pokemon` — species data, party, sprites
+### 5.5 `pokemon` — species data, party, instances, sprites
 `needs: []`
 
 Gen 1–9 compatible. Species data is a **committed snapshot** (`public/generated/species.json`);
-nothing is fetched at runtime.
+nothing is fetched at runtime. Besides types and base stats it carries `catchRate`,
+`growthRate`, `baseExp` and `evo` — the evolution requirement **inverted onto the parent**,
+because Showdown records it on the child and the game asks the opposite question
+(DECISIONS #61).
 
 ```js
 {
-  species(idOrName),                // -> { id, name, types, baseStats, gen, evolves, … }
+  species(idOrName),                // -> { id, name, types, baseStats, catchRate, evo, … }
   all(), byGen(n), byType(t),
   sprite(species, { shiny }),       // -> { atlas, frames: {south,west,north,east}[], size }
   party(), lead(), setLead(i), addToParty(inst), swap(i, j),
-  createInstance({ species, level, shiny, seed })
+  createInstance({ species, level, shiny, seed, ivs }),
+
+  grantExp(instanceId, n, { source }),   // -> { levelled, learned, pending }; NEVER evolves
+  levelUp(instanceId),
+  canEvolve(instanceId),                 // -> the bill: { to, level, have, materials, missing, ready }
+  evolutions(instanceId),                // -> every route this species has, each priced
+  evolve(instanceId, { to }),            // -> { ok, why } — only ever called by a button
+  refreshMoves(instanceId), setPriority(instanceId, moveIds),
+  heal(instanceId, { hp, status }), damage(instanceId, n),
+  saveState(), loadState(v)
 }
 ```
+
+**An instance is a real Pokémon now**, not a label: `{ instanceId, species, level, shiny, exp,
+ivs, stats, maxHp, hp, moves: [{ id, pp, maxPp }] × 4, priority, status }`. Two rules:
+
+- **`instanceId` is minted once and never recomputed.** It used to be built from the level,
+  which changes the moment a Pokémon levels — and `collection` keys its bus intake off it.
+- **`grantExp` never evolves anything.** It reports `pending` — what the Pokémon would
+  become, the level it needs, the materials it needs, how many of each the bag holds, and
+  whether the button can be pressed. `evolve()` is the only path into an evolution and it is
+  only ever called by the player (DECISIONS #62).
+- **An evolution costs a level and materials.** The bill is derived in
+  `pokemon/evolution.js` from the child's base-stat total and capture rate, and paid in
+  `category: 'treasure'` items — the twelve drops `economy` has shipped with no way to obtain
+  them since it was written. `evolve()` spends them through `economy.take()`; this module owns
+  the creature and the ledger owns the bag.
+- **A refusal says which of the three reasons it is** — no route, too low, or short of
+  materials — because a greyed-out button that does not say why is the defect the party panel
+  exists to avoid.
+
+The save seam here is **native and mandatory**: `offline`'s adapter rebuilds a party through
+`createInstance` and would silently drop moves, PP and HP.
 
 **Sprite sheet contracts (verified against the shipped assets):**
 
@@ -407,20 +534,38 @@ nothing is fetched at runtime.
   the answer in DECISIONS.md.** The within-group walk-cycle order is likewise
   screenshot-verified, not guessed.
 
-### 5.6 `encounter` — spawns, catching, battles
-`needs: ['pokemon', 'terrain', 'economy']`
+### 5.6 `encounter` — spawn tables, spawn slots, catching
+`needs: ['pokemon', 'terrain', 'economy', 'battle']`
 
 ```js
 {
-  tablesFor(biome, tod),            // -> weighted species table
-  roll(biome, tod, luck),           // seeded; -> encounter | null
-  begin(enc), attempt(ballId), flee(),
-  autoResolve(enc, partyPower)      // idle path — no UI, pure function of state+seed
+  tablesFor(biome, tod),            // -> weight-expanded species table (a string[]; #35(b))
+  rollAt(index, opts),              // seeded by INDEX, never by a continued stream
+  roll(biome, tod, luck),           // the walkable-map path: a tall-grass step roll
+  slotsNear(cx, cz, radius),        // -> occupied slots within Chebyshev `radius`
+  engage(slot), begin(enc), attempt(ballId), flee(),
+  battle(),                         // -> the live transcript, or null
+  dropsFor(index),                  // -> [{ id, n }]  pure, index-addressed
+  pure()                            // -> { rollAt, dropAt, resolve } for idle/offline injection
 }
 ```
 
-Battles are **resolved**, not turn-by-turn: a deterministic power comparison with a seeded
-variance band, plus a short readable animation when the tab is visible.
+**Battles are entered in real time and resolved turn by turn.** This reverses what this section
+said for the first sixty decisions — "a deterministic power comparison with a seeded variance
+band" — and the reasoning is recorded in DECISIONS #61. `encounter` owns none of the combat
+maths; `battle` (§5.17) does, and the same `resolve()` drives the visible fight one turn at a
+time and the offline replay in a loop.
+
+**How an encounter starts depends on the place, the way the formation does (§0).** A scene the
+player *drives* rolls on a tall-grass step, as it always has. A scene walking a **loop path**
+rolls when the head of the queue comes within a tile of an occupied **spawn slot** — a fixed
+cell authored by the scene (§5.14), holding a wild that may wander ±1 tile around it and
+respawns on its own stream once it is beaten.
+
+**`attempt(ballId)` refuses until the wild is beaten**, and still returns a plain boolean
+(#35(f) — anything object-shaped reads as a catch every single time). `economy` still owns the
+ball and still does not roll it (#35(d)); the pity floor is `economy`'s too (§5.9). What this
+module supplies is unchanged: the capture rate, the HP left after the battle, and the coin.
 
 ### 5.7 `idle` — accrual while the tab lives
 `needs: ['simulation', 'economy', 'encounter']`
@@ -440,12 +585,34 @@ The tab may be backgrounded; `requestAnimationFrame` stops and `setTimeout` is t
 { rate(), simulate(state, elapsedS, seed), pending(), flush() }
 ```
 
+**What accrues is the hunt loop, and money is not part of it** (§0, DECISIONS #61). A second of
+idling walks the loop, engages slots, resolves real battles through `battle`, and yields
+experience, drops and catches. No currency is ever minted here; the player comes back to a bag
+to sell.
+
+**`simulate` is a fold, not a product.** The old contract — chunked drain equals one offline
+call, exactly — held only because nothing carried between encounters. The loop carries: the
+pity sum moves the odds, balls deplete, experience changes stats, party HP persists. So
+`gains.progress` carries the whole running state (`index`, `hp`, `exp`, `pity`, `balls`,
+`drops`, `caught[]`) and the additivity claim is restated over it: **whole encounters are still
+the integers in `(p0, p1]`**, so a chunk boundary can never add, drop or renumber one, and a
+fold with exact carry composes. The claim is *stronger* than it was, because the continuous
+per-second half and its floating-point summation caveat are gone with the faucet.
+
+**The encounter functions are injected, not imported.** `accrual.js` may not reach into
+`encounter` (§5, no deep imports), so `encounter.pure()` is handed in through `state` the way
+`state.tables` already is. There is now **one index space** — `root/encounter/roll/N` — live,
+backgrounded and offline; `idle`'s private encounter stream is retired.
+
 ### 5.8 `offline` — closed-tab catch-up
 `needs: ['idle']`
 
 Reads `lastSeenMs` from the save, clamps `awayS` to `config.offlineCapS` (default 12 h),
 applies `idle.simulate` **once** with the elapsed time discounted, and presents a "while you
 were away" summary.
+
+Catches made while away are **materialised** — species, level, IVs and the ball — and handed to
+`collection`, rather than reported as a count nobody can open.
 
 The discount is a curve, not a scalar: full rate for `config.offlineGraceS` (30 min), then
 decay with half-life `config.offlineHalfLifeS` (1 h) towards a floor of
@@ -455,27 +622,69 @@ scalar, so it holds whatever `idle` decides a second is worth, including its ind
 encounters (DECISIONS #15). Save format is versioned with forward migrations; a corrupt save is
 quarantined to `pokeidle.save.broken` and the game starts fresh rather than white-screening.
 
-### 5.9 `economy` — currency, items, shop
+### 5.9 `economy` — currency, items, shop, prices, pity, the trainer
 `needs: []` — `{ balance(c), add(c, n, reason), spend(c, n, reason), inventory(), buy(id, n), sell(id, n), prices() }`
 
+Plus, since DECISIONS #61:
+
+```js
+{
+  speciesPrice(nameOrSpecies, { shiny }),  // derived from catchRate, BST, evo stage, shiny
+  pity(species),                           // -> { sum, price, ratio, t }   the meter ui draws
+  applyPity(p0, species),                  // -> { odds, p0, t }
+  trainer(), grantTrainerExp(n, reason), meets(requires),
+}
+```
+
+**The pity is a lerp over the finished probability, not `catchOdds`'s `bonus`.** `bonus`
+multiplies `a` *inside* the Gen 3/4 formula, where `p → 1` only at `a ≥ 255` — so the
+multiplier that would reach certainty depends on the capture rate, the HP, the ball and the
+status all at once, and no fixed value can mean "maximum at 125 % of the price".
+`catchOdds` therefore stays pure and untouched, and the floor wraps it:
+`odds = p0 + (1 − p0) · t`, with `t` ramping from 0 at 90 % of the species price to 1 at 125 %.
+Every ball counts at its `price`; the counter resets on a catch. `economy` credits the ledger
+inside `throwBall` and still never rolls (#35(d)).
+
+**The trainer's level lives here**, because `progress()` is already the single snapshot every
+unlock gate is evaluated against and `requirementMet` already gates shelves, shops, upgrade
+tracks and automations. `progress()` keeps its shape and gains `trainerLevel`.
+
 ### 5.10 `collection` — dex, boxes, organisation
-`needs: ['pokemon']` — `{ dex(), boxes(), move(inst, box, slot), sort(mode), release(inst), stats() }`
+`needs: ['pokemon']` — `{ dex(), boxes(), move(inst, box, slot), sort(mode), release(inst), stats(), saveState(), loadState(v) }`
+
+The save seam here is **native and live** — the `offline` adapter's `restore: null` note is
+stale and goes with DECISIONS #61. `release(inst)` is one of the only two ways money enters
+the game (§0); the other is selling drops.
 
 ### 5.11 `automation` — the idle layer's agency
 `needs: ['encounter', 'economy', 'collection']` — auto-hunt, auto-ball-select, auto-release
 by rule, auto-sell. Every automation is a rule the player unlocks and configures; none are
 on by default.
 
+**Auto-catch triggers on `battle:ended`, not `encounter:started`.** It used to call
+`attempt()` synchronously from inside the `encounter:started` emit (#35(f)); now that a ball
+is illegal until the wild is beaten, that subscription would return `false` forever and
+auto-catch would die with no console error at all (DECISIONS #61(j)).
+
 ### 5.12 `ui` — HUD, panels, dialogue
 `needs: []` (reads others through `ctx.get`)
 
-DOM overlay (not WebGL) at full resolution, styled to sit next to a pixel scene without
-fighting it. Owns: HUD, party bar, dex/box screens, shop, dialogue boxes, the "while you
-were away" modal, and the **debug overlay** (`?debug=1`: fps, draw calls, tris, module
-status, tod, seed).
+One **2-D canvas at the renderer's own internal resolution**, upscaled with the scene, costing
+zero draw calls (DECISIONS #34a — this section used to say "DOM overlay at full resolution",
+and it was never true of the shipped module). Owns: HUD, party bar, dex/box screens, shop,
+dialogue boxes, the "while you were away" modal, the **battle panel** (both HP bars, the move,
+its PP, status and the effectiveness line), the **EVOLVE button and its bill** in the party
+panel, the **pity meter**, the trainer's level, the per-Pokémon move-priority list, and the
+**debug overlay** (`?debug=1`: fps, draw calls, tris,
+module status, tod, seed).
+
+**`ui` is what throws the ball.** Until DECISIONS #61 nothing in the game called
+`encounter.attempt(ballId)` and a player could not catch anything by hand.
 
 ### 5.13 `city` — the lobby
-`needs: ['terrain', 'simulation', 'ui']`
+`needs: ['terrain', 'environment']` — `simulation`, `pokemon` and `ui` are reached through
+`ctx.get` on purpose, so a broken walker costs the lobby its NPCs rather than costing the game
+its lobby
 
 A hand-authored (in code, deterministically) town: Pokémon Center with the red roof and
 lit interior glow, a Mart, a plaza with a landmark, street lamps that come on at dusk, lit
@@ -495,7 +704,108 @@ critic can judge raw art with nothing else in frame. It is never part of the gam
 
 At minimum: **forest**, **cave**, **coast**, **meadow**. Each is a believable, composed
 map, not noise: readable paths, cliff walls with correct auto-tiled edges, water with a
-shoreline, props with purpose. Each ships a showcase.
+shoreline, props with purpose. Each ships a showcase. Each declares the formation it is
+played under (§5.4) and applies it inside `enter()`, before it places the player.
+
+**A hunt also authors the loop it is played on, and the slots on it.**
+
+```js
+{
+  list(),      // each entry: { id, name, …, requiredLevel, loop: { start, route }, slots }
+  slots(id),   // -> [{ k, cx, cz, occupied, npcId, species, level, shiny, respawnAt }]
+  audit(id),   // asserts every framing AND that the loop closes on the shipped draft
+}
+```
+
+- The `route` **must return to its start cell.** `audit()` walks it once on the real draft and
+  fails if it does not, or if any step is blocked — the Node selftest cannot check this,
+  because it builds a different map from a different stream against a stub tileset
+  (`hunts/selftest.js` says so at the top, and once shipped 279/279 green over three broken
+  framings).
+- **Slots sit at Chebyshev distance exactly 2 from the path.** A tethered wild moves ±1 tile
+  and the trigger reaches 1 tile, so 2 is contact — no closer, or the party is permanently in
+  a battle, and no further, or a lap never meets anything.
+- `requiredLevel` is authored **here**, not in `travel`: what a destination *is* stays with the
+  scene that owns it.
+
+### 5.16 `travel` — where the player is
+`needs: ['terrain']`
+
+The only thing that changes which map is loaded. It carries the destination table — the city
+plus every biome `hunts.list()` reports, each with the formation its own scene declared —
+serialises travel behind a `busy` flag, and saves the current scene so a reload comes back to
+it. It reaches `city`, `hunts`, `simulation` and `encounter` through `ctx.get`, so a
+quarantined `travel` costs the game travel rather than its lobby.
+
+```js
+{
+  destinations(),                   // -> [{ id, name, kind, module, formation,
+                                    //       requiredLevel, locked, why }]
+  current(), busy(),
+  go(id),                           // -> Promise<boolean>; tears down, enters, emits scene:entered
+  boot()                            // -> where a fresh page should go: ?scene= > save > city
+}
+```
+
+**`go(id)` refuses a destination the trainer is too low for**, returning `false` with a toast
+rather than throwing. It reads the level from `economy.trainer()` through `ctx.get` and
+**fails open**: a quarantined `economy` unlocks every destination rather than locking the
+player out of the game, because one broken module must cost a feature and never the game.
+
+**Registered after `simulation` and before `offline`** in `src/main.js`, and it also hands
+its save seam to `offline` directly if `offline` came up first — the registry's topological
+order decides which, and both orders have to work.
+
+### 5.17 `battle` — the turn engine
+`needs: []`
+
+Everything about a fight that is arithmetic. It holds no `pokemon` instance, touches no
+`three`, reads no clock and has no DOM: it takes two plain **combatant records** and returns a
+transcript, which is what lets `idle` and `offline` replay a battle headlessly and what lets
+its selftest run under plain Node.
+
+```js
+{
+  move(id), moves(), learnset(species),
+  movesFor(species, level, { priority }),   // -> exactly 4 { id, pp, maxPp }
+  effectiveness(atkType, defTypes),         // -> 0 | 0.25 | 0.5 | 1 | 2 | 4
+  stats(baseStats, ivs, level),             // no EVs, no natures
+
+  makeCombatant({ species, level, ivs, shiny, moves, hp, status }),
+  turn(state, seed, index, turnNo),         // ONE turn, pure
+  resolve(a, b, seed, index, { maxTurns }), // -> { winner, turns, a, b, hpFraction,
+                                            //      transcript[], ppSpent }
+  choose(self, foe, { priority }),          // best expected damage; respects PP and status
+
+  expYield(defeated, winnerLevel), expToLevel(growthRate, level),
+  ready(), selfTest()
+}
+```
+
+**Depth is fixed and finite.** Damage, the 18×18 type chart, STAB, criticals, accuracy,
+priority, PP, stat stages, the six major statuses, and recoil / drain / multi-hit / flinch /
+high-crit. **Every other move is plain damage at its correct power, type and PP.** The chart is
+authored source, not fetched data — it has not moved since Gen 6.
+
+**Move choice is automatic**: the highest expected damage the Pokémon can still pay the PP for,
+reordered by an optional per-Pokémon priority list the player controls. There is no per-turn
+menu; a hunt is watched, not steered (§0).
+
+**`turn()` and `resolve()` are the same code.** The visible fight calls `turn()` once every
+few sim steps so it can be animated and screenshotted; `offline` calls `resolve()` in a loop.
+One implementation of what a turn is, for the same reason §5.7 keeps one implementation of what
+a second is.
+
+**Determinism.** Every roll is addressed by `(seed, encounterIndex, turn)` on
+`root/battle/<i>/<turn>` — never a continued stream. The draw order inside a turn is a
+contract, new draws go on the end, and **a draw is taken unconditionally and discarded when
+unused**, because a conditional draw makes the stream position depend on state (DECISIONS
+#61(g), and #35(a) for the rule it inherits).
+
+**Data.** `public/generated/moves.json` and `learnsets.json`, committed snapshots fetched by
+this module's own `init` — deliberately not by `pokemon`, which already awaits
+`species.json` on the boot critical path against the §7 cold-start budget. A failure here
+quarantines `battle` and leaves the overworld its sprites.
 
 ---
 
@@ -640,7 +950,10 @@ source material names is real signal and must be decoded, not discarded
 ## 10. Save format
 
 `localStorage['pokeidle.save']`, one JSON object, `{ v: <int>, … }`. Migrations are
-functions `v(n) -> v(n+1)`, applied in order, never skipped. Writes are debounced (2 s) and
+functions `v(n) -> v(n+1)`, applied in order, never skipped. DECISIONS #61 adds one: `pokemon`
+gains a native slice (stats, HP, moves, PP), `economy` gains the pity ledger and the trainer's
+experience, and `encounter` gains slot occupancy — without the migration every existing save is
+quarantined and the player starts over. Writes are debounced (2 s) and
 also fired on `visibilitychange` and `pagehide`. A save that fails to parse or migrate is
 moved aside, not repaired in place.
 

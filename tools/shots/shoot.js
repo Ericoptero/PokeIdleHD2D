@@ -22,7 +22,8 @@ const CHROME = process.env.CHROME_PATH
 export function parseArgs(argv) {
   const a = { base: 'http://127.0.0.1:5173', size: '1920x1080', tod: null, preset: null,
     showcase: null, mode: null, seed: null, settle: 30, out: null, timeout: 30000,
-    focus: null, pixelScale: null, software: false, debug: false, hidden: false, retries: 3, extra: {} };
+    focus: null, pixelScale: null, software: false, debug: false, hidden: false, retries: 3,
+    steps: null, extra: {} };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (!k.startsWith('--')) continue;
@@ -130,6 +131,12 @@ async function shootOnce(opts) {
       await page.evaluate((x, z) => window.__HOOKS__?.focus?.(x, z), fx, fz);
     }
 
+    // `--steps N` advances the simulation by N fixed sim ticks and stops. It is how the
+    // parity gate takes two frames one step apart: with the clock frozen, the only difference
+    // between them is that the party walked, which is exactly the claim being tested
+    // ("nothing changes when I walk").
+    if (a.steps != null) await page.evaluate((n) => window.__HOOKS__?.step?.(Number(n)), a.steps);
+
     // Settle springs, streaming and shader compilation; then throw away that fps window and
     // measure a clean one, so the number in the log is steady-state and not warm-up.
     const spin = (n) => page.evaluate((k) => new Promise((done) => {
@@ -159,6 +166,9 @@ async function shootOnce(opts) {
     }
     await spin(60);
 
+    // The pixel grid this shot was actually drawn on. Cheap, and it turns "the sprites are
+    // bigger on my laptop" from a thing you argue about into a number in every shot's JSON.
+    log.grid = await page.evaluate(() => window.__HOOKS__?.grid?.() ?? null);
     const metrics = await page.evaluate(() => window.__HOOKS__?.metrics?.() ?? null);
     const events = await page.evaluate(() => window.__HOOKS__?.events?.().slice(-64) ?? []);
     Object.assign(log, metrics ?? {}, { events });

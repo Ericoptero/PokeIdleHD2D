@@ -153,6 +153,14 @@ export function makeRegistry({ bus, log }) {
     closure,
     tick: (dt, ctx) => run('tick', dt, ctx),
     frame: (dt, alpha, ctx) => run('frame', dt, alpha, ctx),
+    /**
+     * After the camera has been placed for this frame, before anything is drawn.
+     *
+     * For work that has to read the camera the frame will actually render with. `frame` runs
+     * before `makeCameraRig.update()` — it has to, because that is where the focus is set —
+     * so anything reading `camera.matrixWorld` from `frame` gets last frame's.
+     */
+    lateFrame: (dt, alpha, ctx) => run('lateFrame', dt, alpha, ctx),
     get(id) {
       const rec = mods.get(id);
       if (!rec) {

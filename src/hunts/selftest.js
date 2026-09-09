@@ -386,6 +386,27 @@ for (const biome of BIOMES) {
     }
   }
 
+  // How much ground a framing actually covers, in cells, at a given zoom.
+  //
+  // The camera is orthographic, so the frustum is the internal buffer over `pixelsPerUnit`
+  // (DECISIONS #60) — no distance, no fov. The reference buffer is 640x360, which is what both
+  // 1920x1080 and the gate's own 1280x720 now produce. A run of L cells in Z covers L*sin(45)
+  // of *screen* height under the 45-degree pitch, so the visible depth is the frustum height
+  // over sin(45) — about 1.41x what the height alone suggests. `cameraLookAhead` lifts the aim
+  // point by 1.6 world units of Y, which at 45 degrees is 1.6/tan(45) = 1.6 cells of ground:
+  // that much of the depth moves from behind the focus to in front of it.
+  const framingCells = (ppu) => {
+    const [W, H] = [640, 360];
+    const sin45 = Math.SQRT1_2;
+    const depth = (H / ppu) / sin45;
+    const shift = 1.6;                       // cameraLookAhead / tan(cameraPitch)
+    return {
+      wide: Math.ceil((W / ppu) / 2),
+      north: Math.ceil(depth / 2 + shift),
+      south: Math.ceil(depth / 2 - shift),
+    };
+  };
+
   // Every camera framing has to have somewhere to stand, or `--preset` silently shows the
   // default view and a whole contact sheet is one picture four times (DECISIONS #28j).
   for (const [name, spec] of Object.entries(biome.presets ?? {})) {
@@ -394,16 +415,18 @@ for (const biome of BIOMES) {
     if (m) {
       check(`${biome.id}: preset "${name}" is inside the map`,
         m.cx >= 0 && m.cz >= 0 && m.cx < biome.w && m.cz < biome.h, JSON.stringify(m));
-      // The framing arithmetic, asserted rather than remembered: at pitch 45 / fov 26 /
-      // distance 30 the camera shows ground from 12.7 cells north of the focus to 8 south,
-      // so a marker nearer than that to an edge frames the void beyond the map. `cave-mouth`
-      // shipped exactly that once — the bottom third of the frame was black.
-      check(`${biome.id}: preset "${name}" is clear of the south edge`, m.cz <= biome.h - 9,
-        `cz ${m.cz} of ${biome.h}`);
-      check(`${biome.id}: preset "${name}" is clear of the north edge`, m.cz >= 13,
-        `cz ${m.cz} of ${biome.h}`);
+      // The framing arithmetic, asserted rather than remembered — and now asserted per
+      // preset, because the zoom is per preset (DECISIONS #60). A marker nearer to an edge
+      // than the frame is deep frames the void beyond the map; `cave-mouth` shipped exactly
+      // that once, and the bottom third of the frame was black.
+      const { wide: mw, north: mn, south: ms } = framingCells(spec.ppu ?? 32);
+      check(`${biome.id}: preset "${name}" is clear of the south edge`, m.cz <= biome.h - ms,
+        `cz ${m.cz} of ${biome.h}, needs ${ms} clear at ppu ${spec.ppu ?? 32}`);
+      check(`${biome.id}: preset "${name}" is clear of the north edge`, m.cz >= mn,
+        `cz ${m.cz} of ${biome.h}, needs ${mn} clear at ppu ${spec.ppu ?? 32}`);
       check(`${biome.id}: preset "${name}" is clear of the side edges`,
-        m.cx >= 13 && m.cx <= biome.w - 14, `cx ${m.cx} of ${biome.w}`);
+        m.cx >= mw && m.cx <= biome.w - mw - 1,
+        `cx ${m.cx} of ${biome.w}, needs ${mw} clear at ppu ${spec.ppu ?? 32}`);
       check(`${biome.id}: preset "${name}" stands on walkable ground`, a.draft.passable(m.cx, m.cz, 2),
         `collision "${a.draft.collisionAt(m.cx, m.cz)}"`);
     }

@@ -13,7 +13,7 @@
  * `freshSave` if the new version adds fields, and add a case to `selftest.js`.
  */
 
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
 
 /** A brand-new document. Every field the current version expects, none of them optional. */
 export function freshSave(nowMs, seed = 0, version = CURRENT_VERSION) {
@@ -74,6 +74,49 @@ export const MIGRATIONS = [
         // Unknown slices are carried through untouched: a save written by a build that
         // knew about a module this one does not must survive the round trip.
         slices: obj(s.slices),
+      };
+    },
+  },
+  {
+    to: 4,
+    describe: 'v4: `pokemon` grows a native slice (stats, HP, moves, PP) and the old adapter shape is dropped',
+    apply(s) {
+      const slices = obj(s.slices);
+      const old = obj(slices.pokemon);
+      // The v3 adapter stored `{ party: [{ instanceId, species, level, shiny, exp, hp }] }`
+      // and rebuilt the party through `createInstance`, so it never carried moves, PP or a
+      // real maxHp. Everything it DID carry is still meaningful, so it is forwarded rather
+      // than dropped: `instance.deserialize` rebuilds stats and the move list from the
+      // species and the level anyway, which is §5's "derived state is rebuilt, never trusted".
+      //
+      // The one field that cannot survive is `hp`. v3 wrote a literal 1 for every Pokemon
+      // (`createInstance` hardcoded it), so carrying it forward would restore a full party at
+      // one hit point. It is dropped and `deserialize` fills in full health.
+      const party = Array.isArray(old.party) ? old.party : [];
+      return {
+        ...s,
+        v: 4,
+        slices: {
+          ...slices,
+          pokemon: party.length
+            ? {
+              v: 1,
+              ordinal: party.length,
+              party: party.map((p, i) => ({
+                instanceId: typeof p?.instanceId === 'string' && p.instanceId.includes('#')
+                  ? p.instanceId : `${p?.species ?? 'unknown'}#${i}`,
+                species: p?.species ?? null,
+                level: num(p?.level, 5),
+                shiny: !!p?.shiny,
+                exp: num(p?.exp, 0),
+                ivs: obj(p?.ivs),
+                moves: [],
+                priority: [],
+                status: null,
+              })).filter((p) => p.species),
+            }
+            : slices.pokemon,
+        },
       };
     },
   },

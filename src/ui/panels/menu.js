@@ -8,6 +8,7 @@ import { C, panel, windowFrame } from './common.js';
 import { pokeball } from '../theme.js';
 
 const ITEMS = [
+  { id: 'travel', label: 'TRAVEL', blurb: 'the city and four hunts' },
   { id: 'party', label: 'PARTY', blurb: 'who leads, and the bench' },
   { id: 'shop', label: 'SHOP', blurb: 'four shops and the deal' },
   { id: 'boxes', label: 'BOXES', blurb: '960 slots, ten orders' },

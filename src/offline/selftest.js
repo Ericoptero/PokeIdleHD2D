@@ -170,6 +170,41 @@ const CASES = [
       JSON.stringify(data.meta)];
   }],
 
+  ['a v3 save carries its party into the v4 pokemon slice', () => {
+    // The v3 adapter shape: no moves, no PP, no maxHp, and `hp` hardcoded to 1 by the old
+    // `createInstance`. The migration must forward the identity and the level and DROP the
+    // hp, or every existing save restores a full party at one hit point (DECISIONS #61).
+    const storage = makeMemoryStorage({
+      [KEY]: JSON.stringify({
+        v: 3, createdMs: T0 - 99, lastSeenMs: T0 - 50, savedAtMs: T0 - 50,
+        meta: { sessions: 3, playSeconds: 120, seed: 1337, build: 1 },
+        slices: {
+          pokemon: {
+            party: [
+              { instanceId: 'oshawott-0-5', species: 'oshawott', level: 5, shiny: false, exp: 0, hp: 1 },
+              { instanceId: 'snivy-1-9', species: 'snivy', level: 9, shiny: true, exp: 729, hp: 1 },
+            ],
+          },
+          economy: { wallet: { money: 42 } },
+        },
+      }),
+    });
+    const store = storeOn(storage, fakeTimers());
+    const data = store.load();
+    const pk = data.slices?.pokemon;
+    const ok = data.v === CURRENT_VERSION
+      && store.info().quarantined === null
+      && store.info().migratedFrom === 3
+      && pk?.v === 1
+      && pk.party.length === 2
+      && pk.party[0].instanceId === 'oshawott#0'      // re-minted: v3 ids carry a level
+      && pk.party[1].species === 'snivy' && pk.party[1].level === 9 && pk.party[1].shiny === true
+      && pk.party[1].exp === 729
+      && pk.party.every((p) => p.hp === undefined)     // the 1-HP lie is dropped, not carried
+      && data.slices.economy.wallet.money === 42;      // and unrelated slices survive
+    return [ok, `v${data.v} from=${store.info().migratedFrom} party=${JSON.stringify(pk?.party)}`];
+  }],
+
   ['every migration is total: a v1 save with no fields still opens', () => {
     const storage = makeMemoryStorage({ [KEY]: JSON.stringify({ v: 1 }) });
     const store = storeOn(storage, fakeTimers());

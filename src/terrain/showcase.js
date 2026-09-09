@@ -17,5 +17,5 @@ export async function showcaseTerrain(mode, ctx) {
     });
   }
   await terrain.load('showcase-terrain', { w: 40, h: 40, tileset: 'bw2-adastra', biome: 'meadow' });
-  ctx.three.rig.frame(20, 20, 0, 26);
+  ctx.three.rig.frame(20, 20, 0, { ppu: ctx.three.rig.PPU.normal });
 }

@@ -54,7 +54,7 @@ function buildAtlas(chars) {
 export function makeScreen({ root, view, log }) {
   const canvas = document.createElement('canvas');
   canvas.id = 'ui-screen';
-  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;' +
+  canvas.style.cssText = 'position:absolute;left:0;top:0;' +
     'image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;';
   const g2 = canvas.getContext('2d', { alpha: true, desynchronized: false });
   root.appendChild(canvas);
@@ -128,6 +128,17 @@ export function makeScreen({ root, view, log }) {
     const size = view?.internalSize;
     const iw = Number(size?.[0]) >= 2 ? Math.floor(size[0]) : 640;
     const ih = Number(size?.[1]) >= 2 ? Math.floor(size[1]) : 360;
+    // The scene's canvas is an integer multiple of the internal buffer and letterboxed
+    // inside the viewport (`core/render.js`), so this one has to sit on exactly the same
+    // rect. Stretching it over the whole viewport instead would put the HUD on a different
+    // grid from the world and send every click a pixel or two off the row under the cursor.
+    const rect = view?.displayRect;
+    if (rect && rect.w > 0) {
+      canvas.style.left = `${rect.left}px`;
+      canvas.style.top = `${rect.top}px`;
+      canvas.style.width = `${rect.w}px`;
+      canvas.style.height = `${rect.h}px`;
+    }
     if (iw === W && ih === H) return false;
     W = iw; H = ih;
     canvas.width = W;

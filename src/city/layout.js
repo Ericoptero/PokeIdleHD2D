@@ -462,6 +462,19 @@ export const NPCS = [
 ];
 
 /**
+ * How the lobby is played (`simulation.setFormation`).
+ *
+ * The city is the one place the player drives: the **trainer leads** and the active Pokemon
+ * walks behind it, WASD moves them, and nothing walks the party when the player does not.
+ * A town where your avatar strolls off on its own is not a lobby, it is a cutscene — and the
+ * autopilot that used to run here is what made two loads of the same URL disagree.
+ *
+ * It lives beside the spawn cell because it is map data in the same sense: it says how this
+ * place is entered, not what `simulation` prefers.
+ */
+export const FORMATION = { head: 'trainer', input: true, autopilot: 'none' };
+
+/**
  * Named camera framings the screenshot harness can ask for by name (ARCHITECTURE §8).
  * A preset is a *focus cell*, because the camera has no other degree of freedom.
  */

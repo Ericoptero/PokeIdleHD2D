@@ -22,6 +22,7 @@ import { makeHud } from './hud.js';
 import { makeToasts } from './toasts.js';
 import { makeInput } from './input.js';
 import { makeMenu } from './panels/menu.js';
+import { makeTravel } from './panels/travel.js';
 import { makeOfflineCard } from './panels/offline.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
@@ -43,7 +44,7 @@ export default {
   id: 'ui',
   needs: [],
   /** The showcase draws real panels over the real lobby, so it needs the lobby and its data. */
-  showcaseNeeds: ['city', 'economy', 'collection', 'offline', 'idle', 'automation'],
+  showcaseNeeds: ['city', 'economy', 'collection', 'offline', 'idle', 'automation', 'hunts', 'travel'],
 
   init(ctx) {
     const { bus, config, log } = ctx;
@@ -109,6 +110,7 @@ export default {
 
     const PANELS = {
       menu: makeMenu(app),
+      travel: makeTravel(app),
       offline: makeOfflineCard(app),
       shop: makeShop(app),
       boxes: makeBoxes(app),
@@ -150,11 +152,17 @@ export default {
     const offConfig = config.onChange(() => { onResize(); screen.markDirty(); });
 
     // ------------------------------------------------------------------ paint
-    const KEY_HINT = '↑←↓→ or WASD  walk    SHIFT  run    X  menu';
-    const KEY_HINT_SHORT = 'WASD walk · SHIFT run · X menu';
+    // Two pairs, because the controls are not the same in both kinds of scene: a walkable
+    // map is driven, a hunt is watched. `input.canWalk()` picks the pair.
+    const HINTS = {
+      walk: ['↑←↓→ or WASD  walk    T  travel    X  menu', 'WASD walk · T travel · X menu'],
+      auto: ['Your Pokémon hunts on its own    T  travel    X  menu', 'T travel · X menu'],
+    };
 
     function drawStrip(g) {
       const items = [
+        // Travel goes first so it sits leftmost; the four data panels keep their order.
+        ...(isLive(ctx.get('travel')) ? [{ id: 'travel', label: 'TRAVEL', key: 'T' }] : []),
         { id: 'party', label: 'PARTY', key: 'P' },
         { id: 'shop', label: 'SHOP', key: 'B' },
         { id: 'boxes', label: 'BOX', key: 'C' },
@@ -242,9 +250,10 @@ export default {
           // measure. At 426 internal px the short hint still ran into a toast.
           const toastLeft = toasts.count() ? g.width - 6 - 168 : g.width;
           const busyRight = Math.min(strip, toastLeft);
-          let text = KEY_HINT;
+          const [long, short] = HINTS[input.canWalk() ? 'walk' : 'auto'];
+          let text = long;
           let w = g.measure(text);
-          if (Math.round(g.width / 2 + w / 2) + 8 > busyRight) { text = KEY_HINT_SHORT; w = g.measure(text); }
+          if (Math.round(g.width / 2 + w / 2) + 8 > busyRight) { text = short; w = g.measure(text); }
           const centred = Math.round(g.width / 2 - w / 2);
           const partyRight = party ? party.x + party.w + 8 : 4;
           // Four steps, and the last one always works. Centred if it fits between the party

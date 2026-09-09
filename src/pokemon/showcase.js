@@ -10,6 +10,9 @@
  *   depth     sprites in front of, level with and behind a tree line, plus a giant, to show
  *             the depth test against tall tiles and the contact shadows on two surfaces.
  *   dex       forty species at once — the atlas and the instanced mesh still cost two draws.
+ *   levelup   the half of this module a sprite cannot show: a Pokemon levelling, learning,
+ *             refusing to evolve, being paid for, and being saved. Every line is a live call
+ *             on the public API.
  *
  * `?cameraDistance=` still wins if it is given, so a critic can zoom without editing code.
  */
@@ -30,28 +33,21 @@ const RANK = [
 const GIANTS = ['steelix', 'lugia', 'dondozo'];
 
 /**
- * Camera distances at which one sprite texel is a whole number of internal pixels.
+ * The two zooms these shots are taken at.
  *
- * The internal buffer is 640 px wide at 1080p (pixelScale 3), and a perspective camera at
- * `fov` degrees and distance D covers `2·D·tan(fov/2)·aspect` world units, so
- *
- *     internal pixels per world unit = 640 / (2·D·tan(13°)·16/9) = 779.7 / D
- *
- * Sprites carry 16 texels per unit and tiles 32, so D = 779.7/(16·k) puts both on the pixel
- * grid at the focus plane: k = 2 gives 24.36, where one sprite texel is exactly two internal
- * pixels and one tile texel is exactly one. That is the zoom these shots are taken at.
- * (The game's own `config.cameraDistance` default of 30 is not one of these values — see
- * the round-1 report's coreRequest.)
+ * `pixelsPerUnit` is internal pixels per world unit and sprites carry 16 texels per unit, so
+ * `ppu / 16` is the internal pixels one sprite texel covers: 32 gives two, 16 gives one. There
+ * used to be a `pixelExactDistance()` here solving for a camera distance that happened to land
+ * on the grid, because the density fell out of the window size; it is a config key now
+ * (DECISIONS #60) and the same two numbers are exact on every screen instead of at 1080p.
  */
-export function pixelExactDistance(k = 2, { fovDeg = 26, internalWidth = 640, aspect = 16 / 9 } = {}) {
-  const perUnit = internalWidth / (2 * Math.tan((fovDeg * Math.PI) / 360) * aspect);
-  return perUnit / (TEXELS_PER_UNIT * k);
-}
+const PPU_2PX = 32;   // one sprite texel = two internal pixels, one tile texel = one
+const PPU_1PX = 16;   // one sprite texel = one internal pixel — the whole sheet in frame
 
-/** Frames the scene, unless the URL asked for a distance of its own. */
-function frame(ctx, cx, cz, distance) {
-  const asked = new URLSearchParams(location.search).has('cameraDistance');
-  ctx.three.rig.frame(cx, cz, 0, asked ? ctx.config.cameraDistance : distance);
+/** Frames the scene, unless the URL asked for a zoom of its own. */
+function frame(ctx, cx, cz, ppu) {
+  const asked = new URLSearchParams(location.search).has('pixelsPerUnit');
+  ctx.three.rig.frame(cx, cz, 0, { ppu: asked ? ctx.config.pixelsPerUnit : ppu });
 }
 
 /**
@@ -155,12 +151,101 @@ function selfCheck(pokemon, log) {
   return pika;
 }
 
+/**
+ * The instance model, driven live.
+ *
+ * A rank of sprites cannot show a level-up, and the level-up is what DECISIONS #61 added — so
+ * this mode is a transcript, in the idiom `economy` and `battle` already use. Deterministic:
+ * one instance, minted from a fixed stream, given fixed amounts of experience in a fixed order.
+ */
+async function levelUpTranscript(ctx) {
+  const pk = ctx.get('pokemon');
+  const log = [];
+  const say = (call, result) => log.push({ call, result });
+
+  const inst = pk.createInstance({ species: 'charmander', level: 5, seed: 1 });
+  if (!inst) return { log, inst: null };
+  pk.addToParty(inst);
+  const id = inst.instanceId;
+  const show = () => `Lv${inst.level} · ${inst.hp}/${inst.maxHp} HP · ${inst.moves.map((m) => `${m.id} ${m.pp}/${m.maxPp}`).join(', ')}`;
+
+  say('createInstance("charmander", 5)', `${id} — ${show()}`);
+  say('instanceId carries no level', `"${id}" — a level-up cannot fork it into a second dex record`);
+
+  // Spend some PP, so the level-up can be seen NOT to refill it. Guarded, because a
+  // quarantined `battle` legitimately mints a Pokemon with no moves at all.
+  if (inst.moves[0]) {
+    inst.moves[0].pp -= 4;
+    say('spend 4 PP on ' + inst.moves[0].id, show());
+  } else {
+    say('no moves', 'the battle engine is not live — an instance still exists, it just cannot fight');
+  }
+
+  for (const [amount, why] of [[400, 'a few wins'], [4000, 'a session'], [30000, 'a long hunt']]) {
+    const r = pk.grantExp(id, amount, { source: 'hunt' });
+    say(`grantExp(+${amount}, source:"hunt") — ${why}`,
+      `${r.from} → ${r.to}${r.learned.length ? `, learned ${r.learned.join(', ')}` : ''} · ${show()}`);
+  }
+  say('spent PP survived every level-up', `${inst.moves.map((m) => `${m.pp}/${m.maxPp}`).join(' ')} — a level-up is not a free heal`);
+
+  // The rule the whole of DECISIONS #62 is about: it is long past its level and it has NOT
+  // evolved, because nothing evolves without being asked to.
+  const bill = pk.canEvolve(id);
+  say('… and it has NOT evolved',
+    `still ${inst.species.name} at Lv${inst.level} — grantExp offers, it never takes`);
+  say('canEvolve(id) — the bill',
+    bill ? `${bill.display} · needs Lv${bill.level} (have ${bill.have}) · ${bill.materials.map((m) => `${m.n}× ${m.id} (have ${m.have})`).join(', ')}` : 'it does not evolve');
+
+  const refused = pk.evolve(id);
+  say('evolve(id) with an empty bag',
+    refused.ok ? 'EVOLVED — this is a bug' : `refused: "${refused.why}" — a greyed-out button that says why`);
+
+  const eco = ctx.get('economy');
+  for (const m of bill?.materials ?? []) eco.give?.(m.id, m.n, 'showcase:drop');
+  say('economy.give(materials) — a hunt paid out',
+    (bill?.materials ?? []).map((m) => `${m.n}× ${m.id}`).join(', ') + ' — these are `treasure` drops, unobtainable until phase 5');
+
+  const took = pk.evolve(id);
+  say('evolve(id) with the bill paid',
+    took.ok ? `EVOLVED into ${took.to}, spent ${took.spent.map((m) => `${m.n}× ${m.id}`).join(', ')}` : `refused: ${took.why}`);
+  say('the bag was actually charged',
+    (bill?.materials ?? []).map((m) => `${m.id}: ${eco.count?.(m.id) ?? '?'} left`).join(', '));
+
+  const slice = pk.saveState();
+  say('saveState()', `v${slice.v}, ${slice.party.length} in party, ${JSON.stringify(slice.party[0]).length} bytes for the lead`);
+  say('loadState(slice)', `${pk.loadState(slice)} — stats and the move list are REBUILT from the species, never trusted (§5)`);
+  return { log, inst: pk.instance(id) ?? inst };
+}
+
 export async function showcasePokemon(mode, ctx) {
+  if (mode === 'levelup') {
+    const { log, inst } = await levelUpTranscript(ctx);
+    const root = document.getElementById('ui') ?? document.body;
+    document.getElementById('pk-showcase')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'pk-showcase';
+    wrap.setAttribute('style', 'position:absolute;inset:0;overflow:auto;padding:16px 18px;'
+      + 'font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#e8e4dc;'
+      + 'background:linear-gradient(180deg,#12131a,#0d0e13)');
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    wrap.innerHTML = `
+      <h1 style="font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 2px">Pokémon · the instance model</h1>
+      <p style="color:#8b8fa3;margin:0 0 14px">levels, PP, evolution and the save seam — every line is a live call on the public API</p>
+      <table style="border-collapse:collapse;width:100%">
+        ${log.map((r) => `<tr>
+          <td style="padding:2px 14px 2px 0;color:#c9c4b8;white-space:nowrap;vertical-align:top">${esc(r.call)}</td>
+          <td style="padding:2px 0;color:#9aa0b4">${esc(r.result)}</td></tr>`).join('')}
+      </table>
+      ${inst ? `<p style="margin:14px 0 0;color:#7fd48a">final: ${esc(inst.species.display ?? inst.species.name)} Lv${inst.level} · ${inst.hp}/${inst.maxHp} HP · IV total ${Object.values(inst.ivs).reduce((a, b) => a + b, 0)}/186</p>` : ''}`;
+    root.appendChild(wrap);
+    return { ok: true, lines: log.length };
+  }
+
   const pokemon = ctx.get('pokemon');
   const pika = selfCheck(pokemon, ctx.log);
   ctx.get('environment').setBiomePreset?.('meadow');
-  const D2 = pixelExactDistance(2);      // 24.36 — sprite texel = 2 internal pixels
-  const D1 = pixelExactDistance(1);      // 48.73 — sprite texel = 1 internal pixel
+  const D2 = PPU_2PX;      // sprite texel = 2 internal pixels
+  const D1 = PPU_1PX;      // sprite texel = 1 internal pixel
 
   if (mode === 'trainer') {
     await pokemon.sprites.prepare([{ trainer: 'hero' }, { trainer: 'heroine' }]);

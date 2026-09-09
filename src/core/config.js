@@ -8,16 +8,52 @@ export const DEFAULTS = {
   seed: 1337,
 
   // --- render ---------------------------------------------------------------
-  /** Internal render resolution divisor. 3 at 1080p => 640x360, the HD2D pixel grid. */
-  pixelScale: 3,
+  /**
+   * **Internal pixels per world unit. This is the pixel grid, and it is the primitive.**
+   *
+   * Everything else about the camera is derived from it (DECISIONS #60). It used to be the
+   * other way round -- `unitsPerPixel` fell out of `fov` and `cameraDistance` and the internal
+   * buffer height, so it changed with the size of the window: 26.0 px/unit at 1080p, 23.7 on a
+   * 1512-wide MacBook, 17.4 at the gate's own 1280x720. Sprites are magnified by a whole
+   * number of pixels per texel, so that swing rounded to 2 on one machine and 1 on the next
+   * and the trainer came out 82% bigger on one screen than the other; tiles are authored at 32
+   * texels per unit and were being minified by a different fraction on every screen, which is
+   * NEAREST dropping a different set of texel rows as you walk.
+   *
+   * **16, 32 or 64, and nothing else.** Sprites carry 16 texels/unit (`pokemon/sprites.js`),
+   * so `pixelsPerUnit / 16` has to be whole: 16, 32, 48, 64. Tiles carry 32, so
+   * `pixelsPerUnit / 32` has to be whole or an exact half: 16, 32, 64. The intersection is the
+   * ladder, and 48 is the one that looks reasonable and is not.
+   *
+   * At 32 a sprite texel is exactly 2x2 internal pixels and a 32-texel tile texture is 1:1.
+   */
+  pixelsPerUnit: 32,
+  /**
+   * Internal render resolution divisor -- how many output pixels one internal pixel becomes.
+   *
+   * **0 derives it from the viewport**, which is what makes a phone playable: at a pinned 3 a
+   * 390 px window rendered the world into a 130 px buffer, about five pixels per tile. A
+   * positive number pins it, for the harness and for an A/B.
+   */
+  pixelScale: 0,
+  /**
+   * What `pixelScale: 0` aims the internal buffer at. A bigger screen gets a bigger pixel
+   * rather than a wider world, so the framing stays roughly constant across devices.
+   *
+   * 640 frames 20 tiles across at `pixelsPerUnit: 32`. 768 restores the ~24 the perspective
+   * camera used to show, at the cost of a smaller pixel on screen. One number, one knob.
+   */
+  targetInternalWidth: 640,
   /** Cap the internal buffer so a huge window cannot blow the frame budget. */
   maxInternalWidth: 960,
-  fov: 26,
   /** Camera pitch below horizontal, degrees. 45 is the BW / Gamma Emerald framing. */
   cameraPitch: 45,
   /**
-   * Distance from the focus along the view ray, in tiles. At fov 26 this frames roughly
-   * 24 tiles across a 16:9 screen, which is the coverage the reference stills show.
+   * How far back along the view ray the camera stands, in tiles.
+   *
+   * **Not a zoom.** The camera is orthographic (DECISIONS #60), so this changes nothing about
+   * the size of anything -- it only decides how much headroom there is between `near` and
+   * `far` for tall geometry in front of the focus. Zoom is `pixelsPerUnit`.
    */
   cameraDistance: 30,
   /** Height above the focus the camera aims at, so the player sits low-centre. */
@@ -27,10 +63,43 @@ export const DEFAULTS = {
   shadowExtent: 56,
   shadowBias: -0.0006,
   shadowNormalBias: 0.035,
-  antialias: false,
-  maxPixelRatio: 1,
+  /**
+   * Land each sprite's anchor on a whole internal pixel (DECISIONS #58, #60).
+   *
+   * The *size* is no longer in question: under the orthographic camera a sprite texel is
+   * `pixelsPerUnit / 16` internal pixels at every depth on every device, which is why that key
+   * is restricted to the ladder it is. What is still per-sprite is where the quad falls on the
+   * grid — a correctly sized quad starting half a pixel into one blends every texel boundary
+   * with its neighbour. `?spriteSnap=0` restores the old behaviour for an A/B.
+   */
+  spriteSnap: true,
+  /**
+   * Pin the internal pixels per sprite texel. 0 takes it from the grid, which is
+   * `pixelsPerUnit / 16` — 2 at the shipped 32, on every window size. Pin it to compare sizes.
+   */
+  spriteMagnification: 0,
+  /**
+   * Snap the camera to the internal pixel grid.
+   *
+   * Pinning a sprite to a whole pixel while the focus lerps continuously slides the *ground*
+   * under it by a fraction of a pixel every frame, which is the same mush seen from the other
+   * side. Under the orthographic camera this one snap grids the entire scene rather than only
+   * the focus plane, because there is no depth divide to make other planes disagree with it.
+   * Off restores the free lerp.
+   */
+  cameraSnap: true,
 
   // --- post -----------------------------------------------------------------
+  /**
+   * Whether the film grain re-rolls every frame.
+   *
+   * Off, and deliberately: grain is evaluated per internal pixel, so an animated phase means
+   * a 3x3 block of output pixels changing on every frame over the whole screen — visible as
+   * a constant shimmer even on a still picture. A fixed dither still breaks banding.
+   * `?grainAnimate=1` restores the old behaviour.
+   */
+  grainAnimate: false,
+
   bloomStrength: 0.55,
   bloomThreshold: 0.72,
   bloomRadius: 0.62,
@@ -75,7 +144,6 @@ export const DEFAULTS = {
 
   // --- gameplay -------------------------------------------------------------
   walkSecondsPerTile: 0.25,
-  runSecondsPerTile: 0.15,
   /**
    * Tiles between one walker in the conga line and the next.
    *
@@ -109,6 +177,11 @@ export const DEFAULTS = {
   // --- diagnostics ----------------------------------------------------------
   debug: false,
   showcase: null,
+  /**
+   * Boot straight into a destination: `?scene=hunt-forest`. Null means "wherever the save
+   * left off", which is how the harness reaches a hunt at `/` rather than only in a showcase.
+   */
+  scene: null,
   settleFrames: 30,
 };
 

@@ -78,7 +78,7 @@ const TALL_CLIFF_Y = 5;
 /**
  * A room in the rock, for the two presets that have no sky.
  *
- * Same camera as the open stage — `rig.frame(27.5, 23, 0, 34)` — so a critic can put the two
+ * Same camera as the open stage — `rig.frame(27.5, 23, 0, { ppu: 32 })` — so a critic can put the two
  * side by side and the only difference is the light. What is in it, and why each thing:
  *
  *   · **rock over everything the floor does not claim.** `set3 cave_dark_border` is the top
@@ -174,7 +174,7 @@ async function buildEnclosedStage(ctx, tiles, env) {
   ];
   for (const b of bulbs) env.lamps.add(b);
 
-  ctx.three.rig.frame(27.5, 23, 0, 34);
+  ctx.three.rig.frame(27.5, 23, 0, { ppu: ctx.three.rig.PPU.normal });
 }
 
 export async function showcaseEnvironment(mode, ctx) {
@@ -309,7 +309,7 @@ export async function showcaseEnvironment(mode, ctx) {
     });
   }
 
-  ctx.three.rig.frame(27.5, 23, 0, 34);
+  ctx.three.rig.frame(27.5, 23, 0, { ppu: ctx.three.rig.PPU.normal });
 
   // --- modes ----------------------------------------------------------------
   if (mode && mode !== 'default') {

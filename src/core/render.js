@@ -65,6 +65,7 @@ uniform sampler2D tBloom1;
 uniform sampler2D tBloom2;
 uniform float uExposure, uBloom, uVignette, uGrain, uSaturation, uContrast, uToe, uTime;
 uniform vec3  uLift, uGain;
+uniform vec2  uInternal;        // the low-res buffer's size, in pixels
 in vec2 vUv;
 
 // AgX, the Blender/three fit. Handles saturated lamps at night without hue-shifting them
@@ -123,10 +124,21 @@ void main() {
   vec3 t = (c - 0.5) * uContrast + 0.5;
   c = min(0.5 * (t + sqrt(t * t + uToe * uToe)), vec3(1.0));
 
-  float d = distance(vUv, vec2(0.5));
+  // Vignette and grain are evaluated per INTERNAL pixel, not per output pixel.
+  //
+  // This pass runs at the canvas size, so one sprite texel — a 2x2 block of internal pixels
+  // blown up to 6x6 output pixels — used to receive 36 different grain values and 36 points
+  // along the vignette ramp. A flat 14-colour palette came out of it as hundreds of colours,
+  // which is the "pixels that are not real" complaint at its source. Quantising the
+  // coordinate keeps every output pixel inside one internal pixel identical, and leaves the
+  // pass order and the bloom split (see the header) exactly as they were.
+  vec2 q = floor(vUv * uInternal);
+  vec2 qUv = (q + 0.5) / uInternal;
+
+  float d = distance(qUv, vec2(0.5));
   c *= 1.0 - uVignette * smoothstep(0.32, 0.86, d);
 
-  c += (hash(vUv * 1024.0 + uTime) - 0.5) * uGrain;
+  c += (hash(q + uTime) - 0.5) * uGrain;
 
   fragColor = vec4(c, 1.0);
 }
@@ -159,7 +171,20 @@ export function makeRenderer({ container, config, log }) {
   renderer.setClearColor(0x000000, 1);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(config.fov, 16 / 9, 0.5, 300);
+  // Orthographic, and that is the whole of the pixel story (DECISIONS #60).
+  //
+  // Under perspective one world unit covers a different number of pixels at every depth: at
+  // the shipped pitch of 45 degrees and a 26-degree fov the ground plane alone ran from 0.75x
+  // at the top of the screen to 1.20x at the bottom, so a single camera snap could only ever
+  // put *one horizontal row* of the picture on the pixel grid. Everything else -- buildings,
+  // fences, path tiles, every NPC not standing on the focus plane -- was resampled at a
+  // fraction that moved as the camera followed the player, which is what "the pixel art gains
+  // borders and loses definition while I walk" is.
+  //
+  // Orthographic makes `unitsPerPixel` depth-independent, so the snap below grids the entire
+  // frame at once and a walk is an integer translation of it. The frustum is sized in
+  // `resize()`, straight off the internal buffer and `config.pixelsPerUnit`.
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 300);
 
   // --- render targets -------------------------------------------------------
   const rtOpts = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, colorSpace: THREE.NoColorSpace };
@@ -207,6 +232,7 @@ export function makeRenderer({ container, config, log }) {
       uSaturation: { value: config.saturation }, uContrast: { value: config.contrast },
       uToe: { value: config.contrastToe },
       uTime: { value: 0 },
+      uInternal: { value: new THREE.Vector2(1, 1) },
       uLift: { value: new THREE.Vector3(0, 0, 0) },
       uGain: { value: new THREE.Vector3(1, 1, 1) },
     },
@@ -219,16 +245,75 @@ export function makeRenderer({ container, config, log }) {
   // --- sizing ---------------------------------------------------------------
   let outW = 0, outH = 0, inW = 0, inH = 0;
 
+  /**
+   * The canvas is an **integer multiple** of the internal buffer, and it **overscans** the
+   * viewport by up to `scale` pixels rather than being stretched to fit it.
+   *
+   * `floor(w / scale)` does not divide back: a 1600-wide window gives 533, and blowing 533 up
+   * to 1600 is x3.002 — so the NEAREST upscale hands out blocks 3 and 4 output pixels wide at
+   * random, which is the same defect the sprite grid was fixed for, one stage later.
+   *
+   * Rounding **up** and letting the canvas hang off each edge, rather than down and leaving a
+   * strip of page behind it: a letterbox is not free here, because every number this project
+   * gates on comes from `sceneStats` over the whole PNG, and a black border reads as scene
+   * content. Measured at the gate's own 1280x720: bars moved `belowL8Pct` on five of fifteen
+   * frames and `boot/12`'s saturation 0.689 -> 0.540 without a pixel of the picture changing.
+   * Overscan costs the outermost pixels of the frame instead, which nothing is composed
+   * against.
+   *
+   * Two things changed with DECISIONS #60:
+   *
+   * **Both internal dimensions are even.** A sprite's edge lands on a pixel boundary when
+   * `dim / 2 + v` is whole, so on an odd buffer the world wants a whole `v` and the sprites
+   * want a half — two grids, and `pokemon/field.js` carried a `phaseX/phaseY` workaround for
+   * exactly that. Rounding up to even costs at most one more internal pixel of overscan and
+   * makes the disagreement impossible instead of compensated.
+   *
+   * **`scale` adapts to the viewport** unless `config.pixelScale` pins it. There used to be a
+   * `capped` branch that gave up and stretched once `maxInternalWidth` was hit; bumping the
+   * scale keeps the upscale a whole number at every window size instead. It is also what makes
+   * a phone work at all: at a pinned 3 a 390 px window rendered into a 130 px buffer, roughly
+   * five pixels per tile.
+   */
+  function autoScale(w, h) {
+    const target = Math.max(64, config.targetInternalWidth);
+    let scale = Math.min(8, Math.max(1, Math.round(w / target)));
+    // A whole scale that still fits the budget beats a fractional one that just fits.
+    while (scale < 16 && (Math.ceil(w / scale) > config.maxInternalWidth
+      || Math.ceil(h / scale) > config.maxInternalWidth)) scale++;
+    return scale;
+  }
+
   function resize(width, height) {
     const w = Math.max(2, Math.floor(width));
     const h = Math.max(2, Math.floor(height));
-    const scale = Math.max(1, Math.round(config.pixelScale));
-    const iw = Math.max(2, Math.min(config.maxInternalWidth, Math.floor(w / scale)));
-    const ih = Math.max(2, Math.floor(iw * (h / w)));
+    const scale = config.pixelScale > 0
+      ? Math.max(1, Math.round(config.pixelScale))
+      : autoScale(w, h);
+    const even = (n) => Math.max(2, Math.ceil(n / 2) * 2);
+    const iw = even(w / scale);
+    // Straight off `h / scale`, not off the aspect. The old form derived the height from
+    // `iw * (h / w)` so that a *capped* width could not stretch the picture; there is no cap
+    // branch now, so the aspect is preserved by construction and this is both simpler and
+    // symmetric in the overscan.
+    const ih = even(h / scale);
+    const ow = iw * scale;
+    const oh = ih * scale;
     // Reallocating render targets is expensive and config changes every frame while the
     // clock runs, so bail out unless something that matters actually moved.
-    if (w === outW && h === outH && iw === inW && ih === inH) return;
-    outW = w; outH = h; inW = iw; inH = ih;
+    if (ow === outW && oh === outH && iw === inW && ih === inH) return;
+    outW = ow; outH = oh; inW = iw; inH = ih;
+    compositeMat.uniforms.uInternal.value.set(inW, inH);
+
+    // Centred at its exact size, so the overscan is split between the two edges. The inline
+    // width/height beat `index.html`'s `100%`, and the UI canvas copies this rect
+    // (`src/ui/screen.js`) so the two surfaces stay registered — which is what makes a click
+    // land on the row the player is looking at.
+    canvas.style.position = 'absolute';
+    canvas.style.width = `${outW}px`;
+    canvas.style.height = `${outH}px`;
+    canvas.style.left = `${Math.floor((w - outW) / 2)}px`;
+    canvas.style.top = `${Math.floor((h - outH) / 2)}px`;
 
     renderer.setSize(outW, outH, false);
     sceneRT.setSize(inW, inH);
@@ -237,7 +322,13 @@ export function makeRenderer({ container, config, log }) {
       const w = Math.max(2, (inW >> 1) >> i), h = Math.max(2, (inH >> 1) >> i);
       m.a.setSize(w, h); m.b.setSize(w, h);
     });
-    camera.aspect = outW / outH;
+    // The frustum *is* the buffer, measured in world units at the one density the whole game
+    // draws at. Nothing else sets the zoom; `cameraDistance` only stands the camera back.
+    const ppu = Math.max(1, config.pixelsPerUnit);
+    camera.left = -inW / (2 * ppu);
+    camera.right = inW / (2 * ppu);
+    camera.top = inH / (2 * ppu);
+    camera.bottom = -inH / (2 * ppu);
     camera.updateProjectionMatrix();
   }
 
@@ -265,12 +356,21 @@ export function makeRenderer({ container, config, log }) {
     if (!outW) return;
     renderer.info.reset();
     syncUniforms();
-    // The grain phase advances per frame, so how many frames happened before a capture —
-    // which depends on the wall clock, not on the URL — changed the pixels. That broke
-    // ARCHITECTURE §6.3's "same URL, same pixels", which the harness relies on to make a
-    // diff between two rounds mean something. Frozen alongside everything else the harness
-    // freezes; grain still animates in normal play.
-    compositeMat.uniforms.uTime.value = config.timeFrozen ? 0 : (frameCount++ % 64) * 0.017;
+    // Grain does not animate.
+    //
+    // It used to, and the harness froze the phase so that "same URL, same pixels"
+    // (ARCHITECTURE §6.3) held for a capture. But grain is evaluated per INTERNAL pixel now
+    // (see the composite shader), so at `pixelScale: 3` every sample is a 3x3 block of output
+    // pixels at full amplitude — and re-rolling all of them every frame is a shimmer over the
+    // entire picture that never stops, including on a frame where nothing in the world moves.
+    // A fixed per-pixel dither still breaks banding, which is the job, and it costs nothing.
+    //
+    // The regression baselines do not move: the harness already captured with `timeFrozen`,
+    // i.e. `uTime = 0`, which is exactly what this now does in play as well. `?grainAnimate=1`
+    // is the A/B, and it keeps the freeze so a capture stays reproducible either way.
+    compositeMat.uniforms.uTime.value = (config.grainAnimate && !config.timeFrozen)
+      ? (frameCount++ % 64) * 0.017
+      : 0;
 
     renderer.setRenderTarget(sceneRT);
     renderer.clear(true, true, true);
@@ -327,6 +427,8 @@ export function makeRenderer({ container, config, log }) {
     /** environment tunes the grade through here */
     grade: compositeMat.uniforms,
     get internalSize() { return [inW, inH]; },
+    /** Where the canvas actually sits in the page, for anything that must line up with it. */
+    get displayRect() { return { left: canvas.offsetLeft, top: canvas.offsetTop, w: outW, h: outH }; },
   };
 }
 
@@ -334,11 +436,30 @@ export function makeRenderer({ container, config, log }) {
  * Fixed 45-degree camera rig (ARCHITECTURE §2.7). Yaw is locked; the camera never rotates,
  * it only follows, with a critically damped spring so grid steps do not read as stutter.
  */
-export function makeCameraRig({ camera, config }) {
+export function makeCameraRig({ camera, config, view = null }) {
   const focus = new THREE.Vector3();
   const target = new THREE.Vector3();
   const offset = new THREE.Vector3();
+  const right = new THREE.Vector3();
+  const up = new THREE.Vector3();
   let snapped = false;
+  let basis0 = null, basisWarned = false;
+
+  /**
+   * World units one internal pixel covers. **The primitive** (DECISIONS #60).
+   *
+   * It used to be measured — `2 * cameraDistance * tan(fov/2) / internalHeight` — which meant
+   * it changed with the size of the window, and everything sized off it changed with it. It is
+   * a constant now, and the camera frustum is derived from *it* in `resize()` rather than the
+   * other way round. Exact, so `pokemon/field.js`'s magnification comes out at a whole 2 and
+   * not at 1.99999997.
+   *
+   * Orthographic, so there is no "at the focus plane" any more: this is the density at every
+   * depth in the frame.
+   */
+  function unitsPerPixel() {
+    return 1 / Math.max(1, config.pixelsPerUnit);
+  }
 
   function recomputeOffset() {
     const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
@@ -349,6 +470,60 @@ export function makeCameraRig({ camera, config }) {
 
   return {
     get focus() { return focus; },
+    /**
+     * The pixel grid the camera itself snaps to, published so nothing has to re-derive it.
+     * `pokemon/field.js` sizes its sprites off this exact number: a sprite grid that is not
+     * the world's grid is two grids, and the picture shimmers between them.
+     */
+    unitsPerPixel,
+    /**
+     * The zoom ladder: the only three densities at which both sprite art (16 texels/unit) and
+     * tile art (32 texels/unit) land on whole pixels. See `config.pixelsPerUnit`.
+     */
+    PPU: Object.freeze({ wide: 16, normal: 32, close: 64 }),
+    /**
+     * Framing that fits `cellsWide` across and `cellsDeep` of ground, on **two** knobs.
+     *
+     * There are two, and conflating them is what the old "solve for a camera distance" code
+     * did. `pixelsPerUnit` is the zoom — how big a world unit is, in pixels — and it is a
+     * three-rung ladder because it is the thing that has to keep the art on whole texels.
+     * `pixelScale` is how many screen pixels one of those pixels occupies, so it decides how
+     * much world the buffer holds *at an unchanged density*: at 1280x720, `pixelScale 2` gives
+     * a 640-wide buffer and 20 cells, and `pixelScale 1` gives 1280 and 40 — same tiles, same
+     * texels, twice the sheet.
+     *
+     * So detail comes first: hold the highest `pixelsPerUnit` that can be made to fit, and buy
+     * the room by widening the buffer rather than by zooming out. Only a showcase should call
+     * this — the game itself wants `pixelScale` on the viewport policy, which is what a
+     * chunky, legible pixel means on a phone.
+     *
+     * The ground term is not the screen term: at `cameraPitch` degrees a run of `L` cells in Z
+     * covers `L * sin(pitch)` of *screen* height, so the visible depth is the frustum height
+     * over `sin(pitch)` — about 1.41x the cells the height alone suggests.
+     *
+     * @returns {{ppu:number, pixelScale:number}} also applied to config before returning
+     */
+    fitFraming(cellsWide, cellsDeep = 0) {
+      const vw = Math.max(2, Math.floor(view?.displayRect?.w ?? 1920));
+      const vh = Math.max(2, Math.floor(view?.displayRect?.h ?? 1080));
+      const sinPitch = Math.sin(THREE.MathUtils.degToRad(config.cameraPitch)) || 1;
+      const even = (n) => Math.max(2, Math.ceil(n / 2) * 2);
+      let best = { ppu: 16, pixelScale: 1 };
+      outer:
+      for (const ppu of [64, 32, 16]) {
+        for (let scale = 6; scale >= 1; scale--) {
+          const iw = even(vw / scale), ih = even(vh / scale);
+          if (iw > config.maxInternalWidth || ih > config.maxInternalWidth) continue;
+          if (iw / ppu >= cellsWide && (!cellsDeep || (ih / ppu) / sinPitch >= cellsDeep)) {
+            best = { ppu, pixelScale: scale };
+            break outer;
+          }
+        }
+      }
+      config.set(best.ppu === config.pixelsPerUnit && best.pixelScale === config.pixelScale
+        ? {} : { pixelsPerUnit: best.ppu, pixelScale: best.pixelScale });
+      return best;
+    },
     setFocus(x, y, z, immediate = false) {
       target.set(x, y, z);
       if (immediate || !snapped) { focus.copy(target); snapped = true; }
@@ -358,14 +533,89 @@ export function makeCameraRig({ camera, config }) {
       // Exponential smoothing that is frame-rate independent.
       const k = 1 - Math.pow(config.cameraDamping, Math.max(dt, 1e-4) * 60);
       focus.lerp(target, Math.min(1, k));
+
+      // Aim by setting the rotation, not by looking at anything (DECISIONS #60).
+      //
+      // `lookAt(focus.x, focus.y + cameraLookAhead, focus.z)` from `focus + offset` does not
+      // aim at `cameraPitch` — the look direction is `(0, lookAhead, 0) - offset`, which at
+      // the shipped 1.6 and distance 30 is 42.77 degrees below horizontal, not 45. That
+      // mattered because `pokemon/sprites.js` pre-stretches every sprite by `1 / cos(pitch)`
+      // to cancel the foreshortening of an upright quad under a tilted camera, and it was
+      // cancelling the wrong angle: every sprite in the game was 3.9% too tall and its texels
+      // were not square. Setting the rotation makes the pitch exactly what the config says,
+      // so the pre-stretch is exact and a sprite texel is a square block of pixels.
+      const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
+      camera.rotation.set(-pitch, 0, 0, 'YXZ');
       camera.position.copy(focus).add(offset);
-      camera.lookAt(focus.x, focus.y + config.cameraLookAhead, focus.z);
-      camera.fov = config.fov;
-      camera.updateProjectionMatrix();
+
+      // Put the world on a whole internal pixel — AFTER the aim, which is the whole trick.
+      //
+      // The lerp above is continuous, so without a snap the whole world — tiles and sprites
+      // alike — slides by a fraction of a pixel every frame and a NEAREST upscale turns that
+      // into a shimmer along every edge. Snapping before the aim did nothing about it back
+      // when the aim was a `lookAt`: it re-aimed at the un-snapped focus, so the slide came
+      // straight back, and it rotated the supposedly locked basis by a hair every frame —
+      // which `pokemon/field.js` reads back to place its sprites, so the shimmer arrived
+      // twice. With a fixed rotation the basis is constant for the life of the session and
+      // the snap survives into the projection matrix. Two dot products, as before.
+      //
+      // Under the orthographic camera this one snap grids the **whole frame**. There is no
+      // depth divide, so a whole-pixel translation of the camera is a whole-pixel translation
+      // of every building, fence, tile and sprite in it, at every depth.
+      const upp = config.cameraSnap ? unitsPerPixel() : 0;
+      camera.updateMatrixWorld();
+      right.setFromMatrixColumn(camera.matrixWorld, 0);
+      up.setFromMatrixColumn(camera.matrixWorld, 1);
+      if (upp > 0) {
+        // `cameraLookAhead` is a world-Y lift of the aim point, which is what put the player
+        // low-centre. A world-Y displacement projects onto screen-up as `dy * cos(pitch)`, so
+        // it is a translation along `up` — rounded to whole pixels here so the snap below
+        // leaves it alone. Shifting `top`/`bottom` instead would be the same arithmetic in a
+        // second place, and one of the two would escape the snap.
+        const lookAheadPx = Math.round(config.cameraLookAhead * Math.cos(pitch) / upp);
+        camera.position.addScaledVector(up, lookAheadPx * upp);
+        const dx = camera.position.dot(right) / upp;
+        const dy = camera.position.dot(up) / upp;
+        camera.position
+          .addScaledVector(right, (Math.round(dx) - dx) * upp)
+          .addScaledVector(up, (Math.round(dy) - dy) * upp);
+        // Republish the moved position: `field.js` reads `matrixWorld` before the renderer
+        // gets a chance to refresh it, and a stale one is a whole frame of snap error.
+        camera.updateMatrixWorld(true);
+      } else {
+        camera.position.addScaledVector(up, config.cameraLookAhead * Math.cos(pitch));
+        camera.updateMatrixWorld(true);
+      }
+
+      // The basis is supposed to be nailed down now. This is the trap for the next person who
+      // reaches for `lookAt` — a rotating basis is the bug this rig has already had once, and
+      // it is invisible in a still frame.
+      if (config.debug) {
+        if (basis0) {
+          const drift = Math.max(
+            right.distanceTo(basis0.right), up.distanceTo(basis0.up));
+          if (drift > 1e-6 && !basisWarned) {
+            basisWarned = true;
+            console.error(`camera basis moved by ${drift} — something is rotating the rig`);
+          }
+        } else {
+          basis0 = { right: right.clone(), up: up.clone() };
+        }
+      }
     },
-    /** Frames a rectangle of the world — used by showcases and the screenshot presets. */
-    frame(cx, cz, y = 0, distance = null) {
-      if (distance != null) config.set({ cameraDistance: distance });
+    /**
+     * Frames a rectangle of the world — used by showcases and the screenshot presets.
+     *
+     * Zoom is `{ ppu }`, one of 16 / 32 / 64, not a camera distance: the camera is
+     * orthographic and standing further back does not make anything smaller. See
+     * `config.pixelsPerUnit` for why the ladder has three rungs.
+     */
+    frame(cx, cz, y = 0, opts = null) {
+      if (typeof opts === 'number') {
+        throw new TypeError(
+          `rig.frame() takes { ppu }, not a distance (got ${opts}). See DECISIONS #60.`);
+      }
+      if (opts?.ppu) config.set({ pixelsPerUnit: opts.ppu });
       this.setFocus(cx, y, cz, true);
       this.update(1);
     },

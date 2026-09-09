@@ -17,10 +17,10 @@
  * is the direction it must face while walking into it. The head is the one exception — it can
  * turn on the spot without moving — so its facing is carried separately in `facing`.
  *
- * Determinism: `t` only ever advances by `dt / secondsPerTile`, and both cadences divide the
- * 1/20 s sim step exactly (0.25 s = 5 steps, 0.15 s = 3), so the same input at the same seed
- * lands on the same cells at the same sub-tile offsets forever. The leftover of a step that
- * would overshoot is carried into the next one rather than dropped.
+ * Determinism: `t` only ever advances by `dt / secondsPerTile`, and the one cadence divides
+ * the 1/20 s sim step exactly (0.25 s = 5 steps), so the same input at the same seed lands on
+ * the same cells at the same sub-tile offsets forever. The leftover of a step that would
+ * overshoot is carried into the next one rather than dropped.
  */
 
 import { DIR_DX, DIR_DZ, SOUTH } from '../core/dir.js';
@@ -41,7 +41,6 @@ export class Line {
     this.trail = [{ cx: 0, cz: 0, dir: SOUTH }];
     this.facing = SOUTH;
     this.moving = false;
-    this.running = false;
     this.secondsPerTile = 0.25;
     /** Progress through the current step, 0..1. */
     this.t = 1;
@@ -115,7 +114,7 @@ export class Line {
    *
    * @returns {boolean} true if the queue actually moved
    */
-  step(dir, { running = false, walkSeconds = 0.25, runSeconds = 0.15, passable = () => true } = {}) {
+  step(dir, { walkSeconds = 0.25, passable = () => true } = {}) {
     const d = dir & 3;
     this.facing = d;
     if (this.moving) return false;
@@ -132,8 +131,7 @@ export class Line {
     this.trail.unshift({ cx: nx, cz: nz, dir: d });
     if (this.trail.length > TRAIL_MAX) this.trail.length = TRAIL_MAX;
     this.moving = true;
-    this.running = running;
-    this.secondsPerTile = Math.max(0.01, running ? runSeconds : walkSeconds);
+    this.secondsPerTile = Math.max(0.01, walkSeconds);
     this.t = Math.min(0.999, this.carry);
     this.carry = 0;
     return true;

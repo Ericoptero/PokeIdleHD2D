@@ -20,6 +20,13 @@ export function makeParty(app) {
 
   const mon = () => app.ctx.get('pokemon');
 
+  /** An item's shop name, so the list reads "Tiny Mushroom" rather than "tinymushroom". */
+  function itemLabel(id) {
+    const eco = app.ctx.get('economy');
+    const def = isLive(eco) && typeof eco.item === 'function' ? eco.item(id) : null;
+    return def?.name ?? id;
+  }
+
   function members() {
     const p = mon();
     if (!isLive(p) || typeof p.party !== 'function') return [];
@@ -35,6 +42,28 @@ export function makeParty(app) {
       url: typeof p.spriteUrl === 'function' && inst?.species
         ? p.spriteUrl(inst.species, { shiny: !!inst.shiny }) : null,
     }));
+  }
+
+  /** What the highlighted Pokemon is closest to evolving into, priced, or null. */
+  function evolution(i) {
+    const p = mon();
+    const inst = members()[i]?.inst;
+    if (!isLive(p) || typeof p.canEvolve !== 'function' || !inst) return null;
+    return p.canEvolve(inst.instanceId);
+  }
+
+  /**
+   * Presses it. **This is the only path into an evolution in the whole game** — nothing
+   * evolves on its own any more (DECISIONS #62), so the refusal has to be legible: `evolve()`
+   * answers with the reason, and it is shown rather than swallowed.
+   */
+  function evolve(i) {
+    const p = mon();
+    const inst = members()[i]?.inst;
+    if (!isLive(p) || typeof p.evolve !== 'function' || !inst) return;
+    const res = p.evolve(inst.instanceId);
+    if (!res?.ok) app.toast(res?.why ?? 'it cannot evolve yet', 'warn');
+    app.markDirty();
   }
 
   function setLead(i) {
@@ -59,6 +88,7 @@ export function makeParty(app) {
       if (code === 'ArrowUp' || code === 'KeyW') { cursor = Math.max(0, cursor - 1); app.markDirty(); return true; }
       if (code === 'ArrowDown' || code === 'KeyS') { cursor = Math.min(list.length - 1, cursor + 1); app.markDirty(); return true; }
       if (code === 'Enter' || code === 'KeyZ' || code === 'Space') { setLead(cursor); return true; }
+      if (code === 'KeyE') { evolve(cursor); return true; }
       return false;
     },
 
@@ -67,7 +97,7 @@ export function makeParty(app) {
       cursor = Math.max(0, Math.min(list.length - 1, cursor));
       const win = windowFrame(g, {
         title: 'PARTY', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
-        footer: '↑↓ choose    Z make it lead    X close',
+        footer: '↑↓ choose    Z make it lead    E evolve    X close',
         onClose: () => app.close(), ...fit(g, 424, 250),
       });
 
@@ -190,16 +220,56 @@ export function makeParty(app) {
         y += 9;
       }
       y += 3;
-      // Wrapped to the pane that actually got drawn, not to three hand-cut lines: the pane is
-      // 158 px wide at 1080p and 124 at 720p, and a hand-cut line ellipsises at both.
-      const blurb = wrap('The lead walks the city and the trainer follows it, so this is also the sprite you see on screen.', detail.w - 10);
-      // All of it or none of it: half a sentence cut off mid-word is worse than the gap it
-      // was put there to fill.
-      if (y + blurb.length * 8 <= detail.y + detail.h - 20) {
-        for (const line of blurb) { g.text(detail.x + 5, y, line, C.stoneShadow); y += 8; }
+
+      // --- what it would take to evolve ------------------------------------
+      // The bill, not a verdict. A greyed-out button that does not say WHY is the thing this
+      // panel exists to avoid, so the level and every material are listed with what the bag
+      // actually holds beside them — a shopping list the player can go and fill.
+      const evo = evolution(cursor);
+      const room = detail.y + detail.h - 32;
+      if (evo) {
+        g.fill(detail.x + 4, y - 2, detail.w - 8, 1, C.wallDeep);
+        y += 2;
+        // Ink when it is ready, muted when it is not. Deliberately NOT the red accent: red is
+        // what the unmet rows below use, and a heading in the same colour as the failures read
+        // as another failure (looked at, in docs/progress/pokemon/r3/evolve-ready.png).
+        g.text(detail.x + 5, y, `EVOLVES INTO ${String(evo.display ?? evo.to).toUpperCase()}`,
+          evo.ready ? C.ink : C.shadowInk, { max: detail.w - 10 });
+        y += 9;
+        const lvOk = evo.have >= evo.level;
+        g.text(detail.x + 5, y, `Level ${evo.level}`, C.shadowInk);
+        g.textRight(detail.x + detail.w - 5, y, lvOk ? `${evo.have} ✓` : String(evo.have),
+          lvOk ? C.ink : C.roofBase);
+        y += 9;
+        for (const m of evo.materials ?? []) {
+          if (y > room) break;
+          const ok = m.have >= m.n;
+          g.text(detail.x + 5, y, itemLabel(m.id), C.shadowInk, { max: detail.w - 46 });
+          g.textRight(detail.x + detail.w - 5, y, `${m.have}/${m.n}${ok ? ' ✓' : ''}`,
+            ok ? C.ink : C.roofBase);
+          y += 9;
+        }
+      } else {
+        // Wrapped to the pane that actually got drawn, not to three hand-cut lines: the pane
+        // is 158 px wide at 1080p and 124 at 720p, and a hand-cut line ellipsises at both.
+        const blurb = wrap('The lead walks the city and the trainer follows it, so this is also the sprite you see on screen.', detail.w - 10);
+        // All of it or none of it: half a sentence cut off mid-word is worse than the gap it
+        // was put there to fill.
+        if (y + blurb.length * 8 <= room) {
+          for (const line of blurb) { g.text(detail.x + 5, y, line, C.stoneShadow); y += 8; }
+        }
       }
 
+      // Two rows, evolve on top, because it is the one that changes the Pokemon and the one
+      // the player came here for once a hunt has paid out.
       const by = detail.y + detail.h - 16;
+      if (evo) {
+        action(g, { x: detail.x + 4, y: by - 15, w: detail.w - 8, h: 13 },
+          evo.ready ? 'EVOLVE' : 'CANNOT EVOLVE YET', {
+            disabled: !evo.ready, active: evo.ready,
+            onPick: () => evolve(cursor), tag: 'evolve',
+          });
+      }
       action(g, { x: detail.x + 4, y: by, w: detail.w - 8, h: 13 },
         cursor === 0 ? 'ALREADY LEADING' : 'MAKE IT LEAD', {
           disabled: cursor === 0, active: cursor !== 0,

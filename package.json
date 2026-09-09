@@ -10,7 +10,7 @@
     "dev": "vite --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "assets": "node tools/assets/build-tiles.js",
+    "assets": "node tools/assets/build-tiles.js && node src/pokemon/tools/build-species.js && node src/pokemon/tools/build-battle-data.js",
     "shot": "node tools/shots/shoot.js",
     "gauntlet": "node tools/shots/gauntlet.js",
     "seams": "node tools/seams/run.js",

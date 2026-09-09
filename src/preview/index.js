@@ -73,8 +73,10 @@ export default {
         group = tiles.buildInstances(ctx.three.scene, slug, placements, { name: `preview:${slug}` });
         staged = models.map((m, i) => ({ ...m, at: [placements[i].cx, placements[i].cz] }));
 
+        // The widest rung that still holds the whole sheet of models. Zoom is a three-rung
+        // ladder now, not a solved-for distance (DECISIONS #60), so this fits rather than fills.
         ctx.three.rig.frame(floorW / 2 - pad, floorH / 2 - pad, 0,
-          Math.max(24, Math.max(floorW, floorH) * 0.9));
+          { ppu: ctx.three.rig.fitFraming(floorW, floorH).ppu });
         ctx.log.info(`preview "${slug}": ${models.length} models, ${cols}x${rows}, ` +
           `${group.stats.meshes} meshes, ${Math.round(group.stats.triangles / 1000)}k tris`);
         return { models: models.length, cols, rows, floorW, floorH };
@@ -85,7 +87,7 @@ export default {
         const m = staged.find((s) => s.name === name);
         if (!m) return false;
         ctx.three.rig.frame(m.at[0] + (m.w ?? 1) / 2, m.at[1] + (m.h ?? 1) / 2, 0,
-          Math.max(8, (m.bounds?.max?.[1] ?? 2) * 3.5));
+          { ppu: ctx.three.rig.PPU.close });
         return true;
       },
 

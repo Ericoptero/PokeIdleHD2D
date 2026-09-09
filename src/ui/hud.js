@@ -164,7 +164,15 @@ export function makeHud(ctx) {
     // 64 px frames, and at `scale` 1 in a 32 px cell the old arithmetic put the sprite at
     // `y + 32 - 64` — thirty-two pixels *above* its own slot, in the row overhead. The same
     // clamp is what lets a box cell shrink with the window (a 29 px cell at 720p).
-    const k = Math.min(scale, size / fw, size / fh);
+    // Whole ratios only — 1/3, 1/2, 1, 2, 3 — never 0.906.
+    //
+    // `drawImage` with smoothing off does not *blend* a fractional scale, it drops rows and
+    // columns: at the 29 px cell a 720p buffer gives, k came out 0.906 and every eleventh row
+    // of the source frame simply vanished. That is the same class of defect as the world's
+    // own pixel grid (DECISIONS #58), one surface along, and the fix is the same — refuse a
+    // fraction and take the next whole ratio down.
+    const raw = Math.min(scale, size / fw, size / fh);
+    const k = raw >= 1 ? Math.floor(raw) : 1 / Math.ceil(1 / raw);
     const dw = Math.max(1, Math.round(fw * k));
     const dh = Math.max(1, Math.round(fh * k));
     g.sprite(img, 0, fh * 2, fw, fh, x + Math.round((size - dw) / 2), y + size - dh, dw, dh);

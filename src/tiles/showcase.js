@@ -252,18 +252,21 @@ function shortener(names) {
 }
 
 /**
- * Frames a stage. `cameraDistance 30` covers ~24 tiles across a 16:9 screen (core/config),
- * so ~0.8 tiles per unit horizontally; the ground runs about 0.62 tiles per unit in depth
- * once the 45-degree pitch is accounted for.
+ * Frames a stage on the zoom ladder (DECISIONS #60). The camera is orthographic, so the
+ * visible world is the internal buffer over `pixelsPerUnit` — `rig.fitFraming` picks a zoom
+ * that still holds the stage, including the 1/sin(pitch) the ground gains in depth.
  */
 function frameStage(ctx, stage, { pad: m = 3, lift = 0, cx = null, cz = null } = {}) {
-  // `?cameraDistance=20&focus=8,10` hands the framing back to the caller, which is how the
+  // `?pixelsPerUnit=64&focus=8,10` hands the framing back to the caller, which is how the
   // close-ups that actually settle a seam question get taken.
   const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
-  const d = params.has('cameraDistance')
-    ? ctx.config.cameraDistance
-    : Math.round(Math.max((stage.w + m * 2) / 0.80, (stage.h + m * 2) / 0.62, 18));
-  ctx.three.rig.frame(cx ?? stage.w / 2, cz ?? stage.h / 2 + lift, 0, d);
+  // `fitFraming`, not `fitPpu`: a catalog stage is wider than the game's own 20 cells and the
+  // zoom ladder alone cannot reach it. Widening the buffer buys the room at an unchanged
+  // density, so the contact sheet holds every set *and* every tile is still 1:1.
+  const ppu = params.has('pixelsPerUnit')
+    ? ctx.config.pixelsPerUnit
+    : ctx.three.rig.fitFraming(stage.w + m * 2, stage.h + m * 2).ppu;
+  ctx.three.rig.frame(cx ?? stage.w / 2, cz ?? stage.h / 2 + lift, 0, { ppu });
 }
 
 // --- mode: one set in full --------------------------------------------------------------

@@ -31,25 +31,26 @@ export const CAVE = {
   h: 54,
   weather: null,
   presets: {
-    chamber: { marker: 'chamber', distance: 30 },
-    mouth: { marker: 'mouth', distance: 30 },
-    pool: { marker: 'pool', distance: 28 },
-    terrace: { marker: 'terrace', distance: 30 },
-    // 46 was a picture of nothing: at that distance the hall is a flat brown rectangle with
-    // three light dots in it and a party four pixels tall. At 34 the party and the room's
-    // walls read again. Aimed at the terrace because docs/refs/04 is entirely one bank of
-    // rock stepping up behind another — though looked at, this framing shows the hall more
-    // than it shows the step, so it is better than it was rather than right.
-    wide: { marker: 'terrace', distance: 34 },
-    // Its own marker, not `pool`'s: at `distance` 16 the near half of the frame is 4.3 cells
-    // of ground, and `pool` stood one cell north of a terrace lip. See `mark('close', …)`.
-    close: { marker: 'close', distance: 16 },
+    chamber: { marker: 'chamber', ppu: 32 },
+    mouth: { marker: 'mouth', ppu: 32 },
+    pool: { marker: 'pool', ppu: 32 },
+    terrace: { marker: 'terrace', ppu: 32 },
+    // The one preset the zoom ladder cost something. This was distance 34, a *slightly* wider
+    // frame than the 30 the other cave shots take — and distance 46 had already been tried and
+    // rejected as a picture of nothing, a flat brown rectangle with three light dots in it and
+    // a party four pixels tall. The ladder has no rung between 32 and 16, and 16 is the 46 that
+    // did not work, so this stays at 32 and is distinguished by its marker alone: aimed at the
+    // terrace because docs/refs/04 is one bank of rock stepping up behind another.
+    wide: { marker: 'terrace', ppu: 32 },
+    // Its own marker, not `pool`'s: at this zoom the near half of the frame is a few cells of
+    // ground, and `pool` stood one cell north of a terrace lip. See `mark('close', …)`.
+    close: { marker: 'close', ppu: 64 },
     // `tools/judge/plan.json` shoots `preset: 'route'` for the cave pair and no biome
     // defined one, so it was silently falling back with `presetApplied: false`. The
     // reference is docs/refs/02, a walked cave gallery: the corridor between the hall and
     // the pool, with rock on both sides.
-    route: { marker: 'gallery', distance: 26 },
-    gallery: { marker: 'gallery', distance: 30 },
+    route: { marker: 'gallery', ppu: 32 },
+    gallery: { marker: 'gallery', ppu: 32 },
   },
   showcaseDefault: 'gallery',
   /**

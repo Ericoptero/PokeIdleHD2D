@@ -5177,3 +5177,889 @@ said nothing before because nothing was registered.
 Still not fixed and still not tiles': the long hard black bars the lamps throw at 21:00 from a sun
 below the horizon (tiles coreRequest 6 against `environment`), and `slamp03.png`, which has no
 fixture drawn on it at all (the integrator's authored-asset job).
+
+---
+
+### 58 — 2026-09-09 — How the party walks is a property of the place; run is gone; and a sprite texel is a whole number of internal pixels at any camera distance
+
+Seven changes asked for in one go. They divide cleanly into two: **a scene now says how it is
+played**, and **the DS art now survives the pipeline**.
+
+**(a) The formation is map data, and the queue is a pair.** `simulation.setFormation({ head,
+input, autopilot, preferTags })` is the whole seam. `city/layout.js` exports
+`{ head:'trainer', input:true, autopilot:'none' }` and `hunts` exports
+`{ head:'pokemon', input:false, autopilot:'wander', preferTags:['tallgrass','encounter','path'] }`;
+each scene applies its own inside `enter()`, **before** `placePlayer`, because `placePlayer`
+lays the queue out through `formation.head` and a formation applied afterwards leaves the line
+cut the wrong way round.
+
+`rebuildMembers` now builds exactly two walkers — the trainer and `party[0]` — ordered by
+`head`. The bench stays in `pokemon.party()`, shows in the party bar and can be swapped to the
+front with `setLead`; it does not follow the trainer around. **`line.js` needed no change at
+all**: with `trainerIndex === 0` the anchor *is* the head, so `place()` skips its forward loop
+and lays the Pokémon at `trail[gap]` behind, and `pose()` already gives index 0 `line.facing`
+(so the player's avatar turns on the spot into a wall, which is the Black & White behaviour you
+want from your own avatar) and gives the follower `to.dir` (so it does not moonwalk round a
+corner — DECISIONS #27's reason, unchanged).
+
+`config.followerGapTiles` stays at **2**, and the re-reasoning matters because #27's argument
+looks like it was about the lead: it was not. A walker covers `2.83 · sin(45°) = 2.0` tiles of
+ground depth on screen, so two walkers less than two tiles apart overlap **whichever order they
+are in**. The floor is a property of the separation. What does change is who is occluded, and
+the case to look at is the party walking *south*, where the trainer both leads and is nearer
+the camera.
+
+`player:moved` still carries the trainer and `player:enteredTile` still carries the head — but
+in the city the head *is* the trainer, so **the trainer now triggers city grass**. That is not
+an accident to be papered over: `city/map.js:338` really does plant `['tallgrass','encounter']`
+over the two patches in `layout.js:170-173`, and `encounter/tables.js` has a real `city` table
+at `stepRate 0.06`. With the trainer in front, the body that visibly walks into the grass is
+the one that rolls, and `encounter.stageCell()` still stands the wild two cells ahead of the
+head with no code change. `followerCell()` needed none either; `follower()` and `lineup()` did,
+because both were reading slot 0 rather than *the Pokémon*.
+
+**(b) The autopilot moved from the lobby to the hunt, which is where it belonged.** It used to
+be installed unconditionally at boot — in the city, the one place the player should be driving
+— and `placePlayer` reset the route without ever replacing it, so the city's own
+`preferTags:['path']` wander followed the player into a forest and biased the party away from
+the grass it was there to hunt in. It is now forked per scene
+(`ctx.rng.fork('simulation/wander/hunt-forest')`), so two biomes are two strolls and each is
+reproducible from its own stream. Measured: two loads of `/` now leave the party on the same
+cell with `autopilot: 'still'`; before, they did not.
+
+That kills DECISIONS #34(c)'s "the first real input calls `halt()` once, permanently" seam, and
+with it the measured trace in #34(c) — **read that entry as history, not as behaviour**. A
+walkable map has no route to take over from, and halting a hunt's wander is the one thing a
+stray keypress must not do.
+
+**(c) Input is refused, not swallowed.** `moveIntent` returns `false` where the scene says the
+player does not drive, which closes the console and any future input source as well as the
+keyboard; `ui/input.js` checks the same flag, still calls `preventDefault()` on the arrows
+(a page that scrolls out from under the game is worse than a dead key), does not draw the touch
+pad, and raises **one** toast per scene saying who is leading. The hint's dismissal flag had to
+change meaning with it: it read `hasMoved()`, and in a hunt the player can never move, so a
+control hint would have sat over the near ground in every hunt frame a critic ever took.
+
+**(d) Run is gone, the sheet data is not.** One cadence, `walkSecondsPerTile`. `running`,
+`runSeconds` and `runSecondsPerTile` are removed from `line.js`, `route.js`, `simulation`,
+`config` and the touch pad's RUN latch. `sprites.js` keeps `TRAINER_SHEET.run` and
+`TRAINER_MIRRORS`: DECISIONS #17 measured those trios and the per-sheet mirror pairs frame by
+frame, and the measurement is worth more on the record than the four lines it saves. The
+selftest's "0.15 s/tile is exactly 3 sim ticks" check is **replaced rather than deleted** — it
+now steps with a stray `running: true` and asserts the tile still takes five ticks, so a caller
+that has not been updated cannot quietly resurrect a second cadence. `simulation/showcase.js`'s
+`run` mode went with it, which `docs/STATUS.json` had already asked for on its own merits.
+
+**(e) `travel` is a module, not core.** Core is the only thing every module may import, and a
+scene manager needs `city`, `hunts`, `simulation`, `encounter` and a save slice. It is not `ui`
+either — that would put the destination table, the teardown order and the save in the
+presentation layer, unreachable from the boot path. So `src/travel/`, `needs: ['terrain']`,
+neighbours through `ctx.get`, and `src/main.js` keeps the old `city.enter()` as the fallback so
+a quarantined `travel` costs the game travel and not its lobby. Exactly two core edits fall out:
+the `scene:entered` row in §4, and a `scene` key in `config` (which is what lets the harness
+frame a hunt at `/` with `?scene=hunt-forest` instead of only in a showcase).
+
+**Three bugs had to be fixed before travel could work, and two of them had never worked at
+all.**
+
+1. `city` had no `world:unloaded` listener. `hunts` has had one since it was written; the city
+   only ever tore down inside its own `enter()`, which covers entering it twice and not
+   *leaving* it. Travelling city → forest would have left the Pokémon Center, the Mart, the
+   cottages, the lamps and thirteen NPCs standing in the middle of the wood. Probed over
+   `forest → city → cave → city`: draw calls and triangles return to the same numbers each
+   time instead of climbing, which is what a leak would look like.
+2. `offline` discovered its providers from `Object.keys(ADAPTERS)`, not from the registry.
+   §5 promises a module opts into saving "simply by having" `saveState`/`loadState` and needs
+   no entry anywhere — it was not true, and **`encounter` has shipped a save seam that nothing
+   ever called** since it was written. Passing the registry's ids fixes both at once; steps,
+   encounter count and the chosen ball now persist for the first time.
+3. `offline`'s `restorePlayer` listened for `world:loaded` — which `terrain.load()` emits from
+   *inside itself*, a few lines before the scene calls `placePlayer(spawn)`. So the restore
+   landed and was overwritten microseconds later, on every boot the game has ever had. It
+   listens for `scene:entered` now, which fires after `enter()` has resolved, and restores
+   **once per session** so travelling city → forest → city does not yank the player back to
+   wherever they last saved. `slices.js` was also reading `handle().mapId`, and `handle()`
+   returns `id` — that read had been `null` since it was written, which is why the bug was
+   invisible rather than merely wrong.
+
+There is one ordering trap worth writing down: `offline` builds its provider list during its
+own `init`, and the registry's topological order does not guarantee `travel` is up by then.
+So `travel` also hands its seam to `offline.store.register()` directly when `offline` is
+already live, and pulls the slice `hydrate()` read before it existed. Both orders work; neither
+is relied on.
+
+---
+
+**(f) A sprite texel is a whole number of internal pixels, at any camera distance.**
+
+The complaint was that the trainer and the Pokémon "are strange and without quality, some
+pixels are not real". They were right, and it is measurable: `assets/trainer/hero.png` frame 0
+is **14 colours**; an 80×180 crop of that same trainer on screen was **2165**, and the source
+orange `(255,180,32)` arrived as `≈(240,144,1)`.
+
+Three causes, stacked.
+
+*The magnification was fractional.* At `cameraDistance: 30` one sprite texel covers **1.62**
+internal pixels, so NEAREST hands out blocks 1 and 2 pixels wide at random. DECISIONS #18 knew
+this — it names 24.365 as the distance where a texel is exactly two pixels and filed the
+default as a coreRequest. **We did not take that route**, because it only fixes one distance
+and it was explicitly not what was asked for. `field.js` derives the world size of one internal
+pixel **at the camera's focus plane**, rounds the magnification there to a whole number, draws
+the whole cast at that magnification, and shifts each sprite so its own anchor lands on a whole
+pixel at its own depth. It holds at any distance, which is the point. (Round one rounded per
+sprite instead, which strobed — see (g), which is the correction.)
+
+*The quad stays upright.* Round one laid it **parallel to the image plane** — every point at
+one depth, so the magnification is exact everywhere on the sprite rather than drifting ~6 %
+between the feet and a head that sits ~2 units nearer at a 45° pitch. That was reverted in (g)
+and the residual is recorded there: it also rotated and translated the matrix that
+`environment/castShadows.js` reads a sprite's geometry back out of, which detached every
+projected shadow from its own feet. The quad keeps `frameWorldSize`'s `1/cos(pitch)` aspect —
+which is what makes its texels square on a screen looking down at 45° — and only grows, so the
+matrix keeps the exact shape that shader decodes: no rotation, `scale = (w, w/cos(pitch), 1)`,
+translation at the feet.
+
+**Sprites therefore render about 23 % larger** at the shipped distance on a 1080p window —
+1.62 rounds to 2 — and about 27 % *smaller* at 900p, where 1.36 rounds to 1. That is the price
+of exactness at an arbitrary distance rather than at one chosen one, and it is why
+`pixelExactDistance()` exists for the showcases that would rather move the camera.
+`?spriteSnap=0` restores the old behaviour and `?spriteMagnification=<n>` pins it.
+
+*The camera had to be snapped too.* Pinning a sprite to a whole pixel while `makeCameraRig`
+lerps the focus continuously slides the *ground* under it by a fraction of a pixel every frame
+— the same mush from the other side, and `simulation/index.js` already had a comment naming it.
+The rig now offsets along its own right/up axes so the focus projects onto a whole internal
+pixel. `?cameraSnap=0`.
+
+*The shading was per fragment.* `receiveShadow` samples the sun's shadow map once per fragment
+through `environment`'s PCSS filter, so a flat cutout of fourteen colours was being softly
+graded across its own face: 2165 colours became 1321 under `?envNoShadow=1`, so roughly 40 % of
+the spread was that one lookup. The fix moves the sample rather than removing it —
+`worldPosition` is swapped for the instance's own origin for the duration of
+`shadowmap_vertex`, so every vertex writes the same shadow coordinate and the varying
+interpolates to a constant. The sprite still darkens in a building's shade and still goes blue
+at 21:00; it just does so as a whole, the way a DS sprite does.
+
+That swap has to be wrapped in three's own `#if` guard, and the reason is worth recording: a
+scene with no shadow-casting light — `?showcase=hunts&mode=cave` is one, lit entirely by
+ambient and practicals — never *declares* `worldPosition`, and the shader simply fails to
+compile. The regression gate caught it as `hunts/cave/12 capture failed`, which is exactly the
+job that gate exists to do.
+
+*Two smaller ones, on the same principle.* Grain and the vignette were evaluated per **output**
+pixel in a pass that runs at canvas size, so one texel blown up to a 6×6 output block received
+36 grain values and 36 points along the vignette ramp. Both now quantise their coordinate to
+the internal grid — two lines and one uniform. Bloom deliberately stays where it is: moving it
+before AgX would turn it from scene-linear into additive-in-display-space and retune every
+`environment` preset, which is a large risk for the smallest of the three defects. And
+`ui/hud.js`'s `drawIcon` picked a fractional scale (0.906 in a 29 px cell at 720p) — with
+smoothing off `drawImage` does not blend a fraction, it *drops rows*, so it is clamped to whole
+ratios now.
+
+*The final upscale is an integer, by overscanning rather than letterboxing.*
+`floor(w / pixelScale)` does not divide back: 1600 gives 533, and 533 → 1600 is ×3.002. 1080p
+is the one size where it happens not to bite, which is why DECISIONS #34(a) documented it and
+moved on. The canvas is now `ceil(w / scale) · scale` and hangs up to two pixels off each edge,
+clipped. Letterboxing was tried first and reverted **for a measured reason**: every number this
+project gates on comes from `sceneStats` over the whole PNG, and black bars read as scene
+content — at the gate's own 1280×720 they moved `belowL8Pct` on five of fifteen frames and
+`boot/12`'s saturation from 0.689 to 0.540 without a pixel of the picture changing.
+
+**What this is worth, measured — and which fix earns which number.** In a 100×220 crop of the
+city trainer at 1920×1080, noon: **3123 colours → 707**. Inside the orange of the backpack
+alone, which is one colour in the source: 67 → 22. And the picture that settles it is
+`k-snap-6x.png` against `a-baseline-trainer6x.png` — the same sprite, before as a smear of 1-
+and 2-pixel blocks, after as `hero.png` frame 0 with square texels.
+
+Do not attribute all of that to the sprite snap. Re-run with `?spriteSnap=0`, which leaves the
+flat shadow sample, the quantised grain and vignette and the integer upscale in place, and the
+same crop still falls to **816 colours** — so those three account for most of the collapse and
+the snap for the last 109. Likewise the "colour boundaries on the internal pixel grid, 34.9 %
+→ 90.8 %" figure written in the first draft of this entry: `?spriteSnap=0` scores 92.2 % on it,
+because after a NEAREST upscale of a buffer whose grain and vignette no longer vary inside an
+internal pixel, *every* boundary lands on the grid whatever the sprites do. It measures the
+composite, not the sprites, and it should not be quoted for the sprites.
+
+The metric that is actually about the sprites is the magnification itself, read off the
+instance matrix on the running page: **1.62 px per source texel → a whole number, within
+0.3 %** — 1.994 at 1920×1080 and 1920×1000 where the shipped distance rounds to 2, 0.998 at
+1600×900 and 1280×720 where it rounds to 1. (The 2165 → 449 and 35.2 → 89.3 figures first written
+here were the same measurements on a smaller 80×180 box against round one's geometry; these
+supersede them.)
+
+**The gate.** `node tools/shots/regress.js`: 10 improved, 1 regressed, 3 moved across fifteen
+frames. Eight of the ten "improvements" are **not this work** and must not be claimed as it —
+`hunts/forest/21` and `meadow/21` p99 91→163 and 75→183, max 161→255, over200 0→0.556/0.762 —
+they are the campfire round `docs/STATUS.json` already recorded as landing after the baseline
+was taken, and the numbers match that entry digit for digit. The frames this work genuinely
+moves are `boot/12` and `hunts/meadow/12`, and it moves them by **composition**: two walkers
+where there were four, standing at the spawn instead of wherever the wander had taken them,
+at 23 % more sprite. `node tools/seams/run.js` — 123 files, 16 modules, all contracts hold.
+`node src/simulation/selftest.js` — 34 checks.
+
+**(g) One magnification for the whole cast, because rounding per sprite strobes.**
+
+The first thing the player said back was that the sprites now blink, "getting bigger and small
+fast". They were right and the cause is in (f) as first written: `m = round(mFloat)` per sprite
+per frame, where `mFloat` is a function of that sprite's own **continuously moving** depth. A
+walker whose depth carries `mFloat` across an x.5 boundary flips between one and two pixels per
+texel — a 2× jump, every frame the wobble crosses back.
+
+Reproduced before it was fixed, so the fix has a control: at 1080p in `hunt-forest` with
+`__HOOKS__.setConfig({cameraDistance: 32.4})` — the distance that puts the party's `mFloat`
+exactly on 1.50 — the lead Pokémon's on-screen height alternated between **33.0 px and 66.2 px**
+twice in 240 frames. The same run now reports **0 jumps**, as does every other distance tried
+(the shipped 30, 24.365, 14).
+
+A second defect fell out of the same measurement and would have been reported next: at
+1920×1000 two identical city NPCs whose depths differ by ~7 % straddled the boundary and
+rendered at **33 px and 66 px in the same frame**. Per-sprite rounding cannot not do that.
+
+So the magnification is now **one integer for the whole field**, taken at the camera's focus
+plane — read from `makeCameraRig`'s own `unitsPerPixel()`, newly published for the purpose,
+because a sprite grid that is not the world's grid is two grids and the picture shimmers
+between them. Every sprite is drawn `k = m / mFloat` times its nominal size; the anchor snap
+stays per sprite at its own depth, since where a sprite falls on the grid is its own business.
+The consequences are worth stating plainly:
+
+- the party is **exact** — within 0.3 % of the integer at every window size tried, 1.994 where
+  the shipped distance rounds to `m = 2` (1920×1080, 1920×1000) and 0.998 where it rounds to
+  `m = 1` (1600×900, 1280×720) — because the camera focuses on the trainer, at any distance;
+- everything else scales **smoothly** with depth (the follower, two tiles off the focus plane,
+  lands at 2.10 px/texel) instead of jumping between integers. That is a smaller fault than a
+  2× pop, and it is what perspective actually looks like;
+- nothing can flip per frame, because `cameraDistance` is piecewise constant. A dead band of
+  0.1 on top of the 0.5 boundary is kept anyway, against a preset that ever animates it.
+
+The upright quad came back with it, and that is the honest cost: the head is ~2.5 units nearer
+than the feet, so texel rows run 2.00 px at the sole and ~2.18 px at the hat, which puts about
+three of the sprite's 32 rows a pixel over. Round one's camera-parallel quad had no such drift
+— but it also rotated the instance matrix and pushed its origin ~1.4 world units toward the
+camera, and `environment/castShadows.js` decodes that same matrix as "no rotation, scale
+`(w, w/cos(pitch), 1)`, translation at the feet" to project a silhouette along the sun. Under
+round one every projected shadow was therefore ~29 % short and displaced by over a tile from
+the body casting it — visible in `hunts/forest/12` before and after, where the trainer's shadow
+goes from a detached blob up and to the right to a shadow starting at the feet. The drift is
+worth ~2.8 px over a 64 px sprite, about a texel and a half; the shadow bug cost every shadow
+in the game its footing.
+
+`?spriteSnap=0` remains the A/B and `?spriteMagnification=<n>` the pin. The flat shadow sample
+also moved with the origin: it now reads the shadow map at the sprite's feet on the ground
+rather than 1.4 units toward the camera in mid-air, which is more correct and does visibly
+change a sprite standing at the edge of a building's shade.
+
+### 59 — 2026-09-09 — The camera snap was cancelled by `lookAt`, the sprite snap was measured from the world origin instead of the camera, and it was all computed against the previous frame's camera
+
+The report after #58 was that the sprites "appear to be recalculated every second… pixels
+shimmering all over the place and the sprites getting different in different frames", both
+while walking and while standing still.
+
+**Nothing is recalculated, and nothing runs at 1 Hz.** The sprite atlas is keyed by
+`` `${kind}:${url}` `` (`pokemon/field.js`), has no time, frame, seed or `tod` component, and
+`SpriteAtlas.ensure` early-outs unless a *new sheet* arrives. `field.update()` writes instance
+matrices and uv-rects and allocates nothing; `Math.random()` is banned in `src/` and no
+`Date.now()`/`performance.now()` appears on any sprite path. Two independent sweeps of the tree
+for periodic invalidation came back with the UI glyph tint cache (15 s, HUD text only) and
+nothing else. The symptom was **sampling**, and #58's own pixel grid was wrong in four places.
+
+**(a) `makeCameraRig.update()` snapped the camera and then aimed it at the un-snapped focus.**
+`lookAt` re-aims so the focus projects to exact screen centre whatever the position is — so the
+snap was cancelled at the focus plane and the world went on sliding a fraction of a pixel every
+frame, which is the entire defect the block was added for in #58(f). Worse, it rotated the
+"locked yaw" basis by a hair every frame, and `pokemon/field.js` reads that basis back to place
+its sprites, so one bug fed the other. Aiming *first* fixes both: the look direction is then
+`(0, cameraLookAhead, 0) - offset`, both terms constant while the camera is only following, so
+the basis really is fixed and the snap survives into the projection matrix.
+
+**(b) The sprite anchor snap dropped the camera term.** Screen position is
+`(p - camPos) · right / upp`. `field.js` snapped `p · right / upp`. Those agree only at the
+focus depth `D`, where the rig has already made `camPos · right / upp(D)` whole; at any other
+depth the same quantity is that whole number times `D / d`, which is not. So the follower,
+every city NPC and every staged wild — everything that is not the trainer the camera is
+focused on — snapped onto a grid that slid under them whenever the camera moved.
+
+**(c) All of it was computed against the previous frame's camera.** `main.js` ran
+`registry.frame(...)` — which is where `pokemon`'s `field.update()` lived — and only then
+`rig.update(frameDt)`. The rig cannot move earlier: the focus is set from inside `simulation`'s
+own `frame` hook. So core gains a **`lateFrame`** hook, run after the camera is placed and
+before anything is drawn, and `pokemon` moves onto it. That also fixes a second frame of lag
+nobody had noticed: `simulation` declares `needs: ['pokemon']`, so `simulation.frame` runs
+*after* `pokemon.frame` and the matrices were built from last frame's actor positions too.
+`environment/castShadows.js` needed no change — it does `mesh.instanceMatrix = src.instanceMatrix`,
+sharing the buffer rather than copying it, so a projected shadow cannot lag its body.
+
+**(d) An odd internal buffer put every anchor on a half pixel.** `resize()` rounds the buffer
+*up*, so odd is the ordinary case away from 1080p — 1600×900 is 534×301, 1280×720 is 427×241.
+The screen coordinate is `dim/2 + v`, so `v` wants to be whole on an even buffer and a half on
+an odd one; `Math.round` gave whole in both, and 1080p (640×360, both even) is the one size the
+gate captures at, which is why it looked right. `snapTo(v, phase)` with
+`phase = (dim % 2) ? 0.5 : 0`, and `inW` is read now as well as `inH`.
+
+**Measured, on the running page, over 120 frames of the party wandering in `hunt-forest`, with
+each actor's instance matrix projected through the camera the frame was actually rendered
+with** (the anchor's distance from a whole internal pixel, worst of x and y over every actor):
+
+| | 1920×1080 (even/even) | 1600×900 (even/odd) | 1280×720 (odd/odd) | 390×844 (phone) |
+| --- | --- | --- | --- | --- |
+| before | 0.4996 px | 0.4997 px | 0.5000 px | — |
+| after | 0.0001 px | 0 px | 0 px | 0 px |
+
+The number that names the symptom is not the size of the error but its **wander**: before, each
+actor's sub-pixel offset swept the full pixel (spread 0.97–1.00) and took **~105 distinct values
+across 120 frames** — a different sub-pixel position on essentially every frame, which is
+"the sprites getting different in different frames" exactly. After, every actor sits on
+**one** offset for the whole run (spread 1e-4) at every buffer parity.
+
+#58(g)'s own control holds in the same data: the cast's on-screen heights drift smoothly with
+depth over ~99–109 distinct values per actor across 210 frames — the lead walker spans
+68.0–69.7 px — with no sign of the 33 ↔ 66 px flip (g) was written to remove.
+
+**(e) Grain does not animate any more, and that is the half that was visible standing still.**
+#58 moved grain from per-output to per-internal pixel for a good reason, but kept the per-frame
+phase — so at `pixelScale: 3` every sample became a 3×3 block of output pixels at full
+amplitude, re-rolled every frame, over the whole screen. In the city with the player standing
+still and the clock effectively frozen (`secondsPerGameHour=1000000`), the share of output
+pixels that change from one frame to the next: **83.2 % with the phase running, 6.5 % without**.
+A fixed dither still breaks banding, which is grain's job here. `?grainAnimate=1` is the A/B.
+
+The number that is actually about a sprite is the same diff taken **inside a 200×247 box around
+the standing trainer** (49 400 pixels), and it is worth having rather than inferring, because
+the residual could have been the blob shadow or the flat-shadow sample:
+
+| | pixels changing per frame pair, in the trainer's box |
+| --- | --- |
+| `?grainAnimate=1` | 43 169 – 43 643 (≈88 %) |
+| shipping | **6 – 39 (≈0.07 %)** |
+
+Those survivors are not the sprite. They are scattered over the whole box rather than clustered
+on the body, and **every one of them moves by exactly 1/255** — about half of them stop under
+`?timeFrozen=1`, so that half is `environment.apply()`'s continuous regrade writing new
+`exposure`/`contrast` floats into config on every tick, which is pre-existing and unrelated.
+It is not zero and is not claimed to be; it is one least-significant bit on 0.07 % of the box.
+
+The regression baselines do not move: the harness already captured with `timeFrozen`, i.e.
+`uTime = 0`, which is what this now does in play as well.
+
+**Not the cause, and worth writing down so it is not chased again.** The phase was
+`(frameCount++ % 64) * 0.017`, a 64-frame loop ≈ 1.07 s at 60 fps, and it is tempting to read
+"every second" straight off it. It is not that: consecutive frames draw uncorrelated noise, so
+the period is not perceptible. "Every second" is two things at once — grain flicker that never
+stops, and the step/settle cadence of walking, where `cameraDamping: 0.12` makes the camera
+lerp hard on each tile step and then settle, firing (a)–(c) in bursts.
+
+**The gate.** Run against the same tree with and without this change, rather than against
+`docs/baseline.json`, which predates #58 and would have scored both at once. Before: 10
+improved, 1 regressed, 3 moved — digit for digit what #58 recorded, which is the cross-check
+that the reconstruction was faithful. After: **11 improved, 1 regressed, 3 moved**. No new
+regressed row; the pre-existing `boot/12 belowL8Pct` is #58's and is marginally better
+(1.658 → 1.654); one row improves (`city/high-street/21 max 250 → 255`); everything else moves
+in the fourth significant figure, which is what shifting every sprite by up to half a pixel
+looks like. `node tools/seams/run.js` — 123 files, 16 modules. `node src/simulation/selftest.js`
+— 34 checks. `node tools/shots/shoot.js --tod 11` — 60 fps, p95 16.7 ms, 221 draws, 19 576
+triangles, 22 programs, and `consoleErrors`/`consoleWarnings` both empty in the sibling JSON.
+
+**Residual, deliberately left.** #58(g)'s one magnification for the whole cast still means
+sprites off the focus plane sit at a fractional px/texel (the follower at ~2.10). With the
+anchor now genuinely on the grid that is a *static* distortion at a given depth rather than a
+per-frame change, and the alternative — rounding per sprite — is the 2× strobe #58(g) was
+written to remove.
+
+### 60 — 2026-09-09 — `unitsPerPixel` was an output of the window size, so the trainer was 82% bigger on a monitor than on a laptop; it is the primitive now, and the camera is orthographic
+
+**The report.** "Some screens have the trainer, pokemons and npcs assets bigger, i want a
+concise view independent of the device with perfect pixel that dont change when im walking
+neither on trainers, structures or props. All pixelart environments sometimes create additional
+borders or lose the core definition of how it looks."
+
+Three complaints. One root cause and one architectural limit.
+
+**(a) The density was an output, not an input.** `resize()` pinned `pixelScale: 3` but let the
+internal buffer *height* float with the window, and the camera framing was fixed in world units
+(`fov 26`, `cameraDistance 30` → 13.85 units tall, always). So internal pixels per world unit
+was `ih / 13.85` — a different number on every screen:
+
+| viewport | `ih` | px/unit | `mFloat` | `_mag` | **`k`** |
+| --- | --- | --- | --- | --- | --- |
+| 1280×720 | 241 | 17.4 | 1.087 | 1 | 0.92 |
+| 1600×900 | 301 | 21.7 | 1.358 | 1 | **0.74** |
+| 1512×982 | 328 | 23.7 | 1.480 | 1 | **0.68** |
+| 1920×1080 | 360 | 26.0 | 1.624 | 2 | **1.23** |
+| 2560×1440 | 481 | 34.7 | 2.170 | 2 | 0.92 |
+
+`k` is `field.js`'s `_mag / mFloat` and it multiplies every trainer, Pokemon and NPC quad, so
+the cast was drawn between 0.68× and 1.23× of its authored size depending on the window — an
+82% spread, and a *discontinuous* one, because `_mag` is a rounded integer. That is the whole
+of complaint one, and no amount of tuning fixes it while the density is downstream of the
+window.
+
+Tiles and structures are authored at 32 texels per world unit (`tools/structures/textures.js`)
+and were being rendered at 17–35 px/unit, never 1:1. A NEAREST minification at a fraction drops
+texel rows, and *which* rows it drops changes as the camera moves. That is complaint three, and
+it is the same defect.
+
+**The fix is to invert the dependency.** `config.pixelsPerUnit` is now the primitive: a
+constant, 32, and `rig.unitsPerPixel()` returns `1 / 32` exactly rather than measuring
+`2·D·tan(fov/2)/ih`. The camera frustum is derived from *it* and the internal buffer.
+`mFloat` therefore comes out at a whole 2 and `k` at exactly 1, on every device.
+
+**The ladder is 16, 32, 64 and nothing else.** Sprites carry 16 texels/unit so `ppu/16` must be
+whole (16, 32, 48, 64); tiles carry 32 so `ppu/32` must be whole or an exact half (16, 32, 64).
+48 is the number that looks reasonable and is not. Verified against the shipped assets: every
+PNG under `public/generated/tiles/*/tex/` is 8/16/32/64 px on a side and every non-zero
+`uvScale` in the catalogs is 0.25, 0.5 or 1 — all power-of-two, all integer at 32.
+
+**(b) Perspective could only ever fix one row of the screen.** Locking the density is
+necessary and not sufficient. At pitch 45° and half-fov 13° the camera sits `D·sin45 = 17.2`
+units up; the top ray meets the ground at slant depth `17.2/sin32° = 32.5` and the bottom at
+`17.2/sin58° = 20.3`, so `D/d` runs **0.75 at the top of the frame to 1.20 at the bottom**.
+After a density lock, tiles would be 1:1 on one horizontal row, minified 25% at the top and
+magnified 1.2× at the bottom, and that pattern crawls as the camera follows the player.
+#58(g) already conceded this in its own terms ("everyone else keeps scaling smoothly with
+depth"), and #59's residual note named the follower sitting at ~2.10 px/texel.
+
+So the camera is **orthographic**. `unitsPerPixel` is depth-independent, which means the one
+camera snap in `rig.update` grids the entire frame rather than the focus plane, and a walk is a
+whole-pixel translation of every building, fence, tile and sprite in it. This is the only option
+that answers the sentence as written — "neither on trainers, structures or props" — and it was
+chosen with its cost stated: the picture flattens, and every baseline and score is re-taken.
+
+**(c) Two latent defects found while measuring, both fixed here.**
+
+The aim was never 45°. `lookAt(focus.x, focus.y + cameraLookAhead, focus.z)` from
+`focus + offset` gives a look direction of `(0, 1.6, 0) - (0, 21.2, 21.2)`, i.e. **42.77°**.
+`sprites.js` pre-stretches every sprite by `1/cos(cameraPitch)` to cancel the foreshortening of
+an upright quad, and it was cancelling an angle the camera was not at: every sprite in the game
+was **3.9% too tall with non-square texels**. The rotation is set directly now and
+`cameraLookAhead` is a whole-pixel translation along the camera's up axis, taken before the
+snap so the snap leaves it alone.
+
+`resize()` rounded `ih` up to whatever it landed on, so odd buffers were the ordinary case
+(1512×982 → 504×328, 1600×900 → 534×301). A sprite edge lands on a pixel boundary when
+`dim/2 + v` is whole, so an odd buffer wants a half-pixel phase — `field.js` applied one and
+`render.js`'s camera snap did not, which is two grids. Both dimensions are rounded up to
+**even** now. That costs one internal pixel of overscan and deletes `snapTo`/`phaseX`/`phaseY`
+outright.
+
+**(d) `pixelScale` adapts, and the stretch branch is gone.** At a pinned 3 a 390 px phone
+rendered the world into a **130 px** buffer, about five pixels per tile — unusable before any
+of this. `pixelScale: 0` derives it as `round(width / targetInternalWidth)`, bumped while the
+buffer would exceed `maxInternalWidth`. That also replaces the old `capped` branch, which gave
+up above ~2900 px and stretched by a non-integer — the exact defect the surrounding comment
+was written to prevent, one stage later.
+
+**What it cost: zoom is three rungs, and ~40 framings collapsed onto them.** The hunt biomes
+used `distance` as a continuous knob across 16, 22, 24, 26, 28, 30, 32, 34, 40, 44, 46, and the
+gauntlet had its own ladder. Every intermediate value was non-pixel-exact — that is the defect —
+so snapping them is the fix, but framings that differed only by a few tiles now differ only by
+their marker. `cave --preset wide` is the one that lost something real: it was 34, a *slightly*
+wider frame, and 46 had already been tried and rejected as "a picture of nothing"; there is no
+rung between 32 and 16, and 16 is the 46 that did not work, so it stays at 32.
+
+Two showcases needed the second knob rather than a coarser rung. A tiles contact sheet is wider
+than the game's own 20 cells and the ladder cannot reach it, so `rig.fitFraming()` buys the room
+by **widening the buffer** (dropping `pixelScale`) at an unchanged density: `tiles/12` now shows
+all eleven autotile sets *and* every texel 1:1, where the old shot showed them at ~21 px/unit
+with the horizon in frame. The encounter stops were `k: 3` — not on the ladder — and `close`
+cut the party off at the knees against the message box, so they take `normal`, which is also
+the zoom the game runs at.
+
+`coast --preset shore` needed the *camera* moved rather than the zoom. The marker stands eight
+cells inland of `shoreAt(cx)`, which put the shoreline and the water in the top third at the
+perspective camera's 20.7 cells of ground depth and left a sliver of sea against the top edge at
+the orthographic 15.9 — a biome named for the thing that had fallen out of frame. Dropping it to
+`ppu 16` would have halved the detail of a shot whose whole job is shoreline autotiles, so it
+takes `offset: [0, -3]` on the mechanism `stage()` already had. This is the shape of the audit
+the ladder forces: for each framing, decide whether it wants a rung or a nudge.
+
+Both `pixelExactDistance()` copies (`simulation/showcase.js`, `encounter/showcase.js`) are
+deleted. They were this feature hand-rolled, they still used the pre-#59 `Math.floor` and
+`innerWidth`, and they solved for a distance that was only exact at the window they were
+measured at.
+
+**How it is gated.** `tools/shots/parity.js`, new, and it asserts the claim rather than
+describing it. Seven viewports — 390×844, 844×390, 820×1180, 1280×720, 1512×982, 1920×1080,
+2560×1080 — must each report `unitsPerPixel` **exactly** 1/32, `_mag` exactly 2, `k` exactly 1
+and both internal dimensions even; and a crop of the trainer must match the reference within 8
+levels per channel. The tolerance is measured, not chosen:
+
+| comparison | max Δ per channel |
+| --- | --- |
+| same window, captured twice | **0** (asserted separately, whole frame) |
+| 1280×720 vs 1920×1080 | 1 (same 640×360 buffer; the composite runs at output resolution and bloom is sampled bilinearly at ×2 vs ×3) |
+| phone / tablet / laptop / ultrawide | 4 (the vignette gradient — `environment.apply()` rewrites `vignette` and `grain` from its look table every frame, so they cannot be switched off for a shot, and both are functions of the *frame*) |
+| `spriteMagnification=1` — the defect | **253**, on 2378 of 4096 px |
+
+So 8 sits an order of magnitude below the defect and twice above the noise, and a grid error
+cannot hide under it: putting a sprite on the wrong texel phase swaps whole blocks of DS pixel
+art for their neighbours, and neighbouring colours in a 14-colour palette are tens of levels
+apart. `--walk` takes two frames one sim tick apart and requires a whole-pixel offset that
+reproduces the static frame: **96.95%** with the snap on, **85.8%** with `cameraSnap=0`, the
+remainder in both cases being the NPCs, which walked too and are supposed to have moved.
+
+`__HOOKS__.step()` had to learn to go through a showcase's freeze — a frozen `simulation`
+ignores `registry.tick` outright, so the first version of the walk test was comparing a frame
+with itself and passing.
+
+**Honest limits, deliberately left.**
+
+- A 45° tilted view foreshortens the ground, and any upright wall, by `cos45 = 0.707`: a
+  32-texel/unit wall covers 32 px horizontally and 22.6 vertically. This is inherent to a 3D
+  tilted view and is *not* fixed here. What matters is that under orthographic it is a **fixed
+  affine map** — walking translates it by whole pixels, so it never crawls. Sprites escape it
+  because `frameWorldSize` pre-stretches them; models would have to be authored pre-stretched
+  to do the same, which is separate work.
+- 64×64 textures at `uvScale: 1` are 64 texels/unit and sample 1:2 at ppu 32 — a clean, stable
+  halving, but half the authored detail is discarded. `?pixelsPerUnit=64` for a close-up.
+- 1080p now frames **20 tiles across** where `config.js` used to claim 24. `targetInternalWidth`
+  is the one knob; 768 restores ~24 at the cost of a smaller pixel on screen.
+- DPR is left to the browser on purpose, and this was measured rather than assumed —
+  `shoot.js` pins `deviceScaleFactor: 1`, so no gate covers it. `setPixelRatio(1)` stays and
+  `image-rendering: pixelated` does the CSS→device step. Sampling a 390×844 phone buffer at
+  several device pixel ratios and asking whether each internal pixel is a *uniform* block of
+  device pixels:
+
+  | DPR | device block | ragged blocks |
+  | --- | --- | --- |
+  | 1 | 1×1 | 0 of 6600 |
+  | 2 | 2×2 | 0 of 6600 |
+  | 3 | 3×3 | 0 of 6600 |
+  | **1.5** | 2×2 nominal | **3183 of 3780** |
+
+  So an integer internal scale times an integer DPR really is integer all the way to the glass,
+  and **fractional** DPR (Windows at 125%, browser page zoom) really does resample — 84% of the
+  frame, at 1.5. Nothing in the app can see or correct that final blit. Out of scope, named here
+  with its number so it is neither rediscovered as a bug nor quietly assumed to be fine.
+- A portrait phone sees a *lot* of ground — 390×844 at ppu 32 is 12 cells across and 37 deep.
+  That is the honest consequence of the aspect ratio, not a defect, but a preset framed near a
+  map edge will show the void there where it does not at 16:9.
+- The night practicals got hotter and are not tuned here. A lamp bulb covers `(32/21.7)² = 2.2×`
+  the pixels it used to at 1600×900, so more of it clears `bloomThreshold`: `hunts/meadow/21`
+  went `max 161 → 255` and `over200Pct 0 → 1.198`, and `hunts/forest/21` the same. The gate
+  scores that as an improvement and the blind rounds have said night is where we win, so it is
+  left alone — but it is a lighting change caused by a geometry change, it belongs to
+  `environment`, and it should be looked at on its own rather than discovered later as a
+  mystery.
+
+**Every one of the 15 `_regress` rows moved. That is a re-baseline, not a regression** —
+accepted with `--accept` after looking at all fifteen PNGs. The composition changed (a tighter
+frame, a flatter picture), so the blind A/B has to be re-run before any claim about the score:
+r4 was 2/7 and this entry does not predict r5.
+
+---
+
+### 61 — 2026-09-09 — The hunt becomes the game: a loop past fixed slots, a real turn engine, and money that is earned rather than accrued
+
+The largest contract change the project has taken, and it starts by reversing a sentence
+ARCHITECTURE has carried since it was written: **§5.6's "Battles are resolved, not turn-by-turn"
+is gone.** Everything below is either measured in this entry or is a decision recorded here so
+the phases that follow implement against it rather than renegotiate it (§12).
+
+**What the tree actually was, checked before any of this was designed.** Every one of these is a
+grep with zero hits, not an impression:
+
+  - **Levels never change.** `simulation/index.js:50` seeds three starters at level 5 and nothing
+    in the repo ever mutates `inst.level`.
+  - **All experience is discarded.** `idle/index.js:213` calls `pokemon.grantExp(...)` behind a
+    `typeof` guard and **that method does not exist anywhere in the tree** — the guard makes it a
+    permanent no-op. It has been minting a number nobody could spend since it was written.
+  - **Evolution is data, not behaviour.** `economy/index.js:268` builds `{ kind:'evolve', … }`
+    objects that nothing consumes; `{ kind:'heal' }` and `{ kind:'exp' }` are dead the same way.
+  - **The combat model is eleven lines.** `rolls.js:159 resolveBattle` is one win-chance
+    comparison. No moves, no PP, no type chart, no damage formula, no HP, no fainting.
+  - **There is no trainer.** No `trainerLevel`, no gate: `travel/index.js:56-73` returns all five
+    destinations unconditionally from the first boot.
+  - **The twelve `treasure` items cannot be obtained.** They carry mainline sell prices
+    (`items.js:253-264`) and no drop table exists anywhere to grant one.
+
+**(a) The loop, and who owns which half of it.** A hunt is a closed circuit walked forever past
+fixed spawn slots; proximity starts a battle; a win is followed by a throw. The ownership split is
+the thing worth writing down, because three modules touch one slot:
+
+  - **`hunts` owns the slot cell**, authored into the draft with `MapDraft.mark`/`addTag`, which
+    already exist (`terrain/draft.js:42, :62`) and needed nothing new.
+  - **`simulation` owns the slot's NPC actor**, tethered to ±1 tile by a new `makeTether` route.
+  - **`encounter` owns the index counter and the slot→encounter binding.**
+
+Slots sit at Chebyshev distance **exactly 2** from the path: tether radius 1 plus trigger radius 1.
+`compose.js:344-346` already excluded the walk lane when it placed decorative wildlife; that
+exclusion stops being a screenshot fix and becomes the rule the geometry rests on.
+
+**The looping walker was already there and nobody had used it for this.** `makeScriptedRoute(spec,
+{ loop = true })` (`route.js:43`) has looped by default since it was written, and every biome
+already carries a `walk.route` string — but those strings are screenshot staging, and real
+gameplay ran `makeWander`. The one real hazard is that a **blocked step is silently skipped**
+(`route.js:52-59`), which three separate places already document as routes drifting off-path with
+no error (`compose.js:476-487`, `hunts/selftest.js:440`). Hence `strict`: a stall you can see beats
+a drift you cannot.
+
+**(b) The pity is a lerp, and it is NOT `catchOdds`'s `bonus`. The algebra is why.** The first
+design folded it into the existing `bonus` parameter, and that cannot work. `bonus` multiplies `a`
+*inside* the Gen 3/4 formula (`items.js:329-333`):
+
+```
+a = ((3 − 2·hp)/3) · catchRate · ballMult · statusMult · bonus
+p = (65536 / (255/a)^(3/16))^4 / 65536^4
+```
+
+`p → 1` only at `a ≥ 255`, so the multiplier needed to reach certainty is a function of
+`catchRate`, `hp`, `ball` and `status` **all at once**. No fixed multiplier can express "maximum at
+125 % of the price". So `catchOdds` stays pure and untouched and the pity wraps it:
+
+```
+t    = clamp((sum / speciesPrice − 0.90) / (1.25 − 0.90), 0, 1)
+odds = p0 + (1 − p0) · t
+```
+
+At 0.90 this is `p0` exactly, which is the requirement ("below 90 % the base % is unchanged"); at
+1.25 it is 1. Two sub-decisions that were not asked and are recorded rather than left implicit:
+**the ball being thrown counts toward its own throw** (add the price, then compute the odds —
+otherwise the throw that crosses 125 % is the one that fails), and **a shiny shares its species'
+pity key**, with the shiny premium living in `speciesPrice`; a separate key would make the rarest
+thing in the game the one thing pity never helps with, which is backwards.
+
+**All balls count**, specialty balls included, at their `price`. BP-priced balls are converted at
+`BP_MONEY_EQUIVALENT = 2500`, which is a **third** copy of `automation/ball.js`'s `bpWeight` — so
+it goes on seam rule 5's mirrored list rather than being left to drift the way `BASE_MONEY` and
+`INCOME_MODEL` already did once.
+
+**(c) Trainer level lives in `economy`, and that is not where it looks like it belongs.**
+`economy.progress()` (`index.js:129-141`) is *already* the single snapshot every unlock gate is
+evaluated against, and `requirementMet` already gates shop shelves, whole shops, upgrade tracks and
+automations. Putting `trainerLevel` there means the travel gate, the shop gate and the upgrade gate
+read one object, and `economy/state.js` already has `bump()`, lifetime counters and a save slice,
+so the persistence costs nothing. `pokemon` owns creature instances and had **no save seam at all**;
+a `src/trainer/` module would have cost a showcase, a selftest, a `main.js` ordering constraint and
+a seventeenth module for about forty lines of state.
+
+**(d) `BASE_MONEY` is zeroed, not deleted, and the reason is the gate.** `tools/seams/run.js`
+rule 5 asserts `economy/pacing.js INCOME_MODEL` mirrors `idle/accrual.js` **by name** and fails with
+`accrual.js no longer exports BASE_MONEY` the moment the export goes. That rule exists because the
+copy had already drifted 0.85 against 0.55 with nothing able to notice — "the shop simply priced
+itself against a game that no longer existed". Zeroing keeps the rule doing its job. `BASE_RESEARCH`
+goes the same way and becomes per-battle-won: after this, **nothing in the game grows with the
+clock**.
+
+**(e) The accrual becomes a fold, and the additivity claim gets *stronger*.** `idle/selftest.js`
+rests on chunked drain equalling one offline call exactly, and that holds today only because
+nothing carries between encounters. The new loop carries — the pity sum changes the odds, balls
+deplete, XP changes stats, party HP persists — so index-invariance is not available and pretending
+otherwise is how a player comes back from twelve hours to a different game than the one that ran.
+Whole encounters are still the integers in `(p0, p1]` (`accrual.js:402-404`, untouched), so chunk
+boundaries still fall on whole encounters and cannot add, drop or renumber one; the fold runs those
+integers in order against carried state, and a fold with exact carry composes. The **continuous**
+half — the per-second products and their IEEE-754 summation caveat — disappears entirely with the
+faucet, so there is less to prove than there was.
+
+Fainting had no answer in the first draft and the offline replay cannot do without one: twelve
+unattended hours will knock a party out. The rule is auto-potion below a threshold (which finally
+lands the dead `{kind:'heal'}` branch), then swap, then **a partial heal per completed lap** — per
+lap because that is additive over a chunked gap and "heal when you travel" is not replayable — and
+a wholly fainted party stands still and accrues nothing.
+
+**(f) The two encounter systems are unified, closing a core request filed twice.**
+`encounter/index.js:38-40` admits that `idle` rolls its own encounters from its own
+`idle/encounter/N` stream and that the module "cannot make it delegate without a core change, and
+that is filed rather than pretended". `accrual.js` may not import `encounter/rolls.js` (seam rule
+2), so the pure functions are **injected through `state`**, exactly as `state.tables` already is:
+`encounter.pure()` returns `{rollAt, dropAt, resolve}` and `idle`/`offline` add it where they
+already back-fill `tables` and `balls`. `accrual.js` stays `ctx`-free with no new imports, and a
+quarantined `encounter` produces zero encounters — a visible degradation rather than a silent
+disagreement. One index space, `root/encounter/roll/N`, live and idle and offline.
+
+**(g) Determinism: every new roll is index-addressed, and one thing must be pinned.** New streams
+are `root/battle/<i>/<turn>`, `root/encounter/slot/<biome>/<k>/<n>` and
+`root/encounter/drop/<i>`; `root/encounter/battle/<i>` is retired with `resolveBattle`. **A slot's
+occupant is `rollAt(globalEncounterIndex)` and nothing else** — the slot stream decides *when* a
+slot refills, never *what* stands in it. Species is the first draw in `rollAt`'s contractual order,
+so a second species roll would make live and offline disagree about index N, which is the exact bug
+(f) is about, arriving from the other end.
+
+Inside a turn the draw order is a contract the way `rollAt`'s is: speed-tie coin, then per side
+(paralysis skip, confusion self-hit, accuracy, crit, damage roll, multi-hit count, secondary
+chance, flinch), then end of turn (burn/poison, sleep, thaw, confusion). New rolls go on the END,
+and **a draw is taken unconditionally and discarded when unused** — a conditional draw makes the
+stream position depend on state, which is why `rollAt` already draws all six IVs whether the caller
+looks at them or not. It is also why a Showdown `secondary` with no effect this engine models is
+**dropped at build time** rather than kept: a coin rolled for an outcome nobody reads would move
+every subsequent draw in the turn.
+
+**Which goldens survive, honestly.** `encounter/selftest.js`'s four golden encounters (0/1/7/250 at
+seed 1337) **survive verbatim**, provided moves are derived from the learnset and never rolled —
+keeping that check passing is the evidence the index space was not disturbed. The stream-start pin
+partially breaks: `roll/7`, `catch/5/1` and `step/0` stand; **`battle/12` (`roll
+0.8988670797552913`, `hpFraction 0.21394539445638655`) is deleted** with `resolveBattle`, along
+with selftest check 15. No save migration is needed for *that* — nothing ever persisted a battle
+outcome; `encounter`'s whole slice is `{v, steps, encounters, ball}`.
+
+**(h) The city keeps its tall grass, and that is a decision.** DECISIONS #58(a) had just wired the
+trainer to trigger the city's 76 grass cells and `encounter/tables.js` carries a real 23-row `city`
+table at `stepRate 0.06`. Slots are how a *hunt* works; a walkable map the player drives keeps
+`player:enteredTile` → `stepRoll`. Keeping it is less work than removing it, it keeps the `step/0`
+golden alive, and it does not violate "the hunt is the only way to evolve" — because evolution is
+gated on `grantExp(…, { source:'hunt' })` in `pokemon`, at one point, regardless of where the
+battle happened. City battles grant experience and **no drops**: drops are the money source and
+money is hunt-only.
+
+**(i) `hpFraction` is ~0 by construction now, and that is intended, not a bug to be fixed later.**
+The loop throws at a *defeated* wild, so `catchOdds` clamps to 0.01 and every throw takes the
+maximum HP bonus. It is also why `resolveUnattended()` and its `T.LEAVE` beat (1.3 s) are removed:
+a multi-turn battle cannot coexist with a beat that auto-pays after 1.3 seconds, and that beat only
+ever existed because **nothing in the game threw a ball** (#35(g)). The throw is automatic now, so
+its reason is gone.
+
+**(j) `automation` will break silently unless it moves in the same phase.**
+`automation/index.js:689-705` calls `encounter.attempt()` **synchronously inside the
+`encounter:started` emit** — #35(f) describes that as deliberate. Once `attempt()` refuses before a
+win it returns `false` forever, auto-catch dies with no console error, and
+`automation/selftest.js` would not notice because it exercises the pure ball optimiser against a
+stub. `battle:ended {won}` is emitted and the subscription moves onto it.
+
+---
+
+**The data step, measured.** Two build-time scripts, both cache every remote input under
+`node_modules/.cache/` and sort every key and array before `stringify`, so a rebuild is offline and
+byte-stable. **Both were run twice and produced byte-identical output.**
+
+**Capture rate and growth rate were not missing, they were in a file nobody had joined.** Showdown
+publishes neither. PokeAPI's `data/v2/csv/pokemon_species.csv` publishes both, and the join against
+our 1253 sprite folders is **994 by slug, 259 by dex number, 0 unmatched**. `pokemon.csv` supplies
+`base_experience` the same way. **Do not reach for `veekun/pokedex` instead** — it is the same
+dataset but its master stops at species #898, which drops all of Gen 9 including `lechonk`, a live
+row in `encounter/tables.js`. So the two BST-derived catch-rate proxies the tree grew while this
+was missing (`encounter/rolls.js:76` and `automation/fields.js:59`, character for character the same
+curve, and the subject of an open core request asking for a mirror check between them) are both
+obsolete: there is one committed field now, and no third copy was added beside them.
+
+**Showdown records an evolution on the child; the game asks the opposite question.**
+`ivysaur.evoLevel = 16` says what ivysaur needs to exist, but a levelling Pokémon asks "do I become
+something?". The requirement is inverted onto the parent once, at build time, into
+`evo: [{to, level, type, item, cond}]` — **492 parents** carry one. `evolves: string[]` is kept
+beside it unchanged; nothing reads it yet and a rename would be churn. The stone ids fall out
+exactly right with no mapping table: `toSlug('Water Stone').replace(/-/g,'')` is `waterstone`,
+which is verbatim the id `economy/items.js:191-194` already ships.
+
+**The trim is the whole point of the battle data.** Showdown's `learnsets.json` is **3.05 MB** and
+almost all of it is TM/egg/tutor/event rows for generations this game does not model. Keeping only
+level-up entries, from each species' **latest generation that has any** — not a hard `9L` filter,
+which would leave a Pokémon cut from the current games with no moves at all — and then keeping only
+the moves those entries reach:
+
+| file | before | after | gzipped |
+| --- | --- | --- | --- |
+| `moves.json` | 490 KB, 954 moves | **64 KB, 721 moves** | 12 KB |
+| `learnsets.json` | 3.05 MB | **266 KB**, 1253 species, 18 330 rows | 53 KB |
+| `species.json` | 388 KB | 504 KB (+ catchRate, growthRate, baseExp, evo) | 62 KB |
+
+**330 KB of new payload, 65 KB gzipped**, fetched by `battle`'s own `init` and **not** by
+`pokemon` — which already awaits `species.json` on the boot critical path against the ≤ 6 s cold
+budget (§7), and which should not lose its sprites because a move table 404'd.
+
+**Learnset coverage is 1253 of 1253**, because a cosmetic form with no learnset of its own falls
+back to its base species (**190 species**) the same way `build-species.js` already folds its stats.
+Average 14.6 level-up moves per species. Spot-checked against the mainline: Pikachu is
+`4:thunderwave … 36:thunderbolt 44:thunder`, Caterpie is `1:stringshot 1:tackle 9:bugbite`.
+
+**The effects the engine has to model are all present in the trimmed table**, counted rather than
+assumed: 161 moves with a secondary effect, 66 with stat boosts, 27 multi-hit, 22 high-crit, 14
+with a direct status, 11 recoil, 11 drain. Everything else is plain damage at its correct power,
+type and PP, which is the agreed depth.
+
+**The 18×18 type chart is source, not data.** ~324 non-neutral entries that have not moved since
+Gen 6; it is authored in `src/battle/types.js` and pinned by landmark pairs in that module's
+selftest. A network fetch and a boot-time parse for a constant is cost for nothing.
+
+**After the data step, before any gameplay change:** `node tools/seams/run.js` green (124 files, 16
+modules), and `/` at tod 11 renders at **60 fps, 221 draw calls, 20 k triangles, 0 console errors,
+0 warnings, all 16 modules ready** — `docs/progress/_boot/phase0-boot.png`, looked at.
+
+---
+
+### 62 — 2026-09-09 — Evolution stops happening to the player: it is a button, and it costs a hunt's worth of drops
+
+DECISIONS #61 shipped evolution as an automatic consequence of a level threshold, gated on
+`source === 'hunt'`. Asked to look at it, the answer was that it was still the wrong shape: an
+evolution that fires the instant an experience bar crosses a line is something that **happens to**
+the player, and the only decision they get is where they happened to be standing when it did.
+
+**It is manual now, and it is priced.** `grantExp` reports and stops; `pokemon.evolve()` is the
+only path into an evolution, and the only thing that calls it is a button.
+
+**(a) The hunt gate moved from a place to a price, and that is a stronger rule.** §0 said
+evolution happens only in a hunt, and that was enforced by checking where the party was. It is
+enforced now by what the evolution *costs*: a level **and** a pile of `category: 'treasure'`
+items. Those twelve items have shipped in `economy/items.js` since the economy was written — with
+mainline sell prices, no buy price and **no way to obtain them at all** — and they become the
+drop table in phase 5. So an evolution is a reason to go hunting rather than a number going up on
+its own, and it cannot be reached by idling in the city no matter how much experience accrues.
+
+**(b) The bill is derived, not authored, because 492 lines evolve.** Same argument as
+`speciesPrice`: a hand-written table of 492 requirements would be 492 numbers to maintain and one
+of them would always be wrong. `pokemon/evolution.js` derives it from three things the data
+already carries:
+
+  - **which material** — the parent's primary type picks one of four families, and the four
+    families are exactly the twelve treasure items (`mushroom`, `pearl`, `star`, `mineral`).
+    Thematic rather than balanced: a Grass-type wanting mushrooms is a thing a player reads once.
+  - **which rung** — the *child's* base-stat total, not the parent's, in three bands at 420 and
+    520. The cost tracks the prize.
+  - **how many** — `2 + max(0, (childBst − parentBst)/55) + rarity`, where rarity is 2 for a
+    capture rate ≤ 45 and 1 for ≤ 120, clamped to 2..12.
+
+Measured across the whole table: Caterpie → Metapod is **3× Tiny Mushroom**, Bulbasaur → Ivysaur
+**6× Tiny Mushroom**, Magikarp → Gyarados **10× Pearl String**, Dragonair → Dragonite **7× Comet
+Shard**, Eevee → Flareon **1× Fire Stone + 8× Big Nugget**. A stone evolution pays the stone *and*
+the materials — the stone is the mainline's requirement and the materials are this game's, and
+dropping either would make one of the two shopping trips pointless.
+
+**(c) Nine evolution items exist in Showdown's data and not in this game, and asking for one
+would have made those lines unreachable forever.** `sweetapple`, `syrupyapple`, `tartapple`,
+`crackedpot`, `metalalloy`, `auspiciousarmor`, `maliciousarmor`, `galaricacuff`,
+`galaricawreath` — all Gen 8/9, none stocked by `economy/items.js`, which ships ten stones and
+thirteen trade items. `materialsFor` takes an `isItem` predicate and **drops** an unknown id, so
+the route degrades to a plain level-and-materials evolution. It does not invent the item: what the
+shop stocks is `economy`'s call, not `pokemon`'s. Check 30 asserts that after this, **every
+material named by every one of the 492 routes is an item the game actually ships**.
+
+**(d) A branching line points at the shortest grind, not the first alphabetically.** #61 had
+already had to fix this once — `evo` is sorted by name at build time, so "the first row that
+qualifies" made Eevee permanently an Espeon. With a price attached the rule gets better: the
+offer shown is the route with the fewest units still missing, so an Eevee with four Big Nuggets
+and a Fire Stone is offered Flareon and one with nothing is offered the cheapest route it has.
+`pokemon.evolutions(id)` returns all eight, priced, for a panel that wants to show the fork.
+
+**(e) A refusal has to say which of the three reasons it is.** `evolve()` answers
+`{ ok: false, why }` — *"needs level 36"*, *"still needs 6× Big Nugget"*, *"it does not evolve"* —
+and the panel toasts it. The first cut answered "nothing it can evolve into yet" whenever nothing
+was affordable, which is true and useless; it falls back to the closest route now and names that
+route's actual shortfall. **A greyed-out button that does not say why is the defect this panel
+exists to avoid**, and it was on screen for one capture before it was fixed.
+
+**(f) Spend before transforming.** `evolve()` calls `economy.take()` for every line of the bill
+and bails on the first refusal, *then* swaps the species. The other order leaves an evolved
+Pokémon that was never paid for, and the bug would only show up when a bag was concurrently
+drained by an automation.
+
+**(g) Where the button is.** `ui/panels/party.js` — the pane that already owns "which Pokémon is
+this" — with the bill above it: the level with what it has beside it, and every material with
+`have/need` and a tick. Bound to **E**, listed in the footer. It is drawn from `canEvolve()`,
+which is pure, so the panel can call it on every redraw. `pokemon:levelled` toasts *once* per
+Pokémon when an evolution first becomes affordable, and the toast names the panel rather than
+pressing the button.
+
+**Two things looked at, not reasoned about.**
+
+  - The "EVOLVES INTO …" heading was drawn in `roofLight` when the evolution was ready. In the
+    capture it reads as *another red row*, in a block where red is exactly what an unmet
+    requirement looks like. It is `ink` now. `docs/progress/pokemon/r3/evolve-ready.png`.
+  - `evolutionFor` spread `requirementFor`'s result **over** the species object, and
+    `requirementFor` reports `to` as the child's *name* — so `row.to` silently became a string
+    and every caller reading `row.to.name` got `undefined` with nothing throwing. Exactly the
+    shape of #61's blank type chart, and caught the same way: by looking at a picture that had
+    eight rows of `undefined` in it.
+
+**Measured.** `node src/pokemon/selftest.js` 49/49, including: `grantExp` never evolves even with
+a full bag (18); an unaffordable offer is still reported rather than hidden (21); a stone route
+wants the stone *and* materials (22-23); a branching line offers all eight (24); the cost curve
+separates a Caterpie from a Dragonite (26-27); every one of 492 priced routes names a real item
+(30) and asks for a reachable level (31). Seams green at 134 files / 17 modules; `/` boots at 60
+fps with 0 console errors. Shots: `docs/progress/pokemon/r3/{levelup,evolve-ready,evolve-shopping-list}.png`.

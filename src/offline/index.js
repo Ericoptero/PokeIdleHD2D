@@ -102,7 +102,12 @@ export default {
       },
     });
 
-    const providers = discoverProviders(ctx);
+    // Every module the registry knows about, not just the ones with an adapter written for
+    // them. ARCHITECTURE §5 promises a module opts into saving "simply by having"
+    // `saveState`/`loadState` and needs no entry anywhere — with the default id list that was
+    // never true, and `encounter` has shipped a save seam nothing ever called since it was
+    // written. `discoverProviders` already skips an id with neither a seam nor an adapter.
+    const providers = discoverProviders(ctx, ctx.registry.status().map((m) => m.id));
     for (const p of providers) {
       store.register(p.id, { capture: p.capture, restore: p.restore ?? (() => {}), source: p.source, order: p.order });
     }
@@ -355,18 +360,31 @@ export default {
       // offline credit covering time the tab was open and already accruing.
       heartbeat = setInterval(() => store.flush('heartbeat'), num(config.offlineHeartbeatMs, DEFAULT_HEARTBEAT_MS));
 
-      // The player's cell is captured every session but can only be restored once a map
-      // exists to stand on, which is after `city`/`hunts` has entered.
+      /**
+       * The player's cell, put back once there is a map to stand on.
+       *
+       * This used to listen for `world:loaded` and it has never once worked. `terrain.load()`
+       * emits that event from inside itself, and the scene then calls `placePlayer(spawn)` a
+       * few lines later — so the restore landed and was overwritten microseconds afterwards,
+       * every boot. `scene:entered` fires after `enter()` has resolved, which makes this the
+       * last word instead of the first.
+       *
+       * Once per session, too: travelling city → forest → city must not yank the player back
+       * to wherever they happened to be standing when the save was written.
+       */
+      let playerRestored = false;
       const restorePlayer = ({ mapId }) => {
+        if (playerRestored) return;
         const want = self.player;
         if (!want || want.mapId !== mapId) return;
+        playerRestored = true;
         const sim = ctx.get('simulation');
         const terrain = ctx.get('terrain');
         if (!isLive(sim) || typeof sim.teleport !== 'function') return;
         if (isLive(terrain) && typeof terrain.passable === 'function' && !terrain.passable(want.cx, want.cz, want.dir)) return;
         sim.teleport(want.cx, want.cz, want.dir);
       };
-      listeners.push(bus.on('world:loaded', restorePlayer));
+      listeners.push(bus.on('scene:entered', restorePlayer));
       // The cell itself is captured by the `simulation` adapter in slices.js; all that is
       // needed here is somewhere to put it back once a map exists.
       const savedPlayer = store.get('simulation');

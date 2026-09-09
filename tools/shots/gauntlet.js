@@ -18,27 +18,27 @@ const MATRIX = {
     showcase: 'city',
     presets: ['plaza', 'high-street', 'pokecenter-door', 'garden', 'pond'],
     tods: [8, 12, 17.8, 19.4, 22.5],
-    distances: [22, 30, 40],
+    ppus: [64, 32, 16],
   },
   hunts: {
     showcase: 'hunts',
     modes: ['forest', 'meadow', 'coast', 'cave'],
     presets: ['entrance', 'clearing', 'deep'],
     tods: [8, 12, 17.8, 22.5],
-    distances: [24, 32],
+    ppus: [32, 16],
   },
-  tiles: { showcase: 'tiles', modes: ['default', 'catalog'], tods: [12], distances: [30, 44] },
-  terrain: { showcase: 'terrain', presets: ['overview'], tods: [9, 12, 17.8], distances: [26, 36] },
+  tiles: { showcase: 'tiles', modes: ['default', 'catalog'], tods: [12], ppus: [32, 16] },
+  terrain: { showcase: 'terrain', presets: ['overview'], tods: [9, 12, 17.8], ppus: [32, 16] },
   environment: {
     showcase: 'environment',
     presets: ['dawn', 'morning', 'noon', 'golden', 'dusk', 'night'],
-    tods: [null], distances: [22, 32],
+    tods: [null], ppus: [64, 32],
   },
-  pokemon: { showcase: 'pokemon', tods: [12, 19.4], distances: [16, 24] },
-  ui: { showcase: 'ui', tods: [12], distances: [24] },
+  pokemon: { showcase: 'pokemon', tods: [12, 19.4], ppus: [64, 32] },
+  ui: { showcase: 'ui', tods: [12], ppus: [32] },
 };
 
-const GENERIC = { tods: [12], distances: [30] };
+const GENERIC = { tods: [12], ppus: [32] };
 
 const a = parseArgs(process.argv.slice(2));
 const moduleId = a.extra.module ?? a.showcase ?? 'city';
@@ -53,10 +53,13 @@ const jobs = [];
 for (const mode of spec.modes ?? [null]) {
   for (const preset of (a.extra.presets?.split(',') ?? spec.presets ?? [null])) {
     for (const tod of spec.tods ?? [12]) {
-      for (const distance of spec.distances ?? [30]) {
-        const name = [mode, preset, tod == null ? null : `t${tod}`, `d${distance}`]
+      // Zoom is `pixelsPerUnit` on the 16/32/64 ladder, not a camera distance — the camera
+      // is orthographic (DECISIONS #60). Bigger number, closer shot, which is the opposite of
+      // the `d` in the old filenames, hence `p`.
+      for (const ppu of spec.ppus ?? [32]) {
+        const name = [mode, preset, tod == null ? null : `t${tod}`, `p${ppu}`]
           .filter(Boolean).join('-') || 'default';
-        jobs.push({ name, mode, preset, tod, distance });
+        jobs.push({ name, mode, preset, tod, ppu });
       }
     }
   }
@@ -70,7 +73,7 @@ for (const job of jobs) {
     out: join(outDir, `${job.name}.png`),
     showcase: spec.showcase ?? moduleId,
     mode: job.mode, preset: job.preset, tod: job.tod,
-    extra: { ...a.extra, cameraDistance: job.distance },
+    extra: { ...a.extra, pixelsPerUnit: job.ppu },
     settle: a.settle ?? 40,
   });
   const fails = checkBudgets(log);

@@ -31,14 +31,20 @@ export const COAST = {
   h: 54,
   weather: null,
   presets: {
-    shore: { marker: 'shore', distance: 30 },
-    dunes: { marker: 'dunes', distance: 30 },
-    point: { marker: 'point', distance: 30 },
-    sea: { marker: 'sea', distance: 34 },
-    wide: { marker: 'shore', distance: 46 },
-    close: { marker: 'shore', distance: 16 },
+    // Three cells of camera toward the sea. The marker stands eight cells inland of
+    // `shoreAt(cx)`, which put the shoreline and the water in the top third of the frame when
+    // the perspective camera showed 20.7 cells of ground depth; the orthographic one shows
+    // 15.9 (DECISIONS #60), which left the biome named for the sea with a sliver of it against
+    // the top edge. The zoom is not the lever here — 16 would halve the detail of a shot that
+    // exists to show shoreline autotiles — so the camera moves instead.
+    shore: { marker: 'shore', ppu: 32, offset: [0, -3] },
+    dunes: { marker: 'dunes', ppu: 32 },
+    point: { marker: 'point', ppu: 32 },
+    sea: { marker: 'sea', ppu: 32 },
+    wide: { marker: 'shore', ppu: 16 },
+    close: { marker: 'shore', ppu: 64 },
     /** The judge plan asks every biome for `route`; here it is the strand along the bay. */
-    route: { marker: 'shore', distance: 26 },
+    route: { marker: 'shore', ppu: 32 },
   },
   showcaseDefault: 'shore',
   /**

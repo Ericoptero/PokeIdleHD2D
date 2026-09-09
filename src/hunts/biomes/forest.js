@@ -108,17 +108,25 @@ export const FOREST = {
   weather: null,
   /**
    * Camera framings, one per thing a critic needs to be able to judge on its own.
-   * `distance` is `config.cameraDistance` in tiles: 30 frames ~25 cells across and shows
-   * ground from 12.7 cells north of the focus to 8 south, which is the arithmetic every
-   * one of these was chosen against.
+   *
+   * `ppu` is `config.pixelsPerUnit` — internal pixels per world unit, and the only zoom knob
+   * the orthographic camera has (DECISIONS #60). It is a **three-rung ladder**, 16 / 32 / 64,
+   * because those are the only densities at which both 16-texel sprite art and 32-texel tile
+   * art land on whole pixels; every intermediate zoom resamples the tileset at a fraction and
+   * that fraction moves as the camera follows the player.
+   *
+   * These used to be camera distances, and the ladder is coarser than the eleven distances the
+   * biomes had between them: 32 frames `inW / 32` cells across (20 at a 640-wide buffer) with
+   * `(inH / 32) / sin(45 deg)` cells of ground depth (15.9 at 360 tall), centred on the marker.
+   * Framings that differed only by a few tiles of distance now differ only by their marker.
    */
   presets: {
-    clearing: { marker: 'clearing', distance: 30 },
-    path: { marker: 'path', distance: 30 },
-    deep: { marker: 'deep', distance: 30 },
-    glade: { marker: 'glade', distance: 26 },
-    wide: { marker: 'clearing', distance: 46 },
-    close: { marker: 'clearing', distance: 16 },
+    clearing: { marker: 'clearing', ppu: 32 },
+    path: { marker: 'path', ppu: 32 },
+    deep: { marker: 'deep', ppu: 32 },
+    glade: { marker: 'glade', ppu: 32 },
+    wide: { marker: 'clearing', ppu: 16 },
+    close: { marker: 'clearing', ppu: 64 },
     // `tools/judge/plan.json` shoots `preset: 'route'` for forest-day and forest-night and
     // no biome defined one, so both blind-A/B pairs were silently falling back to the
     // default framing with `presetApplied: false`. The reference for both is a *route* —
@@ -132,7 +140,7 @@ export const FOREST = {
     // Looked at side by side (docs/progress/hunts/r3): the `clearing` framing is mostly
     // opening, and both references are a *trail with the wood closing over it* — so `route`
     // is the ride east of the clearing, one step tighter than `path`.
-    route: { marker: 'path', distance: 27 },
+    route: { marker: 'path', ppu: 32 },
   },
   showcaseDefault: 'clearing',
   /**

@@ -17,7 +17,6 @@ import { parseRoute, makeScriptedRoute, makeWander } from './route.js';
 
 const SIM_DT = 1 / 20;
 const WALK = 0.25;
-const RUN = 0.15;
 
 let passed = 0;
 const failures = [];
@@ -31,14 +30,14 @@ const eq = (name, a, b) => check(name, JSON.stringify(a) === JSON.stringify(b), 
 const open = (w = 40, h = 40) => (cx, cz) => cx > 0 && cz > 0 && cx < w && cz < h;
 
 /** Drives a line along a route for `ticks` fixed steps, exactly as the module's tick does. */
-function drive(line, route, ticks, { passable = open(), running = false } = {}) {
-  const opts = { running, walkSeconds: WALK, runSeconds: RUN, passable };
+function drive(line, route, ticks, { passable = open() } = {}) {
+  const opts = { walkSeconds: WALK, passable };
   const landings = [];
   for (let i = 0; i < ticks; i++) {
     if (line.advance(SIM_DT)) landings.push({ ...line.cellOf(0), steps: line.steps });
     if (!line.moving) {
       const cmd = route.next(line.pose(0, 0), { passable, tagsAt: () => [] });
-      if (cmd) line.step(cmd.dir, { ...opts, running: cmd.running ?? running });
+      if (cmd) line.step(cmd.dir, opts);
     }
   }
   return landings;
@@ -58,7 +57,7 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
 // --- 2. a step is tile-locked ---------------------------------------------------
 {
   const line = new Line({ gap: 1, members: 2 }).place(1, 10, 20, NORTH, open());
-  line.step(NORTH, { walkSeconds: WALK, runSeconds: RUN, passable: open() });
+  line.step(NORTH, { walkSeconds: WALK, passable: open() });
   const mid = line.pose(0, 0);
   check('walk: half a step is half a cell', Math.abs(mid.z - 19.5) < 1e-9 || line.t === 0,
     `t=${line.t} z=${mid.z}`);
@@ -69,11 +68,13 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
   eq('walk: and exactly on the next cell', line.cellOf(0), { cx: 10, cz: 18, dir: NORTH });
   check('walk: no fraction of a tile is lost', line.carry === 0, `carry=${line.carry}`);
 
-  const runner = new Line({ gap: 1, members: 2 }).place(1, 10, 20, NORTH, open());
-  runner.step(NORTH, { running: true, walkSeconds: WALK, runSeconds: RUN, passable: open() });
+  // Run was removed from the game (DECISIONS #58). There is one cadence, and a stray
+  // `running` left behind by a caller that has not been updated must not resurrect a second.
+  const stray = new Line({ gap: 1, members: 2 }).place(1, 10, 20, NORTH, open());
+  stray.step(NORTH, { running: true, runSeconds: 0.15, walkSeconds: WALK, passable: open() });
   let rt = 0;
-  while (runner.moving && rt < 100) { runner.advance(SIM_DT); rt++; }
-  check('run: 0.15 s/tile is exactly 3 sim ticks', rt === 3, `${rt} ticks`);
+  while (stray.moving && rt < 100) { stray.advance(SIM_DT); rt++; }
+  check('walk: there is one cadence — a stray `running` is ignored', rt === 5, `${rt} ticks`);
 }
 
 // --- 3. the followers walk the lead's own cells ---------------------------------
@@ -90,7 +91,7 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
     }
     if (!line.moving) {
       const cmd = route.next(line.pose(0, 0), { passable: open(), tagsAt: () => [] });
-      if (cmd) line.step(cmd.dir, { walkSeconds: WALK, runSeconds: RUN, passable: open() });
+      if (cmd) line.step(cmd.dir, { walkSeconds: WALK, passable: open() });
     }
   }
   let matched = 0;
@@ -125,7 +126,7 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
     }
     if (!line.moving) {
       const cmd = route.next(line.pose(0, 0), { passable: open(), tagsAt: () => [] });
-      if (cmd) line.step(cmd.dir, { walkSeconds: WALK, runSeconds: RUN, passable: open() });
+      if (cmd) line.step(cmd.dir, { walkSeconds: WALK, passable: open() });
     }
   }
   check('grid: no diagonal step in 400 steps of wandering', diagonals === 0, `${diagonals}`);
@@ -137,13 +138,13 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
   const wall = (cx) => cx > 5;                       // everything at x <= 5 is solid
   // The anchor is member 1 (the trainer), so the lead starts one cell south of it.
   const line = new Line({ gap: 1, members: 2 }).place(1, 7, 20, SOUTH, () => true);
-  line.step(WEST, { walkSeconds: WALK, runSeconds: RUN, passable: wall });
+  line.step(WEST, { walkSeconds: WALK, passable: wall });
   while (line.moving) line.advance(SIM_DT);
   eq('collision: a legal step is taken', line.cellOf(0), { cx: 6, cz: 21, dir: WEST });
-  const blocked = line.step(WEST, { walkSeconds: WALK, runSeconds: RUN, passable: wall });
+  const blocked = line.step(WEST, { walkSeconds: WALK, passable: wall });
   check('collision: a blocked step is refused', blocked === false);
   eq('collision: and the walker does not move', { cx: line.cellOf(0).cx, cz: line.cellOf(0).cz }, { cx: 6, cz: 21 });
-  line.step(NORTH, { walkSeconds: WALK, runSeconds: RUN, passable: () => false });
+  line.step(NORTH, { walkSeconds: WALK, passable: () => false });
   check('collision: but it still turns to face the way it tried to go',
     line.facing === NORTH, DIR_NAME[line.facing]);
 }
@@ -210,7 +211,7 @@ function drive(line, route, ticks, { passable = open(), running = false } = {}) 
 // --- 10. interpolation is monotone and lands on cell centres -----------------------------
 {
   const line = new Line({ gap: 1, members: 2 }).place(1, 10, 20, SOUTH, open());
-  line.step(SOUTH, { walkSeconds: WALK, runSeconds: RUN, passable: open() });
+  line.step(SOUTH, { walkSeconds: WALK, passable: open() });
   let last = -Infinity, ok = true;
   for (let i = 0; i <= 5; i++) {
     const z = line.pose(0, 0).z;

@@ -122,21 +122,21 @@ function hash(x, z) {
 }
 
 /**
- * Distance at which one sprite texel lands on a whole number of internal pixels.
+ * The zoom each stop is shot at, in internal pixels per world unit.
  *
- * `inW / (2·D·tan(fov/2)·aspect)` internal pixels per world unit; sprites are 16 texels per
- * unit (DECISIONS #18), so `D = inW / (2·tan(fov/2)·aspect·16·k)` makes one sprite texel
- * exactly `k` internal pixels. Measured off the real window, because this module is shot at
- * 1600x900 as well as 1920x1080 and a distance fitted to the wrong buffer puts the art off
- * the grid.
+ * Was `pixelExactDistance(config, k)`, which solved for the camera distance that put a sprite
+ * texel on `k` whole internal pixels at the window it was measured at. The density is a config
+ * key now and the ladder has three rungs — 16, 32, 64 — because those are the only ones at
+ * which 16-texel sprite art and 32-texel tile art are both whole (DECISIONS #60).
+ *
+ * Every stop takes `normal`, and that is a choice the ladder forced. These were shot at `k: 3`
+ * — three internal pixels per sprite texel — which is not on it: 16-texel sprites want a
+ * multiple of 16 and 32-texel tiles want 32 or a half of it, and 48 satisfies the first and
+ * not the second. `close` was tried and cuts the party off at the knees against the message
+ * box (10 cells across where the staging needs about 13), so `normal` it is. It is also the
+ * zoom the game itself runs at, which is the more useful thing for a critic to be judging.
  */
-function pixelExactDistance(config, k = 2) {
-  const w = typeof innerWidth === 'number' && innerWidth > 0 ? innerWidth : 1920;
-  const h = typeof innerHeight === 'number' && innerHeight > 0 ? innerHeight : 1080;
-  const scale = Math.max(1, Math.round(config.pixelScale));
-  const inW = Math.max(2, Math.min(config.maxInternalWidth, Math.floor(w / scale)));
-  return inW / (2 * Math.tan((config.fov * Math.PI) / 360) * (w / h) * 16 * k);
-}
+const PPU = { wide: 16, normal: 32, close: 64 };
 
 /** Every cell the walk touches, dilated by one, so nothing decorative lands in its way. */
 function corridor(gap) {
@@ -780,7 +780,7 @@ const STOP = {
   // changed between the two, which is what shooting more than one angle is for. `k` stays an
   // **integer** because `pixelExactDistance` only lands a sprite texel on a whole internal
   // pixel for integer k (DECISIONS #29).
-  walk: { throw: false, k: 3 },
+  walk: { throw: false, ppu: PPU.normal },
   /**
    * **The grass, before anything is in it.** The first of the five beats the brief names,
    * and the one that did not exist: round 2's appear drew the wild from step 0, so there was
@@ -789,7 +789,7 @@ const STOP = {
    * 0.3 of `T.APPEAR` is inside `T.RUSTLE` (0.4) by a clear margin, so this mode is the
    * disturbance alone — no Pokemon, no ball, no bubble — with the lead standing in it.
    */
-  approach: { stage: 'appear', at: 0.3, throw: false, k: 3 },
+  approach: { stage: 'appear', at: 0.3, throw: false, ppu: PPU.normal },
   /**
    * **The top of the burst.** `T.RUSTLE` of the beat is grass alone and the wild comes out
    * over the remaining 0.6, so the apex of its hop is at `0.4 + 0.5·0.6 = 0.7` of the beat —
@@ -797,7 +797,7 @@ const STOP = {
    * grass still open underneath it. Round 1 froze at 0.85 (24 screen px of lift, reading as
    * a Pokemon *sitting* in grass); round 2's 0.5 is now inside the rustle window.
    */
-  reveal: { stage: 'appear', at: 0.7, throw: false, k: 3 },
+  reveal: { stage: 'appear', at: 0.7, throw: false, ppu: PPU.normal },
   // **Past the apex, not on it.** The trainer, the lead and the wild are all on one row and
   // the camera's yaw is fixed looking north, so screen-x *is* world-x and the lead stands
   // exactly halfway between thrower and target: a parabola frozen at its apex therefore puts
@@ -805,25 +805,25 @@ const STOP = {
   // centre x 792 against the lead's 794 — two pixels — and the ball read as a hat. Freezing
   // later moves the ball down-range without leaving the air: at 0.72 it is 72 % of the way
   // across and still at 81 % of the apex height.
-  throw: { stage: 'throw', at: 0.72, throw: true, k: 3 },
-  shake: { stage: 'shake', at: 0.45, throw: true, k: 3 },
-  caught: { stage: 'result', at: 0.34, throw: true, want: 'caught', k: 3 },
-  escaped: { stage: 'result', at: 0.3, throw: true, want: 'escaped', k: 3 },
-  shiny: { stage: 'appear', at: 0.7, throw: false, want: 'shiny', k: 3 },
+  throw: { stage: 'throw', at: 0.72, throw: true, ppu: PPU.normal },
+  shake: { stage: 'shake', at: 0.45, throw: true, ppu: PPU.normal },
+  caught: { stage: 'result', at: 0.34, throw: true, want: 'caught', ppu: PPU.normal },
+  escaped: { stage: 'result', at: 0.3, throw: true, want: 'escaped', ppu: PPU.normal },
+  shiny: { stage: 'appear', at: 0.7, throw: false, want: 'shiny', ppu: PPU.normal },
   /** The spawn table and the ball shelf's head, which the picture modes no longer carry. */
-  table: { stage: 'appear', at: 0.7, throw: false, k: 3 },
+  table: { stage: 'appear', at: 0.7, throw: false, ppu: PPU.normal },
   // `night` does NOT force the clock. The harness applies `--tod` *after* `showcase()`
   // returns (`shoot.js` calls `__HOOKS__.setTimeOfDay` on the way to the shutter), so a mode
   // that set 21:30 for itself got a nocturnal spawn table printed over a midday picture —
   // the panel and the frame disagreeing, which is worse than either being wrong
   // (`00-night-at-noon.png`). The mode reads the clock like every other one and warns if it
   // is not actually night; shoot it with `--tod 21.5`.
-  night: { stage: 'throw', at: 0.72, throw: true, wantNight: true, k: 3 },
+  night: { stage: 'throw', at: 0.72, throw: true, wantNight: true, ppu: PPU.normal },
   // A *hard* target, or the table is eighteen rows of 100 %: a Great Ball on a 190-rate
   // Marill at 30 % HP already clears `a >= 255`. `want: 'hard'` scans for a low capture rate.
   // A *varied* target, not merely a hard one: see `findIndex`'s `variety` scan. Round 1
   // asked for a low capture rate and got thirteen rows of `x1.00`.
-  balls: { stage: 'appear', at: 0.5, throw: false, k: 1.6, want: 'variety' },
+  balls: { stage: 'appear', at: 0.5, throw: false, ppu: PPU.normal, want: 'variety' },
 };
 
 export async function showcaseEncounter(mode, ctx) {
@@ -970,7 +970,7 @@ export async function showcaseEncounter(mode, ctx) {
   // for the follower gap, two more for the stage — so an unshifted frame puts the subject
   // against the top edge.
   sim.frameOffset?.(-2, -1);
-  ctx.config.set({ cameraDistance: pixelExactDistance(ctx.config, stop.k ?? 2) });
+  ctx.config.set({ pixelsPerUnit: stop.ppu ?? PPU.normal });
 
   const staged2 = { biome, tod, rolled: started ?? enc.rollAt(index, { biome, tod }) };
   render(ctx, key, staged2);

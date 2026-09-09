@@ -122,7 +122,7 @@ const check = (name, ok, detail = '') => {
   const clash = [...PANEL_KEYS.keys()].filter((k) => MOVE_KEYS.has(k));
   check('no panel shortcut steals a movement key', clash.length === 0, clash.join(' '));
   check('every panel shortcut names a panel this module ships',
-    [...PANEL_KEYS.values()].every((id) => ['party', 'shop', 'boxes', 'dex', 'menu'].includes(id)),
+    [...PANEL_KEYS.values()].every((id) => ['travel', 'party', 'shop', 'boxes', 'dex', 'menu'].includes(id)),
     [...new Set(PANEL_KEYS.values())].join(' '));
 }
 
@@ -130,7 +130,13 @@ const check = (name, ok, detail = '') => {
 // Both files are pure: `theme.js` and `panels/common.js` touch no DOM, so the two
 // invariants that a screenshot proves *slowly* can be pinned here instead.
 {
-  const buffers = [[640, 360], [533, 299], [426, 239]];
+  // The real internal buffers `render.js` produces, now that `resize()` rounds both
+  // dimensions up to **even** and derives the upscale from the viewport (DECISIONS #60).
+  // 1920x1080 and 1280x720 both land on 640x360; 1600x900 on 534x300; a 1512x982 laptop on
+  // 756x492. The last two are the ones that used to be missing: a 2560x1080 ultrawide is only
+  // 270 tall, and a 390 px phone in portrait is 390 wide — both narrower in one axis than any
+  // panel this module authors, which is the whole point of the clamp.
+  const buffers = [[640, 360], [534, 300], [756, 492], [640, 270], [390, 844]];
   const authored = [[560, 288], [540, 278], [502, 264], [424, 250]];
   const bad = [];
   for (const [W, H] of buffers) {
@@ -145,8 +151,8 @@ const check = (name, ok, detail = '') => {
   check('fit() clamps every authored panel size into every buffer size', bad.length === 0,
     bad.join(' | ') || `${authored.length} panels x ${buffers.length} buffers`);
   check('the margin scales with the buffer and never vanishes',
-    margin({ width: 640 }) === 10 && margin({ width: 426 }) >= 5 && margin({ width: 200 }) >= 5,
-    `${margin({ width: 640 })} ${margin({ width: 533 })} ${margin({ width: 426 })}`);
+    margin({ width: 640 }) === 10 && margin({ width: 390 }) >= 5 && margin({ width: 200 }) >= 5,
+    `${margin({ width: 640 })} ${margin({ width: 534 })} ${margin({ width: 390 })}`);
 }
 
 // --- the light model (round-2 issue 2) --------------------------------------

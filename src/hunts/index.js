@@ -40,6 +40,24 @@ const byId = (id) => BIOMES.find((b) => b.id === id) ?? BIOMES[0];
  */
 const DEFAULT_WALK = { route: 'e12', tiles: 3, subTicks: 7, dir: 3 };
 
+/**
+ * How a hunt is played (`simulation.setFormation`).
+ *
+ * A hunt is watched, not steered. The **active Pokemon leads** — it is what walks into the
+ * tall grass first, which is the whole reason `player:enteredTile` carries the head's cell —
+ * the trainer follows it, and the keyboard does not move either of them: the wander does.
+ *
+ * `preferTags` is the part that is easy to get wrong. The autopilot this replaces preferred
+ * `path`, which in a biome biases the party *away* from the grass it came here to hunt in.
+ * A hunt prefers the grass and falls back to the path.
+ *
+ * A biome may override any of it with a `formation` field of its own; none needs to today.
+ */
+const HUNT_FORMATION = {
+  head: 'pokemon', input: false, autopilot: 'wander',
+  preferTags: ['tallgrass', 'encounter', 'path'],
+};
+
 /** How many wild Pokemon a biome stands up, and how they are chosen. */
 const WILD_CAP = 11;          // MAX_NPCS is 32 and `city` uses a dozen of them
 const WILD_SPECIES_CAP = 6;   // one atlas sheet each; the rest are repeats
@@ -217,7 +235,7 @@ export default {
 
     /** Where a preset stands the party, and how far back the camera sits for it. */
     function stage(marker, spec = {}) {
-      const { distance, offset = null } = spec;
+      const { ppu, offset = null } = spec;
       const draft = terrain.draft();
       const m = draft?.marker(marker);
       if (!m) {
@@ -225,7 +243,10 @@ export default {
           `${draft ? [...draft.markers.keys()].join(', ') : 'no map loaded'}`);
         return false;
       }
-      if (distance != null) ctx.config.set({ cameraDistance: distance });
+      // Zoom is `pixelsPerUnit` on the 16/32/64 ladder, not a camera distance: the camera is
+      // orthographic, so standing it further back changes nothing about the size of anything
+      // (DECISIONS #60).
+      if (ppu != null) ctx.config.set({ pixelsPerUnit: ppu });
       const sim = ctx.get('simulation');
       const biome = byId(currentId ?? 'forest');
       // The camera follows the trainer every frame (DECISIONS #27), so a framing that only
@@ -251,12 +272,16 @@ export default {
       list: () => BIOMES.map((b) => ({
         id: b.id, name: b.name, preset: b.preset, tileset: b.tileset,
         w: b.w, h: b.h, presets: Object.keys(b.presets ?? {}),
+        formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
       })),
 
       current: () => currentId,
       biome: (id) => {
         const b = byId(id);
-        return { id: b.id, name: b.name, preset: b.preset, tileset: b.tileset, w: b.w, h: b.h };
+        return {
+          id: b.id, name: b.name, preset: b.preset, tileset: b.tileset, w: b.w, h: b.h,
+          formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
+        };
       },
 
       /**
@@ -310,13 +335,20 @@ export default {
         const spawn = draft?.spawn ?? { cx: biome.w >> 1, cz: biome.h >> 1, dir: 2 };
         const sim = ctx.get('simulation');
         if (isLive(sim) && typeof sim.teleport === 'function') {
+          // Before `teleport`, not after: `placePlayer` lays the queue out through
+          // `formation.head`, and it installs this biome's own wander in place of whatever
+          // the last scene was walking. `stage()` still wins, because it sets its scripted
+          // route after `enter()` has returned.
+          sim.setFormation?.({
+            ...HUNT_FORMATION, ...(biome.formation ?? {}),
+            label: `simulation/wander/hunt-${biome.id}`,
+          });
           sim.teleport(spawn.cx, spawn.cz, spawn.dir ?? 2);
         } else {
           ctx.three.rig?.setFocus?.(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
         }
-        // Not in a showcase. Sim time is frozen for every capture, so a toast never expires
-        // and sits in the corner of all 29 frames — over the near ground a critic reads.
-        if (!ctx.config.showcase) bus.emit('ui:toast', { text: `Hunting ${biome.name}`, kind: 'info' });
+        // The arrival toast belongs to `travel`, which announces every destination including
+        // the city — one owner, so a hop does not toast twice.
         // The shipped-map assertion, run on every entry so it cannot go stale: a failure is a
         // console warning the screenshot harness records in the JSON beside every PNG.
         const audit = api.audit(biome.id);
