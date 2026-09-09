@@ -636,9 +636,14 @@ fold with exact carry composes. The claim is *stronger* than it was, because the
 per-second half and its floating-point summation caveat are gone with the faucet.
 
 **The encounter functions are injected, not imported.** `accrual.js` may not reach into
-`encounter` (§5, no deep imports), so `encounter.pure()` is handed in through `state` the way
-`state.tables` already is. There is now **one index space** — `root/encounter/roll/N` — live,
-backgrounded and offline; `idle`'s private encounter stream is retired.
+`encounter` (§5, no deep imports), so `encounter.pure()` — `{ rollAt, resolve, dropAt }` — is
+handed in through `state` the way `state.tables` already is, and `offline` back-fills the same
+bundle because functions do not survive JSON. There is now **one index space**, live and
+offline, and the *same turn engine* resolves a closed-tab battle as a watched one (with the HP
+writeback and the bus emits off, because a replay must not hospitalise a party that is not
+there). A quarantined `encounter` hands over nothing and `accrual.js` falls back to its own
+model, which is a visible degradation rather than a silent disagreement about what encounter
+400 was.
 
 ### 5.8 `offline` — closed-tab catch-up
 `needs: ['idle']`

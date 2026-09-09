@@ -1,6 +1,6 @@
 {
- "updatedMs": 1788987776191,
- "wave": "REFACTOR phases 0-4 of 7 complete (DECISIONS #61-#67). The hunt loop is the game now: a closed circuit past fixed slots, real turn-based battles, XP, evolution and respawns. The economy is next and the balance is knowingly wrong until it lands.",
+ "updatedMs": 1788989314036,
+ "wave": "REFACTOR phases 0-6 of 7 complete (DECISIONS #61-#69). Money is earned by selling what a hunt produced and by nothing else; a closed tab runs the hunt. Phase 7 (trainer gating + the UI) is all that remains.",
  "seed": 1337,
  "note": "Wave A did NOT complete. 28 agents were dispatched; 25 died on the account session limit and only offline, economy and idle returned. NO critic ran, so no module has a score and nothing has passed the >=8.5 gate. The visual builders (environment, tiles, pokemon) and collection/automation wrote real code before being cut off — the tree is coherent (seams pass, every module loads, 60fps) but their work is unreviewed and unscored.",
  "baseline": {
@@ -201,7 +201,7 @@
    "status": "round 2: the switchover (DECISIONS #67). Not re-scored — no critic since r1 7.",
    "errors": 0,
    "openIssues": [
-    "[ENCOUNTER] `advance(n)` is clamped at 1000 steps and `advanceToStage` refuses a non-finite target. Both are guards against a real wedge, not tidiness — but the underlying shape is still that `marks()` reports Infinity for a beat that does not exist, and every caller has to know that.",
+    "[ENCOUNTER] THE LEAD IS NOT CHOSEN FOR THE MATCHUP, and that is the real gap #68 measured. At equal level the starting party wins 95-100% of the meadow and forest tables BETWEEN THEM (tepig 94% in the forest, oshawott 81% in the cave, snivy 81% on the coast) — but whoever is in front stays in front, and the faint-swap takes the next member in line rather than the one that can win. An idle game should not need the player to babysit this. It is an `automation` rule and it is the single highest-value thing left.",
     "[ENCOUNTER] THE BALANCE IS WRONG AND IT IS THE TOP ITEM. The party wins 3 of 60 at level 5-6 in the forest. The cause is legible: a level-5 Oshawott whole moveset is Tackle (40 power, no STAB) and a level-7 Combee has Bug Bite (60). It improves with levels — an earlier run reached 10-11 and won 13 of 51 — but a starter should not lose to route wildlife nineteen times in twenty. Phase 5/6 owns it; tuning it here without the economy that pays for it would be guesswork done twice.",
     "[ENCOUNTER] NOTHING THROWS A BALL YET on the slot path. auto-catch is gated on dexCaught:5 and there is no hand-throw binding until phase 7, so a won fight currently produces experience and nothing else. The pity ledger and the drop table are phase 5.",
     "[ENCOUNTER] The fight is resolved at `begin` and the animation plays over the top of it. The transcript is on `encounter.transcript()` and nothing draws it — a battle panel replaying it turn by turn is phase 7.",
@@ -268,12 +268,16 @@
    "lastShots": []
   },
   "economy": {
-   "round": 1,
+   "round": 2,
    "score": null,
-   "status": "built; verifier never ran",
+   "status": "round 2: prices, pity and the end of the faucet (DECISIONS #68, #69). Never critiqued.",
    "errors": 0,
-   "openIssues": [],
-   "lastShots": []
+   "openIssues": [
+    "[ECONOMY] `pacing.js MEASURED` IS NOW FICTION AND IS LEFT AS FICTION. It is a 30-day projection of an income model that has been deleted, and the entire shop price ladder was calibrated against the ₽1M/h it predicts. Regenerating it means modelling drop rates, sell values and how often a player actually sells — a balance pass, not a phase. Inventing numbers to fill the table would be worse than leaving one that is visibly stale.",
+    "[ECONOMY] Nothing has been re-priced for the new faucet. A Tiny Mushroom sells for ₽250 and an Ultra Ball costs ₽1,200; whether a lap of a hunt pays for the balls it spends has not been measured over a long run."
+   ],
+   "lastShots": [],
+   "selftest": "17/17"
   },
   "collection": {
    "round": 1,
@@ -1141,7 +1145,7 @@
   "honestSummary": "No module passes the 8.5 bar and no critic passes. The game is real and runs clean — a populated town with authored buildings and lamps, four biomes, a walking party, an idle system proven to accrue in a backgrounded tab, 1253 Gen 1-9 species with sprites, and a UI you can play through — but it is scored at roughly 7/10 against Gamma Emerald, not 8.5, and blind judges pick the reference 5 times out of 7."
  },
  "refactor": {
-  "decision": "61 + 62 + 63 + 64 + 65 + 66 + 67",
+  "decision": "61..69",
   "plan": "a hunt is a closed loop past fixed spawn slots; proximity starts a real turn-based battle; a defeated wild is thrown at with a per-species pity floor; money is earned by selling, never accrued; and evolution is a button that costs a level plus a pile of drops",
   "phases": [
    {
@@ -1177,19 +1181,19 @@
    {
     "n": 5,
     "name": "drops, price, pity",
-    "state": "next",
+    "state": "done",
     "delivers": "encounter/drops.js, economy/pricing.js + pity.js — money gets a source before the faucet is cut"
    },
    {
     "n": 6,
     "name": "the accrual fold",
-    "state": "todo",
+    "state": "done",
     "delivers": "accrual.js as a fold, BASE_MONEY = 0 in both mirrors, encounter.pure() injected, idle/encounter/N retired"
    },
    {
     "n": 7,
     "name": "trainer level, gates, UI",
-    "state": "todo",
+    "state": "next",
     "delivers": "economy/trainer.js, travel gate that fails open, battle panel, pity meter, HUD level"
    }
   ],
@@ -1324,6 +1328,22 @@
    ],
    "wedgedThePage": "The regression gate caught it: encounter/12 went \"ok -> capture failed\" and four of the nine encounter showcase modes hung so hard that a CDP evaluate timed out. `marks()` returns Infinity for a throw that was never queued, so advanceToStage(\"capture\") computed an infinite target and `advance(n)` looped on it — a latent landmine since the module was written, unreachable while attempt() always queued, and reachable on EVERY lost battle now that a ball is illegal before a win. advance() is clamped to MAX_ADVANCE and advanceToStage refuses a non-finite target with a warning; the showcase scan skips encounters the party loses, because a mode that freezes at the capture beat needs a beat that exists.",
    "pureProbe": "autoResolve is documented as \"a pure function of state and seed\" and my first cut made it mutate: encounter/showcase.js findIndex runs it up to 400 times to search for a photogenic encounter, and with the HP writeback and bus emits on, that scan hospitalised the party and flooded the spy ring. fight() takes { apply } now — false from autoResolve."
+  },
+  "phase5Measured": {
+   "delivers": "encounter/drops.js (pure, index-addressed, four biome ladders over the twelve treasure items), economy/pricing.js (speciesPrice), economy/pity.js (the ledger + lerp), throwBall credits it, catch:succeeded resets it, the ledger is in the save",
+   "prices": "Caterpie 6 Poké Balls to a guaranteed catch, Rattata 7, Pikachu 11, Gible 55, Dragonite 96, Mewtwo 188 at the PRICE_CEILING.",
+   "twoFixesTheSelftestCaught": "Rounding ran AFTER the shiny multiplier — a shiny Caterpie was ₽9,100 against a printed ₽900. And the power law needed a ceiling: a 780-BST rate-3 legendary was ₽45,800, or 286 balls, which is not a goal but a closed door.",
+   "theCorrection": "DECISIONS #67 called the balance wrong; it was mostly the TYPE CHART. At equal level against each whole table: meadow oshawott 47 / snivy 63 / tepig 58, best-of-three 95%. forest 17 / 39 / 94, best-of-three 100%. cave 81 / 63 / 31. coast 63 / 81 / 25. The runs were sending a Water starter into a Grass wood. The engine is symmetric (mirror 51.8%). NOTHING WAS NERFED — what it reveals is a missing mechanic, not a wrong number.",
+   "realDefect": "A level-12 Oshawott won FEWER fights than a level-5 one: its slots were tackle/tailwhip/watergun/soak, two attacks and two status moves, because movesFor took the last four learnable and nothing else. MIN_ATTACKS repaired 358 of 3759 species-levels (9.5%) — Venusaur at Lv50 had ONE attack.",
+   "selftest": "economy 17/17 (new file), encounter 38/38 (seven drop checks)"
+  },
+  "phase6Measured": {
+   "delivers": "BASE_MONEY and BASE_RESEARCH to zero in accrual.js and the pacing mirror; encounter.pure() injected through state in both idle and offline; idle/encounter/N retired; drops banked from a closed tab; digest() folds items",
+   "measured": "One hour in the forest with auto-battler and auto-catch: 121 encounters, 42 wins, 14 catches, ₽0, and a bag with 21 Tiny Mushrooms, 3 Big Mushrooms and 3 Poké Balls. THE SAME HOUR DRAINED AS FOUR QUARTER-HOURS GIVES IDENTICALLY THE SAME — 121 encounters, 42 wins, ₽0, the same three item counts. Reproducible by digest.",
+   "closesCoreRequest": "encounter/index.js:38-40 has been open since it was written: index 400 was a different Pokemon live and offline. One index space now, and the SAME turn engine resolves a closed-tab battle as a watched one.",
+   "zeroedNotDeleted": "seams rule 5 asserts the pacing mirror BY NAME and fails on a missing export. That rule exists because the copy had already drifted 0.85 against 0.55 with nothing able to notice.",
+   "retiredChecks": "Four idle checks measured perSecond.money, now 0 on both sides of every comparison — they would have passed or failed for no reason. Re-pointed at exp, plus two new ones: money is not produced by the clock at all, and a zero channel stays zero however many unlocks are on.",
+   "selftest": "idle 23/23, offline 39/39"
   }
  }
 }

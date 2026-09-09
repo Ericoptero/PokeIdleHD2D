@@ -6528,3 +6528,56 @@ drop checks (reproducible from `(seed, index)`, every drop a real item 1..3 of i
 always pays). Live in a forest hunt: a Tiny Mushroom dropped, banked and sold for ₽250 — the
 first money in this project's history that came from a hunt rather than from a faucet. Seams
 green at 140 files / 17 modules; regression 0/0/0.
+
+---
+
+### 69 — 2026-09-09 — The faucet is off: a closed tab runs the hunt, fills the bag, and mints nothing
+
+Phase 6. `BASE_MONEY` and `BASE_RESEARCH` go to zero, `idle` stops having its own idea of what
+an encounter is, and what a gap produces is experience, loot and catches.
+
+**(a) Zeroed, not deleted, and the reason is the gate.** `tools/seams/run.js` rule 5 asserts
+`economy/pacing.js`'s copy of these constants **by name** and fails with *"accrual.js no longer
+exports BASE_MONEY"* the moment the export goes. That rule exists because the copy had already
+drifted — 0.85 against 0.55 — with nothing at runtime able to notice, and *"the shop simply
+priced itself against a game that no longer existed"*. It is worth more alive than the four lines
+deleting the export would save. Both files are 0 and the mirror is still green.
+
+**(b) One index space, at last.** `encounter/index.js:38-40` filed this as a core request and it
+has been open since: §5.6 and §5.7 promise a seed and an index give the same encounter live or
+offline, and they did not — `accrual.js` rolled its own species from its own `idle/encounter/N`
+stream with its own level band and its own win-chance curve, so **index 400 was a different
+Pokémon in the two paths**. `encounter.pure()` returns `{ rollAt, resolve, dropAt }` and is
+injected through `state` exactly as `state.tables` already was (seam rule 2 bans a deep import);
+`offline` back-fills the same bundle, because functions do not survive JSON.
+
+`resolve` is `fight(…, { apply: false })` — the same turn engine the visible fight runs, with the
+HP writeback and the bus emits off, because a closed-tab replay must not hospitalise a party that
+is not there. `accrual.js` keeps its old level comparison as the fallback for a quarantined
+`encounter`, which is a *visible* degradation rather than a silent disagreement.
+
+**(c) The digest had to grow, or the additivity claim would have been half-checked.** `idle`'s
+whole contract is that a gap drained in slices equals the same gap in one call, and it is checked
+by hashing the result. Loot is part of what a gap produces, so it is part of what "the same gap
+twice" has to mean; `digest()` now folds `items`, sorted, because object key order is not a
+property of the arithmetic.
+
+**Measured, one hour in the forest with auto-battler and auto-catch on:** 121 encounters, 42 wins,
+14 catches, **₽0**, and a bag with 21 Tiny Mushrooms, 3 Big Mushrooms and 3 Poké Balls in it. The
+same hour drained as four quarter-hours gives **identically** 121 encounters, 42 wins, ₽0 and the
+same three item counts. Reproducible by digest.
+
+**(d) Four `idle` checks were testing a faucet that no longer exists**, and re-pointing them was
+better than deleting them. "Biome changes production", "party changes production" and "empty party
+still earns" all measured `perSecond.money`, which is now 0 on both sides of every comparison —
+they would have passed or failed for no reason. They measure `exp`, which is the channel that
+still accrues and the one those properties were ever really about: that the *place* and the
+*party* matter. Two new ones say the quiet part: **money is not produced by the clock at all**, in
+any biome with any party, and a zero channel stays zero however many unlocks are on.
+
+**`economy/pacing.js MEASURED` is now fiction and is left as fiction, deliberately.** It is a
+thirty-day projection of an income model that has been deleted, and the shop's whole price ladder
+was calibrated against the ₽1M/h it predicts. Regenerating it would mean modelling drop rates,
+sell values and how often a player actually sells — which is a balance pass, not a phase, and
+inventing numbers to fill the table would be worse than leaving one that is visibly stale. It is
+the top open issue on `economy`.

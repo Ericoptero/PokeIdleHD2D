@@ -149,6 +149,14 @@ export default {
         luck: 1,
       };
       const state = { ...base, biome };
+      if (state.pure === undefined) {
+        // The same three pure functions `idle` injects, so a closed-tab replay and a live
+        // session share one index space (DECISIONS #69). Back-filled here rather than saved,
+        // because functions do not survive JSON.
+        const e = ctx.get('encounter');
+        const live = !!e && e.__missing === undefined;
+        state.pure = live && typeof e.pure === 'function' ? e.pure() : null;
+      }
       if (state.tables === undefined) {
         const tables = ctx.get('encounter').tablesFor?.(biome, num(config.tod, 12));
         if (Array.isArray(tables)) state.tables = tables;

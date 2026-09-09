@@ -112,26 +112,38 @@ export function runSelfTest({ seed = 1337, gapS = 3 * 3600 } = {}) {
   }
 
   // 4. Party composition and biome actually move the number.
+  //
+  // **Measured on `exp`, not on `money`** (DECISIONS #69). Money is no longer produced per
+  // second by anything — §0 says it is earned by selling what a hunt produced — so a check
+  // that compares two biomes' money rates now compares 0 with 0 and passes or fails for no
+  // reason. Experience is the channel that still accrues, and it is the one these three
+  // properties were ever really about: that the *place* and the *party* matter.
   {
-    const forest = production(fixtureState({ biome: 'forest' })).perSecond.money;
-    const city = production(fixtureState({ biome: 'city' })).perSecond.money;
-    const empty = production(fixtureState({ party: [] })).perSecond.money;
-    const full = production(fixtureState()).perSecond.money;
+    const forest = production(fixtureState({ biome: 'forest' })).perSecond.exp;
+    const city = production(fixtureState({ biome: 'city' })).perSecond.exp;
+    const empty = production(fixtureState({ party: [] })).perSecond.exp;
+    const full = production(fixtureState()).perSecond.exp;
     check('biome changes production', rel(forest, city) > 0.2,
       `forest ${forest.toFixed(2)}/s vs city ${city.toFixed(2)}/s`);
     check('party changes production', full > empty * 3,
       `party ${full.toFixed(2)}/s vs solo trainer ${empty.toFixed(2)}/s`);
     check('empty party still earns', empty > 0, `${empty.toFixed(3)}/s`);
+    check('money is not produced by the clock at all',
+      production(fixtureState()).perSecond.money === 0
+      && production(fixtureState({ biome: 'city' })).perSecond.money === 0,
+      'every biome, every party');
   }
 
   // 5. Unlocks compose multiplicatively and none of them are on by default.
   {
     const bare = production(fixtureState({ unlocks: [], upgrades: {} })).perSecond;
     const rich = production(fixtureState({ unlocks: Object.keys(UNLOCKS), upgrades: {} })).perSecond;
-    check('unlocks raise every channel', rich.money > bare.money && rich.exp > bare.exp &&
-      rich.research > bare.research && rich.encounters > bare.encounters,
-      `money x${(rich.money / bare.money).toFixed(2)}  exp x${(rich.exp / bare.exp).toFixed(2)}  ` +
-      `enc x${(rich.encounters / bare.encounters).toFixed(2)}`);
+    // The money and research channels are zero on both sides now, so the multiplier is 0/0.
+    // The property is unchanged for the channels that still exist.
+    check('unlocks raise every live channel', rich.exp > bare.exp && rich.encounters > bare.encounters,
+      `exp x${(rich.exp / bare.exp).toFixed(2)}  enc x${(rich.encounters / bare.encounters).toFixed(2)}`);
+    check('a zero channel stays zero however many unlocks are on',
+      rich.money === 0 && rich.research === 0, `money ${rich.money}, research ${rich.research}`);
     check('no unlock on by default', production({ party: [] }).applied.length === 0, 'clean state has no multipliers');
   }
 

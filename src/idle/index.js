@@ -116,6 +116,17 @@ export default {
         unlocks: [...own.unlocks],
         upgrades: { ...own.upgrades },
         tables: Array.isArray(tables) ? tables : [],
+        // `encounter`'s own rolls, battle and drops. One index space, live and offline
+        // (DECISIONS #69). A quarantined `encounter` hands over nothing and `accrual.js`
+        // falls back to its own model, which is a visible degradation rather than a silent
+        // disagreement about what encounter 400 was.
+        pure: (() => {
+          // The registry's null object answers every property with a function — checking the
+          // value, not `typeof`, is the tell (§2.1).
+          const e = ctx.get('encounter');
+          const live = !!e && e.__missing === undefined;
+          return live && typeof e.pure === 'function' ? e.pure() : null;
+        })(),
         balls: Number.isFinite(balls) ? balls : undefined,
         progress: { ...own.progress },
       };

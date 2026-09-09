@@ -50,12 +50,28 @@ import { makeRng } from '../core/rng.js';
  * Poke Ball three modules away. Change both, or neither.
  */
 
-/** Money per second at power 1.0, before biome and unlock multipliers. */
-export const BASE_MONEY = 0.85;
+/**
+ * **Zero, and zeroed rather than deleted** (DECISIONS #69).
+ *
+ * ARCHITECTURE §0: money is earned by selling what a hunt produced and by nothing else. This
+ * was the faucet — 0.85 per second at power 1.0, forever, fought or not — and
+ * `economy/pacing.js MEASURED` records what it did: ₽218k/h at fifteen minutes and a level-100
+ * party by hour eight.
+ *
+ * It stays exported because `tools/seams/run.js` rule 5 asserts `economy/pacing.js`'s copy of
+ * these constants **by name** and fails with "accrual.js no longer exports BASE_MONEY" the
+ * moment the export goes. That rule exists because the copy had already drifted 0.85 against
+ * 0.55 with nothing able to notice, and it is worth more alive than the four lines removing it
+ * would save.
+ */
+export const BASE_MONEY = 0;
 /** Experience per second at power 1.0. */
 export const BASE_EXP = 2.4;
-/** Research (spent on unlocks) per second at power 1.0. */
-export const BASE_RESEARCH = 0.045;
+/**
+ * **Also zero.** Research was the other per-second faucet, and the rule in §0 is that *nothing*
+ * grows with the clock — so it is paid per battle won, in `rollEncounter`, like everything else.
+ */
+export const BASE_RESEARCH = 0;
 /** Encounters per second at biome weight 1.0 — one every ~40 s. */
 export const BASE_ENCOUNTERS = 0.025;
 /** A trainer with no party still works the route, so the game is never fully stalled. */
@@ -325,43 +341,70 @@ function wildLevelBand(prod) {
  * time was chopped up — that is what makes the whole model chunk-invariant.
  */
 export function rollEncounter(index, seed, prod, opts) {
+  // **`encounter`'s own index space, when it is handed one** (DECISIONS #69).
+  //
+  // This function used to roll its own species from its own `idle/encounter/N` stream with its
+  // own level band and its own win-chance curve, and `encounter/index.js:38-40` filed the
+  // consequence as a core request: §5.6 and §5.7 promise a seed and an index give the same
+  // encounter live or offline, and they did not — index 400 was a different Pokemon in the two
+  // paths. The pure functions come in through `opts` (a deep import is banned by seam rule 2),
+  // so `accrual.js` stays `ctx`-free and there is now ONE index space.
+  const pure = opts.pure ?? null;
+  const rolled = pure?.rollAt ? pure.rollAt(index, { biome: opts.biome, band: opts.band }) : null;
+
   const rng = makeRng(seed, `idle/encounter/${index}`);
   const tables = opts.tables?.length ? opts.tables : EMPTY;
-  const species = tables.length ? tables[Math.floor(rng.next() * tables.length)] : null;
+  const species = rolled?.species
+    ?? (tables.length ? tables[Math.floor(rng.next() * tables.length)] : null);
   const band = opts.band;
-  const level = band.min + Math.floor(rng.next() * (band.max - band.min + 1));
-  const shiny = rng.next() < (prod.flags.charm ? SHINY_RATE_CHARM : SHINY_RATE);
+  const level = rolled?.level ?? (band.min + Math.floor(rng.next() * (band.max - band.min + 1)));
+  const shiny = rolled ? !!rolled.shiny : rng.next() < (prod.flags.charm ? SHINY_RATE_CHARM : SHINY_RATE);
 
-  // A resolved battle, not a turn-by-turn one (ARCHITECTURE §5.6): a level comparison with
-  // a seeded roll. It is keyed to the strongest member's LEVEL, not to total party power —
-  // power is a sum over six members, so using it made every encounter a foregone win the
-  // moment the bench filled up (97 % wins, measured). The wild level band scales with the
-  // same number, so the odds stay interesting at every stage instead of trending to 1.
-  const advantage = prod.topLevel / Math.max(2, level);
-  const winChance = prod.flags.battle ? clamp(0.26 + 0.40 * advantage, 0.12, 0.95) : 0;
-  const win = rng.next() < winChance;
+  // **The same turn engine the visible fight runs** — one implementation of what a battle is,
+  // the way §5.7 keeps one implementation of what a second is. The old level comparison
+  // survives only as the fallback for a quarantined `encounter`, so a broken module costs the
+  // idle path its fidelity rather than its output.
+  let win;
+  let turns = 0;
+  if (!prod.flags.battle) win = false;
+  else if (pure?.resolve && rolled) {
+    const out = pure.resolve(rolled, index);
+    win = !!out?.win;
+    turns = out?.turns ?? 0;
+  } else {
+    const advantage = prod.topLevel / Math.max(2, level);
+    win = rng.next() < clamp(0.26 + 0.40 * advantage, 0.12, 0.95);
+  }
 
   let caught = false;
   if (win && prod.flags.catch) {
     // A ball is thrown only at something already beaten, and a shiny is harder to keep.
+    const advantage = prod.topLevel / Math.max(2, level);
     const catchChance = clamp(0.38 + 0.30 * (advantage - 1), 0.08, 0.70) * (shiny ? 0.75 : 1);
     caught = rng.next() < catchChance;
   }
 
-  // Rewards. Losing an encounter still teaches the party something, which keeps a weak
-  // party from stalling completely.
+  // **No money.** §0: it is earned by selling what a hunt produced. What a battle pays is
+  // experience and — from `encounter`'s own drop table, index-addressed so this replays what
+  // was watched — loot. Losing still teaches the party something, which keeps a weak party
+  // from stalling completely.
   const scale = 1 + level * 0.16;
   const rewards = {
-    money: win ? Math.round(8 * scale * prod.chain.money) : 0,
+    money: 0,
     exp: Math.round((win ? 6 : 1.5) * scale * prod.chain.exp),
+    // Research is per battle now rather than per second (see BASE_RESEARCH).
     research: win ? +(0.35 * scale * prod.chain.research).toFixed(3) : 0,
   };
-  if (shiny) { rewards.money *= 6; rewards.research = +(rewards.research * 4).toFixed(3); }
+  if (shiny) rewards.research = +(rewards.research * 4).toFixed(3);
+
+  const drops = win && pure?.dropAt
+    ? pure.dropAt(index, { biome: opts.biome, catchRate: rolled?.catchRate, level, shiny })
+    : [];
 
   // Auto-battling occasionally turns up a spare ball; auto-catching spends one.
   const foundBall = win && prod.flags.battle && rng.next() < 0.08;
 
-  return { index, species, level, shiny, win, caught, foundBall, rewards };
+  return { index, species, level, shiny, win, caught, foundBall, turns, drops, rewards };
 }
 
 // ---------------------------------------------------------------------------
@@ -406,12 +449,18 @@ export function simulate(state, elapsedS, seed = 0) {
   const events = [];
   let wholeEncounters = 0;
   let wins = 0, catches = 0, shinies = 0, ballsFound = 0, ballsSpent = 0;
+  /** Treasure picked up, by item id. */
+  const loot = {};
   let truncated = false;
 
   if (last >= first) {
     const count = last - first + 1;
     const band = wildLevelBand(prod);
-    const opts = { tables: state?.tables ?? EMPTY, band };
+    // `pure` is `encounter.pure()` — `{ rollAt, resolve, dropAt }` — injected through `state`
+    // exactly as `state.tables` already is, because seam rule 2 bans reaching into another
+    // module. Absent (a quarantined `encounter`), `rollEncounter` falls back to its own model
+    // and says so in `flags`.
+    const opts = { tables: state?.tables ?? EMPTY, band, pure: state?.pure ?? null, biome: prod.biome };
     const resolveCount = Math.min(count, MAX_RESOLVED);
 
     for (let i = 0; i < resolveCount; i++) {
@@ -423,6 +472,10 @@ export function simulate(state, elapsedS, seed = 0) {
       if (e.caught) { catches++; ballsSpent++; }
       if (e.shiny) shinies++;
       if (e.foundBall) ballsFound++;
+      // Loot, banked by id. This is the closed-tab half of the faucet §0 replaced money with:
+      // a hunt run with nobody watching still fills the bag, and selling it is still the only
+      // way any of it becomes money.
+      for (const d of e.drops ?? []) loot[d.id] = (loot[d.id] ?? 0) + d.n;
       // Keep the head of the list for the UI; the totals above already have all of it.
       // (The list is the one part of the result that chunking changes, which is why the
       // digest below is computed from the totals and never from the list.)
@@ -439,6 +492,7 @@ export function simulate(state, elapsedS, seed = 0) {
       wins = Math.round(wins * (1 + k));
       catches = Math.round(catches * (1 + k));
       shinies = Math.round(shinies * (1 + k));
+      for (const id of Object.keys(loot)) loot[id] = Math.round(loot[id] * (1 + k));
     }
   }
 
@@ -448,6 +502,7 @@ export function simulate(state, elapsedS, seed = 0) {
   // next gap. Netting them here would let this module quietly overdraw someone else's bag.
   const items = {};
   if (ballsFound > 0) items[BALL_ITEM] = ballsFound;
+  for (const [id, n] of Object.entries(loot)) items[id] = (items[id] ?? 0) + n;
 
   return {
     elapsedS: dt,
@@ -486,6 +541,9 @@ export function digest(gains) {
     gains.money.toFixed(9), gains.exp.toFixed(9), gains.research.toFixed(9),
     gains.encounters.toFixed(9), String(gains.wholeEncounters),
     String(gains.wins), String(gains.catches), String(gains.shinies),
+    // The loot is part of what a gap produced, so it is part of what "the same gap twice"
+    // has to mean. Sorted, because object key order is not a property of the arithmetic.
+    Object.keys(gains.items ?? {}).sort().map((k) => `${k}:${gains.items[k]}`).join(','),
   ].join('|');
   let h = 0x811c9dc5;
   for (let i = 0; i < parts.length; i++) {

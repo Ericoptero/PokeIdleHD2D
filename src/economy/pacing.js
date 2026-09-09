@@ -54,9 +54,9 @@ import { UPGRADES, upgrade, costOf, foldUpgrades } from './upgrades.js';
 /** Mirrored constants. Keep the names identical to `accrual.js` so a diff is obvious. */
 export const INCOME_MODEL = Object.freeze({
   mirroredFrom: 'src/idle/accrual.js',
-  BASE_MONEY: 0.85,
+  BASE_MONEY: 0,
   BASE_EXP: 2.4,
-  BASE_RESEARCH: 0.045,
+  BASE_RESEARCH: 0,
   BASE_ENCOUNTERS: 0.025,
   MONEY_POWER_EXP: 0.92,
   TRAINER_BASE_POWER: 0.6,

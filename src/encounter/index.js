@@ -1181,6 +1181,31 @@ export default {
       slotsNear: (cx, cz) => slotNear(cx, cz),
       /** Starts a fight with whatever is on a slot. Returns the encounter, or null. */
       engage: (slot) => (slot ? engage(slot) : null),
+      /**
+       * The three pure functions `idle` and `offline` need, handed over as a bundle.
+       *
+       * **Injected through `state`, never deep-imported** (seam rule 2 bans reaching past a
+       * module's index). This is what closes the core request filed at the head of this file:
+       * §5.6 and §5.7 promise a seed and an index give the same encounter live or offline, and
+       * before this they did not — `accrual.js` rolled its own species from its own stream with
+       * its own level band, so index 400 was a different Pokemon in the two paths.
+       *
+       * `resolve` runs `fight(..., { apply: false })`: the same turn engine the visible fight
+       * uses, with the HP writeback and the bus emits off, because a closed-tab replay must not
+       * hospitalise a party that is not there.
+       */
+      pure: () => ({
+        rollAt: (index, opts = {}) => rollIndex(index, opts),
+        resolve: (enc, index) => {
+          const out = fight(leadOf(), { ...enc, index: index ?? enc.index }, { apply: false });
+          return { win: out.win, turns: out.turns, hpFraction: out.hpFraction };
+        },
+        dropAt: (index, opts = {}) => dropsFor(seed, index, {
+          biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
+          level: opts.level ?? 5, shiny: !!opts.shiny,
+        }),
+      }),
+
       /** What encounter `index` drops. Pure and index-addressed; `idle` replays it verbatim. */
       dropsFor: (index, opts = {}) => dropsFor(seed, index, {
         biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
