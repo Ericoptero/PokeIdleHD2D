@@ -265,7 +265,7 @@ export const PROPS = [
   // used. Both render as a pale grey blob roughly a third of a cell across with a blue rim,
   // in this map and in `?showcase=preview&mode=props&filter=hedge` alike, although their
   // catalog record claims a 1x1x0.86 bush. The greenery here is AdAstra's own `hedge1`
-  // instead (see `TUBS`), and the two broken props are reported in coreRequests.
+  // instead (see `TUBS`), and the two broken props are still broken.
 
   // The Mart's delivery yard: stock stacked against the shop's own east wall (x 39) inside
   // the fence run below, so it reads as a yard rather than as four unrelated objects

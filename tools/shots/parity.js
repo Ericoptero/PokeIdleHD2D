@@ -82,7 +82,8 @@ const GRADE_DELTA = 8;
 const a = parseArgs(process.argv.slice(2));
 const walk = a.extra.walk !== undefined || a.walk !== undefined;
 const keep = a.extra.keep !== undefined || a.keep !== undefined;
-const outDir = a.extra.outDir ?? join('docs', 'progress', '_parity');
+// Ignored by default, so a gate run leaves `git status` clean; `--out` lets the gate place it.
+const outDir = a.out ?? a.extra.outDir ?? join('shots', 'out', 'parity');
 mkdirSync(outDir, { recursive: true });
 
 const fails = [];

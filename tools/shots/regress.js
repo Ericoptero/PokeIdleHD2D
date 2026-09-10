@@ -25,7 +25,10 @@ import { shoot } from './shoot.js';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BASELINE = join(REPO, 'docs', 'baseline.json');
-const SHOTS = join(REPO, 'docs', 'progress', '_regress');
+// Gate artifacts go somewhere ignored. Written under `docs/progress/` they showed up as
+// changed binaries in `git status` after every run, so an agent could not tell its own edits
+// from capture noise. `--out` lets the gate place them; the default keeps a bare run working.
+const DEFAULT_SHOTS = join(REPO, 'shots', 'out', 'regress');
 
 /** The frames that are actually judged, plus the ones that have regressed before. */
 export const MATRIX = [
@@ -82,9 +85,10 @@ function parse(argv) {
 export async function measure(a) {
   const rows = MATRIX.filter((m) => !a.only || m.id.startsWith(a.only));
   const out = {};
-  mkdirSync(SHOTS, { recursive: true });
+  const shots = a.out ?? DEFAULT_SHOTS;
+  mkdirSync(shots, { recursive: true });
   for (const m of rows) {
-    const file = join(SHOTS, `${m.id.replace(/[\/.]/g, '_')}.png`);
+    const file = join(shots, `${m.id.replace(/[\/.]/g, '_')}.png`);
     const log = await shoot({
       base: a.base, out: file, size: a.size, settle: 40, hudRows: a.hudRows,
       showcase: m.showcase ?? null, mode: m.mode ?? null, preset: m.preset ?? null,

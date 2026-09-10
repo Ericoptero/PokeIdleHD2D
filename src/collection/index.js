@@ -45,6 +45,7 @@
 import { makeDex, ivTotal, ivPct, ivGrade, IV_KEYS, IV_TOTAL_MAX } from './dex.js';
 import { makeBoxes, BOX_CAPACITY, BOX_COLS, BOX_ROWS, DEFAULT_BOXES, WALLPAPERS } from './boxes.js';
 import { sortEntries, groupBySpecies, planDuplicateRelease, SORT_MODES, SORT_IDS, KEEP_RULES } from './sorting.js';
+import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version. Bumped when the shape changes; `loadState` migrates forward. */
 const SAVE_VERSION = 1;
@@ -619,7 +620,9 @@ export default {
       ordinal: () => ordinal,
       async selfTest() {
         const { runSelfTest } = await import('./selftest.js');
-        return runSelfTest(api, ctx);
+        const result = await runSelfTest(api, ctx);
+        reportSelfTest('collection', result);
+        return result;
       },
     };
 

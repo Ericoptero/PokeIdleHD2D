@@ -41,6 +41,7 @@ import {
 } from './shops.js';
 import { makeEconomyState } from './state.js';
 import { project, sinkTotals, curveOf, INCOME_MODEL } from './pacing.js';
+import { reportSelfTest } from '../core/log.js';
 
 /**
  * Battle Points minted per won battle. BP is the only currency the player cannot earn by
@@ -457,6 +458,7 @@ export default {
       const costs = UPGRADES.map((u) => costOf(u, u.max - 1) / costOf(u, 0));
       check('every track ends dearer than it starts', costs.every((r) => r > 1), `steepest ×${Math.max(...costs).toFixed(0)}`);
 
+      reportSelfTest('economy', results);
       return { ok: results.every((r) => r.ok), results };
     }
 

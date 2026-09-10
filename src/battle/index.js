@@ -22,6 +22,7 @@ import * as MOVES from './moves.js';
 import { TYPES, effectiveness, effectivenessText, STAB } from './types.js';
 import { statsOf, stageMultiplier, expAtLevel, expToNextLevel, levelForExp, expYield } from './stats.js';
 import { makeCombatant, begin, turn, resolve, damageOf, streamFor, STREAM_ROOT } from './engine.js';
+import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
 const SAVE_VERSION = 1;
@@ -114,6 +115,7 @@ export default {
         check('type chart: electric on ground is 0', effectiveness('electric', ['ground']) === 0);
         check('type chart: ice on dragon/flying is 4x', effectiveness('ice', ['dragon', 'flying']) === 4);
         check('stream identity', streamFor(1337, 7, 1).label === `${STREAM_ROOT}/7/1`);
+        reportSelfTest('battle', results);
         return { ok: results.every((r) => r.ok), results };
       },
 

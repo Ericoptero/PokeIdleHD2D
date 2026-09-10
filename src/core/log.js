@@ -40,4 +40,36 @@ export const log = {
   clear: () => { buffer.length = 0; counts.clear(); },
 };
 
+/**
+ * Reports a browser-side `selfTest()` result, and **fails loudly when it fails**.
+ *
+ * Five modules carry invariants that are only reachable with a live `ctx` — the ledger
+ * against the shop's own prices, the automation engine against a running world — so they
+ * cannot go in a `selftest.js` that runs under plain Node. They were checked by a showcase
+ * that painted `20/26 checks` into the page and by nothing else, which means a red
+ * invariant was a colour in a screenshot nobody was obliged to look at.
+ *
+ * `console.error` is what makes it a gate: §7 budgets zero console errors, so a failing
+ * invariant now fails the capture that ran it. It is the one place an `error` is correct for
+ * a handled path, because the handling is *this*.
+ *
+ * Accepts every shape the five return: `{ ok, results }`, `{ passed, total, results }`, or a
+ * bare `results` array of `{ name, ok, detail }`.
+ *
+ * @returns {{ok:boolean, passed:number, total:number, results:Array}} normalised
+ */
+export function reportSelfTest(moduleId, result) {
+  const results = Array.isArray(result) ? result : (result?.results ?? []);
+  const total = results.length;
+  const failures = results.filter((r) => r && !r.ok);
+  // Trust an explicit `ok` when one is given and there are no rows to count.
+  const ok = total ? failures.length === 0 : result?.ok !== false;
+  if (!ok) {
+    const why = failures.slice(0, 6)
+      .map((r) => `${r.name}${r.detail ? ` (${r.detail})` : ''}`).join('; ');
+    log.error(`${moduleId}: selfTest failed ${failures.length}/${total} — ${why}`);
+  }
+  return { ok, passed: total - failures.length, total, results };
+}
+
 if (typeof window !== 'undefined') window.__LOG__ = log;

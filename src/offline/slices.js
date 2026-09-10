@@ -111,28 +111,6 @@ export const ADAPTERS = {
     },
   },
 
-  collection: {
-    order: 20,
-    capture(api) {
-      const dex = fn(api, 'dex');
-      const boxes = fn(api, 'boxes');
-      if (!dex && !boxes) return undefined;
-      const d = dex?.() ?? {};
-      return {
-        seen: Array.isArray(d.seen) ? d.seen : [],
-        caught: Array.isArray(d.caught) ? d.caught : [],
-        boxes: (boxes?.() ?? []).map((b) => (Array.isArray(b) ? b.map((e) => ({
-          instanceId: e?.instanceId ?? null, species: e?.species ?? null,
-        })) : [])),
-      };
-    },
-    // `collection` currently grows only by listening to catch:succeeded, and replaying
-    // those events at boot would re-fire collection:added and toast the player once per
-    // Pokemon they own. Captured now, restored the day the module offers loadState().
-    restore: null,
-    unrestoredWhy: 'collection has no loadState(); replaying catch events would re-fire collection:added',
-  },
-
   idle: {
     order: 15,
     // `idle` carries cumulative encounter progress (accrual.js indexes encounter N off its

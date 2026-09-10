@@ -118,6 +118,9 @@ async function shootOnce(opts) {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: Number(a.timeout) });
     await page.waitForFunction('window.__READY__ === true', { timeout: Number(a.timeout), polling: 100 });
+    // §7 budgets a 6 s cold start. It was collected by nobody, so a boot that crept from 2 s
+    // to 5.9 s was invisible until it crossed the timeout and became a hard failure instead.
+    log.readyMs = Date.now() - t0;
 
     const fatal = await page.evaluate(() => window.__FATAL__ ?? null);
     if (fatal) log.fatal = fatal;
@@ -169,6 +172,14 @@ async function shootOnce(opts) {
     // The pixel grid this shot was actually drawn on. Cheap, and it turns "the sprites are
     // bigger on my laptop" from a thing you argue about into a number in every shot's JSON.
     log.grid = await page.evaluate(() => window.__HOOKS__?.grid?.() ?? null);
+    // Every destination `travel` will accept, so `tools/shots/boot.js` derives its matrix
+    // from the running tree instead of carrying a list that goes stale when a biome is added.
+    log.destinations = await page.evaluate(() => window.__HOOKS__?.destinations?.() ?? []);
+    // How much text the DOM layer is actually showing. Some showcases prove themselves with
+    // evidence rather than with a frame — `battle` and `economy` print real transcripts and
+    // real ledgers — and for those a draw-call count says nothing at all: a broken one draws
+    // exactly as much empty stage as a working one. This is their floor.
+    log.uiChars = await page.evaluate(() => (document.getElementById('ui')?.innerText ?? '').trim().length);
     const metrics = await page.evaluate(() => window.__HOOKS__?.metrics?.() ?? null);
     const events = await page.evaluate(() => window.__HOOKS__?.events?.().slice(-64) ?? []);
     Object.assign(log, metrics ?? {}, { events });
@@ -199,14 +210,28 @@ async function shootOnce(opts) {
 }
 
 /** Budget check (ARCHITECTURE §7), so a passing screenshot is a passing *measurement*. */
-export function checkBudgets(log) {
+export function checkBudgets(log, a = {}) {
   const fails = [];
   if (log.consoleErrors?.length) fails.push(`${log.consoleErrors.length} console errors`);
   if (log.fatal) fails.push(`fatal: ${log.fatal}`);
   if (log.error) fails.push(`harness: ${log.error}`);
   if (log.fps && log.fps.mean < 50) fails.push(`fps ${log.fps.mean} < 50`);
+  // The mean hides a stutter: 58 fps mean with one 40 ms frame per second reads fine and
+  // feels wrong. §7 budgets the p95 for exactly that, and it has been in every metrics
+  // payload since the harness was written without anything reading it.
+  if (log.fps && log.fps.p95ms > 20) fails.push(`p95 frame ${log.fps.p95ms}ms > 20ms`);
   if (log.drawCalls > 1500) fails.push(`drawCalls ${log.drawCalls} > 1500`);
   if (log.triangles > 900000) fails.push(`triangles ${log.triangles} > 900k`);
+  if (log.programs > 60) fails.push(`programs ${log.programs} > 60`);
+  // §7's cold-start budget is deliberately NOT asserted here. Against the dev server
+  // `readyMs` measures Vite compiling several hundred unbundled ES modules on first request
+  // — 7.5-15 s cold, 3.6-6 s warm, for a page whose own boot never changed. It is the
+  // bundler's number, not the game's. `tools/gate.js` measures it where it means something:
+  // once, against `vite preview` on the production build (DECISIONS #71). The field is still
+  // recorded in every shot's JSON, because it is useful data even when it is not a budget.
+  if (a?.readyBudget && log.readyMs > a.readyBudget) {
+    fails.push(`ready in ${(log.readyMs / 1000).toFixed(1)}s > ${a.readyBudget / 1000}s`);
+  }
   const down = (log.modules ?? []).filter((m) => m.status === 'failed' || m.status === 'blocked');
   if (down.length) fails.push(`modules down: ${down.map((d) => `${d.id}(${d.status})`).join(', ')}`);
   return fails;
@@ -216,7 +241,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const a = parseArgs(process.argv.slice(2));
   if (!a.out) { console.error('shoot.js: --out <path.png> is required'); process.exit(2); }
   const log = await shoot(a);
-  const fails = checkBudgets(log);
+  const fails = checkBudgets(log, a);
   const badge = fails.length ? '✗' : '✓';
   console.log(`${badge} ${a.out}  ${log.fps?.mean ?? '?'}fps  ${log.drawCalls ?? '?'}draws  ` +
     `${Math.round((log.triangles ?? 0) / 1000)}k tris  ${log.ms}ms`);

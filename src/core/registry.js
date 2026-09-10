@@ -75,7 +75,10 @@ export function makeRegistry({ bus, log }) {
     for (const id of ids) {
       for (const need of mods.get(id).desc.needs ?? []) {
         if (!mods.has(need)) {
-          log.warn(`[${id}] declares unknown dependency "${need}" — ignored`);
+          // Ignored *here* — it cannot contribute an in-degree if it does not exist — but
+          // `init` will still block the module, because a need nothing provides is a need
+          // that is not met. Say so, or the log promises a boot that will not happen.
+          log.warn(`[${id}] declares unknown dependency "${need}" — ${id} will be blocked`);
           continue;
         }
         indeg.set(id, indeg.get(id) + 1);

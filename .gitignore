@@ -5,19 +5,14 @@ dist/
 .vite/
 coverage/
 out/
+
+# Everything the gate writes. A gate run must never dirty the working tree, or the agent
+# that ran it cannot tell its own edits from capture noise. Screenshots worth keeping are
+# committed deliberately, under docs/progress/.
 shots/out/
+docs/progress/_regress/
+docs/progress/_parity/
 
-# packages/data/generated/ IS COMMITTED. DECISIONS #6: "PokeAPI is snapshotted at build
-# time into committed JSON. Never fetched at runtime." This file previously carried
-# `packages/data/generated/*.json`, which excluded the seven snapshot files that decision
-# exists to guarantee - a fresh clone would have had generated/index.ts importing JSON
-# that was not in the repo. Asserted by tools/seams/snapshot-committed.test.ts.
-#
-# What IS ignored is the raw HTTP cache the snapshot script writes: ~36 MB of PokeAPI
-# responses, reproducible from the network, and pure churn in a diff.
-packages/data/.cache/
-
-# TypeScript project-reference build output
-.tsbuild/
-*.tsbuildinfo
-.eslintcache
+# Blind-judge packets are build output of tools/judge/build.js -- regenerate with
+# `node tools/judge/build.js --round rN`, do not commit.
+docs/judge/

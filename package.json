@@ -14,7 +14,9 @@
     "shot": "node tools/shots/shoot.js",
     "gauntlet": "node tools/shots/gauntlet.js",
     "seams": "node tools/seams/run.js",
-    "check": "node tools/seams/run.js && node tools/shots/shoot.js --out docs/progress/_boot/city-base.png --tod 11"
+    "check": "node tools/gate.js",
+    "gate": "node tools/gate.js",
+    "boot": "node tools/shots/boot.js"
   },
   "dependencies": {
     "three": "^0.185.1"

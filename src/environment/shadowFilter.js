@@ -101,9 +101,9 @@
  * Folder ownership (ARCHITECTURE §1): `src/core/` is the integrator's. §2.7 says the pipeline
  * is "owned by core, **tuned** by environment", and this is a tune written at runtime, exactly
  * like the per-hour `shadow.bias`/`normalBias` pair `index.js` already writes onto the light.
- * `docs/STATUS.json → coreRequests[]` carries the request to move it into `render.js` and to
- * stop asking for a deprecated constant. Until then it lives here, and every part of it is
- * *reversible from a URL* so a critic can A/B it without a code change:
+ * **Open:** this belongs in `render.js` rather than here, and it should stop asking for a
+ * deprecated constant. Until someone moves it, it lives here, and every part of it is
+ * *reversible from a URL* so it can be A/B'd without a code change:
  *
  *     ?envNoShadowFilter=1   three's own 5-tap kernel, the round-6 rig
  *     ?envNoPcss=1           round 7 exactly: one penumbra width per frame, no blocker search

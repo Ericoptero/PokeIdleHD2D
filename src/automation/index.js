@@ -67,6 +67,7 @@ import {
 import { OPERATORS } from './ops.js';
 import { chooseBall, rankBalls, evaluatorFrom, DEFAULT_SETTINGS as BALL_DEFAULTS } from './ball.js';
 import { validateRule, kindSchema, describeCondition, MAX_RULES, MAX_LEAVES } from './rules.js';
+import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version; `loadState` migrates forward and never backwards. */
 const SAVE_VERSION = 1;
@@ -975,7 +976,9 @@ export default {
       // --- diagnostics the gauntlet reads --------------------------------------
       async selfTest() {
         const { runSelfTest } = await import('./selftest.js');
-        return runSelfTest({ api, engine, ctx });
+        const result = await runSelfTest({ api, engine, ctx });
+        reportSelfTest('automation', result);
+        return result;
       },
       /** Factory reset. Used by the showcase so a screenshot is reproducible. */
       reset() { engine.reset(); catchOrdinal = 0; for (const k in totals) totals[k] = 0; ballLog.length = 0; },

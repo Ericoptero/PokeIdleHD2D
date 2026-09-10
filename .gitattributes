@@ -1,7 +1,11 @@
-# No Git LFS. See DECISIONS #9: total asset weight is three orders of magnitude under any
-# reason to migrate, and a half-migrated repo (old PNGs plain, new PNGs pointers) is
-# indistinguishable in a diff. Re-add the filter lines in the same commit that installs
-# git-lfs and runs `git lfs migrate import`, never before.
+# No Git LFS, for now. Re-add the filter lines in the same commit that installs git-lfs and
+# runs `git lfs migrate import`, never before: a half-migrated repo (old PNGs plain, new PNGs
+# pointers) is indistinguishable in a diff.
+#
+# DECISIONS #9 justified this on total asset weight, and that justification has expired --
+# docs/ is now ~3.4 GB across ~5000 tracked screenshots against ~19 MB for src + public +
+# assets combined, and a fresh clone pulls all of it. The reason to stay off LFS today is
+# that migrating rewrites history; it is not that the repo is small.
 
 * text=auto eol=lf
 *.png binary

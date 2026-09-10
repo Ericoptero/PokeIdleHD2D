@@ -283,8 +283,8 @@ const STOPS = {
   // frozen on the walk's stride frame.
   //
   // There was a `run` mode here, pairing this framing at 0.15 s/tile so the trainer's leaning
-  // run trio could be cropped against the walk. Run is gone from the game (DECISIONS #58) and
-  // docs/STATUS.json had already asked for the mode on its own merits, so it went with it.
+  // run trio could be cropped against the walk. Run is gone from the game (DECISIONS #58),
+  // so the mode went with it.
   south: { after: LEG.west + 6, sub: 3, ppu: PPU.normal },
   // Pulled back so the road, the fields and the grass read as a place. `k` is 1.5 rather than
   // 1: at k=1 a tile texel lands on half an internal pixel and the ground goes to mush, and

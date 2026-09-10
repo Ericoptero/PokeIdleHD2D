@@ -66,7 +66,7 @@ export function streamFor(seed, kind, key) {
  * **This is character-for-character the same curve as `automation/fields.js`**, which
  * declared the proxy first. Modules may not import each other's internals (§5), so the two
  * copies are a mirror in the same sense `economy/pacing.js` mirrors `idle/accrual.js`; a
- * seam test asserting they agree is filed in `coreRequests`. Meanwhile `tables.js` carries
+ * seam test asserting they agree would be worth writing. Meanwhile `tables.js` carries
  * the **real mainline rate** for every species it can actually spawn, so this curve is only
  * reached for a species some other module asks about.
  *

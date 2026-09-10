@@ -347,7 +347,7 @@ export function makeLamps(THREE, scene, groundAt) {
      *          size?:number, point?:boolean, pool?:boolean, groundY?:number}} spec
      *   world position of the *bulb*, not the post base.
      *   `point: false` registers a bulb that gets the glow quad and the bloom but never
-     *   claims one of the `PointLight` slots — asked for by `city` in STATUS.coreRequests.
+     *   claims one of the `PointLight` slots — `city` wants this.
      *   `pool: false` suppresses the painted ground pool, which is the right answer for a
      *   bulb that does not hang over walkable ground (a first-floor window, a sign).
      *   `groundY` overrides the terrain lookup for the pool's height.

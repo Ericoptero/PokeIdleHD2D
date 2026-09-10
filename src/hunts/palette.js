@@ -46,8 +46,8 @@ export const SET_CASE_SIG = {
  * reading `pack.bin` says it is not. `pack.bin` is what the game loads.) Repro:
  * `grass_path_side_edge_w` is model 8 at `groups[0].offset 3960`, `grass_path_center` is model 9.
  *
- * This supersedes both the "U runs backwards against world X" framing in
- * `docs/STATUS.json → integratorFindings` and the claim at `src/tiles/materials.js:597` that
+ * This supersedes both the old "U runs backwards against world X" framing and the claim at
+ * `src/tiles/materials.js:597` that
  * "a horizontal tile is untouched by a V flip". A horizontal tile is untouched by a flip in
  * *height*; these tiles map `v` onto **X or Z**, and each one picks its own.
  *

@@ -130,7 +130,12 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
 // the checks a screenshot cannot make — idle's 21 cover the chunk-additivity that idle and
 // offline both rest on, and a break there is silent: the numbers stay plausible and stop
 // being reproducible.
-for (const m of MODULES) {
+//
+// `core` is in this list and in no other: it is not a module (no descriptor, no showcase, so
+// the shape rule would fail it by construction) but it is the code every module imports, and
+// leaving it unpinned meant `rng`, `clock`, `bus` and `registry` were only ever checked
+// indirectly, by whichever module's goldens happened to run through them.
+for (const m of [...MODULES, 'core']) {
   const selftest = join(REPO, 'src', m, 'selftest.js');
   if (!existsSync(selftest)) continue;
   const out = spawnSync(process.execPath, [selftest], { encoding: 'utf8', timeout: 120000 });

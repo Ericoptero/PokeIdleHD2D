@@ -146,7 +146,7 @@ export default {
        * comes back as the default view. `docs/progress/city/critic/n12-pond-focus.png` is
        * pixel-identical to the plaza preset for exactly that reason. `preset()` teleports
        * first (`focusOn`), so `--preset 50,16` frames what `--focus 50,16` promised. The hook
-       * itself is `main.js`'s and is filed in coreRequests.
+       * itself is `main.js`'s.
        */
       preset(name) {
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name ?? ''));

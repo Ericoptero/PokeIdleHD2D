@@ -256,6 +256,15 @@ async function boot() {
     resetMetrics() { fpsWindow.length = 0; },
     events: () => bus.spy().slice(-256),
     modules: () => registry.status(),
+    /**
+     * Every destination `travel` will accept, so `tools/shots/boot.js` derives its matrix
+     * from the tree instead of carrying a list that goes stale the day a biome is added.
+     * `locked` is reported, not filtered: the boot matrix boots locked scenes on purpose,
+     * because `?scene=` stands the gate down and that path is exactly the one that shipped
+     * broken (DECISIONS #70).
+     */
+    destinations: () => (registry.get('travel')?.destinations?.() ?? [])
+      .map((d) => ({ id: d.id, locked: !!d.locked })),
     pause() { running = false; },
     resume() { if (!running) { running = true; requestAnimationFrame(frame); } },
   };

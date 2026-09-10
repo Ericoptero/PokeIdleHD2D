@@ -1,8 +1,10 @@
 # PokeIdleHD2D — Architecture
 
-> Authoritative contract. Builder agents implement against this document; they do not
-> renegotiate it. Changes to anything in §2 (Core), §3 (Units), §4 (Events) or §5 (Module
-> API) go through the **integrator** only — see §12.
+> **Authoritative contract.** This document says what each module exports and what it may
+> not do. Implement against it; where it and `src/` disagree, the code wins and this file is
+> a bug — fix it in the same commit. §2 (Core), §3 (Units), §4 (Events) and §5 (Module API)
+> are the load-bearing sections: changing one changes every module, so record the change as
+> a `docs/DECISIONS.md` entry rather than editing quietly.
 
 ---
 
@@ -42,9 +44,15 @@ below:
 **Never programmer art.** Anything that would ship as an untextured box, a magenta
 placeholder, or a flat-shaded primitive is a bug, not a milestone.
 
+**Every scene needs a motivated light source.** Four rounds of blind A/B against commercial
+reference stills said the same thing every round: the frames we won — the city at night, the
+cave by torchlight — had a practical light in shot, and the frames we lost were flat daylight
+that judges called "a uniform tint with no light source anywhere". Lamps, windows, torches,
+shafts through a canopy: compose the light, do not just set the time of day.
+
 ---
 
-## 1. Stack and repository layout
+## 1. Stack and layout
 
 | Concern | Choice |
 | --- | --- |
@@ -54,58 +62,21 @@ placeholder, or a flat-shaded primitive is a bug, not a milestone.
 | Headless capture | `puppeteer-core` driving the system Google Chrome |
 | Node | ≥ 20 (tools only; never imported by `src/`) |
 
-```
-/
-├── ARCHITECTURE.md          this file
-├── DECISIONS.md             numbered, dated, append-only decision log
-├── index.html               single entry; ?showcase=<module> selects a showcase scene
-├── vite.config.js
-├── assets/                  INPUT — read-only, never written by code
-│   ├── overworld/<species>/{normal,shiny}.png    1253 species, 64×128, 8 frames
-│   └── trainer/{hero,heroine}.png                32×768, 24 frames
-├── public/
-│   └── generated/           OUTPUT of tools/assets — served verbatim, committed
-│       ├── tiles/<tileset>/…    obj + textures + catalog + runtime pack
-│       └── sprites/…            atlases + manifests
-├── src/
-│   ├── core/                §2 — INTEGRATOR ONLY
-│   ├── tiles/               §5.1  tile system + auto-tiling
-│   ├── terrain/             §5.2  heightfield, map authoring, collision
-│   ├── environment/         §5.3  sky, sun, weather, post-processing
-│   ├── simulation/          §5.4  the tick loop and world state
-│   ├── pokemon/             §5.5  species data, party, instances, sprites, followers
-│   ├── encounter/           §5.6  spawn tables, spawn slots, catching
-│   ├── battle/              §5.17 type chart, moves, the turn engine
-│   ├── idle/                §5.7  background accrual
-│   ├── offline/             §5.8  closed-tab catch-up
-│   ├── economy/             §5.9  currency, items, shop
-│   ├── collection/          §5.10 dex, boxes, organisation
-│   ├── automation/          §5.11 auto-hunt, auto-catch, auto-sell
-│   ├── ui/                  §5.12 HUD, panels, dialogue
-│   ├── city/                §5.13 demo city (lobby)
-│   ├── hunts/               §5.14 demo hunt biomes
-│   ├── travel/              §5.16 where the player is, and how they leave
-│   └── preview/             §5.15 asset viewer — INTEGRATOR ONLY
-├── tools/
-│   ├── assets/              .pdsts → obj → catalog → runtime pack
-│   ├── shots/               headless screenshot + metrics harness
-│   └── seams/               cross-module contract tests
-└── docs/
-    ├── refs/                Gamma Emerald reference stills (read-only)
-    ├── progress/            agent screenshots, per module, per round
-    └── STATUS.json          §13 — the resume file
-```
+`src/<module>/` is the unit of ownership: one folder, one `index.js` default export, one
+entry in §5. `assets/` is read-only input; `public/generated/` is committed build output
+that `npm run assets` reproduces; `tools/` is Node-only and is never imported by `src/`.
+Everything else the filesystem will tell you faster than this page can.
 
-**Folder ownership is absolute.** A builder agent owns exactly one `src/<module>/` folder
-plus its slice of `docs/progress/<module>/`. It may *read* anything. It may *write*
-nowhere else. Requests for core changes go in `docs/STATUS.json → coreRequests[]`.
+**A module reaches another module only through `ctx.get(id)`, and only at its `index.js`.**
+Reaching into a sibling's internals is a seam failure (`tools/seams/run.js`), because it
+makes the §5 contract unenforceable — the whole point of the folder boundary.
 
 ---
 
-## 2. Core (`src/core/`) — integrator only
+## 2. Core (`src/core/`)
 
-Core is deliberately small. It is the only thing every module may import, and the only
-thing no builder may edit.
+Core is deliberately small. It is the only thing every module may import, so a change here
+reaches everything — measure it, and pin it in `src/core/selftest.js`.
 
 ### 2.1 `core/registry.js` — module registry with failure isolation
 
@@ -202,15 +173,15 @@ the only clock gameplay may read. Background tabs: see §5.7.
 `xoshiro128**`. `rng.fork(label)` derives a child stream from `hash(seed, label)` so
 modules never share a stream and call order between modules cannot perturb results.
 
-**`Math.random()` is banned in `src/`.** `tools/seams/no-math-random.test.js` fails the
-build if it appears. Same seed + same input event log ⇒ identical world, identical spawns,
+**`Math.random()` is banned in `src/`.** `tools/seams/run.js` fails the build if it
+appears (`seam-allow` on the line is the escape hatch, for tools-facing code only). Same seed + same input event log ⇒ identical world, identical spawns,
 identical loot, forever.
 
 ### 2.6 `core/config.js`
 
 Frozen defaults, overridable per-session by query string (`?pixelScale=3&tod=19.5`) and by
-`localStorage['pokeidle.config']`. Every tunable a critic might ask to change lives here,
-not in a module constant.
+`localStorage['pokeidle.config']`. **Every tunable lives here, not in a module constant** — that is what lets a
+screenshot be requested at an exact time of day, seed and pixel scale.
 
 ### 2.7 `core/render.js` — the render pipeline
 
@@ -309,7 +280,8 @@ requested by `tod`, so `tod` must be fully deterministic from the query string.
 ## 4. Events
 
 Modules communicate by event, not by reaching into each other. The bus is the seam the
-integrator polices.
+`no-deep-imports` rule protects: if two modules need to talk and neither is willing to
+publish an event, one of them is in the wrong folder.
 
 | Event | Payload | Emitted by |
 | --- | --- | --- |
@@ -329,25 +301,25 @@ integrator polices.
 | `hunt:lap` | `{ biome, length }` | hunts |
 | `drop:collected` | `{ items: [{ id, n }], index }` | encounter |
 | `battle:started` | `{ index, ally, wild, moves }` | battle |
-| `battle:turn` | `{ index, turn, actor, move, damage, effect }` | battle |
 | `battle:ended` | `{ index, won, turns, hpFraction }` | battle |
 | `pokemon:levelled` | `{ instanceId, from, to, learned }` | pokemon |
 | `pokemon:evolved` | `{ instanceId, from, to }` | pokemon |
-| `trainer:levelled` | `{ level, exp }` | economy |
 | `idle:tick` | `{ elapsedS, gains }` | idle |
 | `offline:applied` | `{ awayS, gains, capped }` | offline |
 | `economy:changed` | `{ currency, delta, total }` | economy |
 | `collection:added` | `{ instanceId, isNewSpecies }` | collection |
 | `ui:toast` | `{ text, kind }` | any |
 | `tod:changed` | `{ tod, phase }` | environment |
-| `perf:sample` | `{ fps, drawCalls, tris, ms }` | core (1 Hz) |
+| `perf:sample` | `{ fps, drawCalls, tris }` | core (1 Hz) |
 
-Adding an event is a core change (§12).
+Adding an event changes every module that might listen for it — record it in
+`docs/DECISIONS.md` and add the row above in the same commit. An event named here and
+emitted nowhere is worse than no event: it is a contract a listener can wait on forever.
 
-`catch:failed` had been emitted since DECISIONS #35(e) with nothing subscribed and no row here;
-promoting it is part of DECISIONS #61, not a new event. Three more are in flight and still
-off-contract — `tiles:loaded`, `automation:changed`, `automation:configured` — and are filed
-in `coreRequests` rather than quietly added.
+Three events are emitted and deliberately off-contract — `tiles:loaded`,
+`automation:changed`, `automation:configured`. They are internal to their own module's
+showcase and debug surface; promote one to the table above only when something outside that
+module needs to listen for it.
 
 ---
 
@@ -360,8 +332,13 @@ export default /** @type {ModuleDescriptor} */ ({ id, needs, init, tick, frame, 
 ```
 
 `init` returns the module's **public API**. Nothing else is importable across module
-boundaries — no deep imports of `src/other/internal.js`. `tools/seams/no-deep-imports.test.js`
+boundaries — no deep imports of `src/other/internal.js`. `tools/seams/run.js`
 enforces this.
+
+**§5 is the cross-module contract, not the full surface.** What is listed here is what
+another module, a showcase or the harness may depend on; a module's own JSDoc is the
+authority on everything else it exports. Adding a member is free — removing or renaming one
+listed here breaks a caller, so it goes in `docs/DECISIONS.md`.
 
 **The optional save seam.** Any module may expose two more methods on its API:
 
@@ -387,56 +364,101 @@ that pair as an alias. New modules use `saveState`/`loadState`.
 ### 5.1 `tiles` — tile system + auto-tiling
 `needs: []`
 
+**Every call takes the tileset `slug` first.** More than one pack is loaded at a time
+(`bw2-adastra`, `structures`, `props`), a model id is only unique within its pack, and a
+`structures` id resolved against an AdAstra pack silently draws an unrelated model.
+
 ```js
 {
-  async loadTileset(name),          // -> Tileset (from public/generated/tiles/<name>)
-  getTileset(name),
-  models(tilesetName),              // -> TileModel[]  { id, name, category, tags, w, h, yMin, yMax, materials[] }
-  find(tilesetName, query),         // { category, tags, biome } -> TileModel[]
+  async load(slug),                 // -> Tileset (from public/generated/tiles/<slug>)
+  get(slug), loaded(),              // -> Tileset | null,  string[]
+  models(slug),                     // -> TileModel[]  { id, name, category, subcategory, tags, w, h, baseY, yMin, yMax, materials[] }
+  find(slug, query),                // { category, subcategory, tags, biome, orientation, maxBaseY, maxCells, walkable } -> TileModel[]
+  byName(slug, name), byId(slug, id),
+  pick(models, cx, cz, opts),       // deterministic per-cell choice; pickOne(models, rng)
+  variantsOf(slug, model), footprint,
   autotile: {
-    solve(setId, mask),             // 8-neighbour bitmask -> tile model id  (13-case blob)
-    solveField(setId, occupancy, w, h) // -> Int32Array of model ids, one per cell
+    sets(slug), describe(slug, setId), caseName(slug, sig), covers(slug, setId, mask),
+    maskAt(slug, occ, w, h, x, z, outside),   // -> 8-neighbour bitmask
+    solve(slug, setId, mask),                 // -> tile model id (13-case blob)
+    resolve(slug, setId, mask, opts),
+    solveField(slug, setId, occupancy, w, h, opts),      // -> Int32Array, one id per cell
+    solvePlacements(slug, setId, occupancy, w, h, opts), // preferred: carries each case's Y
+    setFlipped(slug, flipped)
   },
-  buildInstances(scene, placements) // -> InstancedWorld  §7
+  setEmissiveScale(k, slug),        // the night seam — see below
+  emissiveScale(slug), emissiveMaterials(slug),
+  buildInstances(scene, slug, placements, opts),  // -> InstancedWorld  §7
+  InstancedWorld
 }
 ```
 
 Auto-tiling reuses PDSMS's own **SmartGrid** data (5×3, 13 meaningful slots) shipped in the
 catalog, so a grass/path or land/water border resolves exactly as it does in Map Studio.
+Prefer `solvePlacements` over `solveField`: it carries the Y a case needs, so a plateau
+interior lands on top of its own banks rather than at their feet.
+
+**`setEmissiveScale(k, slug)` is how night happens to a tileset.** Lamp, window and sign
+materials are authored dark and lit by scaling their emissive; `environment` drives `k` from
+time of day. A tileset whose emissives are never scaled has lamps that are painted-on at
+midnight. Selecting a tile by `name` still works and is warned once per name — the
+classifier names a model after its dominant texture, so the name is a build artefact and
+**category + tags are the stable handle**.
 
 ### 5.2 `terrain` — maps, heightfield, collision
 `needs: ['tiles']`
 
 ```js
 {
-  async load(mapId),                // -> MapHandle; emits world:loaded
-  unload(),
+  register(mapId, builder),         // a scene registers its author function once, at init
+  registered(),                     // -> string[]
+  async load(mapId, opts),          // runs the builder; emits world:loaded
+  async unload(),                   // emits world:unloaded
+  current(), draft(), world(),      // -> mapId | null, MapDraft | null, InstancedWorld | null
+  handle(),
   height(cx, cz),                   // -> number (world Y of the walkable surface)
   passable(cx, cz, fromDir),        // -> boolean
+  collisionAt(cx, cz),              // -> 'walk' | 'block' | …
   tagsAt(cx, cz),                   // -> string[]  ('tallgrass','water','stairs','door:pokecenter'…)
-  bounds(),                         // -> { w, h }
-  authoring: { paint, fill, stamp } // used by city/hunts to compose maps deterministically
+  bounds(), inBounds(cx, cz),       // -> { w, h },  boolean
+  MapDraft
 }
 ```
 
-Maps are **data**, produced by `city`/`hunts` through `authoring`, never hand-placed meshes.
+Maps are **data**. A scene does not place meshes: it `register`s a builder that fills a
+`MapDraft`, and `load(mapId)` runs it. That is what makes a map reproducible from a seed and
+disposable in one call — `load` unloads the previous map first, and both scenes take
+themselves down on `world:unloaded`.
 
 ### 5.3 `environment` — sky, sun, weather, grade
 `needs: []`
 
 ```js
 {
-  setTimeOfDay(tod),                // 0..24, emits tod:changed
-  getTimeOfDay(),
-  setBiomePreset(name),             // 'city' | 'forest' | 'cave' | 'coast' | 'meadow' | …
-  setWeather(name, intensity),      // 'clear' | 'rain' | 'fog' | 'snow'
-  sun(),                            // -> { azimuth, altitude, colour, intensity }
-  tune(patch)                       // live-tune post stack; persisted to config
+  setTimeOfDay(tod), getTimeOfDay(),   // 0..24, emits tod:changed
+  setBiomePreset(name), presets(),     // 'city' | 'forest' | 'cave' | 'coast' | 'meadow' | …
+  setWeather(name, intensity), weather(), weathers(),  // 'clear' | 'rain' | 'fog' | 'snow'
+  sun(),                               // -> { azimuth, altitude, colour, intensity }
+  biome(), phase(), look(),
+  preset(name),                        // named tod framings for the harness: 'noon', 'golden', 'dusk'…
+  tune(patch),                         // live-tune the post stack; persisted to config
+  setEnclosure(v), enclosure(),        // a sealed interior: the sun must not reach inside
+  shadow(), practicalShadow(), castShadows(),
+  lamps: { add(spec), clear(), count() },
+  skyUniforms,
+  step(dt, focus)
 }
 ```
 
 Owns: sky dome/gradient, sun+moon, ambient/hemisphere fill, height fog, volumetric shafts,
 bloom threshold, per-`tod` colour grade, city window/lamp emissives at night.
+
+**A scene registers its practical lights through `lamps.add()`.** A lamp is a painted ground
+pool plus an emissive scale on the tileset (`tiles.setEmissiveScale`), not a point light —
+and it is the single strongest thing in this renderer: across four rounds of blind judging,
+every frame that beat its commercial reference had a **motivated light source** in it, and
+every frame that lost was flat daylight with no practical in shot. `setEnclosure(true)` seals
+an interior so the sun cannot light it from outside.
 
 ### 5.4 `simulation` — the world tick
 `needs: ['terrain', 'pokemon']`
@@ -478,8 +500,13 @@ stops every NPC and the idle animation (§6).
   formation(),                      // -> the record in force
   follower(),                       // -> the active pokemon, whichever end it walks at
   followerCell(),                   // -> the HEAD's cell: where an encounter rolls
-  spawnNpc(spec), npcs(),           // spec.tether: { cx, cz, radius } keeps a wild by its slot
+  spawnNpc(spec), npcs(), removeNpc(id),  // spec.tether: { cx, cz, radius } keeps a wild by its slot
   pause(on), paused(),              // stop without losing the route's place in its loop
+  halt(), freeze(on), frozen(),     // halt() restarts the lap; pause() does not
+  walk(route, opts), wander(opts), autopilot(mode, opts),
+  advanceSteps(n), advanceTo(cx, cz),     // deterministic stepping, for the harness
+  frameOffset(), lineup(), trail(), gap(),
+  surfaceAt(cx, cz), rebuildSurface(),
   teleport(cx, cz, dir)             // same map only; `travel` changes maps
 }
 ```
@@ -496,13 +523,16 @@ because Showdown records it on the child and the game asks the opposite question
 ```js
 {
   species(idOrName),                // -> { id, name, types, baseStats, catchRate, evo, … }
-  all(), byGen(n), byType(t),
+  all(), byGen(n), byType(t), count(), generations(), baseForms(),
   sprite(species, { shiny }),       // -> { atlas, frames: {south,west,north,east}[], size }
+  spriteUrl(species, { shiny }), spriteSheet(species), trainers(),
   party(), lead(), setLead(i), addToParty(inst), swap(i, j),
   createInstance({ species, level, shiny, seed, ivs }),
 
   grantExp(instanceId, n, { source }),   // -> { levelled, learned, pending }; NEVER evolves
-  levelUp(instanceId),
+  grantPartyExp(n, { source }), levelUp(instanceId),
+  firstConscious(),                      // the lead that can still fight (§5.6)
+  instance(instanceId),
   canEvolve(instanceId),                 // -> the bill: { to, level, have, materials, missing, ready }
   evolutions(instanceId),                // -> every route this species has, each priced
   evolve(instanceId, { to }),            // -> { ok, why } — only ever called by a button
@@ -549,9 +579,8 @@ The save seam here is **native and mandatory**: `offline`'s adapter rebuilds a p
   Direction grouping verified by back-view detection and mirror analysis:
   `north: [0,7,8,9,10,20]`, `south: [11,12,13,21,22,23]`,
   `sideA: [1,2,3,14,15,16]`, `sideB: [4,5,6,17,18,19]` (sideA/sideB are exact mirrors:
-  1↔6, 2↔4, 3↔5, 14↔17, 15↔19, 16↔18). **Which of sideA/sideB is west is an open item —
-  the `pokemon` builder must confirm it on screen by walking left and looking, and record
-  the answer in DECISIONS.md.** The within-group walk-cycle order is likewise
+  1↔6, 2↔4, 3↔5, 14↔17, 15↔19, 16↔18). **Which of sideA/sideB is west is confirmed on
+  screen by walking left and looking, never inferred from the sheet.** The within-group walk-cycle order is likewise
   screenshot-verified, not guessed.
 
 ### 5.6 `encounter` — spawn tables, spawn slots, catching
@@ -566,19 +595,29 @@ animation and catch flow are untouched.
   tablesFor(biome, tod),            // -> weight-expanded species table (a string[]; #35(b))
   rollAt(index, opts),              // seeded by INDEX, never by a continued stream
   roll(biome, tod, luck),           // the walkable-map path: a tall-grass step roll
-  slotsNear(cx, cz, radius),        // -> occupied slots within Chebyshev `radius`
-  engage(slot), begin(enc), attempt(ballId), flee(),
-  battle(),                         // -> the live transcript, or null
+  stepRollAt(index, biome), catchRollAt(index, turn),
+  slotsNear(cx, cz), engage(slot),  // -> occupied slot near the head of the queue
+  begin(enc), attempt(ballId), flee(), autoResolve(enc, lead),
+  active(), last(),                 // -> the live encounter, and the one just finished
+  transcript(),                     // -> the finished fight's turns, a copy
+  cancel(),                         // abandon the live one — travel calls this on a hop
+  advance(), advanceToStage(s), setProgress(t),   // drive the encounter cutscene
+  scene(), alerting(), refit(), ready(), dispose(),
+  setBall(id), ball(), bestBall(enc), oddsFor(id, enc, turn), ballContext(),
   dropsFor(index),                  // -> [{ id, n }]  pure, index-addressed
+  tables(), rows(biome, tod), band(), stepRate(biome), shinyRate(), progress(), seed(),
+  armed(), freeze(on), frozen(),
   pure()                            // -> { rollAt, dropAt, resolve } for idle/offline injection
 }
 ```
 
-**Battles are entered in real time and resolved turn by turn.** This reverses what this section
-said for the first sixty decisions — "a deterministic power comparison with a seeded variance
-band" — and the reasoning is recorded in DECISIONS #61. `encounter` owns none of the combat
-maths; `battle` (§5.17) does, and the same `resolve()` drives the visible fight one turn at a
-time and the offline replay in a loop.
+There is no `battle()` accessor: the live encounter is `active()`, the one that just ended is
+`last()`, and its turns are `transcript()`. Asking for a fight and asking for the encounter
+that contains it are different questions and were the same call for too long.
+
+**Battles are entered in real time and resolved turn by turn** (DECISIONS #61). `encounter`
+owns none of the combat maths; `battle` (§5.17) does, and the same `resolve()` drives the
+visible fight one turn at a time and the offline replay in a loop.
 
 **How an encounter starts depends on the place, the way the formation does (§0).** A scene the
 player *drives* rolls on a tall-grass step, as it always has. A scene walking a **loop path**
@@ -587,8 +626,8 @@ slot**.
 
 That distance is **2, because that is where a slot is** — `hunts` authors every one at Chebyshev
 2 from the circuit (§5.14). The tether's ±1 drift is what makes the meeting read as a creature
-noticing the party; it is not extra reach, and treating it as such left the trigger silent
-through 23 encounters.
+noticing the party; it is not extra reach, and counting it as reach silences the trigger
+entirely.
 
 `hunts.takeSlot(k)` hands the creature over **and takes its sprite off the map**, so the wild
 that walks out to fight is the one that was standing there rather than a second copy beside it,
@@ -599,9 +638,9 @@ scenery. The species is the slot's; the level, the shiny roll and the six IVs ar
 **The walk stops for a fight and keeps its place.** `simulation.pause(true)` on `begin`,
 `pause(false)` on `resolve` — never `halt()`, which would restart the lap (§5.4).
 
-**A party with nothing conscious does not start fights**, and a fainted lead steps aside for one
-that can. Otherwise a single loss ends the session: measured before the guard existed as
-thirty-six consecutive losses, one turn each.
+**A party with nothing conscious does not start fights**, and a fainted lead steps aside for
+one that can. Without that guard a single loss ends the session — every later encounter is
+entered by a fainted lead and lost in one turn.
 
 **`attempt(ballId)` refuses until the wild is beaten**, and still returns a plain boolean
 (#35(f) — anything object-shaped reads as a catch every single time). `economy` still owns the
@@ -623,7 +662,14 @@ The tab may be backgrounded; `requestAnimationFrame` stops and `setTimeout` is t
   `offline`. There is exactly one implementation of "what happens per second".
 
 ```js
-{ rate(), simulate(state, elapsedS, seed), pending(), flush() }
+{
+  rate(), simulate(state, elapsedS, seed), pending(), flush(capS),
+  production(), totals(), history(), trace(), progress(), lastCatchup(),
+  catalog(), unlocks(), has(id), grant(id), revoke(id),
+  upgrades(), setUpgrade(id, n), setBiome(b), setLuck(n), setEfficiency(n),
+  heartbeat(), lastSeenMs(), diagnostics(),
+  snapshot(), restore(v)               // the legacy save-seam spelling; both are accepted
+}
 ```
 
 **What accrues is the hunt loop, and money is not part of it** (§0, DECISIONS #61). A second of
@@ -669,7 +715,21 @@ encounters (DECISIONS #15). Save format is versioned with forward migrations; a 
 quarantined to `pokeidle.save.broken` and the game starts fresh rather than white-screening.
 
 ### 5.9 `economy` — currency, items, shop, prices, pity, the trainer
-`needs: []` — `{ balance(c), add(c, n, reason), spend(c, n, reason), inventory(), buy(id, n), sell(id, n), prices() }`
+`needs: []`
+
+```js
+{
+  balance(c), wallet(), currencies(), capacity(c),
+  add(c, n, reason), spend(c, n, reason), canAfford(c, n),
+  inventory(), item(id), stock(id),
+  buy(id, n), sell(id, n), sellValue(id), prices(),
+  upgrades(), upgradeLevel(id), upgradeCost(id), buyUpgrade(id),
+  multipliers(), catchMultiplier(), buffs(), sinks(),
+  progress(), requirementMet(r),   // the single snapshot every unlock gate reads
+  project(opts), incomeModel(),
+  onChange(fn), selfTest()
+}
+```
 
 Plus, since DECISIONS #61:
 
@@ -677,10 +737,16 @@ Plus, since DECISIONS #61:
 {
   speciesPrice(nameOrSpecies, { shiny }),  // derived from catchRate, BST, evo stage, shiny
   pity(species),                           // -> { sum, price, ratio, t }   the meter ui draws
-  applyPity(p0, species),                  // -> { odds, p0, t }
-  trainer(), grantTrainerExp(n, reason), meets(requires),
+  applyPity(p0, species),                  // -> { odds, p0, t }   never lowers p0
+  oddsWithPity(opts, species), catchOdds(opts),
+  trainer(),                               // -> { level, wins, … }  DERIVED, never granted
 }
 ```
+
+**The trainer's level is derived, not granted.** `trainer()` is
+`trainerFromWins(progress().battlesWon)` — no new state, no save slice, no migration, and a
+level that disagrees with the battle count is not expressible. There is deliberately no
+`grantTrainerExp`: winning a battle is the only way the number moves.
 
 **The pity is a lerp over the finished probability, not `catchOdds`'s `bonus`.** `bonus`
 multiplies `a` *inside* the Gen 3/4 formula, where `p → 1` only at `a ≥ 255` — so the
@@ -710,16 +776,40 @@ unlock gate is evaluated against and `requirementMet` already gates shelves, sho
 tracks and automations. `progress()` keeps its shape and gains `trainerLevel`.
 
 ### 5.10 `collection` — dex, boxes, organisation
-`needs: ['pokemon']` — `{ dex(), boxes(), move(inst, box, slot), sort(mode), release(inst), stats(), saveState(), loadState(v) }`
+`needs: ['pokemon']`
 
-The save seam here is **native and live** — the `offline` adapter's `restore: null` note is
-stale and goes with DECISIONS #61. `release(inst)` is one of the only two ways money enters
-the game (§0); the other is selling drops.
+```js
+{
+  dex(), boxes(), entries(opts), box(i), at(i, slot), entry(uid),
+  move(inst, box, slot), swap(a, b), sort(mode), sorted(mode), sortModes(),
+  deposit(inst), release(inst), releaseMany(list), planRelease(rules),
+  seen(id), caught(id), owned(id), completion(), count(), free(), isFull(),
+  boxCount(), totalSlots(), capacity(), ordinal(), layout(),
+  importBatch(specs, { announce }),
+  favourite(uid, on), nickname(uid, name), stats(),
+  saveState(), loadState(v), selfTest()
+}
+```
+
+The save seam here is **native and live**. `release(inst)` is one of the only two ways money
+enters the game (§0); the other is selling drops.
 
 ### 5.11 `automation` — the idle layer's agency
 `needs: ['encounter', 'economy', 'collection']` — auto-hunt, auto-ball-select, auto-release
 by rule, auto-sell. Every automation is a rule the player unlocks and configures; none are
 on by default.
+
+```js
+{
+  list(), get(id), enable(id, on), toggle(id), isActive(id), unlocked(id),
+  configure(id, patch), settings(id), schema(id), fields(id), operators(),
+  addRule(r), updateRule(i, r), removeRule(i), moveRule(from, to),
+  setRules(list), resetRules(), validate(r), describeRule(r), errors(),
+  evaluate(r, facts), explain(id), facts(), preview(id),
+  chooseBall(enc), ballTable(), ballLog(), history(), totals(), stats(),
+  diagnostics(), reset(), saveState(), loadState(v), selfTest()
+}
+```
 
 **Auto-catch triggers on `battle:ended`, not `encounter:started`.** It used to call
 `attempt()` synchronously from inside the `encounter:started` emit (#35(f)); now that a ball
@@ -729,9 +819,16 @@ auto-catch would die with no console error at all (DECISIONS #61(j)).
 ### 5.12 `ui` — HUD, panels, dialogue
 `needs: []` (reads others through `ctx.get`)
 
+```js
+{
+  open(id), close(id), isOpen(id), openPanel(id), panel(id),
+  toast(spec), say(lines), showReport(r),
+  snapshot(), metrics(), dispose()
+}
+```
+
 One **2-D canvas at the renderer's own internal resolution**, upscaled with the scene, costing
-zero draw calls (DECISIONS #34a — this section used to say "DOM overlay at full resolution",
-and it was never true of the shipped module). Owns: HUD, party bar, dex/box screens, shop,
+zero draw calls (DECISIONS #34a). Owns: HUD, party bar, dex/box screens, shop,
 dialogue boxes, the "while you were away" modal, the **battle panel** (both HP bars, the move,
 its PP, status and the effectiveness line), the **EVOLVE button and its bill** in the party
 panel, the **evolution cutscene**, the **pity meter**, the trainer's level, the per-Pokémon
@@ -779,13 +876,13 @@ lit interior glow, a Mart, a plaza with a landmark, street lamps that come on at
 windows, and NPCs on scripted routes with dialogue. This is the scene most screenshots are
 taken of, and the one judged against `docs/refs/03` and `06`.
 
-### 5.15 `preview` — asset viewer (integrator only)
+### 5.15 `preview` — asset viewer
 `needs: ['tiles']`
 
 `/?showcase=preview&mode=<tileset>[&filter=<category|tag>][&focus=<model>]` lays every model
 of a generated tileset out on a checkerboard floor at a fixed pitch. It exists so an artist
-working on a building does not have to wait for a gameplay scene to place it, and so a
-critic can judge raw art with nothing else in frame. It is never part of the game.
+working on a building does not have to wait for a gameplay scene to place it, and so raw art
+can be judged with nothing else in frame. It is never part of the game.
 
 ### 5.14 `hunts` — the biomes
 `needs: ['terrain', 'encounter', 'environment']`
@@ -822,8 +919,7 @@ played under (§5.4) and applies it inside `enter()`, before it places the playe
   `loop: { corners: 4 }` asks for the plain rectangle back.
 - **Bends prefer the composed trail.** Among the bumps that fit, the one that puts the most
   `path`/`tallgrass` cells under the party wins — so a circuit drifts onto the road the biome
-  laid instead of ignoring it. Measured on the shipped forest: 37 of 52 cells on a tagged cell
-  at four corners, 51 of 60 at twelve.
+  laid instead of ignoring it.
 - **The ring opens on a straight at least as long as the walker queue** (`straightLead`,
   `config.followerGapTiles + 2`), because `enter()` places the trainer on `cells[0]` and the
   head lands `gap` cells ahead of it — on a bent ring, a start one cell before a turn puts the
@@ -832,10 +928,10 @@ played under (§5.4) and applies it inside `enter()`, before it places the playe
   the trainer and the trainer is *on* the loop, so a circuit near a border walks the frame off
   the end of the world.
 - **`audit()` walks it on the real draft, on every `enter()`**, and fails if any step is
-  blocked or if it does not come home. The Node selftest cannot check this: it builds a
-  different map from a different stream against a stub tileset (`hunts/selftest.js` says so at
-  the top, and once shipped 279/279 green over three broken framings). What the selftest *can*
-  pin is `findLoop` and `slotsForLoop` themselves, on a hand-built room.
+  blocked or if it does not come home. **The Node selftest cannot check this** — it builds a
+  different map from a different stream against a stub tileset, so it can go green over a
+  broken framing. What it *can* pin is `findLoop` and `slotsForLoop` themselves, on a
+  hand-built room; the shipped draft is `audit()`'s job, at `enter()`.
 - **Slots sit at Chebyshev distance exactly 2 from the path.** A tethered wild moves ±1 tile
   and the trigger reaches 1 tile, so 2 is contact — no closer, or the party is permanently in
   a battle, and no further, or a lap never meets anything.
@@ -975,7 +1071,7 @@ Creature and NPC sprites are one further InstancedMesh over a runtime-built atla
 | Triangles | ≤ 900 k |
 | Programs | ≤ 60 |
 | Console errors | **0** |
-| Time to `__READY__` | ≤ 6 s cold |
+| Time to `__READY__` | ≤ 6 s cold, measured against the **production build** on `vite preview` — never against the dev server, which compiles unbundled modules on demand and times the bundler rather than the game (DECISIONS #71) |
 
 ---
 
@@ -1004,17 +1100,47 @@ The page must expose:
 window.__READY__            // boolean
 window.__HOOKS__ = {
   setPreset(name),          // named camera framings, per module
-  setTimeOfDay(tod),
-  setSeed(n),
+  setTimeOfDay(tod), setSeed(n), setConfig(patch),
   step(frames),             // advance N deterministic frames
-  metrics()                 // -> the perf block above
+  focus(cx, cz, y),         // aim the rig at a cell
+  key(code, down),          // drive the player without a real keyboard
+  grid(),                   // -> what is under the camera, for framing assertions
+  destinations(),           // -> travel destination ids, so the boot matrix is derived
+  resetMetrics(), metrics(), // -> the perf block above
+  events(),                 // -> last 256 bus events
+  modules(),                // -> registry.status()
+  pause(), resume()
 }
 ```
 
+`tools/shots/boot.js` is the matrix that matters most: it asks the running tree for every
+showcase and every `travel` destination, boots each one, and fails if it does not draw a real
+frame. Every entry point can fail the same silent way — the page loads, `__READY__` goes true,
+nothing is logged, and the frame is an empty void at nine draw calls — and a draw-call
+*ceiling* cannot see that. It derives its list rather than carrying one, so a biome added
+tomorrow is covered tomorrow. Showcases that prove themselves with evidence rather than a
+frame (`battle` prints transcripts) are held to a text floor instead, which is tighter.
+
 `tools/shots/gauntlet.js` runs a matrix (presets × times of day × zoom levels) for a module
-and writes a contact sheet. **No agent may claim a module works, looks good, or is
-finished without a screenshot it has actually looked at.** Assertions without a PNG are
-rejected by the critic on sight.
+and writes a contact sheet. **A visual claim needs a screenshot someone actually looked at.**
+The gate cannot see composition — `regress.js` compares luminance and saturation histograms,
+so a sprite in the wrong place or a panel drawn off-screen passes it cleanly.
+
+### 8.1 `selftest.js` — the checks a screenshot cannot make
+
+**`src/<module>/selftest.js` runs under plain Node and exits non-zero on failure.**
+`tools/seams/run.js` discovers them *by existence*, so writing one starts enforcing it
+immediately — there is no list to register in. This is the correctness layer of the project:
+golden values recorded from seed 1337, landmark tables, and invariants swept over many runs.
+
+Write one for anything deterministic: a formula, a table, a state machine, a save migration,
+a boot decision. Compare against **literals**, not against a second live call — two calls
+reorder identically and agree with each other while both being wrong (DECISIONS #35).
+
+A module whose logic is only reachable in a browser exposes a `selfTest()` on its API
+instead. It must `console.error` on failure, because §7 budgets zero console errors and that
+is what turns a red invariant into a failed capture rather than red text in a screenshot
+nobody reads.
 
 ---
 
@@ -1082,56 +1208,50 @@ moved aside, not repaired in place.
 
 ---
 
-## 11. Quality bar and scoring
+---
 
-Modules are scored 0–10 against real HD2D reference stills in `docs/refs/`:
+## 11. How work is done
 
-| Score | Meaning |
-| --- | --- |
-| **10** | Indistinguishable from Gamma Emerald |
-| **8.5** | AAA with nits — **pass** |
-| **7** | Good indie |
-| **5** | Programmer art |
+**One agent takes a task end to end.** There are no waves, no builder/critic split and no
+integrator to route a request through. The agent that changes `src/core/` is the agent that
+noticed it needed changing; the check on that is §2's rule — a core change reaches every
+module, so measure it and pin it in `src/core/selftest.js`.
 
-A pass requires **≥ 8.5 and zero console errors and every §7 budget met**. Below that the
-builder receives the critic's ranked issue list and goes again, up to **4 rounds**. Scores
-are recorded honestly in `docs/STATUS.json`, including failures and what is still missing.
-Inflating a score is the one unrecoverable process error.
+**`npm run gate` exiting 0 is what "done" means.** It runs the seams (which run every
+`selftest.js`), a production build, the boot matrix, `parity` and `regress`. Nothing is
+finished on the strength of having been written carefully. If a check is wrong, fix the
+check in the same commit and say so — never loosen a budget to get a green run.
+
+**The gate cannot see composition.** For anything visual, take the screenshot and look at
+it. `docs/progress/<module>/` is where a shot worth keeping goes; everything the gate itself
+writes goes to `shots/out/`, which is ignored, so a gate run never dirties the tree.
+
+**A deliberate visual change will move `regress` metrics, and that is not a failure.**
+Re-accept the baseline (`node tools/shots/regress.js --accept`) in the same commit and name
+the frames that moved in the commit message. An unexplained baseline re-accept is how a
+regression gets laundered into the record.
+
+**Record the reasoning where it will be found again.** A choice that constrains future code
+goes in `docs/DECISIONS.md` and is cited from the code it constrains. What happened during
+the work — what was measured, what was tried, what moved — goes in the commit message.
 
 ---
 
-## 12. Process
+## 12. `docs/STATUS.json` — resume state
 
-**Waves** (each wave's builders run in parallel; the integrator runs between waves):
-
-1. **Foundations** — `tiles` (+ auto-tiling), `idle`, `offline`
-2. **World** — `terrain`, `environment`
-3. **Simulation** — `pokemon`, `encounter`, `simulation`
-4. **Progression** — `economy`, `collection`
-5. **Experience** — `ui`, `hunts`
-6. **Content** — `city`, tools polish
-
-**The integrator** is the only agent that may touch `src/core/`, `index.html`,
-`vite.config.js`, `package.json` and `ARCHITECTURE.md`. Between waves it drains
-`docs/STATUS.json → coreRequests[]`, applies what is justified, rejects what is a module's
-own job, fixes the seams, and re-runs `tools/seams/`.
-
-**The critic** writes no code. It takes its own screenshots at several times of day and
-zoom levels, reads the JSON logs, checks the API contract against §5, and scores.
-
----
-
-## 13. `docs/STATUS.json` — resume state
+Small on purpose. It answers one question: *what is true right now, and what is still
+broken?*
 
 ```json
-{ "updatedMs": 0, "wave": 2, "seed": 1337,
-  "modules": {
-    "tiles": { "round": 2, "score": 8.7, "status": "passed", "errors": 0,
-               "openIssues": [], "lastShots": ["docs/progress/tiles/r2/autotile-noon.png"] }
-  },
-  "coreRequests": [ { "from":"terrain", "want":"bus event world:chunkLoaded", "why":"…", "state":"open" } ],
-  "gate": { "wholeGame": null, "blindJudges": [] } }
+{ "updatedMs": 0, "seed": 1337,
+  "now": "one sentence on where the project stands",
+  "baseline": { "at": "…", "size": "1920x1080", "fps": 60, "drawCalls": 0, "consoleErrors": 0 },
+  "open": [ { "module": "tiles", "what": "one line, reproducible on the current tree" } ],
+  "modules": { "tiles": { "status": "…", "openIssues": [] } } }
 ```
 
-Every loop iteration reads this file first and resumes from the **weakest** module, never
-from scratch.
+**An entry earns its place by being reproducible today.** An issue nobody can trigger on the
+current tree is history, and history lives in `docs/STATUS-ARCHIVE.json` with the four rounds
+of blind judging, the wave notes and the old score table. Do not reintroduce scores or round
+counters here: they described a review loop that no longer runs, and a stale score reads as a
+fact.

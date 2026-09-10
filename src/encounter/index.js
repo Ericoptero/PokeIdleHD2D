@@ -55,6 +55,7 @@ import {
   BIOMES, STEP_RATE, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
 } from './tables.js';
 import { runSelfTest, summarise } from './selftest.js';
+import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
 const SAVE_VERSION = 1;
@@ -243,7 +244,7 @@ export default {
      * species, level, shiny flag and six IVs, with no reference to when or whether the
      * encounter actually happened. `idle` should be resolving its closed-tab encounters
      * through this rather than through its own copy in `accrual.js`; that needs a core
-     * change and is filed in `coreRequests`.
+     * change.
      */
     function rollIndex(index, { biome = biomeNow(), tod = todNow(), band = null, rate = null } = {}) {
       const { table, bumps } = tableFor(biome, tod);
@@ -820,7 +821,7 @@ export default {
       } else {
         // NOT in §4's table. Emitted anyway because a failed catch is half of what this
         // module does and `ui`, `automation` and a future ball-counter all want it; filed in
-        // coreRequests so the table can catch up. Nothing subscribes today, so nothing breaks.
+        // §4 so the table can catch up. Nothing subscribes today, so nothing breaks.
         bus.emit('catch:failed', {
           species: enc.species, shiny: enc.shiny, ball: id, odds: thrown.odds,
           shakes, turn, index: enc.index,
@@ -1252,6 +1253,7 @@ export default {
         const pokemon = ctx.get('pokemon');
         const species = isLive(pokemon) ? pokemon.all?.() ?? null : null;
         const results = runSelfTest({ species });
+        reportSelfTest('encounter', results);
         return { ...summarise(results), results };
       },
 

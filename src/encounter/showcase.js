@@ -867,6 +867,11 @@ export async function showcaseEncounter(mode, ctx) {
       'nocturnal table and the Dusk Ball\'s 3x are not live — shoot it with --tod 21.5');
   }
 
+  // Run the invariants the frame cannot show. `selfTest()` covers the roll tables, the odds
+  // and the drop ledger — none of which a screenshot can check — and it reports a failure as
+  // a console error, which is what makes the capture that ran it fail (§8.1).
+  enc.selfTest?.();
+
   // Freeze this module's own trigger BEFORE the walk runs. `simulation.advanceTo` fires
   // `player:enteredTile` once per landing, and the walk crosses a dozen cells of tall grass:
   // left armed, it would consume grass-step indices and start an encounter of its own,
