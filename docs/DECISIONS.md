@@ -628,8 +628,21 @@ thin arms around a two-pixel core now, so the bloom has something small to catch
 outline keeps the form under it. `selftest.js` pins the property that follows: **every palette's
 core is brighter than its own edge.**
 
-**What this entry will not claim.** It reads as a *flash*, not yet as a *hit*. The redraw that
-killed the wash went too far the other way, and the honest next step is a contact sheet across
-noon, golden hour and night with somebody looking at it — not another blind tuning pass. That is
-filed on `encounter` rather than described here as finished, because "the gate cannot see
-composition" cuts both ways: it did not stop this landing and it will not tell anyone it is thin.
+**The contact sheet, and the correction it forced.** This entry first said the effect read as a
+flash rather than a hit, and filed a tuning pass. That verdict was **wrong, and wrong for an
+instructive reason**: every frame it was based on had been caught at whatever phase a live fight
+happened to be in, on a `normal`-type move — a near-white core on green grass, half of it behind a
+callout. The effect was fine; the *observation* was not.
+
+So `encounter.stageStrike({ shape, type, phase })` is a showcase tool now, and
+`?showcase=encounter&mode=vfx-contact|vfx-projectile|vfx-field` with `&vfxType=<element>` stages
+any of the fifty-four combinations at an exact beat. Looked at: a fire contact at noon is an
+orange four-armed star on the target, a fire projectile is a bolt with a tail between the two
+creatures, a fire field is a ring on the ground under the wild — and an **electric** contact at
+21:00, where `environment` lifts the bloom threshold, is a clean yellow star rather than the wash
+the first art produced. Two of them (`encounter/vfx/12`, `encounter/vfx/21`) join the regress
+matrix, because the first cut washed out at noon and the redraw had to be re-checked at night, and
+without a row neither would be noticed again.
+
+The lesson is the one this project keeps relearning from the other side: *a visual claim needs a
+screenshot someone actually looked at* — and a screenshot of the wrong moment is not that.

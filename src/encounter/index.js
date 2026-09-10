@@ -1442,6 +1442,34 @@ export default {
         // Where the wild is standing, so `ui` can hang a callout over it without reaching in.
         at: { cx: scene.at.cx, cz: scene.at.cz, y: scene.at.y },
       } : null),
+      /**
+       * Stages one strike at an exact phase and holds it — the showcase tool for the VFX.
+       *
+       * `advanceToStage` can freeze the *encounter's* beats because they are a function of
+       * `scene.step`; a strike's effect is a function of which move happened to be chosen on
+       * which turn, which is not something a screenshot can ask for. So this asks directly: a
+       * shape, a type and a phase in `[0,1]`, played between whoever is standing there.
+       *
+       * A showcase tool and nothing else — it draws an effect without a fight behind it, which
+       * is exactly what makes the eighteen palettes and three deliveries photographable at
+       * three times of day rather than only reachable by waiting for the right move
+       * (DECISIONS #79).
+       */
+      stageStrike({ shape = 'contact', type = 'normal', phase = 0.25 } = {}) {
+        const sim = ctx.get('simulation');
+        const head = isLive(sim) ? sim.followerCell?.() : null;
+        const target = scene?.at ?? (head ? { cx: head.cx, cz: head.cz - 2, y: 0 } : { cx: 0, cz: 0, y: 0 });
+        const mine = head
+          ? { x: head.cx + 0.5, y: surfaceAt(head.cx, head.cz), z: head.cz + 0.5 }
+          : { x: target.cx + 0.5, y: target.y ?? 0, z: (target.cz ?? 0) + 2.5 };
+        const theirs = { x: (target.cx ?? 0) + 0.5, y: target.y ?? 0, z: (target.cz ?? 0) + 0.5 };
+        strikeVfx.play({ shape, type, from: mine, to: theirs });
+        strikeVfx.phase(phase);
+        strikeVfx.refit();
+        frozen = true;
+        return { shape, type, phase, from: mine, to: theirs };
+      },
+
       /** The blows of the exchange being drawn right now — what `battle:strike` just carried. */
       strikes: () => (scene?.strikes ?? []).map((x) => ({ ...x })),
       /** One ball per defeated wild, and the wipe's toll. Rules, not settings (DECISIONS #72). */

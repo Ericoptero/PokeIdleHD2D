@@ -797,6 +797,22 @@ function say(ctx, mode, staged, enc) {
  * against the encounter that was actually rolled.
  */
 const STOP = {
+  /**
+   * **The move effects, one mode per delivery shape.**
+   *
+   * A strike's look is a function of the move that happened to be chosen on a turn, which is
+   * not something a screenshot can ask for — so these stage it directly through
+   * `encounter.stageStrike` and freeze on the beat. Three modes, shot at noon, golden hour and
+   * night, are what turn "the VFX read as a flash rather than a hit" from an impression into
+   * something a contact sheet settles (DECISIONS #79).
+   *
+   * `?showcase=encounter&mode=vfx-contact&vfxType=fire` overrides the element, so all eighteen
+   * are reachable from a URL without eighteen modes.
+   */
+  'vfx-contact': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.25 } },
+  'vfx-projectile': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.45 } },
+  'vfx-field': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'field', phase: 0.5 } },
+
   // **k = 3, i.e. two thirds of the distance every other mode frames at.** `mode=walk` has no
   // ball and no wild in it: its whole claim is that the lead is standing on a cell tagged
   // `tallgrass` and that the trigger rolled on it, and at the default framing that claim was
@@ -991,6 +1007,12 @@ export async function showcaseEncounter(mode, ctx) {
       enc.attempt(ball);
     }
     enc.advanceToStage(stop.stage, stop.at);
+    // The strike, staged directly rather than waited for. `vfxType` from the URL so all
+    // eighteen elements are reachable without eighteen modes (DECISIONS #79).
+    if (stop.vfx && typeof enc.stageStrike === 'function') {
+      const wanted = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('vfxType');
+      enc.stageStrike({ ...stop.vfx, type: wanted || stop.vfx.type || 'normal' });
+    }
   }
 
   // --- frame it ---------------------------------------------------------------

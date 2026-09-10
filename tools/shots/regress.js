@@ -49,6 +49,12 @@ export const MATRIX = [
   { id: 'environment/12', showcase: 'environment', tod: 12 },
   { id: 'environment/17.5', showcase: 'environment', tod: 17.5 },
   { id: 'encounter/12', showcase: 'encounter', tod: 12 },
+  // The move effects, at the two hours the grade differs most. A strike is the one thing in
+  // this module a still frame can show and a histogram can nearly see: the first cut washed
+  // out at noon and the redraw had to be checked again at night, where `environment` lifts the
+  // bloom threshold (DECISIONS #79). Without a row here neither would be noticed again.
+  { id: 'encounter/vfx/12', showcase: 'encounter', mode: 'vfx-contact', tod: 12 },
+  { id: 'encounter/vfx/21', showcase: 'encounter', mode: 'vfx-contact', tod: 21 },
   { id: 'boot/12', tod: 12 },
 ];
 

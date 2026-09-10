@@ -160,15 +160,15 @@
    "fps": 60,
    "drawCalls": 221,
    "consoleErrors": 0,
-   "mean": 89.32,
+   "mean": 89.62,
    "p50": 84,
-   "p95": 175,
+   "p95": 177,
    "p99": 234,
    "max": 255,
-   "belowL8Pct": 2.414,
+   "belowL8Pct": 2.393,
    "pureBlackPct": 0.134,
-   "over200Pct": 3.512,
-   "saturation": 0.5597
+   "over200Pct": 3.661,
+   "saturation": 0.5582
   },
   "environment/12": {
    "fps": 60,
@@ -202,15 +202,43 @@
    "fps": 60,
    "drawCalls": 57,
    "consoleErrors": 0,
-   "mean": 108.41,
+   "mean": 108.43,
    "p50": 114,
    "p95": 234,
    "p99": 234,
    "max": 255,
    "belowL8Pct": 0.296,
    "pureBlackPct": 0.003,
-   "over200Pct": 7.783,
+   "over200Pct": 7.788,
    "saturation": 0.6357
+  },
+  "encounter/vfx/12": {
+   "fps": 60,
+   "drawCalls": 61,
+   "consoleErrors": 0,
+   "mean": 98.45,
+   "p50": 109,
+   "p95": 148,
+   "p99": 169,
+   "max": 255,
+   "belowL8Pct": 0.325,
+   "pureBlackPct": 0.003,
+   "over200Pct": 0.29,
+   "saturation": 0.6845
+  },
+  "encounter/vfx/21": {
+   "fps": 60,
+   "drawCalls": 67,
+   "consoleErrors": 0,
+   "mean": 47.93,
+   "p50": 47,
+   "p95": 93,
+   "p99": 161,
+   "max": 255,
+   "belowL8Pct": 0.84,
+   "pureBlackPct": 0,
+   "over200Pct": 0.481,
+   "saturation": 0.641
   }
  }
 }
