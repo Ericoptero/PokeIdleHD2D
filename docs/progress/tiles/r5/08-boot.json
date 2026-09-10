@@ -1,0 +1,403 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=11&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/tiles/r5/08-boot.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 11,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 221,
+ "triangles": 19588,
+ "programs": 22,
+ "geometries": 130,
+ "textures": 77,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 98.2,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 9.5,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 148.8,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.6,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.6,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 0.8,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 1.3,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.3,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.4,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.2,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 352.7999999821186
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 610.4000000059605
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "structures",
+    "models": 4
+   },
+   "t": 640.1999999880791
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 647.5999999940395
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 5131,
+    "meshes": 87
+   },
+   "t": 664.6999999880791
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "pt-overworld-7",
+    "models": 369
+   },
+   "t": 737.4000000059605
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 738.1999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 739.0999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "tags": []
+   },
+   "t": 739.0999999940395
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 602
+   },
+   "t": 935.1999999880791
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 935.2999999821186
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 22.5,
+    "drawCalls": 221,
+    "tris": 19588
+   },
+   "t": 1004.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 39,
+    "dir": 2,
+    "running": false
+   },
+   "t": 1052.9000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 37,
+    "tags": []
+   },
+   "t": 1052.9000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "dir": 2,
+    "running": false
+   },
+   "t": 1303
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "tags": []
+   },
+   "t": 1303
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 37,
+    "dir": 2,
+    "running": false
+   },
+   "t": 1552.7999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "tags": []
+   },
+   "t": 1552.7999999821186
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 12,
+    "total": 3012,
+    "reason": "idle"
+   },
+   "t": 1619.699999988079
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.006,
+    "gains": {
+     "money": 12.726,
+     "exp": 15.52,
+     "research": 0.158,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 12.650299214691769,
+      "exp": 15.429287073338697,
+      "research": 0.1573858405141732,
+      "encounters": 0.008780625
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 1619.7999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "dir": 2,
+    "running": false
+   },
+   "t": 1802.9000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 1802.9000000059605
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 221,
+    "tris": 19588
+   },
+   "t": 2020.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "dir": 2,
+    "running": false
+   },
+   "t": 2052.9000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "tags": []
+   },
+   "t": 2052.9000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "dir": 2,
+    "running": false
+   },
+   "t": 2302.9000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 32,
+    "tags": []
+   },
+   "t": 2302.9000000059605
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 100.98,
+  "p50": 106,
+  "p95": 180,
+  "p99": 234,
+  "max": 255,
+  "belowL8Pct": 0.686,
+  "pureBlackPct": 0.028,
+  "over200Pct": 2.878,
+  "saturation": 0.6831
+ },
+ "ms": 3113
+}

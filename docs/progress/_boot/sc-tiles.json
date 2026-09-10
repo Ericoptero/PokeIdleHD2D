@@ -1,0 +1,145 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=tiles&tod=12&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/_boot/sc-tiles.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 12.024999999999977,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 61
+ },
+ "drawCalls": 239,
+ "triangles": 11396,
+ "programs": 7,
+ "geometries": 136,
+ "textures": 23,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 15,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 1.7,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 164.70000000298023
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 166
+   },
+   "t": 297.40000000596046
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 239,
+    "tris": 11396
+   },
+   "t": 1012.1000000089407
+  }
+ ],
+ "ms": 2576
+}

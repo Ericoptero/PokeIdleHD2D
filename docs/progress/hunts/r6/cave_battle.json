@@ -1,0 +1,976 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=12&timeFrozen=1&debug=0&scene=hunt-cave",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/hunts/r6/cave_battle.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "grid": {
+  "internal": [
+   640,
+   360
+  ],
+  "unitsPerPixel": 0.03125,
+  "pixelsPerUnit": 32,
+  "mag": 2,
+  "texelsPerUnit": 16,
+  "k": 1,
+  "actors": [
+   {
+    "id": 1,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/zubat/normal.png",
+    "frame": 0,
+    "sx": 320,
+    "sy": 23,
+    "texels": 32
+   },
+   {
+    "id": 2,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/drilbur/normal.png",
+    "frame": 0,
+    "sx": 320,
+    "sy": 136,
+    "texels": 32
+   },
+   {
+    "id": 3,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/tepig/normal.png",
+    "frame": 5,
+    "sx": 288,
+    "sy": 242,
+    "texels": 32
+   },
+   {
+    "id": 4,
+    "kind": "trainer",
+    "who": "hero",
+    "key": "trainer:/assets/trainer/hero.png",
+    "frame": 23,
+    "sx": 320,
+    "sy": 219,
+    "texels": 32
+   },
+   {
+    "id": 5,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/sandshrew/normal.png",
+    "frame": 5,
+    "sx": 320,
+    "sy": -136,
+    "texels": 32
+   },
+   {
+    "id": 6,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/axew/normal.png",
+    "frame": 1,
+    "sx": 192,
+    "sy": 272,
+    "texels": 32
+   },
+   {
+    "id": 7,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/roggenrola/normal.png",
+    "frame": 6,
+    "sx": 9,
+    "sy": 136,
+    "texels": 32
+   },
+   {
+    "id": 8,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/diglett/shiny.png",
+    "frame": 7,
+    "sx": 117,
+    "sy": 23,
+    "texels": 32
+   },
+   {
+    "id": 9,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/sandshrew/normal.png",
+    "frame": 6,
+    "sx": 15,
+    "sy": -68,
+    "texels": 32
+   },
+   {
+    "id": 10,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/zubat/normal.png",
+    "frame": 3,
+    "sx": 192,
+    "sy": -22,
+    "texels": 32
+   },
+   {
+    "id": 11,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/diglett/normal.png",
+    "frame": 6,
+    "sx": 224,
+    "sy": 217,
+    "texels": 32
+   }
+  ],
+  "displayRect": {
+   "left": 0,
+   "top": 0,
+   "w": 1920,
+   "h": 1080
+  },
+  "pixelScale": 0,
+  "viewport": [
+   1920,
+   1080
+  ]
+ },
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 118,
+ "triangles": 9180,
+ "programs": 19,
+ "geometries": 114,
+ "textures": 28,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 211.8,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 5.4,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 13.1,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "travel",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "battle",
+   "status": "ready",
+   "initMs": 23,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.5,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 1.1,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.3,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.4,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [
+  "encounter: the whole party is fainted — no more slots will be engaged"
+ ],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 458
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 689.6999999880791
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-cave",
+    "models": 84
+   },
+   "t": 728.5999999642372
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "hunt-cave",
+    "w": 56,
+    "h": 54,
+    "biome": "cave",
+    "placements": 3071,
+    "meshes": 104
+   },
+   "t": 781.3999999761581
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott#0",
+    "species": "oshawott"
+   },
+   "t": 791.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 28,
+    "dir": 0
+   },
+   "t": 792.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 30,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 792.8000000119209
+  },
+  {
+   "type": "scene:entered",
+   "payload": {
+    "sceneId": "hunt-cave",
+    "mapId": "hunt-cave",
+    "biome": "cave",
+    "formation": {
+     "head": "pokemon",
+     "input": false,
+     "autopilot": "route",
+     "strict": true,
+     "preferTags": [
+      "tallgrass",
+      "encounter",
+      "path"
+     ]
+    }
+   },
+   "t": 793.3999999761581
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "Arrived: Hollow Deep",
+    "kind": "info"
+   },
+   "t": 793.3999999761581
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 467
+   },
+   "t": 890.0999999642372
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 890.0999999642372
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 29,
+    "dir": 0
+   },
+   "t": 902.1999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 902.1999999880791
+  },
+  {
+   "type": "battle:started",
+   "payload": {
+    "index": 0,
+    "ally": "oshawott",
+    "wild": "zubat",
+    "level": 7,
+    "moves": [
+     "tackle",
+     "tailwhip"
+    ]
+   },
+   "t": 902.8000000119209
+  },
+  {
+   "type": "battle:ended",
+   "payload": {
+    "index": 0,
+    "won": false,
+    "turns": 5,
+    "hpFraction": 0.6521739130434783,
+    "allyHp": 0,
+    "allyMaxHp": 21,
+    "stalled": false
+   },
+   "t": 903.5
+  },
+  {
+   "type": "encounter:started",
+   "payload": {
+    "species": "zubat",
+    "level": 7,
+    "shiny": false,
+    "biome": "cave",
+    "index": 0,
+    "tod": 12,
+    "ivs": {
+     "hp": 6,
+     "atk": 16,
+     "def": 23,
+     "spa": 5,
+     "spd": 0,
+     "spe": 5
+    },
+    "catchRate": 255,
+    "slot": 1
+   },
+   "t": 903.5999999642372
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "A wild Zubat appeared!",
+    "kind": "info"
+   },
+   "t": 903.8000000119209
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "snivy#1",
+    "species": "snivy"
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "encounter:resolved",
+   "payload": {
+    "outcome": "flee",
+    "species": "zubat",
+    "rewards": {
+     "money": 0,
+     "exp": 3
+    },
+    "caught": false,
+    "ball": null,
+    "level": 7,
+    "shiny": false,
+    "biome": "cave",
+    "index": 0,
+    "turns": 0
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 30,
+    "dir": 0
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 32,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "dir": 0
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 904.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 32,
+    "dir": 0
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "dir": 0
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "dir": 0
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "battle:started",
+   "payload": {
+    "index": 1,
+    "ally": "snivy",
+    "wild": "drilbur",
+    "level": 6,
+    "moves": [
+     "tackle",
+     "leer"
+    ]
+   },
+   "t": 905.0999999642372
+  },
+  {
+   "type": "battle:ended",
+   "payload": {
+    "index": 1,
+    "won": false,
+    "turns": 4,
+    "hpFraction": 0.625,
+    "allyHp": 0,
+    "allyMaxHp": 19,
+    "stalled": false
+   },
+   "t": 905.3000000119209
+  },
+  {
+   "type": "encounter:started",
+   "payload": {
+    "species": "drilbur",
+    "level": 6,
+    "shiny": false,
+    "biome": "cave",
+    "index": 1,
+    "tod": 12,
+    "ivs": {
+     "hp": 23,
+     "atk": 5,
+     "def": 23,
+     "spa": 13,
+     "spd": 30,
+     "spe": 2
+    },
+    "catchRate": 120,
+    "slot": 2
+   },
+   "t": 905.3999999761581
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "A wild Drilbur appeared!",
+    "kind": "info"
+   },
+   "t": 905.3999999761581
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "tepig#2",
+    "species": "tepig"
+   },
+   "t": 905.8000000119209
+  },
+  {
+   "type": "encounter:resolved",
+   "payload": {
+    "outcome": "flee",
+    "species": "drilbur",
+    "rewards": {
+     "money": 0,
+     "exp": 3
+    },
+    "caught": false,
+    "ball": null,
+    "level": 6,
+    "shiny": false,
+    "biome": "cave",
+    "index": 1,
+    "turns": 0
+   },
+   "t": 905.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "dir": 0
+   },
+   "t": 905.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 37,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "dir": 0
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 37,
+    "dir": 0
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 39,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "dir": 0
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 39,
+    "dir": 0
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 41,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 905.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 0
+   },
+   "t": 906
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 42,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 906
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 41,
+    "dir": 0
+   },
+   "t": 906
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 30,
+    "cz": 42,
+    "tags": [
+     "cave",
+     "encounter"
+    ]
+   },
+   "t": 906
+  },
+  {
+   "type": "battle:started",
+   "payload": {
+    "index": 2,
+    "ally": "tepig",
+    "wild": "diglett",
+    "level": 6,
+    "moves": [
+     "tackle",
+     "tailwhip"
+    ]
+   },
+   "t": 906.0999999642372
+  },
+  {
+   "type": "battle:ended",
+   "payload": {
+    "index": 2,
+    "won": false,
+    "turns": 4,
+    "hpFraction": 0.11764705882352941,
+    "allyHp": 0,
+    "allyMaxHp": 22,
+    "stalled": false
+   },
+   "t": 906.0999999642372
+  },
+  {
+   "type": "encounter:started",
+   "payload": {
+    "species": "diglett",
+    "level": 6,
+    "shiny": false,
+    "biome": "cave",
+    "index": 2,
+    "tod": 12,
+    "ivs": {
+     "hp": 3,
+     "atk": 29,
+     "def": 18,
+     "spa": 30,
+     "spd": 29,
+     "spe": 2
+    },
+    "catchRate": 255,
+    "slot": null
+   },
+   "t": 906.1999999880791
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "A wild Diglett appeared!",
+    "kind": "info"
+   },
+   "t": 906.1999999880791
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 28.4,
+    "drawCalls": 119,
+    "tris": 9182
+   },
+   "t": 1020.5
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 5,
+    "total": 3005,
+    "reason": "idle"
+   },
+   "t": 1698.0999999642372
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.006,
+    "gains": {
+     "money": 5.747,
+     "exp": 33.87,
+     "research": 0.346,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 5.713038355022089,
+      "exp": 33.663899069102605,
+      "research": 0.3442815261247539,
+      "encounters": 0.04014000000000001
+     },
+     "biome": "cave",
+     "events": []
+    }
+   },
+   "t": 1698.199999988079
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 119,
+    "tris": 9182
+   },
+   "t": 2031.8999999761581
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "Your party is out cold — visit the Pokémon Center",
+    "kind": "warn"
+   },
+   "t": 2249.099999964237
+  },
+  {
+   "type": "encounter:resolved",
+   "payload": {
+    "outcome": "flee",
+    "species": "diglett",
+    "rewards": {
+     "money": 0,
+     "exp": 3
+    },
+    "caught": false,
+    "ball": null,
+    "level": 6,
+    "shiny": false,
+    "biome": "cave",
+    "index": 2,
+    "turns": 0
+   },
+   "t": 2249.199999988079
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 77.45,
+  "p50": 64,
+  "p95": 234,
+  "p99": 234,
+  "max": 248,
+  "belowL8Pct": 0.012,
+  "pureBlackPct": 0.012,
+  "over200Pct": 7.24,
+  "saturation": 0.4476
+ },
+ "ms": 2651
+}

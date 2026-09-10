@@ -1,0 +1,806 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=encounter&mode=throw&tod=12&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/encounter/r3/throw.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 56,
+ "triangles": 15122,
+ "programs": 22,
+ "geometries": 41,
+ "textures": 29,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 180.1,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 5.9,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 30.9,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 2.7,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 1.6,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 2.3,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 645.7000000178814
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 864.4000000059605
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "encounter-grass",
+    "w": 52,
+    "h": 52,
+    "biome": "meadow",
+    "placements": 3318,
+    "meshes": 32
+   },
+   "t": 907.5
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 908.6000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 37,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.3000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.3000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 36,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 35,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 34,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 32,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 32,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 30,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 29,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 30,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 28,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 29,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 27,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 28,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 27,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 30,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 26,
+    "dir": 2,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 29,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 30,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 28,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 29,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 28,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 25,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 24,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 25,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 23,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 24,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 22,
+    "cz": 26,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 23,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 21,
+    "cz": 26,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 910.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 22,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.6000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 20,
+    "cz": 26,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 910.6000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 21,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 910.6000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 19,
+    "cz": 26,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 910.6000000238419
+  },
+  {
+   "type": "encounter:started",
+   "payload": {
+    "species": "marill",
+    "level": 7,
+    "shiny": false,
+    "biome": "meadow",
+    "index": 0,
+    "tod": 12,
+    "ivs": {
+     "hp": 6,
+     "atk": 16,
+     "def": 23,
+     "spa": 5,
+     "spd": 0,
+     "spe": 5
+    },
+    "catchRate": 190
+   },
+   "t": 912.2000000178814
+  },
+  {
+   "type": "catch:succeeded",
+   "payload": {
+    "instanceId": "183",
+    "species": "marill",
+    "shiny": false,
+    "level": 7,
+    "ivs": {
+     "hp": 6,
+     "atk": 16,
+     "def": 23,
+     "spa": 5,
+     "spd": 0,
+     "spe": 5
+    },
+    "ball": "greatball",
+    "biome": "meadow",
+    "index": 0
+   },
+   "t": 940.7000000178814
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "shards",
+    "delta": 0.4,
+    "total": 0,
+    "reason": "loot"
+   },
+   "t": 940.8000000119209
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "183",
+    "isNewSpecies": true
+   },
+   "t": 941.3000000119209
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 26,
+    "total": 3026,
+    "reason": "battle"
+   },
+   "t": 941.4000000059605
+  },
+  {
+   "type": "encounter:resolved",
+   "payload": {
+    "outcome": "win",
+    "species": "marill",
+    "rewards": {
+     "money": 26,
+     "exp": 16
+    },
+    "caught": true,
+    "ball": "greatball",
+    "level": 7,
+    "shiny": false,
+    "biome": "meadow",
+    "index": 0,
+    "turns": 1
+   },
+   "t": 941.5
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "bp",
+    "delta": 0.25,
+    "total": 0,
+    "reason": "battle"
+   },
+   "t": 941.5
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 589
+   },
+   "t": 1214.7000000178814
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3026,
+    "reason": "sync"
+   },
+   "t": 1214.9000000059605
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 10,
+    "drawCalls": 56,
+    "tris": 15098
+   },
+   "t": 1256.7000000178814
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 56,
+    "tris": 15122
+   },
+   "t": 2232
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 101.05,
+  "p50": 101,
+  "p95": 234,
+  "p99": 234,
+  "max": 255,
+  "belowL8Pct": 1.123,
+  "pureBlackPct": 0.502,
+  "over200Pct": 7.63,
+  "saturation": 0.7087
+ },
+ "ms": 3813
+}

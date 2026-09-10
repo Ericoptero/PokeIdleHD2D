@@ -1,0 +1,255 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=city&tod=17.5&seed=1337&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/environment/r8/hd/city-17.5.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": "high-street",
+ "tod": 17.5,
+ "ok": true,
+ "presetApplied": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 222,
+ "triangles": 19614,
+ "programs": 23,
+ "geometries": 131,
+ "textures": 77,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 57.3,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 3.4,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 9.7,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.3,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 356.59999999403954
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "structures",
+    "models": 4
+   },
+   "t": 390.39999997615814
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 392.7999999821186
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 5131,
+    "meshes": 87
+   },
+   "t": 410.09999999403954
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "pt-overworld-7",
+    "models": 369
+   },
+   "t": 497.7999999821186
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 498.59999999403954
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 499.59999999403954
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "tags": []
+   },
+   "t": 499.69999998807907
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 402
+   },
+   "t": 677.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 33,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.1999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 31,
+    "tags": []
+   },
+   "t": 692.1999999880791
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 41.8,
+    "drawCalls": 222,
+    "tris": 19614
+   },
+   "t": 1018.2999999821186
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 222,
+    "tris": 19614
+   },
+   "t": 2034.7999999821186
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 64.59,
+  "p50": 57,
+  "p95": 131,
+  "p99": 146,
+  "max": 221,
+  "belowL8Pct": 1.879,
+  "pureBlackPct": 0.021,
+  "over200Pct": 0.614,
+  "saturation": 0.7913
+ },
+ "ms": 3016
+}

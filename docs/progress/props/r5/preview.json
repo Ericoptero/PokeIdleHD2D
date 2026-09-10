@@ -1,0 +1,177 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=preview&mode=props&tod=12&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/props/r5/preview.png",
+ "size": [
+  1600,
+  900
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 40,
+ "triangles": 2562,
+ "programs": 7,
+ "geometries": 18,
+ "textures": 26,
+ "internal": [
+  533,
+  299
+ ],
+ "output": [
+  1600,
+  900
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 84.9,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 7.5,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 0.6,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 1424.9000000059605
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 1515.9000000059605
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 10,
+    "drawCalls": 40,
+    "tris": 2562
+   },
+   "t": 1675.6000000089407
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 382
+   },
+   "t": 1675.800000011921
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 50.6,
+    "drawCalls": 40,
+    "tris": 2562
+   },
+   "t": 2539
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 40,
+    "tris": 2562
+   },
+   "t": 3555.7000000029802
+  }
+ ],
+ "ms": 5492
+}

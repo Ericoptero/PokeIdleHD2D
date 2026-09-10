@@ -1,0 +1,349 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=hunts&mode=coast&tod=12&timeFrozen=1&debug=0",
+ "out": "/tmp/h8-coast.png",
+ "size": [
+  1600,
+  900
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 125,
+ "triangles": 31621,
+ "programs": 17,
+ "geometries": 83,
+ "textures": 40,
+ "internal": [
+  533,
+  299
+ ],
+ "output": [
+  1600,
+  900
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 73,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 3.2,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 21.7,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.1,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 469.5
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 567.5999999940395
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 588.8000000119209
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "hunt-coast",
+    "w": 66,
+    "h": 54,
+    "biome": "coast",
+    "placements": 8661,
+    "meshes": 70
+   },
+   "t": 629.6999999880791
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 631
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 36,
+    "dir": 2,
+    "running": false
+   },
+   "t": 632.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 632.5999999940395
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "Hunting Saltspray Coast",
+    "kind": "info"
+   },
+   "t": 632.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 35,
+    "dir": 2,
+    "running": false
+   },
+   "t": 633.3000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 633.3000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 34,
+    "dir": 2,
+    "running": false
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 28,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 34,
+    "dir": 3,
+    "running": false
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 29,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 28,
+    "cz": 34,
+    "dir": 3,
+    "running": false
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 30,
+    "cz": 34,
+    "tags": []
+   },
+   "t": 633.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 38,
+    "dir": 2,
+    "running": false
+   },
+   "t": 633.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 36,
+    "tags": []
+   },
+   "t": 633.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 37,
+    "dir": 2,
+    "running": false
+   },
+   "t": 633.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 36,
+    "tags": []
+   },
+   "t": 633.8000000119209
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 295
+   },
+   "t": 751.1999999880791
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 751.3000000119209
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 37.8,
+    "drawCalls": 125,
+    "tris": 31621
+   },
+   "t": 1003
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 125,
+    "tris": 31621
+   },
+   "t": 2019.699999988079
+  }
+ ],
+ "ms": 2758
+}

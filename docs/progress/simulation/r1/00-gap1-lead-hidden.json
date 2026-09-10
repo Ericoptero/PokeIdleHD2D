@@ -1,0 +1,253 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=11&timeFrozen=1&debug=0&autowalk=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/r1/05-boot-city.png",
+ "size": [
+  1600,
+  900
+ ],
+ "preset": null,
+ "tod": 11,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 145,
+ "triangles": 15102,
+ "programs": 16,
+ "geometries": 91,
+ "textures": 46,
+ "internal": [
+  533,
+  299
+ ],
+ "output": [
+  1600,
+  900
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 68.2,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 3.1,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 16,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.6,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 3.3,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.5,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 312.2000000178814
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 400.7000000178814
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 5271,
+    "meshes": 87
+   },
+   "t": 424.2000000178814
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 425.30000001192093
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 426.30000001192093
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 39,
+    "tags": []
+   },
+   "t": 426.30000001192093
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 338
+   },
+   "t": 636
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 636.1000000238419
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 42.4,
+    "drawCalls": 145,
+    "tris": 15102
+   },
+   "t": 1015
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 12,
+    "total": 3012,
+    "reason": "idle"
+   },
+   "t": 1414.4000000059605
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.012,
+    "gains": {
+     "money": 12.802,
+     "exp": 15.61,
+     "research": 0.159,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 12.650299214691769,
+      "exp": 15.429287073338697,
+      "research": 0.1573858405141732,
+      "encounters": 0.008780625
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 1414.7000000178814
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 145,
+    "tris": 15102
+   },
+   "t": 2031.4000000059605
+  }
+ ],
+ "ms": 2648
+}

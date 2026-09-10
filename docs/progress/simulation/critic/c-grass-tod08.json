@@ -1,0 +1,727 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=simulation&mode=grass&tod=8&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/simulation/critic/c-grass-tod08.png",
+ "size": [
+  1600,
+  900
+ ],
+ "preset": null,
+ "tod": 8,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 58,
+ "triangles": 11706,
+ "programs": 13,
+ "geometries": 39,
+ "textures": 34,
+ "internal": [
+  533,
+  299
+ ],
+ "output": [
+  1600,
+  900
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 124.2,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 4.8,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 55.7,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.8,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 641.4000000059605
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "simulation-walk",
+    "w": 56,
+    "h": 56,
+    "biome": "meadow",
+    "placements": 3671,
+    "meshes": 35
+   },
+   "t": 690
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 690.7999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 691.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 38,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 691.7999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 39,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.2999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 37,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.2999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 38,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.2999999821186
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 36,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.2999999821186
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 37,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 35,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 36,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 34,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 35,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 33,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 34,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 32,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 33,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 31,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 32,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.4000000059605
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 30,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 31,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 29,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 30,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 28,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 29,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 27,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 28,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 27,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 27,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 26,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 27,
+    "cz": 26,
+    "dir": 2,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 25,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 26,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 24,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 25,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 23,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 24,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 22,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 23,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 21,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 22,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 20,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 21,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 19,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 20,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 18,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 19,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 17,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 18,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 16,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 17,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 15,
+    "cz": 26,
+    "tags": []
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 16,
+    "cz": 26,
+    "dir": 1,
+    "running": false
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 14,
+    "cz": 26,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 692.5999999940395
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 342
+   },
+   "t": 783.1999999880791
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 36.9,
+    "drawCalls": 58,
+    "tris": 11706
+   },
+   "t": 1017.1999999880791
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 58,
+    "tris": 11706
+   },
+   "t": 2033.2999999821186
+  }
+ ],
+ "ms": 3050
+}

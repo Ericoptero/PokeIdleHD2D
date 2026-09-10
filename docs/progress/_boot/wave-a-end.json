@@ -1,0 +1,234 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=12&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/_boot/wave-a-end.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": "plaza",
+ "tod": 12,
+ "ok": true,
+ "presetApplied": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 159,
+ "triangles": 14594,
+ "programs": 9,
+ "geometries": 89,
+ "textures": 39,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 13.7,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 3.5,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 20.5,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 3.6,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.7,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [
+  "tiles.find: selecting \"big_tree_dark\" by name — names follow the texture (DECISIONS #6); prefer category + tags",
+  "tiles.find: selecting \"dirt\" by name — names follow the texture (DECISIONS #6); prefer category + tags",
+  "tiles.find: selecting \"lamp_h\" by name — names follow the texture (DECISIONS #6); prefer category + tags",
+  "tiles.find: selecting \"bench_s\" by name — names follow the texture (DECISIONS #6); prefer category + tags",
+  "tiles.find: selecting \"bench_n\" by name — names follow the texture (DECISIONS #6); prefer category + tags",
+  "tiles.find: selecting \"tall_grass\" by name — names follow the texture (DECISIONS #6); prefer category + tags"
+ ],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 305
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 343.7999999821186
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 4992,
+    "meshes": 87
+   },
+   "t": 371.09999999403954
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 42,
+    "dir": 2,
+    "running": false
+   },
+   "t": 371.40000000596046
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 221
+   },
+   "t": 494.7999999821186
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 494.7999999821186
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 45.3,
+    "drawCalls": 159,
+    "tris": 14594
+   },
+   "t": 1021
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.005,
+    "gains": {
+     "money": 0.828,
+     "exp": 0.8,
+     "research": 0.027,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 0.823473777651919,
+      "exp": 0.792,
+      "research": 0.026496789221441996,
+      "encounters": 0.008749999999999999
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 1351
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 159,
+    "tris": 14594
+   },
+   "t": 2034.9000000059605
+  }
+ ],
+ "ms": 2698
+}

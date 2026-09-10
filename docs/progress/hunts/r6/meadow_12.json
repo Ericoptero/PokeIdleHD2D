@@ -1,0 +1,975 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=12&timeFrozen=1&debug=0&scene=hunt-meadow",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/hunts/r6/meadow_12.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "grid": {
+  "internal": [
+   640,
+   360
+  ],
+  "unitsPerPixel": 0.03125,
+  "pixelsPerUnit": 32,
+  "mag": 2,
+  "texelsPerUnit": 16,
+  "k": 1,
+  "actors": [
+   {
+    "id": 1,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/oshawott/normal.png",
+    "frame": 1,
+    "sx": 331,
+    "sy": 181,
+    "texels": 32
+   },
+   {
+    "id": 2,
+    "kind": "trainer",
+    "who": "hero",
+    "key": "trainer:/assets/trainer/hero.png",
+    "frame": 6,
+    "sx": 320,
+    "sy": 219,
+    "texels": 32
+   },
+   {
+    "id": 3,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/audino/normal.png",
+    "frame": 0,
+    "sx": 427,
+    "sy": 15,
+    "texels": 32
+   },
+   {
+    "id": 4,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/sunkern/normal.png",
+    "frame": 5,
+    "sx": 395,
+    "sy": 125,
+    "texels": 32
+   },
+   {
+    "id": 5,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/lillipup/normal.png",
+    "frame": 7,
+    "sx": 416,
+    "sy": 282,
+    "texels": 32
+   },
+   {
+    "id": 6,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/rattata/normal.png",
+    "frame": 4,
+    "sx": 267,
+    "sy": 128,
+    "texels": 32
+   },
+   {
+    "id": 7,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/pidgey/normal.png",
+    "frame": 5,
+    "sx": 267,
+    "sy": 8,
+    "texels": 32
+   },
+   {
+    "id": 8,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/bunnelby/normal.png",
+    "frame": 6,
+    "sx": 205,
+    "sy": -98,
+    "texels": 32
+   }
+  ],
+  "displayRect": {
+   "left": 0,
+   "top": 0,
+   "w": 1920,
+   "h": 1080
+  },
+  "pixelScale": 0,
+  "viewport": [
+   1920,
+   1080
+  ]
+ },
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.8,
+  "samples": 60
+ },
+ "drawCalls": 117,
+ "triangles": 20922,
+ "programs": 25,
+ "geometries": 68,
+ "textures": 41,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 87.9,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 7.4,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 9.7,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "travel",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "battle",
+   "status": "ready",
+   "initMs": 174.3,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.5,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.8,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 1.3,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.4,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott#0",
+    "species": "oshawott"
+   },
+   "t": 976.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 25,
+    "dir": 0
+   },
+   "t": 977.4000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 27,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 977.4000000357628
+  },
+  {
+   "type": "scene:entered",
+   "payload": {
+    "sceneId": "hunt-meadow",
+    "mapId": "hunt-meadow",
+    "biome": "meadow",
+    "formation": {
+     "head": "pokemon",
+     "input": false,
+     "autopilot": "route",
+     "strict": true,
+     "preferTags": [
+      "tallgrass",
+      "encounter",
+      "path"
+     ]
+    }
+   },
+   "t": 977.9000000357628
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "Arrived: Sunlit Meadow",
+    "kind": "info"
+   },
+   "t": 977.9000000357628
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 600
+   },
+   "t": 1174.300000011921
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 1174.4000000357628
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 10,
+    "drawCalls": 114,
+    "tris": 20874
+   },
+   "t": 1180.1000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 26,
+    "dir": 0
+   },
+   "t": 1190
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 28,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1190
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 27,
+    "dir": 0
+   },
+   "t": 1190.1000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 29,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1190.1000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 28,
+    "dir": 0
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 30,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 29,
+    "dir": 0
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 31,
+    "tags": []
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 30,
+    "dir": 0
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 32,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1190.2000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 31,
+    "dir": 0
+   },
+   "t": 1190.300000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 33,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1190.300000011921
+  },
+  {
+   "type": "encounter:started",
+   "payload": {
+    "species": "marill",
+    "level": 7,
+    "shiny": false,
+    "biome": "meadow",
+    "index": 0,
+    "tod": 12,
+    "ivs": {
+     "hp": 6,
+     "atk": 16,
+     "def": 23,
+     "spa": 5,
+     "spd": 0,
+     "spe": 5
+    },
+    "catchRate": 190
+   },
+   "t": 1190.7000000476837
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "A wild Marill appeared!",
+    "kind": "info"
+   },
+   "t": 1190.800000011921
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 32,
+    "dir": 0
+   },
+   "t": 1191.1000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 34,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1191.1000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 33,
+    "dir": 0
+   },
+   "t": 1191.2000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 35,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.2000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 34,
+    "dir": 0
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 36,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 35,
+    "dir": 0
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 37,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 36,
+    "dir": 0
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 38,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.4000000357628
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 37,
+    "dir": 0
+   },
+   "t": 1191.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 39,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 38,
+    "dir": 0
+   },
+   "t": 1191.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 41,
+    "cz": 39,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1191.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 39,
+    "dir": 0
+   },
+   "t": 1191.6000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 42,
+    "cz": 39,
+    "tags": []
+   },
+   "t": 1191.6000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 41,
+    "cz": 39,
+    "dir": 3
+   },
+   "t": 1191.7000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 43,
+    "cz": 39,
+    "tags": []
+   },
+   "t": 1191.7000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 42,
+    "cz": 39,
+    "dir": 3
+   },
+   "t": 1191.7000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 43,
+    "cz": 40,
+    "tags": []
+   },
+   "t": 1191.7000000476837
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 17,
+    "total": 3017,
+    "reason": "battle"
+   },
+   "t": 1191.800000011921
+  },
+  {
+   "type": "encounter:resolved",
+   "payload": {
+    "outcome": "win",
+    "species": "marill",
+    "rewards": {
+     "money": 17,
+     "exp": 13
+    },
+    "caught": false,
+    "ball": null,
+    "level": 7,
+    "shiny": false,
+    "biome": "meadow",
+    "index": 0,
+    "turns": 0
+   },
+   "t": 1191.9000000357628
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "bp",
+    "delta": 0.25,
+    "total": 0,
+    "reason": "battle"
+   },
+   "t": 1191.9000000357628
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 43,
+    "cz": 39,
+    "dir": 3
+   },
+   "t": 1191.9000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 42,
+    "cz": 40,
+    "tags": []
+   },
+   "t": 1191.9000000357628
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 43,
+    "cz": 40,
+    "dir": 0
+   },
+   "t": 1192
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 41,
+    "cz": 40,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1192
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 42,
+    "cz": 40,
+    "dir": 1
+   },
+   "t": 1273.800000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 40,
+    "cz": 40,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1273.800000011921
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 41,
+    "cz": 40,
+    "dir": 1
+   },
+   "t": 1523.7000000476837
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 39,
+    "cz": 40,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1523.7000000476837
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 40,
+    "cz": 40,
+    "dir": 1
+   },
+   "t": 1790.300000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 38,
+    "cz": 40,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1790.300000011921
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 8,
+    "total": 3025,
+    "reason": "idle"
+   },
+   "t": 1873.800000011921
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.001,
+    "gains": {
+     "money": 8.488,
+     "exp": 29.27,
+     "research": 0.202,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 8.479549459311459,
+      "exp": 29.24358728046418,
+      "research": 0.20169919102688513,
+      "encounters": 0.025087500000000002
+     },
+     "biome": "meadow",
+     "events": []
+    }
+   },
+   "t": 1874.300000011921
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 39,
+    "cz": 40,
+    "dir": 1
+   },
+   "t": 2039.4000000357628
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 38,
+    "cz": 39,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 2039.4000000357628
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 117,
+    "tris": 20922
+   },
+   "t": 2190.800000011921
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 38,
+    "cz": 40,
+    "dir": 1
+   },
+   "t": 2290.300000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 39,
+    "cz": 39,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 2290.300000011921
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 38,
+    "cz": 39,
+    "dir": 2
+   },
+   "t": 2540.300000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 39,
+    "cz": 38,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 2540.300000011921
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 97.3,
+  "p50": 103,
+  "p95": 144,
+  "p99": 234,
+  "max": 255,
+  "belowL8Pct": 0.519,
+  "pureBlackPct": 0.016,
+  "over200Pct": 4.575,
+  "saturation": 0.6815
+ },
+ "ms": 2983
+}

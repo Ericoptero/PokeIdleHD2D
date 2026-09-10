@@ -1,0 +1,916 @@
+{
+ "url": "http://127.0.0.1:5173/?tod=12&timeFrozen=1&debug=0&scene=hunt-forest",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/hunts/r6/forest_12.png",
+ "size": [
+  1920,
+  1080
+ ],
+ "preset": null,
+ "tod": 12,
+ "ok": true,
+ "grid": {
+  "internal": [
+   640,
+   360
+  ],
+  "unitsPerPixel": 0.03125,
+  "pixelsPerUnit": 32,
+  "mag": 2,
+  "texelsPerUnit": 16,
+  "k": 1,
+  "actors": [
+   {
+    "id": 1,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/oshawott/normal.png",
+    "frame": 3,
+    "sx": 256,
+    "sy": 220,
+    "texels": 32
+   },
+   {
+    "id": 2,
+    "kind": "trainer",
+    "who": "hero",
+    "key": "trainer:/assets/trainer/hero.png",
+    "frame": 1,
+    "sx": 320,
+    "sy": 219,
+    "texels": 32
+   },
+   {
+    "id": 3,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/seedot/shiny.png",
+    "frame": 7,
+    "sx": 328,
+    "sy": -120,
+    "texels": 32
+   },
+   {
+    "id": 4,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/bellsprout/normal.png",
+    "frame": 6,
+    "sx": 343,
+    "sy": 39,
+    "texels": 32
+   },
+   {
+    "id": 5,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/applin/normal.png",
+    "frame": 6,
+    "sx": 375,
+    "sy": 262,
+    "texels": 32
+   },
+   {
+    "id": 6,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/combee/normal.png",
+    "frame": 6,
+    "sx": 162,
+    "sy": 39,
+    "texels": 32
+   },
+   {
+    "id": 7,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/oddish/normal.png",
+    "frame": 0,
+    "sx": 215,
+    "sy": -85,
+    "texels": 32
+   },
+   {
+    "id": 8,
+    "kind": "pokemon",
+    "who": "hero",
+    "key": "pokemon:/assets/overworld/deerling/normal.png",
+    "frame": 1,
+    "sx": 311,
+    "sy": -322,
+    "texels": 32
+   }
+  ],
+  "displayRect": {
+   "left": 0,
+   "top": 0,
+   "w": 1920,
+   "h": 1080
+  },
+  "pixelScale": 0,
+  "viewport": [
+   1920,
+   1080
+  ]
+ },
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 60
+ },
+ "drawCalls": 82,
+ "triangles": 39806,
+ "programs": 21,
+ "geometries": 52,
+ "textures": 40,
+ "internal": [
+  640,
+  360
+ ],
+ "output": [
+  1920,
+  1080
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 97.3,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 6.5,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 20.9,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.2,
+   "error": null
+  },
+  {
+   "id": "travel",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "battle",
+   "status": "ready",
+   "initMs": 15.8,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 1.9,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.6,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 0.9,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 2.4,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 2.4,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 0.7,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 1.4,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "ready",
+   "initMs": 0.1,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 709.3000000119209
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "hunt-forest",
+    "w": 64,
+    "h": 62,
+    "biome": "forest",
+    "placements": 6145,
+    "meshes": 43
+   },
+   "t": 778.1000000238419
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott#0",
+    "species": "oshawott"
+   },
+   "t": 792.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 23,
+    "dir": 0
+   },
+   "t": 793.3000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 25,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 793.3000000119209
+  },
+  {
+   "type": "scene:entered",
+   "payload": {
+    "sceneId": "hunt-forest",
+    "mapId": "hunt-forest",
+    "biome": "forest",
+    "formation": {
+     "head": "pokemon",
+     "input": false,
+     "autopilot": "route",
+     "strict": true,
+     "preferTags": [
+      "tallgrass",
+      "encounter",
+      "path"
+     ]
+    }
+   },
+   "t": 793.6999999880791
+  },
+  {
+   "type": "ui:toast",
+   "payload": {
+    "text": "Arrived: Verdant Wood",
+    "kind": "info"
+   },
+   "t": 793.6999999880791
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 467
+   },
+   "t": 977.1000000238419
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 3000,
+    "reason": "sync"
+   },
+   "t": 977.1999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 24,
+    "dir": 0
+   },
+   "t": 1003.3000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 26,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.3000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 25,
+    "dir": 0
+   },
+   "t": 1003.3999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 27,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.3999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 26,
+    "dir": 0
+   },
+   "t": 1003.3999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 28,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.3999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 27,
+    "dir": 0
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 29,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 28,
+    "dir": 0
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 30,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 29,
+    "dir": 0
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 31,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 30,
+    "dir": 0
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 32,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.5
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 31,
+    "dir": 0
+   },
+   "t": 1003.6000000238419
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 33,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 32,
+    "dir": 0
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 34,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 33,
+    "dir": 0
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 35,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 34,
+    "dir": 0
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 36,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 35,
+    "dir": 0
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 37,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 36,
+    "dir": 0
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 38,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.6999999880791
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 37,
+    "dir": 0
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 39,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 38,
+    "dir": 0
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 40,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 39,
+    "dir": 0
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 41,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 40,
+    "dir": 0
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 42,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 41,
+    "dir": 0
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 33,
+    "cz": 42,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1003.8000000119209
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 20,
+    "drawCalls": 82,
+    "tris": 39806
+   },
+   "t": 1016.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 32,
+    "cz": 42,
+    "dir": 0
+   },
+   "t": 1080.8999999761581
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 34,
+    "cz": 42,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1080.8999999761581
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 33,
+    "cz": 42,
+    "dir": 3
+   },
+   "t": 1330
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 35,
+    "cz": 42,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1330
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 34,
+    "cz": 42,
+    "dir": 3
+   },
+   "t": 1580.800000011921
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 35,
+    "cz": 43,
+    "tags": [
+     "tallgrass",
+     "encounter",
+     "encounter",
+     "tallgrass"
+    ]
+   },
+   "t": 1580.800000011921
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 7,
+    "total": 3007,
+    "reason": "idle"
+   },
+   "t": 1696.800000011921
+  },
+  {
+   "type": "pokemon:levelled",
+   "payload": {
+    "instanceId": "oshawott#0",
+    "from": 5,
+    "to": 6,
+    "learned": []
+   },
+   "t": 1697.3999999761581
+  },
+  {
+   "type": "pokemon:levelled",
+   "payload": {
+    "instanceId": "snivy#1",
+    "from": 5,
+    "to": 6,
+    "learned": []
+   },
+   "t": 1697.5
+  },
+  {
+   "type": "pokemon:levelled",
+   "payload": {
+    "instanceId": "tepig#2",
+    "from": 5,
+    "to": 6,
+    "learned": []
+   },
+   "t": 1697.5
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.01,
+    "gains": {
+     "money": 7.697,
+     "exp": 45.5,
+     "research": 0.254,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 7.620468529141278,
+      "exp": 45.04971983498441,
+      "research": 0.250992919438593,
+      "encounters": 0.033868125000000006
+     },
+     "biome": "forest",
+     "events": []
+    }
+   },
+   "t": 1697.6000000238419
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 35,
+    "cz": 42,
+    "dir": 3
+   },
+   "t": 1831
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 34,
+    "cz": 43,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 1831
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 82,
+    "tris": 39806
+   },
+   "t": 2031.199999988079
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 35,
+    "cz": 43,
+    "dir": 0
+   },
+   "t": 2080.100000023842
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 33,
+    "cz": 43,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 2080.199999988079
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 34,
+    "cz": 43,
+    "dir": 1
+   },
+   "t": 2330.600000023842
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 32,
+    "cz": 43,
+    "tags": [
+     "path"
+    ]
+   },
+   "t": 2330.600000023842
+  }
+ ],
+ "scene": {
+  "pixels": 2073600,
+  "mean": 100.19,
+  "p50": 101,
+  "p95": 158,
+  "p99": 234,
+  "max": 255,
+  "belowL8Pct": 0.803,
+  "pureBlackPct": 0.007,
+  "over200Pct": 3.757,
+  "saturation": 0.6819
+ },
+ "ms": 2760
+}

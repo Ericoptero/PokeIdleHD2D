@@ -1,0 +1,706 @@
+{
+ "url": "http://127.0.0.1:5173/?showcase=ui&mode=shop&tod=17.5&timeFrozen=1&debug=0",
+ "out": "/Users/ericnantes/Developer/PokeIdleHD2D/docs/progress/ui/critic/03-shop-t17.png",
+ "size": [
+  1600,
+  900
+ ],
+ "preset": null,
+ "tod": 17.5,
+ "ok": true,
+ "fps": {
+  "mean": 60,
+  "p95ms": 16.7,
+  "samples": 63
+ },
+ "drawCalls": 235,
+ "triangles": 19056,
+ "programs": 21,
+ "geometries": 143,
+ "textures": 79,
+ "internal": [
+  533,
+  299
+ ],
+ "output": [
+  1600,
+  900
+ ],
+ "seed": 1337,
+ "modules": [
+  {
+   "id": "tiles",
+   "status": "ready",
+   "initMs": 855.1,
+   "error": null
+  },
+  {
+   "id": "terrain",
+   "status": "ready",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "environment",
+   "status": "ready",
+   "initMs": 8.9,
+   "error": null
+  },
+  {
+   "id": "pokemon",
+   "status": "ready",
+   "initMs": 603.9,
+   "error": null
+  },
+  {
+   "id": "simulation",
+   "status": "ready",
+   "initMs": 0.5,
+   "error": null
+  },
+  {
+   "id": "encounter",
+   "status": "ready",
+   "initMs": 2.8,
+   "error": null
+  },
+  {
+   "id": "economy",
+   "status": "ready",
+   "initMs": 0.7,
+   "error": null
+  },
+  {
+   "id": "collection",
+   "status": "ready",
+   "initMs": 1.6,
+   "error": null
+  },
+  {
+   "id": "idle",
+   "status": "ready",
+   "initMs": 3,
+   "error": null
+  },
+  {
+   "id": "offline",
+   "status": "ready",
+   "initMs": 3.2,
+   "error": null
+  },
+  {
+   "id": "automation",
+   "status": "ready",
+   "initMs": 1.1,
+   "error": null
+  },
+  {
+   "id": "ui",
+   "status": "ready",
+   "initMs": 3.5,
+   "error": null
+  },
+  {
+   "id": "city",
+   "status": "ready",
+   "initMs": 0.3,
+   "error": null
+  },
+  {
+   "id": "hunts",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  },
+  {
+   "id": "preview",
+   "status": "skipped",
+   "initMs": 0,
+   "error": null
+  }
+ ],
+ "consoleErrors": [],
+ "consoleWarnings": [],
+ "events": [
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 3000,
+    "total": 3000,
+    "reason": "start"
+   },
+   "t": 1862.5999999940395
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "bw2-adastra",
+    "models": 262
+   },
+   "t": 3332.2999999821186
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "structures",
+    "models": 3
+   },
+   "t": 3547.5999999940395
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "props",
+    "models": 15
+   },
+   "t": 3561
+  },
+  {
+   "type": "world:loaded",
+   "payload": {
+    "mapId": "demo-city",
+    "w": 64,
+    "h": 64,
+    "biome": "city",
+    "placements": 5142,
+    "meshes": 102
+   },
+   "t": 3598.5
+  },
+  {
+   "type": "tiles:loaded",
+   "payload": {
+    "slug": "pt-overworld-7",
+    "models": 369
+   },
+   "t": 4185.5
+  },
+  {
+   "type": "party:leadChanged",
+   "payload": {
+    "instanceId": "oshawott-0-5",
+    "species": "oshawott"
+   },
+   "t": 4188.0999999940395
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 31,
+    "cz": 40,
+    "dir": 2,
+    "running": false
+   },
+   "t": 4192.799999982119
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 31,
+    "cz": 38,
+    "tags": []
+   },
+   "t": 4192.799999982119
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 14,
+    "total": 3014,
+    "reason": "idle"
+   },
+   "t": 4499
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.161,
+    "gains": {
+     "money": 14.687,
+     "exp": 17.91,
+     "research": 0.183,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 12.650299214691769,
+      "exp": 15.429287073338697,
+      "research": 0.1573858405141732,
+      "encounters": 0.008780625
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 4499
+  },
+  {
+   "type": "player:moved",
+   "payload": {
+    "cx": 38,
+    "cz": 42,
+    "dir": 2,
+    "running": false
+   },
+   "t": 4689.199999988079
+  },
+  {
+   "type": "player:enteredTile",
+   "payload": {
+    "cx": 38,
+    "cz": 40,
+    "tags": [
+     "plaza"
+    ]
+   },
+   "t": 4689.199999988079
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 640000,
+    "total": 643014,
+    "reason": "grant:showcase"
+   },
+   "t": 4690.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "research",
+    "delta": 4200,
+    "total": 4200,
+    "reason": "grant:showcase"
+   },
+   "t": 4690.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "bp",
+    "delta": 180,
+    "total": 180,
+    "reason": "grant:showcase"
+   },
+   "t": 4690.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "shards",
+    "delta": 96,
+    "total": 96,
+    "reason": "grant:showcase"
+   },
+   "t": 4691
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": -12000,
+    "total": 631014,
+    "reason": "buy:upgrade:payday"
+   },
+   "t": 4692.799999982119
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": -14760,
+    "total": 616254,
+    "reason": "buy:upgrade:payday"
+   },
+   "t": 4692.799999982119
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": -18155,
+    "total": 598099,
+    "reason": "buy:upgrade:payday"
+   },
+   "t": 4692.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "bulbasaur-1",
+    "isNewSpecies": true
+   },
+   "t": 4694.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "charmander-3",
+    "isNewSpecies": true
+   },
+   "t": 4694.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "squirtle-5",
+    "isNewSpecies": true
+   },
+   "t": 4694.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "pidgey-7",
+    "isNewSpecies": true
+   },
+   "t": 4694.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "rattata-9",
+    "isNewSpecies": true
+   },
+   "t": 4694.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "caterpie-11",
+    "isNewSpecies": true
+   },
+   "t": 4694.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "pikachu-13",
+    "isNewSpecies": true
+   },
+   "t": 4695
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "zubat-15",
+    "isNewSpecies": true
+   },
+   "t": 4695
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "geodude-17",
+    "isNewSpecies": true
+   },
+   "t": 4695.0999999940395
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "gastly-19",
+    "isNewSpecies": true
+   },
+   "t": 4695.0999999940395
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "onix-21",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "machop-23",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "sandshrew-25",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "vulpix-27",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "oddish-29",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "psyduck-31",
+    "isNewSpecies": true
+   },
+   "t": 4695.199999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "growlithe-33",
+    "isNewSpecies": true
+   },
+   "t": 4695.299999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "abra-35",
+    "isNewSpecies": true
+   },
+   "t": 4695.299999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "magnemite-37",
+    "isNewSpecies": true
+   },
+   "t": 4695.699999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "eevee-39",
+    "isNewSpecies": true
+   },
+   "t": 4695.699999988079
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "snorlax-41",
+    "isNewSpecies": true
+   },
+   "t": 4695.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "dratini-43",
+    "isNewSpecies": true
+   },
+   "t": 4695.799999982119
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "ponyta-45",
+    "isNewSpecies": true
+   },
+   "t": 4695.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "tentacool-47",
+    "isNewSpecies": true
+   },
+   "t": 4695.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "krabby-49",
+    "isNewSpecies": true
+   },
+   "t": 4695.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "voltorb-51",
+    "isNewSpecies": true
+   },
+   "t": 4695.899999976158
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "cubone-53",
+    "isNewSpecies": true
+   },
+   "t": 4696
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "magikarp-55",
+    "isNewSpecies": true
+   },
+   "t": 4696.0999999940395
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "lapras-57",
+    "isNewSpecies": true
+   },
+   "t": 4696.0999999940395
+  },
+  {
+   "type": "collection:added",
+   "payload": {
+    "instanceId": "ditto-59",
+    "isNewSpecies": true
+   },
+   "t": 4696.0999999940395
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 10,
+    "drawCalls": 234,
+    "tris": 19020
+   },
+   "t": 5004.5999999940395
+  },
+  {
+   "type": "boot:ready",
+   "payload": {
+    "ms": 3184
+   },
+   "t": 5004.699999988079
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 0,
+    "total": 598099,
+    "reason": "sync"
+   },
+   "t": 5004.799999982119
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "research",
+    "delta": 0,
+    "total": 4200,
+    "reason": "sync"
+   },
+   "t": 5004.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "bp",
+    "delta": 0,
+    "total": 180,
+    "reason": "sync"
+   },
+   "t": 5004.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "shards",
+    "delta": 0,
+    "total": 96,
+    "reason": "sync"
+   },
+   "t": 5004.899999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 15.34,
+    "total": 598114,
+    "reason": "idle"
+   },
+   "t": 5499.5999999940395
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.001,
+    "gains": {
+     "money": 12.663,
+     "exp": 15.44,
+     "research": 0.158,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 12.650299214691769,
+      "exp": 15.429287073338697,
+      "research": 0.1573858405141732,
+      "encounters": 0.008780625
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 5499.5999999940395
+  },
+  {
+   "type": "perf:sample",
+   "payload": {
+    "fps": 60,
+    "drawCalls": 235,
+    "tris": 19056
+   },
+   "t": 5714.399999976158
+  },
+  {
+   "type": "economy:changed",
+   "payload": {
+    "currency": "money",
+    "delta": 15.34,
+    "total": 598129,
+    "reason": "idle"
+   },
+   "t": 6509.5999999940395
+  },
+  {
+   "type": "idle:tick",
+   "payload": {
+    "elapsedS": 1.01,
+    "gains": {
+     "money": 12.777,
+     "exp": 15.58,
+     "research": 0.159,
+     "encounters": 0,
+     "wins": 0,
+     "catches": 0,
+     "shinies": 0,
+     "perSecond": {
+      "money": 12.650299214691769,
+      "exp": 15.429287073338697,
+      "research": 0.1573858405141732,
+      "encounters": 0.008780625
+     },
+     "biome": "city",
+     "events": []
+    }
+   },
+   "t": 6509.699999988079
+  }
+ ],
+ "ms": 7215
+}
