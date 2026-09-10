@@ -45,6 +45,7 @@
  */
 
 import { makeBallSprite } from './ball.js';
+import { makeStrikeVfx, shapeOf } from './strikes.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
   streamFor, catchRateFor, levelBand, rollAt, catchRoll,
@@ -114,6 +115,7 @@ const T = {
    */
   TURN: 24,
   ITEM: 16,        // a potion or an ether, mid-duel
+  STRIKE: 10,      // how long one blow's effect plays
   VICTORY: 12,
   READY: 8,        // a beat, during which a player (or `automation`) may throw
   /**
@@ -193,6 +195,8 @@ export default {
 
     // --- the on-screen moment -----------------------------------------------
     const sprite = makeBallSprite(ctx.THREE, ctx);
+    /** What a move looks like when it lands (DECISIONS #79). */
+    const strikeVfx = makeStrikeVfx(ctx.THREE, ctx, { pitch: config.cameraPitch ?? 45 });
     /** @type {{stage:string, step:number, wildActor:number, ...}|null} */
     let scene = null;
     let frozen = false;
@@ -467,6 +471,16 @@ export default {
       s.turnsSeen++;
 
       let hold = T.TURN;
+      // The blow this exchange is drawn around. One per turn: two effects in 1.2 s is a mess,
+      // and the one that lands is the one that decided the turn.
+      const shown = strikes.find((x) => x.move && !x.miss) ?? strikes.find((x) => x.move) ?? null;
+      if (shown) {
+        const bt2 = isLive(bt) && typeof bt.move === 'function' ? bt.move(shown.move) : null;
+        s.vfx = {
+          at: step, shape: shapeOf(bt2), type: bt2?.t ?? 'normal',
+          toWild: shown.target === 'b',
+        };
+      }
       for (const strike of strikes) {
         if (strike.cause === 'item') hold += strike.use === 'revive' ? reviveSteps() : T.ITEM;
         if (config.showcase) continue;
@@ -605,6 +619,28 @@ export default {
         // not as two stills. The phase is the sim step, so a frozen frame is reproducible.
         moveWild({ y: at.y + Math.abs(Math.sin((step - T.APPEAR) / 9)) * 0.12, visible: true, scale: 1 });
         if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
+        /**
+         * **The blow, drawn between the two creatures that are standing there.**
+         *
+         * The endpoints are read at draw time rather than stored with the strike, because the
+         * party is paused but not frozen — it finishes the tile it was on — and an effect
+         * anchored to where somebody *was* a beat ago lands in the grass beside them.
+         */
+        if (s.vfx && step - s.vfx.at < T.STRIKE) {
+          const lead = isLive(ctx.get('simulation')) ? ctx.get('simulation').followerCell?.() : null;
+          const mine = lead
+            ? { x: lead.cx + 0.5, y: surfaceAt(lead.cx, lead.cz), z: lead.cz + 0.5 }
+            : { x: at.x, y: at.y, z: at.z + 2 };
+          const theirs = { x: at.x, y: at.y, z: at.z };
+          strikeVfx.play({
+            shape: s.vfx.shape, type: s.vfx.type,
+            from: s.vfx.toWild ? mine : theirs,
+            to: s.vfx.toWild ? theirs : mine,
+          });
+          strikeVfx.phase((step - s.vfx.at) / T.STRIKE);
+        } else {
+          strikeVfx.hide();
+        }
         s.stage = 'fight';
       } else if (step < m.throwAt) {
         // 1c. the beat in which a ball may be thrown — and, if none is, the exit.
@@ -680,9 +716,18 @@ export default {
       s.step++;
     }
 
+    /** The drawn top of a cell, measured where it can be and authored where it cannot. */
+    function surfaceAt(cx, cz) {
+      const sim = ctx.get('simulation');
+      const terrain = ctx.get('terrain');
+      if (isLive(sim) && Number.isFinite(sim.surfaceAt?.(cx, cz))) return sim.surfaceAt(cx, cz);
+      return terrain.height?.(cx, cz) ?? 0;
+    }
+
     function endScene() {
       clearWild();
       sprite.hide();
+      strikeVfx.hide();
       scene = null;
     }
 
@@ -1414,7 +1459,7 @@ export default {
        * Re-fits the airborne ball to the camera. Driven by the module's `frame` hook; see
        * `ball.js` `refit()` for why it cannot be done once at placement time.
        */
-      refit() { sprite.refit(); },
+      refit() { sprite.refit(); strikeVfx.refit(); },
 
       /** Resolves once the wild Pokemon's sprite is actually in the field. */
       ready: () => scene?.ready ?? Promise.resolve(0),
@@ -1605,6 +1650,7 @@ export default {
       },
 
       dispose() {
+        strikeVfx.dispose?.();
         for (const unhook of off) unhook?.();
         endScene();
         sprite.dispose();

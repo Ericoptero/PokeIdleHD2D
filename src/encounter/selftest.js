@@ -27,6 +27,7 @@ import {
   MATERIAL_FAMILIES, FAMILY_BY_TYPE, MAX_DROP_ROWS, SPECIES_DROPS,
 } from './drops.js';
 import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
+import { ELEMENT, elementOf, shapeOf } from './strikes.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
   streamFor, catchRateFor, levelBand, stepValue, rollAt, catchRoll,
@@ -430,7 +431,37 @@ export function runSelfTest({ species = null } = {}) {
     eq('every one of the eighteen types has a family', Object.keys(FAMILY_BY_TYPE).length, 18);
   }
 
-  // --- 22 the two rules a fight is settled by -------------------------------------
+  // --- 22 every move has a look, and it is derived -------------------------------
+  //
+  // 721 moves, twenty-one authored pieces: eighteen elemental palettes crossed with three
+  // delivery shapes. What is worth pinning is that the crossing is total — a move added to
+  // `moves.json` tomorrow must not fall through to nothing (DECISIONS #79).
+  {
+    eq('there are eighteen elemental looks', Object.keys(ELEMENT).length, 18);
+    check('every look has a core and an edge',
+      Object.values(ELEMENT).every((e) => /^#[0-9a-f]{6}$/i.test(e.C) && /^#[0-9a-f]{6}$/i.test(e.E)));
+    // The core carries the bloom and the edge sits under it. A palette whose edge is as bright
+    // as its core is the flat wash the first cut of the impact art was.
+    const lum = (h) => {
+      const n = parseInt(h.slice(1), 16);
+      return (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
+    };
+    check('every core is brighter than its own edge',
+      Object.entries(ELEMENT).every(([, e]) => lum(e.C) > lum(e.E)),
+      Object.entries(ELEMENT).filter(([, e]) => lum(e.C) <= lum(e.E)).map(([k]) => k).join(' '));
+
+    eq('a status move is a field glyph', shapeOf({ c: 0 }), 'field');
+    eq('a physical move is contact', shapeOf({ c: 1 }), 'contact');
+    eq('a special move travels', shapeOf({ c: 2 }), 'projectile');
+    // Never nothing: an unknown move still gets a look, because a move with no effect at all
+    // reads as a bug rather than as a design decision.
+    eq('an unknown move still has a shape', shapeOf(null), 'contact');
+    eq('and an unknown type still has a palette', elementOf('nonsense'), ELEMENT.normal);
+    check('every one of the eighteen types resolves to its own palette',
+      Object.keys(ELEMENT).every((t) => elementOf(t) === ELEMENT[t]));
+  }
+
+  // --- 23 the two rules a fight is settled by -------------------------------------
   //
   // Both are constants rather than settings, and both are the kind of thing a later change
   // would quietly relax: a second ball "so a rare one is not lost", a five per cent wipe

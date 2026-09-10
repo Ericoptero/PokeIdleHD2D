@@ -225,10 +225,14 @@ const PALETTES = {
  * stays the darkest thing on the sprite because an outline should be, the band is a clear
  * step above it and the ring a clear step above that. Only the outline is allowed to clip.
  */
-const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', w: '#ececeb', s: '#b0b3bb' };
+export const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', w: '#ececeb', s: '#b0b3bb' };
 
 /** Draws one 16x16 grid into a canvas at 1 texel per pixel. */
-function paint(art, palette, size) {
+/**
+ * Pixel art to a canvas. Exported so `strikes.js` builds its move effects the same way this
+ * file builds its ball — one grid, one palette swap, one nearest-filtered texture (#78).
+ */
+export function paint(art, palette, size) {
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
   const g = canvas.getContext('2d', { willReadFrequently: false });
@@ -247,7 +251,7 @@ function paint(art, palette, size) {
   return canvas;
 }
 
-function texture(THREE, canvas) {
+export function texture(THREE, canvas) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;

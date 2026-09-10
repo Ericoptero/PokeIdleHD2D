@@ -1,7 +1,7 @@
 {
   "updatedMs": 1789030000000,
   "seed": 1337,
-  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. A hunt walks a circuit that visits the places the biome composes, steps off it to reach the creature standing on a slot, and fights it there; there is one route and the showcases walk it too. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. Every species has its own drop table, derived from its typing and rarity and mirrored against the evolution bill; loot lands in a Stash and consumables in a Bag, two views of one Map with a Sell-Lock the automation obeys and the counter does not; and a run opens with FIELD_START_MONEY that is deliberately not 'earned'. Auto-Heal, Auto-Revive, Auto-Ether and Auto-Lead decide inside the fight from pure rules the fold runs too. and a panel configures all ten of them - the healing ladder edited in place, rules reordered with buttons. What is left of the brief is the move VFX - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
+  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. A hunt walks a circuit that visits the places the biome composes, steps off it to reach the creature standing on a slot, and fights it there; there is one route and the showcases walk it too. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. Every species has its own drop table, derived from its typing and rarity and mirrored against the evolution bill; loot lands in a Stash and consumables in a Bag, two views of one Map with a Sell-Lock the automation obeys and the counter does not; and a run opens with FIELD_START_MONEY that is deliberately not 'earned'. Auto-Heal, Auto-Revive, Auto-Ether and Auto-Lead decide inside the fight from pure rules the fold runs too. and a panel configures all ten of them - the healing ladder edited in place, rules reordered with buttons. and every move is drawn as its own element and delivery. The brief is implemented end to end; what is left is a tuning pass on how hard a hit reads - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
   "baseline": {
     "at": "2026-09-08",
     "size": "1920x1080",
@@ -46,6 +46,10 @@
     {
       "module": "economy",
       "what": "`pacing.js MEASURED` still projects the income model DECISIONS #69 deleted, and now also predates per-species drop tables and the \u20bd100,000 opening purse. The header (`pacing.js:22`) says the table is stale; it is staler."
+    },
+    {
+      "module": "encounter",
+      "what": "The move VFX read as a pale flash rather than a hit. The system is right \u2014 type palette x delivery shape, all 721 moves covered, phase-driven and freezable \u2014 but the impact is under-tuned against the grade: the first cut was a solid core that bloomed into a wash, and the outline-and-arms redraw that fixed that went too far the other way. It needs a contact sheet across noon/golden/night and an art pass, which is a thing to look at rather than guess at."
     }
   ],
   "modules": {
@@ -75,7 +79,7 @@
     },
     "encounter": {
       "status": "in tree, loads clean",
-      "openIssues": 1
+      "openIssues": 2
     },
     "environment": {
       "status": "in tree, loads clean",

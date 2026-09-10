@@ -631,6 +631,13 @@ emitting one **`battle:strike`** per blow. `active().battle.win` is therefore `n
 somebody faints, and every reader has to tell that from `false`: a fight in progress is not a
 fight that was lost.
 
+**A move has a look, and it is derived rather than authored.** `encounter/strikes.js` crosses
+**eighteen elemental palettes with three delivery shapes** — contact, projectile, field — read off
+the move record, so twenty-one authored pieces cover all 721 moves and one added tomorrow is
+covered tomorrow. Measured: 291 contact, 240 field, 190 projectile, zero unmapped types. Built the
+way `ball.js` is built (pixel-art grids, palette swap, `NearestFilter`), and every method takes a
+phase so a frozen frame is reproducible.
+
 **A ball is one per defeated wild.** `THROWS_PER_FAINT` is exported from this module and is a
 rule, not a setting — the pity ladder only measures anything while a throw costs a victory.
 

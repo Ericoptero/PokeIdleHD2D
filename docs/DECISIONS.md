@@ -586,3 +586,50 @@ and ignored until they were, which is the whitelist working and then being wrong
 trusted, because a save is a file a player can edit and a malformed ladder is a silent no-op at
 the moment a shiny appears. And `defaultSettings` deep-copies them: a shared object handed to a
 save is a default the player cannot edit — or worse, one they can edit for every save in the tab.
+
+---
+
+### 79 — 2026-09-10 — A move's look is eighteen palettes crossed with three deliveries, and four render bugs that all looked identical
+
+The brief asks for "modern, polished animations based on their move and elemental type" across a
+table of **721 moves**. The thing to author is therefore not 721 animations but the crossing:
+**eighteen elemental palettes × three delivery shapes** — contact, projectile, field — read off
+the move record so a move added to `moves.json` tomorrow is covered tomorrow. Measured over the
+shipped table: **291 contact, 240 field, 190 projectile, zero unmapped types.**
+
+**It lives in `encounter`** for the reason §5.17 gives: `battle` is arithmetic and holds no
+`three`, `ui` is a 2-D canvas, `pokemon/field.js` is the generic sprite instancer — and
+`encounter` already stages the duel *and* already ships 3-D pixel-art VFX in `ball.js`, whose
+helpers this file now shares rather than copies.
+
+**Four bugs, and the reason they cost so much is that every one of them looked the same.** An
+effect that is present, `visible: true`, positioned on the target, unculled, with a 16×16 texture
+carrying 128 painted pixels — and nothing on screen. Each was found by a different instrument, and
+listing them is the point of this entry:
+
+1. **`FrontSide`.** A `PlaneGeometry` faces +Z and this camera looks north and down, so an
+   un-rotated quad faces away. `ball.js` has carried `DoubleSide` since it was written.
+2. **Depth.** A creature sprite is an alpha-tested quad that *writes depth*, and an impact lands
+   on the same cell — at equal depth the sprite wins. The billboards are `depthTest: false` now;
+   the ground glyph keeps its test, because a ring on the floor *should* go behind a hill.
+3. **A material compiled without its map.** Created with `map: null`, three compiles a shader
+   with no `USE_MAP`; assigning `.map` afterwards left it drawing **flat white**. A control quad —
+   a plain magenta square added beside it — is what separated "the mesh pipeline is broken" from
+   "this material is". Materials are built *with* their texture now.
+4. **The screenshot itself.** The 350 ms settle before the shutter let `registry.tick` run on and
+   the effect expire; the sparkles that survived were the **shiny's shimmer from `ball.js`**, not
+   the strike. `encounter.freeze(true)` before the frame is the fix and is exactly what that
+   method exists for (DECISIONS #14).
+
+**The art, and the trap `ball.js` already recorded.** The first impact was a solid block of core
+colour and it read as a pale wash over the creature it landed on — because `bloomThreshold` is
+0.72 at noon and a shape whose *whole silhouette* clears it stops being a shape. It is outline and
+thin arms around a two-pixel core now, so the bloom has something small to catch and the dark
+outline keeps the form under it. `selftest.js` pins the property that follows: **every palette's
+core is brighter than its own edge.**
+
+**What this entry will not claim.** It reads as a *flash*, not yet as a *hit*. The redraw that
+killed the wash went too far the other way, and the honest next step is a contact sheet across
+noon, golden hour and night with somebody looking at it — not another blind tuning pass. That is
+filed on `encounter` rather than described here as finished, because "the gate cannot see
+composition" cuts both ways: it did not stop this landing and it will not tell anyone it is thin.
