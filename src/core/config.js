@@ -178,6 +178,27 @@ export const DEFAULTS = {
   slotEngageTiles: 2,
 
   /**
+   * How many fixed sim steps one exchange of a visible battle takes.
+   *
+   * A turn is both sides acting, so 24 steps is 1.2 s of wind-up, travel, impact and recovery
+   * for the pair — slow enough to read a move name and an effectiveness line, fast enough that
+   * an eight-turn fight is under twenty seconds and a lap still meets nine slots. It is counted
+   * in **sim steps and not seconds** because the screenshot harness freezes the clock, and a
+   * beat measured in wall time cannot be stopped on an exact frame (DECISIONS #14, #72).
+   */
+  turnSteps: 24,
+  /**
+   * How long the duel pauses while a revival item is used, in seconds.
+   *
+   * **Presentation, not a rule.** It is multiplied by 20 into sim steps for the watched fight
+   * and is exactly zero in a fold, because `idle` and `offline` have no wall clock — a revive
+   * costs the item and nothing else, in both paths, which is what keeps a replayed fight the
+   * same fight as the one that was watched (DECISIONS #72). `?reviveSeconds=0` gives the
+   * harness an instant one.
+   */
+  reviveSeconds: 5,
+
+  /**
    * How much of its maximum HP the party gets back for completing one lap of a hunt.
    *
    * Per LAP and not per second, because that is what survives being chunked: `offline` applies

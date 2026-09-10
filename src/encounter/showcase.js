@@ -677,7 +677,11 @@ function render(ctx, mode, staged) {
       ${e?.ivs ? ivRow(e.ivs) : ''}
       <div class="row"><span class="k">IV total</span><span class="v">${e?.ivTotal ?? 0} / 186 (${Math.round(((e?.ivTotal ?? 0) / 186) * 100)}%)</span></div>
       <div class="row"><span class="k">battle</span><span class="v">${e?.battle
-        ? `${e.battle.win ? 'party won' : 'party lost'} · ${e.battle.turns} turn${e.battle.turns === 1 ? '' : 's'}`
+        // **Three readings, not two.** A fight is stepped now (DECISIONS #72), so `win` is
+        // `null` until somebody faints — and printing that as "party lost" put a defeat in the
+        // readout beside a picture of a duel that had not started yet.
+        ? `${e.battle.win === null ? 'in progress' : e.battle.win ? 'party won' : 'party lost'}`
+          + ` · ${e.battle.turns} turn${e.battle.turns === 1 ? '' : 's'}`
           + `${e.battle.engine ? '' : ' (no engine)'} → wild HP ${pct(e.hpFraction)}`
         : '—'}</span></div>
     </section>

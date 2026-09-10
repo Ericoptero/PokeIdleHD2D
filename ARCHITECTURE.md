@@ -300,8 +300,10 @@ publish an event, one of them is in the wrong folder.
 | `slot:respawned` | `{ biome, slot, species, shiny }` | hunts |
 | `hunt:lap` | `{ biome, length }` | hunts |
 | `drop:collected` | `{ items: [{ id, n }], index }` | encounter |
-| `battle:started` | `{ index, ally, wild, moves }` | battle |
-| `battle:ended` | `{ index, won, turns, hpFraction }` | battle |
+| `battle:started` | `{ index, ally, wild, level, moves }` | encounter |
+| `battle:strike` | `{ index, turn, attacker, attackerSpecies, target, targetSpecies, move, name, struggle, damage, hits, effectiveness, crit, miss, immune, targetHp, targetMaxHp, status, fainted, cause }` | encounter |
+| `battle:ended` | `{ index, won, turns, hpFraction, allyHp, allyMaxHp, stalled }` | encounter |
+| `party:wiped` | `{ biome, index, moneyLost }` | encounter |
 | `pokemon:levelled` | `{ instanceId, from, to, learned }` | pokemon |
 | `pokemon:evolved` | `{ instanceId, from, to }` | pokemon |
 | `idle:tick` | `{ elapsedS, gains }` | idle |
@@ -531,13 +533,14 @@ because Showdown records it on the child and the game asks the opposite question
 
   grantExp(instanceId, n, { source }),   // -> { levelled, learned, pending }; NEVER evolves
   grantPartyExp(n, { source }), levelUp(instanceId),
-  firstConscious(),                      // the lead that can still fight (§5.6)
+  firstConscious(), conscious(),         // the lead that can still fight, and everyone who can
   instance(instanceId),
   canEvolve(instanceId),                 // -> the bill: { to, level, have, materials, missing, ready }
   evolutions(instanceId),                // -> every route this species has, each priced
   evolve(instanceId, { to }),            // -> { ok, why } — only ever called by a button
   refreshMoves(instanceId), setPriority(instanceId, moveIds),
-  heal(instanceId, { hp, status }), damage(instanceId, n),
+  heal(instanceId, { hp, status, revive }), revive(instanceId, { fraction }), reviveAll(),
+  restorePp(instanceId, { moveId, amount }), damage(instanceId, n),
   sprites.playEvolution({ actorId, from, to, shiny }),   // -> Promise; the flash
   saveState(), loadState(v)
 }
@@ -548,6 +551,11 @@ ivs, stats, maxHp, hp, moves: [{ id, pp, maxPp }] × 4, priority, status }`. Two
 
 - **`instanceId` is minted once and never recomputed.** It used to be built from the level,
   which changes the moment a Pokémon levels — and `collection` keys its bus intake off it.
+- **A heal never raises a fainted Pokemon, and a revive only raises one.** Until DECISIONS #72
+  `heal()` would happily take a 0 HP Oshawott to 20, which made a Potion a working Revive and
+  made "fainted Pokemon cannot participate" unenforceable — the first auto-heal rule would
+  resurrect whatever had just gone down. `{ revive: true }` is the Pokemon Center's escape
+  hatch and nothing else uses it.
 - **`grantExp` never evolves anything.** It reports `pending` — what the Pokémon would
   become, the level it needs, the materials it needs, how many of each the bag holds, and
   whether the button can be pressed. `evolve()` is the only path into an evolution and it is
@@ -615,9 +623,20 @@ There is no `battle()` accessor: the live encounter is `active()`, the one that 
 `last()`, and its turns are `transcript()`. Asking for a fight and asking for the encounter
 that contains it are different questions and were the same call for too long.
 
-**Battles are entered in real time and resolved turn by turn** (DECISIONS #61). `encounter`
-owns none of the combat maths; `battle` (§5.17) does, and the same `resolve()` drives the
-visible fight one turn at a time and the offline replay in a loop.
+**Battles are entered in real time and stepped turn by turn** (DECISIONS #61, #72). `encounter`
+owns none of the combat maths; `battle` (§5.17) does. `begin()` **opens** a fight — it does not
+run one — and `advanceScene()` steps `battle.stepper` once every `config.turnSteps` sim steps,
+emitting one **`battle:strike`** per blow. `active().battle.win` is therefore `null` until
+somebody faints, and every reader has to tell that from `false`: a fight in progress is not a
+fight that was lost.
+
+**A ball is one per defeated wild.** `THROWS_PER_FAINT` is exported from this module and is a
+rule, not a setting — the pity ladder only measures anything while a throw costs a victory.
+
+**A wiped party loses a tenth of the wallet and goes to the Pokémon Center.** This module pays
+(`WIPE_PENALTY`), heals, and emits `party:wiped`; it does **not** hop, because it is emitting
+from inside `tick()` and `travel.go()` is async and serialised behind `busy`. `travel` listens
+and does the hop on the next frame.
 
 **How an encounter starts depends on the place, the way the formation does (§0).** A scene the
 player *drives* rolls on a tall-grass step, as it always has. A scene walking a **loop path**
@@ -847,11 +866,20 @@ the card reads. It still lives in `PANELS`, and it **never opens over a panel th
 opened**, never opens in another module's showcase, and closes on `encounter:resolved`, which
 is the moment `active` is cleared and there is nothing left to read.
 
-It is a readout of a *finished* fight: `encounter.begin()` resolves the whole battle
-synchronously and keeps the transcript, and the ball-throw scene that follows is the animation
-of an outcome that already exists. Both HP bars, the status, the verdict, the last few
-transcript lines, and the **pity meter** for the species being fought — with the catch
-percentage shown only on a win, because `attempt()` refuses to throw at a fight that was lost.
+It is a **live** readout: the fight is stepped one turn at a time (DECISIONS #72), so the card
+reads the stepper's own state — both HP bars fall as the blows land, and the ally line follows
+whichever member is *currently* out rather than the party's lead, which is not written back
+until the last blow. The verdict has **three** values, not two: `Turn N` while `win` is `null`,
+then `Won in N` or `Lost after N`. THROW and RUN appear only on `win === true`, as does the
+catch percentage, because `attempt()` refuses a fight that is not yet won.
+
+**A move callout is text over a place in the world** (`ui/callout.js`), projected onto the same
+canvas through `ui.project(x, y, z)`. Under the orthographic camera that projection is exact and
+costs **zero draw calls**; its lifetime is counted in sim steps, so a frozen frame is
+reproducible. The trainer speaks for the party — which is what the brief asks in as many words,
+and what keeps the balloon off the Pokemon's own sprite — and the wild speaks for itself; the
+two lean apart because a sprite is two tiles tall on screen and a vertical stack always
+collides.
 
 **The evolution cutscene is the one thing here that is DOM and CSS rather than the canvas**
 (`ui/evolution.js`, DECISIONS #64), and the reason is concrete: a white silhouette is one
@@ -991,10 +1019,14 @@ its selftest run under plain Node.
   stats(baseStats, ivs, level),             // no EVs, no natures
 
   makeCombatant({ species, level, ivs, shiny, moves, hp, status }),
-  turn(state, seed, index, turnNo),         // ONE turn, pure
-  resolve(a, b, seed, index, { maxTurns }), // -> { winner, turns, a, b, hpFraction,
-                                            //      transcript[], ppSpent }
-  choose(self, foe, { priority }),          // best expected damage; respects PP and status
+  begin(a, b),                              // the opening state
+  turn(state, seed, index),                 // ONE turn, pure
+  stepper(a, b, seed, index, { maxTurns, between, nextAlly }),   // THE implementation
+  applyAction(state, action), MAX_BETWEEN,  // a heal / revive / ether between two turns
+  resolve(a, b, seed, index, opts),         // a drain of the stepper -> { winner, turns, a, b,
+                                            //   hpFraction, stalled, sent, transcript[] }
+  strikesOf(events, names), describeStrike(strike),   // one record per blow
+  choose(self, foe),                        // best expected damage; respects PP and status
 
   expYield(defeated, winnerLevel), expToLevel(growthRate, level),
   ready(), selfTest()
@@ -1010,10 +1042,22 @@ authored source, not fetched data — it has not moved since Gen 6.
 reordered by an optional per-Pokémon priority list the player controls. There is no per-turn
 menu; a hunt is watched, not steered (§0).
 
-**`turn()` and `resolve()` are the same code.** The visible fight calls `turn()` once every
-few sim steps so it can be animated and screenshotted; `offline` calls `resolve()` in a loop.
-One implementation of what a turn is, for the same reason §5.7 keeps one implementation of what
-a second is.
+**`stepper()` is the implementation and `resolve()` is a drain of it** (DECISIONS #72). The
+visible fight steps it once every `config.turnSteps` sim steps so it can be animated and
+screenshotted; `idle` and `offline` drain it. One implementation of what a turn is, for the same
+reason §5.7 keeps one implementation of what a second is — and one of what happens *between* two
+turns, because Auto-Heal, Auto-Ether and Auto-Revive act there and deplete a bag.
+
+**`between` and `nextAlly` may not draw randomness.** An item's effect is arithmetic, so
+inserting one between two turns cannot move the position of `root/battle/<index>/<turn>` — which
+is what lets a potion drunk in a watched fight be drunk in the same place by a replay. `battle`
+never sees a bag: every Action carries its item id and **the caller debits** (`encounter` through
+`economy.take`, the fold against its own carry).
+
+**An ally faint is not the end of a fight.** `turn()` calls it over the instant either side hits
+zero, which is right for the *turn* and wrong for the *duel*: a revive puts the same Pokemon back
+up and `nextAlly` sends out the next one. Only when neither answers is it over, so `winner: 'b'`
+means **the party ran out**.
 
 **Determinism.** Every roll is addressed by `(seed, encounterIndex, turn)` on
 `root/battle/<i>/<turn>` — never a continued stream. The draw order inside a turn is a

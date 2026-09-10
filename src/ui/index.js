@@ -20,6 +20,7 @@
 import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeToasts } from './toasts.js';
+import { makeCallouts } from './callout.js';
 import { makeInput } from './input.js';
 import { makeMenu } from './panels/menu.js';
 import { makeTravel } from './panels/travel.js';
@@ -64,6 +65,29 @@ export default {
     const screen = makeScreen({ root, view: ctx.three?.view, log });
     const hud = makeHud(ctx);
     const toasts = makeToasts({ frozen: !!config.showcase });
+    /** The lines shouted over a fight — `battle:strike` puts them there. */
+    const callouts = makeCallouts();
+
+    /**
+     * A world point on the HUD canvas, in internal pixels.
+     *
+     * The UI canvas is exactly the renderer's internal buffer (`screen.js`) and the camera is
+     * orthographic (§2.7), so this is a straight NDC map with **no depth divide** — which is
+     * what makes a balloon land on the same pixel grid as the sprite it is above rather than
+     * drifting a fraction of a pixel per frame the way a perspective projection would.
+     * Returns `null` for a point behind the camera, so a caller says nothing rather than
+     * clamping something to an edge it does not belong to.
+     */
+    function project(x, y, z) {
+      const three = ctx.three;
+      const cam = three?.camera;
+      if (!cam || typeof ctx.THREE?.Vector3 !== 'function') return null;
+      const v = new ctx.THREE.Vector3(x, y, z);
+      v.project(cam);
+      if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || v.z > 1) return null;
+      const [w, h] = three.view?.internalSize ?? [screen.width, screen.height];
+      return { x: (v.x * 0.5 + 0.5) * w, y: (1 - (v.y * 0.5 + 0.5)) * h };
+    }
 
     const state = {
       /** @type {object|null} */ panel: null,
@@ -154,6 +178,34 @@ export default {
     // ----------------------------------------------------------------- events
     const off = [
       bus.on('ui:toast', ({ text, kind }) => { toasts.push(text, kind); screen.markDirty(); }),
+      /**
+       * **The trainer calls the move out, and the wild answers.**
+       *
+       * One balloon per side, replaced rather than stacked. The ally's line hangs over the
+       * **trainer** and not over the Pokemon, which is what the brief asks for in as many words
+       * — and it is also what makes the picture work: in a hunt the Pokemon leads and the
+       * trainer follows two cells behind, so a balloon over the Pokemon lands across the
+       * trainer's face and a balloon over the trainer has clear sky above it. The wild's goes
+       * over the cell `encounter` staged it on.
+       */
+      bus.on('battle:strike', (s2) => {
+        if (minimal || config.showcase) return;
+        if (!s2?.name && !s2?.struggle) return;
+        const enc = ctx.get('encounter');
+        const sim = ctx.get('simulation');
+        const at = s2.attacker === 'b'
+          ? (isLive(enc) ? enc.scene?.()?.at : null)
+          : (isLive(sim) ? sim.player?.() : null);
+        if (!at) return;
+        const text = s2.struggle ? `${s2.attackerSpecies}: Struggle!` : `${s2.attackerSpecies}: ${s2.name}!`;
+        callouts.say({
+          text, side: s2.attacker ?? 'a',
+          x: at.cx + 0.5, z: at.cz + 0.5,
+          y: at.y ?? (isLive(sim) ? sim.surfaceAt?.(at.cx, at.cz) ?? 0 : 0),
+        });
+        screen.markDirty();
+      }),
+      bus.on('encounter:resolved', () => { callouts.clear(); screen.markDirty(); }),
       bus.on('economy:changed', () => screen.markDirty()),
       bus.on('collection:added', () => screen.markDirty()),
       bus.on('party:leadChanged', () => screen.markDirty()),
@@ -258,11 +310,19 @@ export default {
       const m = window.__HOOKS__?.metrics?.();
       if (!m) return;
       const down = (m.modules ?? []).filter((s) => s.status === 'failed' || s.status === 'blocked');
+      // **Who is stepping the hunt**, drawn rather than asserted. `encounter` and `idle` were
+      // both running the loop at once and nothing said so; a line in the overlay is a claim the
+      // harness photographs on every `?debug=1` capture (DECISIONS #72).
+      const idle = ctx.get('idle');
+      const driver = isLive(idle) && typeof idle.driver === 'function' ? idle.driver() : null;
+      const enc = ctx.get('encounter');
+      const fight = isLive(enc) && typeof enc.scene === 'function' ? enc.scene() : null;
       const lines = [
         `${m.fps?.mean ?? 0} fps   p95 ${m.fps?.p95ms ?? 0}ms`,
         `draws ${m.drawCalls}   tris ${Math.round((m.triangles ?? 0) / 1000)}k`,
         `${(m.internal ?? []).join('x')} -> ${(m.output ?? []).join('x')}`,
         `tod ${(m.tod ?? 0).toFixed(2)}   seed ${m.seed}`,
+        `driver ${driver ?? '-'}${fight?.fighting ? `   fighting t${fight.turns}` : ''}`,
         down.length ? `down: ${down.map((d) => d.id).join(' ')}` : `${(m.modules ?? []).length} modules ok`,
         (m.consoleErrors ?? []).length ? `${m.consoleErrors.length} console errors` : 'no console errors',
       ];
@@ -270,7 +330,7 @@ export default {
       const box = { x: g.width - w - 4, y: 32, w, h: lines.length * 9 + 6 };
       panel(g, box, { paper: C.wallLight });
       lines.forEach((l, i) => {
-        const bad = (i === 4 && down.length) || (i === 5 && (m.consoleErrors ?? []).length);
+        const bad = (i === 5 && down.length) || (i === 6 && (m.consoleErrors ?? []).length);
         g.text(box.x + 4, box.y + 4 + i * 9, l, bad ? C.roofShadow : C.shadowInk);
       });
     }
@@ -345,6 +405,8 @@ export default {
       if (state.panel?.id === 'offline') hud.drawWallet(g, s);
       // A menu opens over the bottom-right corner the toasts stack in; they step aside.
       const toastRight = state.panel?.id === 'menu' ? g.width - 150 : g.width - 6;
+      // Under the toasts and over the world: a callout belongs to a creature, not to the HUD.
+      callouts.draw(g, project);
       toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
       if (state.debug) drawDebug(g);
     }
@@ -355,6 +417,7 @@ export default {
       if (screen.resize()) screen.markDirty();
       input.frame();
       if (toasts.step(dt)) screen.markDirty();
+
       acc += dt;
       if (acc >= 0.2) {
         acc = 0;
@@ -403,6 +466,10 @@ export default {
       input,
       _screen: screen,
       _toasts: toasts,
+      _callouts: callouts,
+      _tick() { if (callouts.count() && callouts.tick(1)) screen.markDirty(); },
+      /** A world point on the HUD canvas, in internal pixels. Exact under the ortho camera. */
+      project,
       _frame: frame,
       _draw: draw,
       _state: state,
@@ -418,6 +485,17 @@ export default {
     };
     return live;
   },
+
+  /**
+   * A callout's life is counted in **sim steps**, so it is spent here and not in `frame`.
+   *
+   * Counted at render rate it would expire in wall-clock time — a fight stepped by the harness
+   * would lose its balloons between two `__HOOKS__.step()` calls even though no simulated time
+   * had passed, and a screenshot of turn three would be a different picture on a fast machine
+   * than on a slow one. Every other beat `encounter` owns is a count of `tick()` calls for
+   * exactly this reason (DECISIONS #14, #72).
+   */
+  tick() { live?._tick?.(); },
 
   frame(dt) { live?._frame(dt); },
 

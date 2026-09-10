@@ -213,6 +213,34 @@ export default {
     };
 
     /**
+     * A wiped party goes to the Pokémon Center, and `travel` is what takes it there.
+     *
+     * `encounter` pays the toll and heals the party, then emits `party:wiped` and stops — it
+     * cannot hop itself, because it is emitting from inside `tick()` and `go()` is async,
+     * serialised behind `busy`, and calls `encounter.cancel()` on the way in (DECISIONS #72).
+     * So the hop happens here, one turn of the event loop later, and a failure to hop costs the
+     * player a walk home rather than a wedged frame loop.
+     *
+     * The Center's door is a **marker on the city draft**, not a constant: `city/map.js` mints
+     * `<plot>-door` for every plot it places, so the target moves with the town rather than
+     * having to be kept in step with it by hand.
+     */
+    bus.on('party:wiped', () => {
+      if (config.showcase) return;              // a showcase stages a frame; it never travels
+      queueMicrotask(async () => {
+        try {
+          if (current?.id !== 'demo-city') await api.go('demo-city');
+          const terrain = ctx.get('terrain');
+          const door = isLive(terrain) ? terrain.draft?.()?.markers?.get('pokecenter-door') : null;
+          const sim = ctx.get('simulation');
+          if (door && isLive(sim) && typeof sim.teleport === 'function') sim.teleport(door.cx, door.cz, 2);
+        } catch (err) {
+          log.warn(`travel: could not take the wiped party home — ${err?.message ?? err}`);
+        }
+      });
+    });
+
+    /**
      * Hand the save seam to `offline` directly if it is already up.
      *
      * `offline` discovers its providers once, during its own `init`, so which modules get a

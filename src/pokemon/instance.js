@@ -220,11 +220,56 @@ export function evolveTo(inst, species, battle) {
   return { instanceId: inst.instanceId, from, to: species.name, learned };
 }
 
-/** Heals. `hp: 'full'` restores everything; a number restores that much. */
-export function heal(inst, { hp = 'full', status = true } = {}) {
+/**
+ * Heals. `hp: 'full'` restores everything; a number restores that much.
+ *
+ * **It refuses a fainted Pokemon, and that is a rule rather than a guard.** Until DECISIONS #72
+ * this function would happily take a 0 HP Oshawott to 20, which made a ₽200 Potion a working
+ * Revive — and it made "fainted Pokemon cannot participate in battles" unenforceable, because
+ * the first auto-heal rule would quietly resurrect whatever had just gone down. Raising a
+ * fainted Pokemon is `revive()` below, and nothing else.
+ *
+ * `revive: true` is the one caller that is allowed through: the Pokemon Center, which restores
+ * a wiped party in full.
+ */
+export function heal(inst, { hp = 'full', status = true, revive = false } = {}) {
+  if (inst.hp <= 0 && !revive) return inst.hp;
   inst.hp = hp === 'full' ? inst.maxHp : Math.min(inst.maxHp, inst.hp + Math.max(0, hp));
   if (status) { inst.status = null; inst.sleepTurns = 0; inst.toxicTurns = 0; }
   return inst.hp;
+}
+
+/**
+ * Raises a fainted Pokemon to a fraction of its maximum, and refuses a conscious one.
+ *
+ * The refusal is what stops an auto-revive list burning its scarcest item on a scratch: a
+ * Revive is legal at 0 HP and illegal anywhere else, exactly as the games have it.
+ */
+export function revive(inst, { fraction = 0.5 } = {}) {
+  if (inst.hp > 0) return inst.hp;
+  const f = Math.min(1, Math.max(0, Number(fraction) || 0));
+  inst.hp = Math.max(1, Math.round(inst.maxHp * f));
+  inst.status = null;
+  inst.sleepTurns = 0;
+  inst.toxicTurns = 0;
+  return inst.hp;
+}
+
+/**
+ * Puts PP back into one move slot, or into the emptiest one when no move is named.
+ *
+ * The emptiest-slot fallback is what Auto-Ether wants: the brief watches "the PP percentage of
+ * the highest-priority move", and the caller that knows which move that is passes its id — but
+ * a player pressing ETHER with nothing selected means "the one that ran out".
+ */
+export function restorePp(inst, { moveId = null, amount = 10 } = {}) {
+  const slots = inst.moves ?? [];
+  const slot = (moveId ? slots.find((m) => m.id === moveId) : null)
+    ?? [...slots].sort((x, y) => (x.pp / Math.max(1, x.maxPp)) - (y.pp / Math.max(1, y.maxPp)))[0];
+  if (!slot) return 0;
+  const before = slot.pp;
+  slot.pp = amount === 'full' ? slot.maxPp : Math.min(slot.maxPp, slot.pp + Math.max(0, Math.floor(amount) || 0));
+  return slot.pp - before;
 }
 
 /** Hurts. Never below zero; fainting is `hp === 0` and nothing else. */

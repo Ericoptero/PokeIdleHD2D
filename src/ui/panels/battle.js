@@ -66,8 +66,14 @@ export const STATUS_NAME = {
  * transcript is on `encounter.transcript()` for anyone who wants all of it.
  */
 export function lineFor(ev, names) {
-  const who = names[ev.actor] ?? titleCase(ev.species ?? '');
-  const foe = ev.actor === 'a' ? names.b : names.a;
+  // **The event's own species wins over the side's name.** A duel swaps a fainted member out
+  // mid-fight now (DECISIONS #72), so `names.a` is whoever is standing there *at paint time* —
+  // and reading it for a move made three turns ago credited Oshawott's Tackle to the Snivy that
+  // replaced it. Every event that uses `who` carries the actor in `species`; every event that
+  // uses `foe` carries the victim in it. `names` stays as the fallback for a staged record that
+  // has no species on its events.
+  const who = titleCase(ev.species ?? '') || names[ev.actor] || '';
+  const foe = titleCase(ev.species ?? '') || (ev.actor === 'a' ? names.b : names.a) || '';
   switch (ev.kind) {
     case 'move': return { text: `${who} used ${ev.name}`, ink: C.ink, move: true };
     case 'damage': {
@@ -121,13 +127,39 @@ export function makeBattle(app) {
     if (isLive(bt) && typeof bt.stats === 'function' && active.sheet?.baseStats) {
       wildMax = bt.stats(active.sheet.baseStats, active.ivs ?? {}, active.level).hp;
     }
-    const frac = Math.max(0, Math.min(1, Number(active.hpFraction) || 0));
+    /**
+     * **The card reads the live fight, not the party record.**
+     *
+     * A duel is stepped one turn at a time now (DECISIONS #72), and the HP and PP it costs are
+     * written back through `pokemon` only when the last blow lands — so reading `pokemon.lead()`
+     * mid-fight draws two full bars under a transcript that says somebody fainted. The stepper's
+     * own state is the authority while the fight is running, and it also knows which member is
+     * *currently* out, which the party's lead does not until the encounter resolves.
+     */
+    const st = active.duel?.engine ? active.duel.run?.state : null;
+    const fighting = active.battle.win === null;
+    const side = st?.a ?? null;
+
+    const frac = st
+      ? (st.b.maxHp > 0 ? st.b.hp / st.b.maxHp : 1)
+      : Math.max(0, Math.min(1, Number(active.hpFraction) || 0));
 
     return {
-      won: !!active.battle.win,
+      // `null` while the duel is being stepped, and every reader has to tell that from `false`:
+      // a fight in progress is not a fight that was lost.
+      won: active.battle.win === null ? null : !!active.battle.win,
+      fighting,
       turns: active.battle.turns ?? 0,
       transcript: active.battle.transcript ?? [],
-      ally: lead ? {
+      ally: side ? {
+        display: titleCase(side.display ?? side.species),
+        level: side.level ?? 1,
+        shiny: !!side.shiny,
+        hp: Math.max(0, side.hp ?? 0),
+        maxHp: Math.max(1, side.maxHp ?? 1),
+        status: side.status ?? null,
+        moves: side.moves ?? [],
+      } : (lead ? {
         display: app.hud.displayName(lead.species),
         level: lead.level ?? 1,
         shiny: !!lead.shiny,
@@ -135,16 +167,17 @@ export function makeBattle(app) {
         maxHp: Math.max(1, lead.maxHp ?? 1),
         status: lead.status ?? null,
         moves: lead.moves ?? [],
-      } : null,
+      } : null),
       wild: {
         species: active.species,
         display: titleCase(active.display ?? active.species),
         level: active.level ?? 1,
         shiny: !!active.shiny,
         types: active.sheet?.types ?? [],
-        hp: Math.round(wildMax * frac),
-        maxHp: wildMax,
+        hp: st ? Math.max(0, st.b.hp) : Math.round(wildMax * frac),
+        maxHp: st ? Math.max(1, st.b.maxHp) : wildMax,
         frac,
+        status: st?.b?.status ?? null,
       },
       ball: typeof enc.ball === 'function' ? enc.ball() : null,
       odds: typeof enc.oddsFor === 'function' ? enc.oddsFor(enc.ball?.()) : 0,
@@ -251,7 +284,7 @@ export function makeBattle(app) {
       // paper under a short fight and clip a long one.
       const ROW = 9;
       const blockH = (who, extra) => 17 + (who?.status ? ROW : 0) + extra;
-      const buttons = !!b.won;
+      const buttons = b.won === true;
       const h = 8                                        // the panel's own padding
         + blockH(b.wild, b.wild.types.length ? ROW : 0)
         + 2 + (b.ally ? blockH(b.ally, 0) : 0)
@@ -314,8 +347,13 @@ export function makeBattle(app) {
       // --- the verdict --------------------------------------------------------
       g.fill(x, y, barW, 1, C.wallDeep);
       y += 3;
-      g.text(x, y, b.won ? `Won in ${b.turns} turn${b.turns === 1 ? '' : 's'}` : `Lost after ${b.turns}`,
-        b.won ? C.ink : C.roofBase);
+      // **Three verdicts, not two.** A duel is stepped now, so `won` is `null` until somebody
+      // faints — and rendering that as "Lost after 3" put a defeat on screen in the middle of a
+      // fight the party went on to win (DECISIONS #72).
+      g.text(x, y,
+        b.won === null ? `Turn ${Math.max(1, b.turns)}`
+          : b.won ? `Won in ${b.turns} turn${b.turns === 1 ? '' : 's'}` : `Lost after ${b.turns}`,
+        b.won === null ? C.glowBase : b.won ? C.ink : C.roofBase);
       y += 10;
 
       // --- the last few lines of the transcript -------------------------------
@@ -355,7 +393,7 @@ export function makeBattle(app) {
         // (DECISIONS #67), so a catch percentage under "Lost after 1" is a number for a throw
         // the game will not accept. The meter itself stays: what has been spent on this
         // species is true either way.
-        if (b.won && b.odds > 0) g.textRight(right, y, `${Math.round(b.odds * 100)}%`, C.ink);
+        if (b.won === true && b.odds > 0) g.textRight(right, y, `${Math.round(b.odds * 100)}%`, C.ink);
         y += 9;
       }
 

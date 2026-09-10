@@ -57,6 +57,27 @@ import {
 import { runSelfTest, summarise } from './selftest.js';
 import { reportSelfTest } from '../core/log.js';
 
+/**
+ * How many balls may be thrown at one defeated wild.
+ *
+ * **One, and it is a rule rather than a setting** (DECISIONS #72). The pity ledger is what
+ * closes a grind out — spend 125% of a species' price and the next throw is certain — and that
+ * only means anything if a throw costs a *victory*. A configurable number here would let a full
+ * bag substitute for the fight, and the ladder `economy/pricing.js` is anchored to would stop
+ * measuring anything.
+ */
+export const THROWS_PER_FAINT = 1;
+
+/**
+ * What a total party wipe costs, as a fraction of the wallet.
+ *
+ * A tenth, and it is the only way money leaves the game other than the shop — so it is the one
+ * thing that makes a hunt a risk rather than a slower clock. Taken from the balance at the
+ * moment of the wipe, which is exact: nothing accrues currency, so there is never an amount in
+ * flight to disagree with (ARCHITECTURE §0, DECISIONS #72).
+ */
+export const WIPE_PENALTY = 0.10;
+
 /** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
 const SAVE_VERSION = 1;
 
@@ -83,6 +104,17 @@ const T = {
    * inside it and `mode=reveal` (0.62) is unambiguously past it.
    */
   RUSTLE: 0.4,
+  /**
+   * The duel's own beats, in sim steps. `TURN` is overridden by `config.turnSteps`.
+   *
+   * A fight is no longer a number computed before the animation starts (DECISIONS #72): the
+   * scene steps `battle.stepper` one turn at a time and these are how long each beat holds.
+   * `VICTORY` is the pause on the last blow before the throw window opens, which is what makes
+   * the faint read as an ending rather than as a cut.
+   */
+  TURN: 24,
+  ITEM: 16,        // a potion or an ether, mid-duel
+  VICTORY: 12,
   READY: 8,        // a beat, during which a player (or `automation`) may throw
   /**
    * How long the wild waits after that before the party settles it and it leaves.
@@ -114,11 +146,17 @@ export default {
    * Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6).
    *
    * `simulation` walks the party into the grass and `collection` records what comes out of
-   * it — both are the point of the shot. `idle` and `automation` are deliberately absent:
-   * `idle`'s heartbeat would bank money into the readout between the settle and the shutter,
-   * and `automation` would throw its own ball at the encounter this scene is staging.
+   * it — both are the point of the shot. **`battle` joins them in DECISIONS #72**: the fight is
+   * stepped on screen now, and without the engine this scene photographed the degraded path and
+   * printed "0 turns (no engine)" beside a picture of a duel that never happened. It is in
+   * `showcaseNeeds` and still not in `needs`, which is the whole distinction — a quarantined
+   * engine must cost the game its combat and not its encounters (§5.6).
+   *
+   * `idle` and `automation` are deliberately absent: `idle`'s heartbeat would bank money into
+   * the readout between the settle and the shutter, and `automation` would throw its own ball
+   * at the encounter this scene is staging.
    */
-  showcaseNeeds: ['simulation', 'collection'],
+  showcaseNeeds: ['simulation', 'collection', 'battle'],
 
   init(ctx) {
     const { bus, config, log } = ctx;
@@ -380,15 +418,119 @@ export default {
      * simply plays out.
      */
     function marks(s) {
-      const throwAt = Math.max(T.APPEAR + T.READY, s.throwAt ?? Infinity);
+      // **The throw window opens when the fight ends, and not before.** `fightEndsAt` is
+      // `Infinity` while turns are still being stepped, which makes every mark below infinite
+      // too — so a queued throw simply waits, exactly as it already waited out the reveal.
+      const ready = s.fightEndsAt + T.READY;
+      const throwAt = Math.max(ready, s.throwAt ?? Infinity);
       // Finite only while no throw has been queued: an order to throw cancels the exit by
       // construction, rather than by a flag that could fall out of step with it.
-      const leaveAt = Number.isFinite(throwAt) ? Infinity : T.APPEAR + T.READY + T.LEAVE;
+      const leaveAt = Number.isFinite(throwAt) ? Infinity : ready + T.LEAVE;
       const land = throwAt + T.THROW;
       const suck = land + T.SUCK;
       const shakeEnd = suck + Math.max(0, s.shakes) * T.SHAKE;
       const resultEnd = shakeEnd + T.RESULT;
       return { throwAt, leaveAt, land, suck, shakeEnd, resultEnd, end: resultEnd + T.LINGER };
+    }
+
+    /**
+     * One exchange of the live duel, and the beats it is worth.
+     *
+     * Returns how many sim steps to hold before the next turn — `T.TURN` for an ordinary
+     * exchange, plus `T.ITEM` for each item used and `config.reviveSeconds` for a revival, which
+     * is the brief's "using a revival item pauses the duel temporarily". **Those beats are
+     * presentation and nothing else**: in a fold there is no wall clock and a revive costs the
+     * item alone, which is what keeps a replayed fight the same fight as the watched one.
+     *
+     * Every blow goes out as `battle:strike` (§4). It is emitted here and never from `idle` or
+     * `offline`, for the same reason the HP writeback is off in a replay: a battle nobody was
+     * watching must not flood the bus spy that a screenshot's JSON records.
+     */
+    function stepDuel(step) {
+      const s = scene;
+      const enc = active;
+      if (!s || !enc?.duel?.engine) { if (s) endFight(step); return T.TURN; }
+      const { run } = enc.duel;
+      if (run.over) { endFight(step); return T.TURN; }
+
+      const out = run.step();
+      const bt = ctx.get('battle');
+      const names = { a: enc.duel.ally.display ?? enc.duel.ally.species, b: enc.display ?? enc.species };
+      const strikes = (isLive(bt) && typeof bt.strikesOf === 'function')
+        ? bt.strikesOf(out.events, names) : [];
+
+      enc.battle.turns = run.state.turn;
+      enc.battle.transcript.push(...out.events);
+      s.strikes = strikes;
+      s.turnsSeen++;
+
+      let hold = T.TURN;
+      for (const strike of strikes) {
+        if (strike.cause === 'item') hold += strike.use === 'revive' ? reviveSteps() : T.ITEM;
+        if (config.showcase) continue;
+        bus.emit('battle:strike', {
+          index: enc.index, turn: strike.turn,
+          attacker: strike.attacker, attackerSpecies: strike.attackerSpecies,
+          target: strike.target, targetSpecies: strike.targetSpecies,
+          move: strike.move, name: strike.name, struggle: strike.struggle,
+          damage: strike.damage, hits: strike.hits, effectiveness: strike.effectiveness,
+          crit: strike.crit, miss: strike.miss, immune: strike.immune,
+          targetHp: strike.targetHp, targetMaxHp: strike.targetMaxHp,
+          status: strike.status, fainted: strike.fainted, cause: strike.cause,
+        });
+      }
+
+      if (run.over) endFight(step + hold);
+      return hold;
+    }
+
+    /** `config.reviveSeconds` in sim steps. Zero seconds is an instant revive, for the harness. */
+    const reviveSteps = () => Math.max(0, Math.round((config.reviveSeconds ?? 5) * 20));
+
+    /**
+     * The fight is over: settle it, pay what it cost, and open the throw window.
+     *
+     * The writeback and the `battle:ended` emit both live here rather than in `resolve()`,
+     * because a player may spend several seconds deciding whether to throw and the party bar
+     * must already show what the fight did to it.
+     */
+    function endFight(at) {
+      const s = scene;
+      const enc = active;
+      if (!s || Number.isFinite(s.fightEndsAt)) return;
+      s.fightEndsAt = at + T.VICTORY;
+      if (!enc) return;
+
+      const duel = enc.duel;
+      if (duel?.engine) {
+        const st = duel.run.state;
+        const won = st.over ? st.winner === 'a' : st.a.hp / st.a.maxHp >= st.b.hp / st.b.maxHp;
+        enc.battle.win = won;
+        enc.battle.turns = st.turn;
+        enc.battle.stalled = !st.over;
+        enc.battle.allyHp = st.a.hp;
+        enc.battle.allyMaxHp = st.a.maxHp;
+        enc.battle.sent = duel.run.sent;
+        // The wild's HP as a fraction, which is what `economy.catchOdds` wants. A won fight
+        // leaves it at 0, which the formula clamps to 0.01 — the maximum HP bonus (#61(i)).
+        enc.hpFraction = st.b.maxHp > 0 ? st.b.hp / st.b.maxHp : 1;
+        enc.battle.hpFraction = enc.hpFraction;
+        // **The status the fight actually inflicted**, which `attempt()` used to throw away by
+        // hard-coding `'none'` — so the 2.5x sleep and 1.5x paralysis bonuses in `catchOdds`
+        // were unreachable from the one place a ball is ever thrown.
+        enc.wildStatus = st.b.status ?? 'none';
+        writeBack(duel);
+      } else {
+        enc.battle.win = duel?.win ?? false;
+        enc.hpFraction = enc.battle.hpFraction;
+      }
+      last = { ...last, ...enc, battle: enc.battle, hpFraction: enc.hpFraction };
+
+      bus.emit('battle:ended', {
+        index: enc.index, won: !!enc.battle.win, turns: enc.battle.turns,
+        hpFraction: enc.hpFraction, allyHp: enc.battle.allyHp ?? null,
+        allyMaxHp: enc.battle.allyMaxHp ?? null, stalled: !!enc.battle.stalled,
+      });
     }
 
     /** One sim step of the on-screen moment. Pure function of `scene.step`. */
@@ -446,8 +588,22 @@ export default {
         if (s.shiny && out > 0) sprite.shimmer(at, step); else sprite.rustle(at, k);
         if (out > 0) sprite.alert(at, alertPhase(s, step), at.y + hop + s.headLift);
         s.stage = 'appear';
+      } else if (!Number.isFinite(s.fightEndsAt)) {
+        // 1b. **the fight, one turn every `T.TURN` steps.**
+        //
+        // This is the beat the whole of DECISIONS #72 is about. `begin()` used to resolve the
+        // battle before the wild had finished coming out of the grass, and the card that
+        // followed was a readout of something already over. Now the stepper is driven from
+        // here, one exchange at a time, and every blow it produces goes out on the bus as a
+        // `battle:strike` so the VFX, the callout and the card all read one seam.
+        if (step >= s.nextTurnAt) s.nextTurnAt = step + stepDuel(step);
+        // The wild squares up: a slow breath in place, so a fight reads as two creatures and
+        // not as two stills. The phase is the sim step, so a frozen frame is reproducible.
+        moveWild({ y: at.y + Math.abs(Math.sin((step - T.APPEAR) / 9)) * 0.12, visible: true, scale: 1 });
+        if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
+        s.stage = 'fight';
       } else if (step < m.throwAt) {
-        // 1b. the beat in which a ball may be thrown — and, if none is, the exit.
+        // 1c. the beat in which a ball may be thrown — and, if none is, the exit.
         //
         // `m.leaveAt` is finite only while `throwAt` is not, so a queued throw cancels the
         // exit by construction rather than by a flag that could get out of step with it.
@@ -603,80 +759,126 @@ export default {
     }
 
     /**
-     * The fight itself, run by `battle` (§5.17).
+     * Opens a fight and hands back the stepper that runs it, one turn at a time.
      *
-     * This replaces `rolls.resolveBattle` — eleven lines that compared two levels and rolled a
-     * coin — with a real turn engine: four moves with PP, the type chart, criticals, statuses
-     * and stat stages (DECISIONS #67). The engine is pure and index-addressed, so the same
-     * `(seed, index)` gives the same fight live, backgrounded and on a closed-tab replay.
+     * This replaced a synchronous `battle.resolve()` (DECISIONS #72). The whole exchange used
+     * to be decided inside `begin()`, before a single frame was drawn, and the battle card was
+     * a readout of something that had already happened — which is why nothing in the game ever
+     * called `battle.turn()`, published and pure though it was. Now the scene steps it on a sim
+     * cadence, so the player watches the fight the offline replay would have run.
+     *
+     * `between` and `nextAlly` are the two hooks that make an ally faint non-terminal: the
+     * first is where Auto-Heal, Auto-Ether and Auto-Revive land (Phase D fills it in), and the
+     * second sends out the next party member. Neither may draw randomness — see the header of
+     * `battle/engine.js`.
      *
      * Degrades rather than throws. A quarantined `battle` costs the game its combat, not its
      * encounters: the wild appears, the exchange is a walkover for whoever has the higher
-     * level, and the module's own animation and catch flow are untouched.
+     * level, and this module's animation and catch flow are untouched.
      */
-    function fight(lead, enc, { apply = true } = {}) {
+    function openDuel(lead, enc) {
       const bt = ctx.get('battle');
       const pokemon = ctx.get('pokemon');
-      if (!isLive(bt) || typeof bt.resolve !== 'function' || !isLive(pokemon)) {
-        const win = (lead?.level ?? topLevel()) >= (enc.level ?? 5);
-        return { win, hpFraction: win ? 0 : 1, turns: 0, transcript: [], engine: false };
+      const walkover = (win) => ({
+        engine: false, run: null, ally: null, wild: null,
+        win, turns: 0, transcript: [], hpFraction: win ? 0 : 1, fought: [],
+      });
+      if (!isLive(bt) || typeof bt.stepper !== 'function' || !isLive(pokemon)) {
+        return walkover((lead?.level ?? topLevel()) >= (enc.level ?? 5));
       }
       const wildSpecies = enc.sheet ?? pokemon.species(enc.species);
-      if (!lead || !wildSpecies) {
-        return { win: false, hpFraction: 1, turns: 0, transcript: [], engine: false };
-      }
+      if (!lead || !wildSpecies) return walkover(false);
 
-      const ally = bt.makeCombatant({
-        species: lead.species, level: lead.level, ivs: lead.ivs, shiny: lead.shiny,
+      const combatantOf = (m) => bt.makeCombatant({
+        species: m.species, level: m.level, ivs: m.ivs, shiny: m.shiny,
         // The party's REAL moves, PP and current HP — a fight that started from full health
-        // every time would make the per-lap heal (§5.7) and the whole idea of attrition
-        // meaningless.
-        moves: lead.moves?.length ? lead.moves.map((m) => ({ ...m })) : undefined,
-        hp: lead.hp, status: lead.status, instanceId: lead.instanceId,
+        // every time would make attrition, and the items that answer it, meaningless.
+        moves: m.moves?.length ? m.moves.map((x) => ({ ...x })) : undefined,
+        hp: m.hp, status: m.status, instanceId: m.instanceId,
       });
+
+      const ally = combatantOf(lead);
       const wild = bt.makeCombatant({
         species: wildSpecies, level: enc.level, ivs: enc.ivs, shiny: enc.shiny,
       });
 
-      // **`apply` is what keeps `autoResolve` a pure probe** (§5.6 has always called it "a
-      // pure function of state and seed"). `encounter/showcase.js findIndex` runs it up to
-      // four hundred times to search the index space for an encounter worth photographing;
-      // with the writeback and the bus emits on, that scan hospitalised the party and flooded
-      // the spy ring, and the showcase then hung waiting for a `begin()` that refused because
-      // nothing was conscious. A probe reads the world; it does not change it.
-      if (apply) {
-        bus.emit('battle:started', {
-          index: enc.index, ally: ally.species, wild: wild.species, level: enc.level,
-          moves: ally.moves.map((m) => m.id),
-        });
+      /**
+       * Everyone who has actually stood in the fight, so the writeback covers a swapped-in
+       * member and not only the one that started. Keyed by `instanceId`, because that is the
+       * one field on an instance that is minted once and never recomputed (§5.5).
+       */
+      const fought = [ally];
+      const sent = new Set([lead.instanceId]);
+
+      /**
+       * The next party member that can still fight. Party order for now; DECISIONS #72 puts
+       * the matchup rule behind the same hook, so Auto-Lead replaces this function and nothing
+       * else moves.
+       */
+      function nextAlly() {
+        if (typeof pokemon.conscious !== 'function') return null;
+        const who = pokemon.conscious().find((m) => !sent.has(m.instanceId));
+        if (!who) return null;
+        sent.add(who.instanceId);
+        const c = combatantOf(who);
+        fought.push(c);
+        return c;
       }
 
-      const out = bt.resolve(ally, wild, seed, enc.index);
-      const win = out.winner === 'a';
+      const run = bt.stepper(ally, wild, seed, enc.index, { nextAlly });
+      return { engine: true, run, ally, wild, fought, win: null, turns: 0, transcript: [], hpFraction: 1 };
+    }
 
-      // What the fight cost, applied through `pokemon`'s published API. The ledger of HP and
-      // PP belongs to the creature's owner, not to the module that staged the encounter.
-      if (apply && typeof pokemon.damage === 'function' && lead.instanceId) {
-        const lost = Math.max(0, ally.maxHp - out.a.hp) - Math.max(0, ally.maxHp - (lead.hp ?? ally.maxHp));
-        if (lost > 0) pokemon.damage(lead.instanceId, lost);
-      }
-      if (apply && Array.isArray(lead.moves)) {
-        for (const slot of lead.moves) {
-          const spent = out.a.moves.find((m) => m.id === slot.id);
-          if (spent) slot.pp = Math.max(0, Math.min(slot.pp, spent.pp));
+    /**
+     * Writes back what the fight cost, through `pokemon`'s published API.
+     *
+     * The ledger of HP and PP belongs to the creature's owner, not to the module that staged
+     * the encounter — and it covers **every member that was sent out**, not just the lead, now
+     * that a faint swaps rather than ending the duel.
+     */
+    function writeBack(duel) {
+      const pokemon = ctx.get('pokemon');
+      if (!duel?.engine || !isLive(pokemon)) return;
+      const party = typeof pokemon.party === 'function' ? pokemon.party() : [];
+      for (const c of duel.fought ?? []) {
+        const inst = party.find((m) => m.instanceId === c.instanceId);
+        if (!inst) continue;
+        const lost = Math.max(0, inst.hp - c.hp);
+        if (lost > 0 && typeof pokemon.damage === 'function') pokemon.damage(inst.instanceId, lost);
+        else if (c.hp > inst.hp && typeof pokemon.heal === 'function') {
+          // An item was used mid-fight. Heal by the difference rather than setting HP, so the
+          // instance stays the authority on its own maximum.
+          pokemon.heal(inst.instanceId, { hp: c.hp - inst.hp, status: false, revive: c.hp > 0 && inst.hp <= 0 });
         }
+        if (Array.isArray(inst.moves)) {
+          for (const slot of inst.moves) {
+            const spent = c.moves.find((m) => m.id === slot.id);
+            if (spent) slot.pp = Math.max(0, Math.min(slot.maxPp ?? spent.maxPp, spent.pp));
+          }
+        }
+        if (c.status !== undefined) inst.status = c.status;
       }
+    }
 
-      if (apply) {
-        bus.emit('battle:ended', {
-          index: enc.index, won: win, turns: out.turns, hpFraction: out.hpFraction,
-          allyHp: out.a.hp, allyMaxHp: out.a.maxHp, stalled: out.stalled,
-        });
-      }
-
+    /**
+     * Runs a whole fight in one call, for the callers that cannot watch one.
+     *
+     * `autoResolve` uses it as a **pure probe** — `encounter/showcase.js findIndex` runs it up
+     * to four hundred times to search the index space for an encounter worth photographing, and
+     * a probe reads the world without changing it. So this never writes back and never emits.
+     */
+    function resolveFight(lead, enc) {
+      const duel = openDuel(lead, enc);
+      if (!duel.engine) return duel;
+      while (!duel.run.over) duel.run.step();
+      const st = duel.run.state;
+      const over = st.over;
       return {
-        win, hpFraction: out.hpFraction, turns: out.turns,
-        transcript: out.transcript, engine: true, allyHp: out.a.hp,
+        ...duel,
+        win: over ? st.winner === 'a' : st.a.hp / st.a.maxHp >= st.b.hp / st.b.maxHp,
+        turns: st.turn,
+        hpFraction: st.b.maxHp > 0 ? st.b.hp / st.b.maxHp : 1,
+        transcript: [],
       };
     }
 
@@ -691,21 +893,42 @@ export default {
       endScene();
 
       const lead = leadOf();
-      const battle = fight(lead, enc);
+      // **The fight is opened, not run.** `battle.stepper` is stepped one turn at a time by
+      // `advanceScene` below, so the player watches the exchange rather than reading its
+      // result (DECISIONS #72). `win` is `null` until somebody faints, and every reader has to
+      // treat that as "not decided yet" — `attempt()` in particular refuses on anything that
+      // is not `true`.
+      const duel = openDuel(lead, enc);
       active = {
         ...enc,
-        battle,
-        hpFraction: battle.hpFraction,
+        duel,
+        battle: {
+          engine: duel.engine, win: duel.engine ? null : duel.win,
+          turns: 0, transcript: [], hpFraction: duel.hpFraction,
+          ally: duel.ally?.species ?? lead?.species?.name ?? null,
+        },
+        hpFraction: duel.hpFraction,
         turn: 0,
         startedAt: Number(ctx.clock?.simTime ?? 0),
       };
       last = { ...active, outcome: null, ball: null, odds: null, roll: null };
+
+      if (duel.engine) {
+        bus.emit('battle:started', {
+          index: enc.index, ally: duel.ally.species, wild: duel.wild.species, level: enc.level,
+          moves: duel.ally.moves.map((m) => m.id),
+        });
+      }
 
       const at = stageCell();
       const sim = ctx.get('simulation');
       const trainer = isLive(sim) ? sim.player?.() : null;
       scene = {
         step: 0, stage: 'appear', at, wildActor: 0, coverY: coverHeightAt(at.cx, at.cz),
+        // The duel's clock. `nextTurnAt` is when the next exchange steps; `fightEndsAt` stays
+        // `Infinity` until somebody faints, which is what `marks()` reads to know whether the
+        // throw window has opened yet.
+        nextTurnAt: T.APPEAR + T.TURN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
         from: {
           x: (trainer?.cx ?? at.cx) + 0.5,
           y: at.y + 1.1,
@@ -773,8 +996,16 @@ export default {
       // you get to throw at. `automation` moved onto `battle:ended` for this reason — a
       // subscription still firing on `encounter:started` would get `false` forever and its
       // auto-catch would die with no console error at all.
-      if (active && active.battle && active.battle.win === false) return false;
+      // **A ball is illegal until the wild is beaten** (§5.6, DECISIONS #67). `win` is `null`
+      // while the duel is still being stepped (DECISIONS #72), so the test is `!== true` and
+      // not `=== false`: a fight in progress is not a fight that was won.
       if (!active) return false;
+      if (!active.battle || active.battle.win !== true) return false;
+      // **`THROWS_PER_FAINT` is a rule, not a setting.** One ball per defeated wild, so the
+      // pity ledger is what closes a grind out and a full bag is not. It used to be true only
+      // by accident — `resolve()` cleared `active` at the end of the first throw — and an
+      // accident is not something a reader can rely on.
+      if ((active.throws ?? 0) >= THROWS_PER_FAINT) return false;
       const economy = ctx.get('economy');
       if (!isLive(economy)) { log.warn('encounter: economy is down, so no ball can be thrown'); return false; }
 
@@ -784,13 +1015,17 @@ export default {
 
       // `economy` spends the ball and reports the odds; it never rolls them.
       const thrown = economy.throwBall(id, ballContext(enc, turn), {
-        catchRate: enc.catchRate, hpFraction: enc.hpFraction, status: 'none',
+        // The status the fight actually left it in. This was hard-coded to `'none'` until
+        // DECISIONS #72, which made the 2.5x sleep and 1.5x paralysis bonuses in `catchOdds`
+        // unreachable from the only place in the game that throws a ball.
+        catchRate: enc.catchRate, hpFraction: enc.hpFraction, status: enc.wildStatus ?? 'none',
       });
       if (!thrown?.thrown) {
         bus.emit('ui:toast', { text: `No ${economy.item?.(id)?.name ?? id} left`, kind: 'warn' });
         return false;
       }
       enc.turn = turn;
+      enc.throws = (enc.throws ?? 0) + 1;
 
       const rolled = catchRoll(seed, enc.index, turn);
       const caught = rolled < thrown.odds;
@@ -899,21 +1134,18 @@ export default {
         pokemon.grantPartyExp(gained, { source: 'hunt' });
       }
 
-      // **A fainted lead steps aside.** Without this the party kept sending a 0 HP Oshawott
-      // out and lost twenty-three fights in a row, each in one turn. The full heal rule — a
-      // potion below a threshold, and a partial heal per completed lap — is phase 6; this is
-      // the floor that keeps the loop from degenerating in the meantime.
+      // **A fainted lead steps aside, and a fainted party loses the hunt.**
+      //
+      // The duel itself already swapped: `battle.stepper`'s `nextAlly` sends the next conscious
+      // member out mid-fight, so by the time this runs the party is either usable or wiped
+      // (DECISIONS #72). What is left here is the bookkeeping — put a conscious member at the
+      // front for the next engagement — and the consequence, which until now was a single
+      // `log.warn` and a toast suggesting a Pokemon Center the game would never take you to.
       if (isLive(pokemon) && typeof pokemon.party === 'function') {
         const party = pokemon.party();
-        if (party[0] && party[0].hp <= 0) {
-          const next = party.findIndex((m) => m.hp > 0);
-          if (next > 0) pokemon.setLead(next);
-          else if (!faintedWarned) {
-            faintedWarned = true;
-            log.warn('encounter: the whole party is fainted — no more slots will be engaged');
-            bus.emit('ui:toast', { text: 'Your party is out cold — visit the Pokémon Center', kind: 'warn' });
-          }
-        } else faintedWarned = false;
+        const next = party.findIndex((m) => m.hp > 0);
+        if (next > 0) pokemon.setLead(next);
+        if (next < 0) wipe(enc); else faintedWarned = false;
       }
 
       // **The loot.** Pure and index-addressed, so a hunt replayed by `offline` produces the
@@ -944,6 +1176,44 @@ export default {
         caught: !!caught, ball, level: enc.level, shiny: enc.shiny,
         biome: enc.biome, index: enc.index, turns: enc.turn,
       });
+    }
+
+    /**
+     * The party is out cold: pay the toll and go home.
+     *
+     * **The hop is not done from here.** This runs inside `resolve()`, which runs inside
+     * `advanceScene()`, which runs inside `tick()` — and `travel.go()` is asynchronous,
+     * serialised behind a `busy` flag, and itself calls `encounter.cancel()` and
+     * `simulation.halt()`. Re-entering it from inside the encounter it is cancelling is how a
+     * deadlock gets written. So this pays, heals, and emits: `travel` listens for
+     * `party:wiped` and does the hop on the next frame (§4, DECISIONS #72).
+     *
+     * The money is spent before the heal so the toast can name both, and the ten per cent is of
+     * the balance **now** — which is exact rather than approximate, because a closed tab mints
+     * no currency and there is nothing in flight to disagree with.
+     */
+    function wipe(enc) {
+      if (faintedWarned) return;
+      faintedWarned = true;
+      const economy = ctx.get('economy');
+      const pokemon = ctx.get('pokemon');
+      let lost = 0;
+      if (isLive(economy) && typeof economy.balance === 'function') {
+        lost = Math.floor((economy.balance('money') ?? 0) * WIPE_PENALTY);
+        if (lost > 0) economy.spend?.('money', lost, 'wipe');
+      }
+      if (isLive(pokemon) && typeof pokemon.reviveAll === 'function') pokemon.reviveAll();
+      bus.emit('party:wiped', {
+        biome: enc?.biome ?? biomeNow(), index: enc?.index ?? null, moneyLost: lost,
+      });
+      if (!config.showcase) {
+        bus.emit('ui:toast', {
+          text: lost > 0
+            ? `Your party was wiped out. You paid ₽${lost.toLocaleString('en-GB')} at the Pokémon Center.`
+            : 'Your party was wiped out. The Pokémon Center patched everyone up.',
+          kind: 'warn',
+        });
+      }
     }
 
     /**
@@ -1025,7 +1295,7 @@ export default {
         // `resolveBattle` shape survives — and it survives as a fallback, not as a second
         // model of combat.
         const who = Number.isFinite(lead) ? { level: lead } : (lead ?? leadOf());
-        const battle = fight(who, { ...enc, index, level: enc.level ?? 5 }, { apply: false });
+        const battle = resolveFight(who, { ...enc, index, level: enc.level ?? 5 });
         return {
           outcome: battle.win ? 'win' : 'flee',
           species: enc.species ?? null,
@@ -1062,7 +1332,19 @@ export default {
       // --- state ------------------------------------------------------------
       active: () => active,
       last: () => last,
-      scene: () => (scene ? { stage: scene.stage, step: scene.step, shake: scene.shake } : null),
+      scene: () => (scene ? {
+        stage: scene.stage, step: scene.step, shake: scene.shake,
+        // The duel's own clock, so a card or a showcase can say how far into the fight it is
+        // without reaching into the stepper.
+        turns: scene.turnsSeen, fighting: !Number.isFinite(scene.fightEndsAt),
+        // Where the wild is standing, so `ui` can hang a callout over it without reaching in.
+        at: { cx: scene.at.cx, cz: scene.at.cz, y: scene.at.y },
+      } : null),
+      /** The blows of the exchange being drawn right now — what `battle:strike` just carried. */
+      strikes: () => (scene?.strikes ?? []).map((x) => ({ ...x })),
+      /** One ball per defeated wild, and the wipe's toll. Rules, not settings (DECISIONS #72). */
+      THROWS_PER_FAINT,
+      WIPE_PENALTY,
       /**
        * Whether the "!" bubble is on screen right now.
        *
@@ -1203,14 +1485,14 @@ export default {
        * before this they did not — `accrual.js` rolled its own species from its own stream with
        * its own level band, so index 400 was a different Pokemon in the two paths.
        *
-       * `resolve` runs `fight(..., { apply: false })`: the same turn engine the visible fight
+       * `resolve` runs `resolveFight()`: the same turn engine the visible fight
        * uses, with the HP writeback and the bus emits off, because a closed-tab replay must not
        * hospitalise a party that is not there.
        */
       pure: () => ({
         rollAt: (index, opts = {}) => rollIndex(index, opts),
         resolve: (enc, index) => {
-          const out = fight(leadOf(), { ...enc, index: index ?? enc.index }, { apply: false });
+          const out = resolveFight(leadOf(), { ...enc, index: index ?? enc.index });
           return { win: out.win, turns: out.turns, hpFraction: out.hpFraction };
         },
         dropAt: (index, opts = {}) => dropsFor(seed, index, {

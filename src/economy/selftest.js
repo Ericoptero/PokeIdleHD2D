@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { speciesPrice, throwsToPity, BASE_PRICE } from './pricing.js';
 import { makePity, PITY_START, PITY_FULL, BP_MONEY_EQUIVALENT } from './pity.js';
 import { trainerFromWins, levelFromWins, winsForLevel, STEP } from './trainer.js';
-import { item } from './items.js';
+import { item, ITEMS } from './items.js';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const species = JSON.parse(readFileSync(join(REPO, 'public', 'generated', 'species.json'), 'utf8'));
@@ -129,6 +129,33 @@ check('8. the anchor is the ball line', BASE_PRICE / 200 >= 5 && BASE_PRICE / 20
   eq('22. the coast gate (Lv12) is 198 wins', winsForLevel(12), 198);
   eq('23. the cave gate (Lv20) is 570 wins', winsForLevel(20), 570);
   eq('24. the step between levels is the triangular one', winsForLevel(3) - winsForLevel(2), STEP * 2);
+}
+
+
+// --- PP restoration, which the game modelled and could not buy ---------------
+//
+// Per-move PP and Struggle have been in the engine since the turn engine landed, and until
+// DECISIONS #72 there was no item anywhere in the tree that put PP back — so a long hunt ended
+// in a Pokemon flailing at 50 power with recoil and no purchasable answer. Auto-Ether is what
+// the brief asks for; these two are what it spends.
+{
+  const ether = item('ether');
+  const maxether = item('maxether');
+  check('25. an Ether exists at all', !!ether && !!maxether);
+  eq('26. an Ether restores a fixed 10 PP', ether.heal.pp, 10);
+  eq('27. a Max Ether restores the slot', maxether.heal.pp, 'full');
+  // The no-arbitrage invariant every money-priced item is held to: you may never buy a thing
+  // and sell it back for more than 90% of what you paid.
+  check('28. neither ether can be bought and resold at a profit',
+    ether.sell <= Math.floor(ether.price * 0.9) && maxether.sell <= Math.floor(maxether.price * 0.9),
+    `${ether.sell}/${Math.floor(ether.price * 0.9)}, ${maxether.sell}/${Math.floor(maxether.price * 0.9)}`);
+  // A PP item is medicine, so the Bag view picks it up and the Stash view does not.
+  eq('29. an ether is medicine, so it lands in the Bag and not the Stash', ether.category, 'medicine');
+  // Every heal payload the appliers know how to read. A typo in a new item would otherwise be a
+  // silent no-op at the moment a player needed it.
+  const KNOWN = new Set(['hp', 'status', 'revive', 'pp', 'fraction']);
+  const strange = ITEMS.filter((d) => d.heal && Object.keys(d.heal).some((k) => !KNOWN.has(k)));
+  eq('30. every medicine payload is one the appliers understand', strange.length, 0);
 }
 
 const failed = results.filter((r) => !r.ok);

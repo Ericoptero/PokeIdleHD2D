@@ -45,3 +45,141 @@ only because they are shot after the scenes, on a server the scenes had already 
 reasons — a showcase that stages an enormous scenario — will not be caught by this budget. The
 draw-call and text floors in `tools/shots/boot.js` still cover every route; only the timing
 does not.
+
+---
+
+### 72 — 2026-09-10 — The fight is stepped rather than resolved, an ally faint is not the end of it, and a Potion stops being a Revive
+
+`ARCHITECTURE.md` has said since DECISIONS #61 that "the visible fight calls `turn()` once every
+few sim steps so it can be animated and screenshotted". It never did. `encounter.begin()` called
+`battle.resolve()` synchronously at `index.js:654` — **before a single frame was drawn** — and
+`ui/panels/battle.js` said so in its own header: "It is a readout of a *finished* fight." The
+tell is that `battle.turn()`, pure and published since the engine landed, had **zero callers in
+`src/`**. §5.12 recorded the truth and §5.17 recorded the intention, and the code agreed with
+neither for long enough that a grep was the only way to find out which.
+
+**(a) `stepper()` is the implementation; `resolve()` is a drain of it.** Not a wrapper over
+`turn()` — the two hooks are the point. `between(state) → Action[]` lands heals, ethers and
+revives between two turns; `nextAlly(state) → Combatant|null` sends out the next party member.
+Both are pure and **neither may draw randomness**, which is what keeps the turn stream
+`root/battle/<index>/<turn>` exactly where it was. The evidence is `battle/selftest.js` 24–29:
+the golden fight (Oshawott L12 vs Caterpie L8 at IVs 20, seed 1337 index 12) still reports
+winner `a`, 2 turns, ally HP 34, `hpFraction` 0, transcript length 7 and `watergun` first —
+**verbatim**, and check 37 asserts a stepped fight is `JSON.stringify`-identical to a drained one.
+If those ever move together, the hook has leaked a draw and every replay in the game is wrong.
+
+**`battle` never sees a bag.** Every Action carries its item id and the *caller* debits, so one
+decision implementation serves a live `economy.take()` and an offline carry.
+
+**(b) An ally faint stops being terminal, and `winner` is redefined.** `turn()` calls a fight
+over the instant either side hits zero, which is right for the turn and wrong for the duel: the
+brief says a revival may fire, that the next member steps up, and that only an empty party loses
+the hunt. So the *stepper* owns it — revive first, swap second, wipe third — and `winner: 'b'`
+now means **the party ran out**. Measured live in the forest: a lead Oshawott fainted on turn 3
+and the fight ran to turn 10 and was won by the Snivy behind it.
+
+**(c) The strike is a derived event, not a reshaped transcript.** The brief's list (attacker,
+target, move, damage, effectiveness, crit, miss, faint) is not any single transcript event:
+`move` and `damage` are separate, `species` is the *victim* on `damage`/`miss`/`immune` and the
+*actor* on `move`/`recoil`/`drain`, a multi-hit collapses into one `damage` with `hits > 1`, and
+`faint` carried no `actor` at all. Reshaping them would have moved the transcript-length golden
+and broken `lineFor`'s thirteen kinds. So `battle/strike.js` folds on top, `encounter` emits
+`battle:strike` (because `battle` has no `ctx` and must keep none), and the one change to the
+transcript is **additive**: `faint` gains `actor`, without which a Caterpie-versus-Caterpie
+mirror — which the meadow table produces — cannot say which one fell.
+
+**(d) A Potion was a working Revive, and had been all along.** `pokemon/instance.js heal()` took
+a 0 HP Pokemon to 20 with no guard, so the brief's "fainted Pokémon cannot participate" was
+unenforceable the moment an auto-heal list existed: the first rule would resurrect whatever had
+just gone down, for ₽200. `heal()` refuses `hp <= 0` now and `revive()` refuses `hp > 0`, and
+`{ revive: true }` is the Pokemon Center's escape hatch and nothing else's. The old
+`pokemon/selftest.js` check 25 asserted the broken behaviour ("a full heal restores maxHp",
+healing from 0) and was rewritten with the rule rather than around it.
+
+**(e) `Ether` and `Max Ether` are new, because there was nothing to restore PP with.** Per-move
+PP and Struggle have been modelled since the turn engine landed and no item anywhere in the tree
+put PP back, so a long hunt ended in a Pokemon flailing at 50 power with recoil and no
+purchasable answer. ₽1,200 for 10 PP and ₽2,000 for a slot — ₽120 per PP against a Potion's ₽10
+per HP, because a point of PP is worth several turns of attacking and a point of HP is worth one
+hit. Both satisfy the no-arbitrage clamp `economy/selftest.js` holds every money-priced item to.
+
+**(f) Two beats are presentation and must never be rules.** `config.turnSteps` (24, so one
+exchange is 1.2 s) and `config.reviveSeconds` (5) are counted in **sim steps**, because the
+harness freezes the clock and a beat measured in wall time cannot be stopped on an exact frame
+(#14). In a fold they are **zero**: a revive costs the item and nothing else. Charging it turns
+instead would mean skipping both sides (a no-op) or only the enemy's (a free heal a player would
+farm), and either way the fold would need a clock it does not have.
+
+**(g) The card had to become live, and two of its readings were wrong the moment it did.**
+`win: null` rendered as `Lost after 3` — a defeat printed on screen in the middle of a fight the
+party went on to win — so the verdict has three values now. And both HP bars read
+`pokemon.lead()`, which is not written back until the last blow, so they showed full health under
+a transcript that said somebody had fainted. The card reads the stepper's state while the fight
+runs, which also fixes *which* Pokemon it names after a swap. `lineFor` had the mirror of that
+bug: it credited a move to `names[ev.actor]`, so Oshawott's Tackle was labelled Snivy once Snivy
+replaced it; the event's own `species` wins now.
+
+**(h) The move callout is on the 2-D canvas, and its lift is measured.** Text in 3-D would need a
+second font atlas as a texture and a draw call per balloon; projected through `ui.project()` it
+costs zero (#34a), and under the orthographic camera the projection is exact with no depth divide
+to make it disagree with the sprite below it. Two numbers came out of looking at the frame rather
+than reasoning about it: **3.1 world units of lift**, because a sprite is 2.83 tall (#18) and at
+2.15 the balloon lay across the face of the Pokemon speaking; and a **horizontal lean**, because
+`encounter` stages the wild two cells in front of the party's Pokemon and a sprite covers exactly
+two tiles of ground depth on screen — so a balloon lifted clear of the wild's head lands
+precisely on the Pokemon, every time, and no vertical lift can separate them.
+
+**(i) `THROWS_PER_FAINT = 1` and `WIPE_PENALTY = 0.10` are exported and pinned.** One throw per
+defeated wild was true only by accident before — `resolve()` cleared `active` at the end of the
+first one — and an accident is not something a reader can rely on. Both are the kind of constant
+a later change relaxes quietly ("a second ball so a rare one is not lost"), and the pity ladder
+`economy/pricing.js` is anchored to only measures anything while a throw costs a *victory*.
+
+**(j) The wipe is emitted, not executed.** `encounter` pays, heals and emits `party:wiped`;
+`travel` listens and hops on the next frame. Doing it inline would re-enter `travel.go()` — async,
+serialised behind `busy`, and itself a caller of `encounter.cancel()` — from inside the encounter
+it is cancelling, which is how a deadlock gets written.
+
+**(k) The production build shipped with no sprite art, and every stage of the gate was green.**
+`publicDir` copies `public/`; `assets/` was reachable in dev only because Vite serves the project
+root. So `vite preview` — the bytes a player downloads — drew all 1,253 creatures and the trainer
+as untextured quads. It survived because of *where the gate looks*: `boot.js` and `regress.js`
+shoot the **dev server**, so a file that never reached the build is still there for the capture,
+and the one stage that uses the build (`coldBoot`, #71) measures time to `__READY__` — and an
+untextured quad is exactly as fast to draw as a textured one.
+
+The fix is a build plugin; the part worth keeping is the **check**. `tools/gate.js`'s build stage
+now asserts that every `/assets/<root>/` URL `src/` constructs is a root `vite.config.js` copies,
+and that each one landed in `dist/` non-empty. Both halves are *derived* — the roots from the
+config, so the plugin and the check cannot disagree, and the URLs from a grep of `src/`, so a
+fetch added tomorrow is covered tomorrow. `props/` and `structures/` are deliberately not copied:
+they are OBJ/MTL build input that `tools/assets/build-tiles.js` bakes into `public/generated/`,
+and shipping them would put a megabyte in front of a player for nothing.
+
+**(l) Two things were running the hunt at once.** `idle/index.js` tracked `document.hidden` for
+*reporting* and never as a gate — `reconcile()` fires from worker beats, frames and
+`visibilitychange` alike — so a tab you were watching had `encounter` stepping real fights on the
+map **and** `idle` folding a model of the same loop beside it. It was harmless only because
+`pure.resolve` runs with the writeback off, and it stops being harmless the moment
+`gains.progress` carries party HP and a bag: two drivers would damage one party and spend one bag
+twice, and no check in the tree would notice.
+
+So: **exactly one driver at a time.** Visible → `encounter`; hidden → `idle`; closed → `offline`.
+The second is still measured and `lastWallMs` still advances when the fold is skipped, so a
+discarded second can never be paid twice later — it is simply not that module's second. And the
+**encounter counter changes hands at the edge**: there is one index space (#61(f)) and there were
+two counters walking it independently, which is that entry's own disagreement arriving from the
+other end. Measured in the forest: 300 s visible folds nothing (`watchedS 300.27`, 0 encounters);
+the same 300 s hidden folds 10; coming back leaves `encounter.progress().encounters` at 10 rather
+than at 0, so it resumes where the fold stopped instead of re-walking indices it already spent.
+
+`idle.driver()` is published and `?debug=1` draws it, because "exactly one driver" is a claim a
+screenshot should be able to settle rather than one a comment asserts — the same reasoning
+`?break=` was added under (#70).
+
+**Cost.** `ui` gains a `tick` hook it did not have, because a callout's life is a count of sim
+steps and spending it at render rate made a balloon expire between two `__HOOKS__.step()` calls
+with no simulated time passing. And `battle`'s API grew five members; §5.17 was rewritten, along
+with four claims in it that were already wrong before this work started (`turn`'s phantom
+`turnNo` argument, a `ppSpent` field `resolve` never returned, `movesFor` returning "exactly 4"
+when it returns 1–4, and `moves()` where the code has `moveIds()`).

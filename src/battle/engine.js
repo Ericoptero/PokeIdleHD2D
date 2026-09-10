@@ -37,6 +37,9 @@ export const streamFor = (seed, index, turn) => makeRng(seed, `${STREAM_ROOT}/${
 
 const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
 
+/** The ceiling on how many actions one `between` call may land before a turn. */
+export const MAX_BETWEEN = 4;
+
 /** Statuses that stop a Pokemon acting, and the ones that only cost it HP. */
 const MAJOR = new Set(['brn', 'par', 'psn', 'tox', 'slp', 'frz']);
 
@@ -329,27 +332,188 @@ export function turn(state, seed, index) {
     // Both down in one turn (recoil into a KO) is a loss: the wild is not caught and the lead
     // still fainted, which is the reading that cannot reward a mistake.
     next.winner = next.a.hp > 0 ? 'a' : 'b';
-    events.push({ turn: next.turn, kind: 'faint', species: next.winner === 'a' ? next.b.species : next.a.species });
+    // `actor` is the side that FELL, and it is not decoration: the meadow table can produce a
+    // Caterpie against a Caterpie, and `species` alone cannot say which one went down. Purely
+    // additive — no existing assertion reads it, and no draw moved (DECISIONS #72).
+    const fell = next.winner === 'a' ? 'b' : 'a';
+    events.push({ turn: next.turn, kind: 'faint', actor: fell, species: next[fell].species });
   }
   return { state: next, events };
 }
 
 /**
- * Runs a fight to the end. The same `turn()` the visible battle steps through — §5.17's
- * "one implementation of what a turn is".
+ * What `between` may ask for before a turn, and the only way anything outside this file
+ * changes a combatant mid-fight.
+ *
+ * **No Action draws a random number.** An item's effect is arithmetic, so inserting one
+ * between two turns cannot move the position of `root/battle/<index>/<turn>` — which is what
+ * lets a potion drunk in a watched fight be drunk in the same place by a closed-tab replay
+ * (DECISIONS #72).
+ *
+ * @typedef {Object} Action
+ * @property {'heal'|'revive'|'pp'} kind
+ * @property {string} item                 the item id the CALLER debits; this file never sees a bag
+ * @property {number|'full'} [hp]          heal: how much
+ * @property {boolean} [status]            heal: also clear the major status
+ * @property {number} [fraction]           revive: 0.5 or 1 of maximum
+ * @property {string} [moveId]             pp: which slot
+ * @property {number|'full'} [amount]      pp: how much
+ * @property {'a'|'b'} [side]              defaults to 'a' — the party's side
+ */
+
+/**
+ * Applies one `Action` in place and answers the transcript event it produced, or `null` if it
+ * did nothing.
+ *
+ * Two refusals are rules rather than tidiness. **A heal never raises a fainted Pokemon** — the
+ * mainline is emphatic about it and `pokemon/instance.js heal()` was happy to do it, so a
+ * Potion in an auto-heal list would quietly have been a free Revive. And **a revive only works
+ * on a fainted one**, so the list cannot burn its scarcest item on a scratch.
+ */
+export function applyAction(state, act) {
+  if (!act || typeof act !== 'object') return null;
+  const side = act.side === 'b' ? 'b' : 'a';
+  const c = state[side];
+  if (!c) return null;
+  const say = (kind, extra) => ({ turn: state.turn, actor: side, kind, item: act.item ?? null, species: c.species, ...extra });
+
+  if (act.kind === 'heal') {
+    if (c.hp <= 0) return null;                       // a potion is not a revive
+    const before = c.hp;
+    c.hp = act.hp === 'full' ? c.maxHp : Math.min(c.maxHp, c.hp + Math.max(0, Math.floor(act.hp || 0)));
+    const cleared = !!act.status && !!c.status;
+    if (act.status) { c.status = null; c.sleepTurns = 0; c.toxicTurns = 0; }
+    if (c.hp === before && !cleared) return null;
+    return say('item', { use: 'heal', healed: c.hp - before, hp: c.hp, maxHp: c.maxHp, cured: cleared });
+  }
+
+  if (act.kind === 'revive') {
+    if (c.hp > 0) return null;                        // only a fainted one
+    const frac = Number.isFinite(act.fraction) ? clamp(act.fraction, 0, 1) : 0.5;
+    c.hp = Math.max(1, Math.round(c.maxHp * frac));
+    c.status = null; c.sleepTurns = 0; c.toxicTurns = 0;
+    c.volatile = { confusion: 0, flinch: false };
+    return say('item', { use: 'revive', hp: c.hp, maxHp: c.maxHp });
+  }
+
+  if (act.kind === 'pp') {
+    const slot = c.moves.find((m) => m.id === act.moveId) ?? c.moves.find((m) => m.pp <= 0);
+    if (!slot) return null;
+    const before = slot.pp;
+    slot.pp = act.amount === 'full' ? slot.maxPp : Math.min(slot.maxPp, slot.pp + Math.max(0, Math.floor(act.amount || 0)));
+    if (slot.pp === before) return null;
+    return say('item', { use: 'pp', move: slot.id, restored: slot.pp - before, pp: slot.pp, maxPp: slot.maxPp });
+  }
+
+  return null;
+}
+
+/**
+ * A fight, one turn at a time.
+ *
+ * This is the implementation now, and `resolve()` below is a drain of it — §5.17's "one
+ * implementation of what a turn is" extended to cover what happens *between* two. The visible
+ * fight steps it on a sim cadence so it can be watched and screenshotted; `idle` and `offline`
+ * drain it in a loop. Anything else would let a potion drunk on screen not be drunk in the
+ * replay, and the two would disagree about encounter N (DECISIONS #72).
+ *
+ * **An ally faint is not the end of the fight.** `turn()` calls it over the instant either
+ * side hits zero, which is right for the *turn* and wrong for the *duel*: a revive puts the
+ * same Pokemon back up, and a swap sends the next one out. Only when neither answers is it
+ * over, and that is the party wipe. `winner: 'b'` therefore means **the party ran out**, not
+ * "this Pokemon fell".
+ *
+ * `between` and `nextAlly` must be pure and must not draw randomness — see `applyAction`.
+ *
+ * @param {object} a  the party's combatant
+ * @param {object} b  the wild
+ * @param {{maxTurns?:number,
+ *          between?:(state:object)=>Action[],
+ *          nextAlly?:(state:object)=>object|null}} [opts]
+ */
+export function stepper(a, b, seed, index, { maxTurns = 60, between = null, nextAlly = null } = {}) {
+  let state = begin(a, b);
+  let done = false;
+  /**
+   * How many actions one `between` call may land before a turn.
+   *
+   * Four, because the deepest legal composition is revive -> swap -> heal -> ether and no
+   * further. A hook that returns more is a bug in the hook, and a cap here turns it into a
+   * dropped action rather than a frame that never ends.
+   */
+  let capped = false;
+  /** How many party members have been sent out, so a caller can tell a swap from a revive. */
+  let sent = 1;
+
+  /** The ally is down and the wild is not: can anything keep the duel going? */
+  function relieve(events) {
+    // 1. the item list gets first refusal — a Revive raises the one that just fell.
+    if (between) {
+      const acts = between(state) ?? [];
+      if (acts.length > MAX_BETWEEN) capped = true;
+      for (const act of acts.slice(0, MAX_BETWEEN)) {
+        const ev = applyAction(state, act);
+        if (ev) events.push(ev);
+      }
+    }
+    if (state.a.hp > 0) return true;
+    // 2. otherwise the next conscious member steps out.
+    const replacement = nextAlly ? nextAlly(state) : null;
+    if (!replacement || (replacement.hp ?? 0) <= 0) return false;
+    state.a = cloneSide(replacement);
+    sent++;
+    events.push({ turn: state.turn, actor: 'a', kind: 'swap', species: state.a.species, sent });
+    return true;
+  }
+
+  const api = {
+    get state() { return state; },
+    get over() { return done || state.turn >= maxTurns; },
+    get sent() { return sent; },
+    get capped() { return capped; },
+    /** One turn, plus whatever `between` decided to do before it. */
+    step() {
+      if (api.over) return { state, events: [], over: true };
+      const events = [];
+
+      if (between) {
+        const acts = between(state) ?? [];
+        if (acts.length > MAX_BETWEEN) capped = true;
+        for (const act of acts.slice(0, MAX_BETWEEN)) {
+          const ev = applyAction(state, act);
+          if (ev) events.push(ev);
+        }
+      }
+
+      const out = turn(state, seed, index);
+      state = out.state;
+      events.push(...out.events);
+
+      if (state.over && state.a.hp <= 0 && state.b.hp > 0 && relieve(events)) {
+        state.over = false;
+        state.winner = null;
+      }
+
+      done = state.over;
+      return { state, events, over: api.over };
+    },
+  };
+  return api;
+}
+
+/**
+ * Runs a fight to the end. A drain of `stepper()` — the SAME code the visible battle steps
+ * through, which is what §5.17 has always claimed and what DECISIONS #72 finally made true.
  *
  * `maxTurns` is a stall guard, not a rule of the game: Struggle means a battle cannot deadlock
  * on PP, but two defensive Pokemon that keep missing still can. A draw is scored as a loss for
  * `a` for the same reason a double faint is.
  */
-export function resolve(a, b, seed, index, { maxTurns = 60 } = {}) {
-  let state = begin(a, b);
+export function resolve(a, b, seed, index, { maxTurns = 60, between = null, nextAlly = null } = {}) {
+  const run = stepper(a, b, seed, index, { maxTurns, between, nextAlly });
   const transcript = [];
-  while (!state.over && state.turn < maxTurns) {
-    const step = turn(state, seed, index);
-    state = step.state;
-    transcript.push(...step.events);
-  }
+  while (!run.over) transcript.push(...run.step().events);
+  const state = run.state;
   const winner = state.over ? state.winner : (state.a.hp / state.a.maxHp >= state.b.hp / state.b.maxHp ? 'a' : 'b');
   return {
     winner, turns: state.turn, a: state.a, b: state.b,
@@ -358,6 +522,8 @@ export function resolve(a, b, seed, index, { maxTurns = 60 } = {}) {
     // (DECISIONS #61(i)).
     hpFraction: state.b.maxHp > 0 ? state.b.hp / state.b.maxHp : 1,
     stalled: !state.over,
+    sent: run.sent,
+    betweenCapped: run.capped,
     transcript,
   };
 }

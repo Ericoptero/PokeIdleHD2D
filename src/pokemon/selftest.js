@@ -232,12 +232,36 @@ eq('21. …and reports the pair', `${evolved.from}->${evolved.to}`, 'charmander-
 eq('22. …and the species really changed', charm.species.name, 'charmeleon');
 check('23. …and the body was recomputed', charm.maxHp === battle.stats(lookup("charmeleon").baseStats, charm.ivs, 16).hp);
 
-// --- 6. heal and damage -----------------------------------------------------
+// --- 6. heal, revive and damage ---------------------------------------------
+//
+// Check 25 used to read "a full heal restores maxHp" and heal a Pokemon at 0 HP. That was the
+// behaviour, and the behaviour was wrong: it made a Potion a working Revive and made "fainted
+// Pokemon cannot participate" unenforceable, because the first auto-heal rule would resurrect
+// whatever had just gone down (DECISIONS #72). The check moved with the rule.
 const hurt = mint('pikachu', 30);
 INST.damage(hurt, 1e9);
 eq('24. damage floors at zero, and zero is fainted', hurt.hp, 0);
 INST.heal(hurt, { hp: 'full' });
-eq('25. a full heal restores maxHp', hurt.hp, hurt.maxHp);
+eq('25. a heal REFUSES a fainted Pokemon — a Potion is not a Revive', hurt.hp, 0);
+INST.revive(hurt, { fraction: 0.5 });
+eq('25b. a revive raises it to half of maximum', hurt.hp, Math.round(hurt.maxHp * 0.5));
+INST.revive(hurt, { fraction: 1 });
+eq('25c. …and refuses a conscious one, so the item is not wasted', hurt.hp, Math.round(hurt.maxHp * 0.5));
+INST.heal(hurt, { hp: 'full' });
+eq('25d. a heal works on a conscious one', hurt.hp, hurt.maxHp);
+INST.damage(hurt, 1e9);
+INST.heal(hurt, { hp: 'full', revive: true });
+eq('25e. the Pokemon Center is the one caller that may raise the fallen', hurt.hp, hurt.maxHp);
+
+const drained = mint('squirtle', 20);
+drained.moves[0].pp = 0;
+eq('25f. an ether puts PP back into the slot it names',
+  INST.restorePp(drained, { moveId: drained.moves[0].id, amount: 10 }), 10);
+drained.moves[1].pp = 1;
+const emptiest = drained.moves[1].id;
+eq('25g. …and with no slot named it fills the emptiest one',
+  (INST.restorePp(drained, { amount: 'full' }), drained.moves[1].pp), drained.moves[1].maxPp);
+check('25h. …which was the one that had run down', emptiest === drained.moves[1].id);
 
 // --- 7. the save seam -------------------------------------------------------
 const saved = mint('gastly', 40);

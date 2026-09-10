@@ -10,7 +10,11 @@
  *
  *   1. seams     static contracts + every src/<module>/selftest.js under Node
  *   2. build     the production build, which nothing used to run — everything was verified
- *                against the dev server, so a Vite build break was silent until deploy
+ *                against the dev server, so a Vite build break was silent until deploy. It
+ *                also asserts the build CONTAINS what the game fetches: `assets/` is served
+ *                from the project root in dev and copied into `dist/` by a plugin, and when
+ *                that plugin did not exist the build shipped with no sprite art and every
+ *                other stage stayed green (DECISIONS #72)
  *   3. coldboot  §7's time-to-__READY__ budget, measured against that build on `vite preview`
  *   4. boot      every showcase and every scene draws a real frame, not an empty void
  *   5. parity    the pixel grid is identical across seven viewports
@@ -22,8 +26,10 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ensureServer, servePreview } from './shots/serve.js';
+import { RUNTIME_ASSET_ROOTS } from '../vite.config.js';
 
 const args = process.argv.slice(2);
 const skip = new Set();
@@ -47,6 +53,51 @@ const STAGES = [
   { name: 'parity', argv: ['tools/shots/parity.js', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
   { name: 'regress', argv: ['tools/shots/regress.js', '--out', `${OUT}/regress`, '--base', BASE], needsServer: true },
 ];
+
+/**
+ * Everything the browser fetches from `/assets/` is actually in `dist/`.
+ *
+ * The reason this exists: `boot.js` and `regress.js` shoot the **dev server**, which serves the
+ * project root, so a file that never reached the build is still there for every capture. The one
+ * stage that used the build measured time to `__READY__`, and an untextured quad is as fast to
+ * draw as a textured one. The result was a production bundle with no Pokemon sprites in it and a
+ * gate that passed every stage (DECISIONS #72).
+ *
+ * Derived, not listed: the roots come from `vite.config.js` (so the plugin and the check cannot
+ * disagree) and the URLs come from grepping `src/` (so a new fetch is covered the day it lands).
+ */
+function builtAssets() {
+  const fails = [];
+  for (const root of RUNTIME_ASSET_ROOTS) {
+    const dir = join('dist', 'assets', root);
+    if (!existsSync(dir)) { fails.push(`dist/assets/${root} is missing — the build shipped without it`); continue; }
+    const n = readdirSync(dir).length;
+    if (!n) fails.push(`dist/assets/${root} is empty`);
+    else console.log(`  ✓ dist/assets/${root} — ${n} entries`);
+  }
+
+  // Every `/assets/<root>/` URL `src/` builds must be one the plugin copies. A new one added
+  // without touching `vite.config.js` is exactly the failure this stage is here to catch.
+  const referenced = new Set();
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!e.name.endsWith('.js')) continue;
+      const src = readFileSync(p, 'utf8');
+      for (const m of src.matchAll(/["'`]\/assets\/([a-z0-9-]+)\//g)) referenced.add(m[1]);
+    }
+  };
+  walk('src');
+  for (const root of referenced) {
+    if (!RUNTIME_ASSET_ROOTS.includes(root)) {
+      fails.push(`src/ fetches /assets/${root}/ but vite.config.js does not copy it into the build`);
+    }
+  }
+
+  for (const f of fails) console.log(`  ✗ ${f}`);
+  return fails.length ? 1 : 0;
+}
 
 const noop = () => {};
 let stop = noop;
@@ -88,6 +139,7 @@ for (const stage of STAGES) {
   let r;
   if (stage.name === 'build') {
     r = spawnSync('npx', ['vite', 'build'], { stdio: 'inherit' });
+    if (r.status === 0) r = { status: builtAssets() };
   } else if (stage.name === 'coldboot') {
     r = { status: await coldBoot() };
   } else {

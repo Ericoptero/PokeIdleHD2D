@@ -23,6 +23,7 @@
 
 import { makeRng } from '../core/rng.js';
 import { dropsFor, BIOME_LOOT, LOOT_IDS, DROP_CHANCE } from './drops.js';
+import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
   streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
@@ -358,6 +359,23 @@ export function runSelfTest({ species = null } = {}) {
     check('a step replays', stepRoll(SEED, 77, 0.12) === stepRoll(SEED, 77, 0.12), 'step 77');
     check('rate 0 never fires and rate 1 always does',
       !stepRoll(SEED, 3, 0) && stepRoll(SEED, 3, 1), 'clamped');
+  }
+
+  // --- 21 the two rules a fight is settled by -------------------------------------
+  //
+  // Both are constants rather than settings, and both are the kind of thing a later change
+  // would quietly relax: a second ball "so a rare one is not lost", a five per cent wipe
+  // "because ten feels harsh". Pinning them is what makes relaxing one a decision somebody
+  // has to take on purpose (DECISIONS #72).
+  {
+    check('one ball per defeated wild, and it is not configurable',
+      THROWS_PER_FAINT === 1, `${THROWS_PER_FAINT}`);
+    check('a wipe costs a tenth of the wallet', WIPE_PENALTY === 0.10, `${WIPE_PENALTY}`);
+    // The ladder `economy/pricing.js` is anchored to only means something while a throw costs
+    // a victory: at 7 balls to a guaranteed common, two throws per faint would halve every
+    // grind in the game at a stroke.
+    check('the pity ladder still measures victories, not a full bag',
+      THROWS_PER_FAINT * 7 >= 7, 'a common is seven won fights');
   }
 
   return out;

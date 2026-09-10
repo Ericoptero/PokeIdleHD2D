@@ -27,7 +27,10 @@ import { fileURLToPath } from 'node:url';
 import * as MOVES from './moves.js';
 import { effectiveness, TYPES } from './types.js';
 import { statsOf, expAtLevel, levelForExp, expYield, stageMultiplier } from './stats.js';
-import { makeCombatant, resolve, damageOf, streamFor, STREAM_ROOT } from './engine.js';
+import {
+  makeCombatant, resolve, stepper, applyAction, damageOf, streamFor, STREAM_ROOT, MAX_BETWEEN,
+} from './engine.js';
+import { strikesOf, describeStrike } from './strike.js';
 import { makeRng } from '../core/rng.js';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -143,6 +146,119 @@ eq('33. sweep: PP never goes negative', negPp, 0);
 eq('34. sweep: no fight stalls out (Struggle ends them)', stalls, 0);
 eq('35. sweep: every fight has a loser', immortal, 0);
 check('36. sweep: no fight runs long', worstTurns <= 40, `worst was ${worstTurns} turns`);
+
+// --- the stepper is the implementation, and `resolve` is a drain of it -------
+//
+// Every check below is the evidence DECISIONS #72 rests on: the seam that lets a fight be
+// watched turn by turn did not disturb the index space. If 24-29 above ever move at the same
+// time as one of these, the between-hook has leaked a draw and the whole replay is wrong.
+{
+  const run = stepper(osha, cat, 1337, 12);
+  const stepped = [];
+  let turns = 0;
+  while (!run.over) { stepped.push(...run.step().events); turns++; }
+  eq('37. stepping the golden fight equals draining it',
+    JSON.stringify(stepped), JSON.stringify(fight.transcript));
+  eq('38. the stepper reports the same turn count', turns, 2);
+  eq('39. one Pokemon was ever sent out', fight.sent, 1);
+  eq('40. an untouched fight never hits the between cap', fight.betweenCapped, false);
+}
+
+// A `between` that does nothing must be indistinguishable from no `between` at all, or the
+// hook itself is a behaviour change rather than a seam.
+eq('41. a between that returns nothing changes nothing',
+  JSON.stringify(resolve(osha, cat, 1337, 12, { between: () => [] }).transcript),
+  JSON.stringify(fight.transcript));
+
+// --- what a strike is -------------------------------------------------------
+{
+  const strikes = strikesOf(fight.transcript, { a: 'Oshawott', b: 'Caterpie' });
+  eq('42. the golden fight is three strikes', strikes.length, 3);
+  eq('43. strike 1: Oshawott lands Water Gun on Caterpie',
+    JSON.stringify({
+      turn: strikes[0].turn, attacker: strikes[0].attacker, target: strikes[0].target,
+      move: strikes[0].move, damage: strikes[0].damage, hits: strikes[0].hits,
+      effectiveness: strikes[0].effectiveness, crit: strikes[0].crit, miss: strikes[0].miss,
+      fainted: strikes[0].fainted,
+    }),
+    JSON.stringify({
+      turn: 1, attacker: 'a', target: 'b', move: 'watergun', damage: 16, hits: 1,
+      effectiveness: 1, crit: false, miss: false, fainted: null,
+    }));
+  eq('44. strike 2 is the wild answering', strikes[1].attacker, 'b');
+  eq('45. the last strike is the one that faints it', strikes[2].fainted, 'b');
+  eq('46. a strike reads as a sentence', describeStrike(strikes[0]), 'Oshawott used Water Gun');
+  // A mirror match is why `faint` carries `actor`: `species` alone cannot say who fell.
+  const mirror = resolve(
+    makeCombatant({ species: by.caterpie, level: 12, ivs: IVS }),
+    makeCombatant({ species: by.caterpie, level: 8, ivs: IVS }), 1337, 5);
+  const fell = mirror.transcript.find((e) => e.kind === 'faint');
+  eq('47. a mirror match still names the side that fell', fell.actor, mirror.winner === 'a' ? 'b' : 'a');
+}
+
+// --- items between two turns ------------------------------------------------
+{
+  const hurt = makeCombatant({ species: by.oshawott, level: 12, ivs: IVS, hp: 5 });
+  const ev = applyAction({ turn: 1, a: hurt, b: null }, { kind: 'heal', item: 'potion', hp: 20 });
+  eq('48. a potion heals by its own number', hurt.hp, 25);
+  eq('49. and says so on the transcript', `${ev.kind}/${ev.use}/${ev.healed}`, 'item/heal/20');
+
+  // The rule the mainline is emphatic about, and which `pokemon/instance.js heal()` would have
+  // broken: a Potion is not a Revive. Without this an auto-heal list resurrects for 200 gold.
+  const down = makeCombatant({ species: by.oshawott, level: 12, ivs: IVS, hp: 0 });
+  applyAction({ turn: 1, a: down, b: null }, { kind: 'heal', item: 'maxpotion', hp: 'full' });
+  eq('50. a heal never raises a fainted Pokemon', down.hp, 0);
+  applyAction({ turn: 1, a: down, b: null }, { kind: 'revive', item: 'revive', fraction: 0.5 });
+  eq('51. a revive does, at half of maximum', down.hp, Math.round(down.maxHp * 0.5));
+  const up = makeCombatant({ species: by.oshawott, level: 12, ivs: IVS, hp: 7 });
+  applyAction({ turn: 1, a: up, b: null }, { kind: 'revive', item: 'maxrevive', fraction: 1 });
+  eq('52. and a revive is refused on a conscious one', up.hp, 7);
+
+  const spent = makeCombatant({ species: by.oshawott, level: 12, ivs: IVS });
+  spent.moves[2].pp = 0;
+  applyAction({ turn: 1, a: spent, b: null }, { kind: 'pp', item: 'ether', moveId: 'watergun', amount: 10 });
+  eq('53. an ether restores PP to the slot it names', spent.moves[2].pp, 10);
+}
+
+// --- an ally faint is not the end of the fight ------------------------------
+{
+  // A level-3 Magikarp against a level-30 Gyarados loses, and loses again, and then the third
+  // member wins nothing either — the point is that the duel CONTINUES, which is what makes
+  // "if no usable Pokemon remain, the player loses the hunt" a rule rather than a phrase.
+  const bench = [
+    makeCombatant({ species: by.oshawott, level: 5, ivs: IVS }),
+    makeCombatant({ species: by.snivy, level: 5, ivs: IVS }),
+  ];
+  let sent = 0;
+  const lost = resolve(
+    makeCombatant({ species: by.magikarp, level: 3, ivs: IVS }),
+    makeCombatant({ species: by.gyarados, level: 40, ivs: IVS }),
+    1337, 21, { nextAlly: () => bench[sent++] ?? null });
+  eq('54. a party keeps fighting until it runs out', lost.sent, 3);
+  eq('55. and only then is the fight lost', lost.winner, 'b');
+  check('56. each swap is on the transcript',
+    lost.transcript.filter((e) => e.kind === 'swap').length === 2,
+    `${lost.transcript.filter((e) => e.kind === 'swap').length} swaps`);
+
+  // A revive gets first refusal, so the same Pokemon comes back up rather than being replaced.
+  let revives = 1;
+  const saved = resolve(
+    makeCombatant({ species: by.magikarp, level: 3, ivs: IVS }),
+    makeCombatant({ species: by.gyarados, level: 40, ivs: IVS }),
+    1337, 21, {
+      between: (st) => (st.a.hp <= 0 && revives-- > 0
+        ? [{ kind: 'revive', item: 'maxrevive', fraction: 1 }] : []),
+      nextAlly: () => null,
+    });
+  eq('57. a revive is taken before a swap', saved.sent, 1);
+  check('58. and the fight went on', saved.turns > lost.turns - lost.sent, `${saved.turns} turns`);
+}
+
+eq('59. the between cap is four', MAX_BETWEEN, 4);
+check('60. a runaway between is capped rather than obeyed',
+  resolve(osha, cat, 1337, 12, {
+    between: () => Array.from({ length: 9 }, () => ({ kind: 'heal', item: 'potion', hp: 1 })),
+  }).betweenCapped === true);
 
 // --- report -----------------------------------------------------------------
 const failed = results.filter((r) => !r.ok);

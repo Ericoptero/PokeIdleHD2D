@@ -62,7 +62,8 @@ const MOON_FAMILY = new Set([
  * @property {number} [ball]        constant catch multiplier
  * @property {(c:BallContext)=>number} [ballMult]  conditional catch multiplier
  * @property {string} [when]        human-readable condition, shown in the shop
- * @property {Object} [heal]        { hp:number|'full', fraction?:number, status?:boolean, revive?:number }
+ * @property {Object} [heal]        { hp:number|'full', fraction?:number, status?:boolean,
+ *                                   revive?:number, pp?:number|'full' }
  * @property {Object} [evolution]   { method:'stone'|'trade-item', key:string }
  * @property {number} [exp]         EXP candy payload
  * @property {Object} [buff]        { key:string, mult:number, seconds:number }
@@ -166,6 +167,17 @@ export const ITEMS = [
     heal: { revive: 0.5 }, desc: 'Revives a fainted Pokémon at half HP.' },
   { id: 'maxrevive', name: 'Max Revive', category: 'medicine', tier: 4, price: 4000, sell: 2000,
     heal: { revive: 1 }, desc: 'Revives a fainted Pokémon at full HP.' },
+  // PP restoration. **These are new** (DECISIONS #72): the game has modelled per-move PP since
+  // the turn engine landed, and Struggle since with it, and there has never been anything in the
+  // shop that put PP back — so a long hunt ended in a Pokemon flailing at 50 power with recoil,
+  // with no purchasable answer. Auto-Ether is the automation the brief asks for, and this is
+  // what it spends. Priced against the potion line: an Ether is ₽120 per PP against a Potion's
+  // ₽10 per HP, because a point of PP is worth several turns of attacking and a point of HP is
+  // worth one hit.
+  { id: 'ether', name: 'Ether', category: 'medicine', tier: 2, price: 1200, sell: 600,
+    heal: { pp: 10 }, desc: 'Restores 10 PP to one move.' },
+  { id: 'maxether', name: 'Max Ether', category: 'medicine', tier: 3, price: 2000, sell: 1000,
+    heal: { pp: 'full' }, desc: "Fully restores one move's PP." },
 
   // ── EXP candy ────────────────────────────────────────────────────────────────
   // The late-game money sink that matters. Idle income scales with √(party power) while

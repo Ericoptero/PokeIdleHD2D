@@ -386,10 +386,33 @@ export default {
         return true;
       },
 
+      /**
+       * Heals one member, or the whole party with `'all'`.
+       *
+       * **A heal does not raise a fainted Pokemon** (`instance.js heal`). Pass
+       * `{ revive: true }` for the one caller that may — the Pokemon Center restoring a wiped
+       * party — and `revive()` for an item that is meant to.
+       */
       heal(instanceId, opts) {
         if (instanceId === 'all' || instanceId == null) { party.forEach((p) => INST.heal(p, opts)); return true; }
         const inst = find(instanceId);
         return inst ? INST.heal(inst, opts) : null;
+      },
+      /** Raises a fainted member. Refuses a conscious one, so an item cannot be wasted. */
+      revive(instanceId, opts) {
+        if (instanceId === 'all' || instanceId == null) { party.forEach((p) => INST.revive(p, opts)); return true; }
+        const inst = find(instanceId);
+        return inst ? INST.revive(inst, opts) : null;
+      },
+      /** The Pokemon Center: everyone up, everyone full, every status gone. */
+      reviveAll() {
+        party.forEach((p) => INST.heal(p, { hp: 'full', status: true, revive: true }));
+        return party.length;
+      },
+      /** Puts PP back into a move slot — what an Ether does. */
+      restorePp(instanceId, opts) {
+        const inst = find(instanceId);
+        return inst ? INST.restorePp(inst, opts) : 0;
       },
       damage(instanceId, n) {
         const inst = find(instanceId);
@@ -397,6 +420,8 @@ export default {
       },
       /** The party member that can still fight, or null — what a faint swaps to. */
       firstConscious: () => party.find((p) => p.hp > 0) ?? null,
+      /** Every member that can still fight, in party order — what Auto-Lead chooses from. */
+      conscious: () => party.filter((p) => p.hp > 0),
       instance: (instanceId) => find(instanceId) ?? null,
 
       // --- the save seam (§5) ------------------------------------------------

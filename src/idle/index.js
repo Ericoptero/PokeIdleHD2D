@@ -75,6 +75,9 @@ export default {
     const clockHealth = { backwards: 0, capped: 0, cappedS: 0, lastGapS: 0 };
     const visibility = {
       hidden: typeof document !== 'undefined' ? !!document.hidden : false,
+      /** Seconds handed to `encounter` because the player was watching, and how many times. */
+      watchedS: 0,
+      watchedCount: 0,
       hiddenCount: 0, hiddenTotalS: 0, hiddenSinceMs: 0,
       accruedWhileHiddenS: 0, moneyWhileHidden: 0, framesWhileHidden: 0,
     };
@@ -148,6 +151,45 @@ export default {
     // budget is a duration, and durations must not be measured on a clock that can jump.
     const drain = makeDrain({ seed, snapshotState: () => state() });
 
+    // --- who is running the hunt ---------------------------------------------
+    /**
+     * `'encounter' | 'idle' | 'offline'` — the one thing stepping the hunt right now.
+     *
+     * `offline` is never this module's answer: a closed tab has no `idle` running to ask. What
+     * this distinguishes is a tab you are **watching**, where `encounter` steps a real fight on
+     * the map, from a tab that is **backgrounded**, where nothing is drawing and the fold is the
+     * only thing that can move the game on.
+     *
+     * It reads this module's own `visibility.hidden` rather than `document.hidden` directly, so
+     * `debug.setHidden()` — which a showcase already uses to exercise the hidden-tab bookkeeping
+     * in a headless capture — steers it too.
+     */
+    function driver() {
+      if (typeof document === 'undefined') return 'idle';
+      return visibility.hidden ? 'idle' : 'encounter';
+    }
+
+    /**
+     * Hands the encounter counter across when the driver changes.
+     *
+     * There is one index space (`root/encounter/roll/N`, DECISIONS #61(f)) and two counters
+     * walking it — this module's `own.progress.encounters` and `encounter`'s own. Left
+     * unsynchronised they drift apart and index N is resolved twice against different party
+     * state, which is the disagreement #61(f) was written to prevent, arriving from the other
+     * end. Whole encounters are the integers in `(p0, p1]` (`accrual.js`), so the floor of this
+     * module's float is exactly how many it has finished.
+     */
+    function handOver(to) {
+      const e = ctx.get('encounter');
+      if (!e || e.__missing !== undefined) return;
+      if (to === 'idle' && typeof e.progress === 'function') {
+        const n = e.progress().encounters;
+        if (Number.isFinite(n)) own.progress.encounters = Math.max(own.progress.encounters, n);
+      } else if (to === 'encounter' && typeof e.setProgress === 'function') {
+        e.setProgress({ encounters: Math.floor(own.progress.encounters) });
+      }
+    }
+
     // --- reconciliation ------------------------------------------------------
     /**
      * The heart of the module. Measures real elapsed wall time since the last call and
@@ -176,7 +218,19 @@ export default {
         dt = cap;
       }
       clockHealth.lastGapS = dt;
-      if (dt > 0) drain.queue(dt, reason);
+      // **Exactly one thing runs the hunt at a time** (DECISIONS #72). A visible tab is driven
+      // by `encounter`, which walks the loop, engages slots and steps real fights; this module
+      // folds a *model* of the same loop. Both were running at once — `document.hidden` was
+      // tracked for reporting and never as a gate — and it was harmless only because the fold
+      // wrote nothing back. It stops being harmless the moment `gains.progress` carries party
+      // HP and a bag, at which point two drivers damage one party and spend one bag twice.
+      //
+      // The second is still *measured* and `lastWallMs` still advances, so a second discarded
+      // here can never be paid twice later; it is simply not this module's second.
+      if (dt > 0) {
+        if (driver() === 'idle') drain.queue(dt, reason);
+        else { visibility.watchedS += dt; visibility.watchedCount++; }
+      }
       return dt;
     }
 
@@ -344,6 +398,8 @@ export default {
       }
       if (hidden && !visibility.hidden) { visibility.hiddenCount++; visibility.hiddenSinceMs = now(); }
       visibility.hidden = hidden;
+      // The counter changes hands at the edge, before either side takes another index.
+      handOver(hidden ? 'idle' : 'encounter');
       // Coming back should feel instant, so drain hard for one call rather than waiting
       // for the frame budget to nibble at it.
       if (!hidden) pump({ budgetMs: 12, maxSteps: 2048, reason: 'visible' });
@@ -457,8 +513,15 @@ export default {
 
       // --- depth: telemetry ---------------------------------------------------
       heartbeat: () => heartbeat.stats(),
+      /**
+       * Which of the three things is stepping the hunt. Published, and drawn by `?debug=1`,
+       * because "exactly one driver at a time" is a claim a screenshot should be able to
+       * settle rather than one a comment asserts (DECISIONS #72).
+       */
+      driver,
       diagnostics: () => ({
         seed,
+        driver: driver(),
         transport: heartbeat.transport,
         heartbeat: heartbeat.stats(),
         drain: drain.stats(),
@@ -486,6 +549,7 @@ export default {
         now,
         pump: (opts = {}) => pump({ budgetMs: 4, maxSteps: 512, reason: 'debug', ...opts }),
         setHidden(hidden) {
+          if (!!hidden !== visibility.hidden) handOver(hidden ? 'idle' : 'encounter');
           // Lets the showcase exercise the hidden-tab bookkeeping in a headless capture,
           // where the page is always technically visible.
           if (hidden && !visibility.hidden) { visibility.hiddenCount++; visibility.hiddenSinceMs = now(); }

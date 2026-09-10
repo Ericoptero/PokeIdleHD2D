@@ -21,7 +21,11 @@
 import * as MOVES from './moves.js';
 import { TYPES, effectiveness, effectivenessText, STAB } from './types.js';
 import { statsOf, stageMultiplier, expAtLevel, expToNextLevel, levelForExp, expYield } from './stats.js';
-import { makeCombatant, begin, turn, resolve, damageOf, streamFor, STREAM_ROOT } from './engine.js';
+import {
+  makeCombatant, begin, turn, resolve, stepper, applyAction,
+  damageOf, streamFor, STREAM_ROOT, MAX_BETWEEN,
+} from './engine.js';
+import { strikesOf, describeStrike } from './strike.js';
 import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
@@ -87,9 +91,23 @@ export default {
       // --- the engine -------------------------------------------------------
       makeCombatant,
       begin,
-      /** One turn, pure. The visible fight steps this; `offline` loops `resolve`. */
+      /** One turn, pure. */
       turn,
+      /**
+       * A fight, one turn at a time — **the implementation**, of which `resolve` is a drain.
+       *
+       * The visible fight steps this on a sim cadence so it can be watched and screenshotted;
+       * `idle` and `offline` drain it. `between` lands heals, ethers and revives between two
+       * turns and `nextAlly` sends out the next party member when one falls, so an ally faint
+       * is not the end of a duel. Neither hook may draw randomness (DECISIONS #72).
+       */
+      stepper,
+      applyAction,
+      MAX_BETWEEN,
       resolve,
+      /** One record per blow, folded out of a turn's events — what `battle:strike` carries. */
+      strikesOf,
+      describeStrike,
       damageOf,
       choose: (self, foe) => MOVES.choose(self, foe),
       streamFor,
@@ -115,6 +133,19 @@ export default {
         check('type chart: electric on ground is 0', effectiveness('electric', ['ground']) === 0);
         check('type chart: ice on dragon/flying is 4x', effectiveness('ice', ['dragon', 'flying']) === 4);
         check('stream identity', streamFor(1337, 7, 1).label === `${STREAM_ROOT}/7/1`);
+        // The claim the whole visible fight rests on: stepping and draining are one code path.
+        {
+          const a = makeCombatant({ species: 'pikachu', level: 10 });
+          const b = makeCombatant({ species: 'rattata', level: 10 });
+          const drained = resolve(a, b, 1337, 3);
+          const run = stepper(a, b, 1337, 3);
+          const stepped = [];
+          while (!run.over) stepped.push(...run.step().events);
+          check('stepping a fight equals draining it',
+            JSON.stringify(stepped) === JSON.stringify(drained.transcript),
+            `${stepped.length} vs ${drained.transcript.length} events`);
+          check('a strike is derived per blow', strikesOf(drained.transcript, { a: 'a', b: 'b' }).length > 0);
+        }
         reportSelfTest('battle', results);
         return { ok: results.every((r) => r.ok), results };
       },
