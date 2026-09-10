@@ -53,8 +53,6 @@ const byId = (id) => BIOMES.find((b) => b.id === id) ?? BIOMES[0];
  * queue out left-to-right across the frame: nobody occludes anybody, and the trainer shows
  * the side of the sheet that has a face, a brim and two arms on it.
  */
-const DEFAULT_WALK = { route: 'e12', tiles: 3, subTicks: 7, dir: 3 };
-
 /**
  * How a hunt is played (`simulation.setFormation`).
  *
@@ -135,6 +133,21 @@ export default {
     const occupancy = new Map();
     /** Slots waiting to be refilled: `{ k, at }` in `clock.simTime` seconds. */
     const refills = [];
+    /**
+     * Slots the party has already walked out to on this lap.
+     *
+     * Without it the head ping-pongs: it steps out to a slot, nothing takes the creature —
+     * `encounter` is not armed in another module's showcase, or is quarantined, or the party is
+     * wiped — it steps back onto the cell it left, `player:enteredTile` fires for that cell
+     * again, and it commits the same detour forever. Measured in `?showcase=hunts&mode=meadow`
+     * before this: **216 detours in 2000 ticks over twelve cells of map** (DECISIONS #74).
+     *
+     * Cleared on a completed lap and on entry, so a slot the party could not take this time
+     * round is tried again next time round — which is also the honest reading of "move toward
+     * the next nearby living target".
+     */
+    const triedThisLap = new Set();
+
     /** How many times each slot has refilled — the index its respawn roll is addressed by. */
     const generations = new Map();
     /** Seconds of simulated time this module has seen, accumulated from its own `tick`. */
@@ -181,6 +194,7 @@ export default {
       if (!loop) return;
       if (++lapSteps < loop.cells.length) return;
       lapSteps = 0;
+      triedThisLap.clear();
       const pokemon = ctx.get('pokemon');
       if (!isLive(pokemon) || typeof pokemon.party !== 'function') return;
       const frac = Math.max(0, Math.min(1, Number(ctx.config.lapHealFraction ?? 0.34)));
@@ -218,6 +232,7 @@ export default {
       for (let k = 0; k < list.length; k++) {
         const slot = list[k];
         if (!slot?.from || slot.from.cx !== cx || slot.from.cz !== cz) continue;
+        if (triedThisLap.has(k)) return;          // already walked out to this one this lap
         const held = occupancy.get(k);
         if (!held) return;                       // defeated and not yet respawned: walk on
         // Re-checked against the draft rather than trusted from build time: a prop placed after
@@ -232,6 +247,7 @@ export default {
           : true;
         if (!ok) { log.debug?.(`hunts/${currentId}: slot ${k} has no approach — skipped this lap`); return; }
         if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+        triedThisLap.add(k);
         sim.detour([slot.step, back]);
         return;
       }
@@ -397,32 +413,100 @@ export default {
     }
 
     /**
-     * Stands the party on a marker, pointed the way this biome walks, and — under a frozen
-     * clock — a few tiles into that walk so the queue is caught mid-stride.
+     * The circuit, rotated so the head's first step is the one it owes from where it stands.
      *
-     * **This is the only staging path, and that is the whole of the "everyone still faces
-     * north" bug.** Round 2 fixed `showcase.js` to freeze with `advanceTo` (tiles) instead
-     * of `advanceSteps` (sim ticks) and then left this function calling `advanceSteps(7)` —
-     * and `hunts.preset()` runs *after* the showcase, on every single capture, because the
-     * harness applies `--preset` through `__HOOKS__.setPreset`. Seven sim ticks is 0.35 s,
-     * which at `walkSecondsPerTile` 0.25 is **1.4 tiles**: the teleport reset the queue, the
-     * lead took one step, and the trainer and the whole party behind it were still standing
-     * in the pose `Line.place` laid them in. Probed on the running page before the change:
-     * coast's `route` framing reported `steps: 1, distance: 1.2` with the lead at `dir: 3`
-     * and every other walker at `dir: 2`, which is exactly the frame three blind rounds
-     * called "the back of the trainer's cap".
-     *
-     * `Line.place` lays the *whole* queue along `dir` at the teleport, so a route that
-     * starts east needs only two or three tiles of walk to be strung out east-west with
-     * every sprite clear of the one behind it — the long `tiles` counts were compensating
-     * for a north leg that had to be walked off first.
+     * `cells[i]` is where the trainer is put; the head lands `gap` cells ahead on
+     * `cells[i + gap]`, and `dirs[i + gap]` is the step that cell is due to take. `enter()` is
+     * the `i = 0` case of this (DECISIONS #65).
      */
-    function stageWalk(sim, biome, spec = {}) {
-      const walk = { ...DEFAULT_WALK, ...(biome.walk ?? {}), ...(spec.walk ?? {}) };
-      // `walk` first, `teleport` second: `placePlayer` resets the route it finds, so setting
-      // the route after the teleport would start it from wherever the last one left off.
-      if (typeof sim.walk === 'function') sim.walk(walk.route, { loop: true });
-      return walk;
+    function routeFrom(loop, i, gap) {
+      const dirs = parseLoop(loop.route);
+      if (dirs.length <= gap) return { dirs, rotated: dirs };
+      const at = ((i + gap) % dirs.length + dirs.length) % dirs.length;
+      return { dirs, rotated: [...dirs.slice(at), ...dirs.slice(0, at)] };
+    }
+
+    /**
+     * Stands the party **on its own circuit**, at the cell nearest the place a preset frames.
+     *
+     * This replaced `stageWalk`, which installed the biome's authored `walk.route` string —
+     * `'e16 n2 e10 s2'` and three like it. Those predate the found loop (DECISIONS #65) and
+     * survived it, so `/` walked the circuit and **every showcase and preset capture walked
+     * something else**. Measured before the change: in `?showcase=hunts&mode=meadow` the party
+     * visited 53 cells, **two of them on the loop**, and met **nothing at all** in two thousand
+     * ticks — a lap that never gets near a wild Pokemon, in the one view a person is most
+     * likely to look at. Every hunt frame this project had judged was staged that way
+     * (DECISIONS #74).
+     *
+     * The marker is a *framing* request, not a position: the party stands on the nearest loop
+     * cell to it, so the picture is of the place asked for and the walker is on the path it
+     * will actually walk. A biome with no circuit stands still at the marker, which is what
+     * `enter()` does too — a hunt that cannot walk its loop should look broken rather than look
+     * like a different game.
+     */
+    function stageOnLoop(sim, biome, marker, spec = {}) {
+      const loop = built.get(biome.id)?.loop;
+      const gap = typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
+      if (!loop?.cells?.length) {
+        if (typeof sim.halt === 'function') sim.halt();
+        return { dir: spec.dir ?? marker?.dir ?? 3, tiles: 0, subTicks: 0, on: null };
+      }
+      /**
+       * The nearest cell that **starts a straight run at least as long as the queue**.
+       *
+       * `sim.teleport` places the *trainer* and `Line.place` lays the whole queue along one
+       * direction, so the head lands `gap` cells ahead in a straight line — which is only on
+       * the ring if the next `gap` steps all go the same way. `enter()` gets this for free
+       * because `rotateToStraight` opens the ring on its longest straight; an arbitrary cell
+       * near a marker does not, and a start one cell before a turn puts the head off the
+       * circuit. Measured on the coast before this: 63 of 70 visited cells were off its own
+       * loop (DECISIONS #65(c), for the third time — #74).
+       */
+      const dirsAll = parseLoop(loop.route);
+      // `gap + 1`, not `gap`: the run has to cover the cells the queue is laid across AND the
+      // head's own first step, which is exactly what `straightLead` (`followerGapTiles + 2`)
+      // guarantees for the ring's opening.
+      const straightAt = (i) => {
+        for (let k = 0; k <= gap; k++) {
+          if (dirsAll[(i + k) % dirsAll.length] !== dirsAll[i % dirsAll.length]) return false;
+        }
+        return true;
+      };
+      let best = -1;
+      let bestD = Infinity;
+      for (let i = 0; i < loop.cells.length; i++) {
+        if (!straightAt(i)) continue;
+        const c = loop.cells[i];
+        const d = Math.abs(c.cx - (marker?.cx ?? 0)) + Math.abs(c.cz - (marker?.cz ?? 0));
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      // A ring bent past having any straight that long is the caller's problem, not something
+      // to paper over with a start that puts the head in a hedge: fall back to the ring's own
+      // opening, which `rotateToStraight` already chose for exactly this property.
+      if (best < 0) best = 0;
+      const { dirs, rotated } = routeFrom(loop, best, gap);
+      // **`walk()` and not `setFormation()`**, and the reason is a guard three lines long:
+      // `setFormation` refuses to start an autopilot under `config.showcase` (a showcase stages
+      // its own frame and `?autowalk=0` pins one), so installing the route through it leaves a
+      // showcase standing still. `enter()` has already set the formation — the head, the input
+      // lock, `strict` — so all this has to do is hand over the route, which is exactly what
+      // `stageWalk` did before it (DECISIONS #74).
+      if (typeof sim.walk === 'function') {
+        sim.walk(rotated, {
+          loop: true,
+          strict: true,
+          onStall: ({ cx, cz, dir }) => log.warn(
+            `hunts/${biome.id}: the staged circuit stalled at (${cx},${cz}) facing ${dir}`),
+        });
+      }
+      // Three tiles of walk so the queue is strung out along the path rather than stacked in
+      // the pose `Line.place` laid it in — that is what it takes for the trainer and the lead
+      // to be clear of each other at `followerGapTiles` 2.
+      // **The trainer faces the direction of travel at ITS OWN cell**, not the head's next step.
+      // `Line.place` lays the whole queue along this one heading, so handing it `dirs[best+gap]`
+      // strung the party out along the wrong axis and put the head off the ring — measured on
+      // the coast at 63 of 70 visited cells off its own loop.
+      return { dir: dirsAll[best] ?? 3, tiles: 3, subTicks: 7, on: loop.cells[best] };
     }
 
     /** Where a preset stands the party, and how far back the camera sits for it. */
@@ -445,8 +529,9 @@ export default {
       // moves the rig is undone before the shutter — `city` learned this as #28j. Move the
       // party, and the rig follows it.
       if (isLive(sim) && typeof sim.teleport === 'function') {
-        const walk = stageWalk(sim, biome, spec);
-        sim.teleport(m.cx, m.cz, m.dir ?? spec.dir ?? walk.dir ?? 3);
+        const walk = stageOnLoop(sim, biome, m, spec);
+        const at = walk.on ?? m;
+        sim.teleport(at.cx, at.cz, walk.on ? walk.dir : (m.dir ?? spec.dir ?? 3));
         if (ctx.config.timeFrozen) {
           if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
           else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(walk.tiles * 5);
@@ -563,8 +648,7 @@ export default {
            * `parseRoute` accepts an array, so the rotation needs no new syntax.
            */
           const gap = typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
-          const dirs = loop ? parseLoop(loop.route) : [];
-          const rotated = dirs.length > gap ? [...dirs.slice(gap), ...dirs.slice(0, gap)] : dirs;
+          const { dirs, rotated } = loop ? routeFrom(loop, 0, gap) : { dirs: [], rotated: [] };
 
           sim.setFormation?.({
             ...HUNT_FORMATION, ...(biome.formation ?? {}),
@@ -615,8 +699,9 @@ export default {
           const sim = ctx.get('simulation');
           const cx = +literal[1], cz = +literal[2];
           if (isLive(sim) && typeof sim.teleport === 'function') {
-            const walk = stageWalk(sim, biome, {});
-            sim.teleport(cx, cz, walk.dir ?? 3);
+            const walk = stageOnLoop(sim, biome, { cx, cz });
+            const at = walk.on ?? { cx, cz };
+            sim.teleport(at.cx, at.cz, walk.dir ?? 3);
             if (ctx.config.timeFrozen) {
               if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
               else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(walk.tiles * 5);

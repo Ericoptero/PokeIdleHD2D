@@ -62,12 +62,14 @@ export async function showcaseHunt(mode, ctx, biomes) {
  */
 export function stageAtSpawn(ctx, biome) {
   const sim = ctx.get('simulation');
-  if (!isLive(sim) || typeof sim.walk !== 'function') return false;
-  const walk = biome.walk ?? { route: 'e12', tiles: 3, subTicks: 7 };
-  sim.walk(walk.route, { loop: true });
+  if (!isLive(sim)) return false;
+  // Walks a few tiles along **the circuit `enter()` already installed**. It used to install
+  // `biome.walk.route` instead — an authored string that predates the found loop and survived
+  // it — so every showcase photographed a walker on a path the game does not walk, and one
+  // that passes no spawn slot at all (DECISIONS #74). There is one route now.
   if (!ctx.config.timeFrozen) return true;
-  if (typeof sim.advanceTo === 'function') sim.advanceTo(walk.tiles, walk.subTicks);
-  else sim.advanceSteps(walk.tiles * 5);
+  if (typeof sim.advanceTo === 'function') sim.advanceTo(3, 7);
+  else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(15);
   sim.freeze(true);
   return true;
 }

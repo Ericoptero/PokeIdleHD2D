@@ -583,7 +583,7 @@ export function findLoop(draft, around, {
     .map((a) => ({ cx: Math.round(a.cx ?? draft.w / 2), cz: Math.round(a.cz ?? draft.h / 2) }));
   if (!anchors.length) anchors.push({ cx: draft.w >> 1, cz: draft.h >> 1 });
 
-  const base = findRectangle(draft, anchors, { min, max, step, margin });
+  const base = findRectangle(draft, anchors, { min, max, step, margin, preferTags });
   if (!base) return null;
 
   // **The rectangle is the FLOOR, not the shape.** It is what can be guaranteed — a
@@ -634,7 +634,7 @@ export function rotateToStraight(cells, minRun = 3) {
 }
 
 /** The guaranteed circuit: the largest passable rectangle perimeter that fits. */
-function findRectangle(draft, anchors, { min, max, step, margin }) {
+function findRectangle(draft, anchors, { min, max, step, margin, preferTags = [] }) {
   const perimeter = (x, z, w, h) => {
     const cells = [];
     const legs = [[EAST_, w - 1], [SOUTH_, h - 1], [WEST_, w - 1], [NORTH_, h - 1]];
@@ -655,10 +655,43 @@ function findRectangle(draft, anchors, { min, max, step, margin }) {
     return (cx === x && cz === z) ? cells : null;
   };
 
-  for (let size = max; size >= min; size -= step) {
-    for (let w = size; w >= min; w -= step) {
-      const h = size;
-      for (const anchor of anchors) {
+  /**
+   * **Every fitting rectangle is scored; the best one wins.**
+   *
+   * This used to return the FIRST rectangle that fit, walking height-major — `size` from `max`
+   * down, and for each `size` a width from `size` down to `min`. So a **6x22 corridor** was
+   * found and accepted before a 21x21 square was ever tried, because the whole width sweep at
+   * size 22 runs before size 21 begins. Measured on the shipped meadow: the circuit came out a
+   * 6x17 corridor at x 38-43, fifty cells of a 64x60 map, hugging one edge — with the campfire
+   * that is the biome's only night practical **14 cells away** and the marker every showcase
+   * frames 23 away. The party walked a corner of a map it never saw (DECISIONS #74).
+   *
+   * Three things decide it now, and each is there for a reason a picture shows:
+   *
+   *   - **area**, because a bigger ring walks more of the map and holds more spawn slots;
+   *   - **squareness**, because a corridor reads as a corridor and, at Chebyshev 2, its two
+   *     sides compete for the same cells — which is why a narrow ring thins its own slots;
+   *   - **composed ground**, the share of the ring standing on `preferTags`. This is what pulls
+   *     the circuit onto the trail the biome laid, and with it past the lamps and props that
+   *     make a frame worth looking at.
+   *
+   * Anchors keep their order as a gentle tie-break, so a biome's own `showcaseDefault` still
+   * pulls the ring toward the place it wanted framed without being able to buy a bad shape.
+   */
+  const tagsOf = (cx, cz) => (typeof draft.tagsAt === 'function' ? draft.tagsAt(cx, cz) ?? [] : []);
+  const wanted = new Set(preferTags ?? []);
+  const composedFraction = (cells) => {
+    if (!wanted.size || !cells.length) return 0;
+    let n = 0;
+    for (const c of cells) if (tagsOf(c.cx, c.cz).some((t) => wanted.has(t))) n++;
+    return n / cells.length;
+  };
+
+  let best = null;
+  for (let h = max; h >= min; h -= step) {
+    for (let w = max; w >= min; w -= step) {
+      for (let a = 0; a < anchors.length; a++) {
+        const anchor = anchors[a];
         for (const [ox, oz] of NUDGES) {
           const x = anchor.cx - ((w / 2) | 0) + ox;
           const z = anchor.cz - ((h / 2) | 0) + oz;
@@ -669,13 +702,26 @@ function findRectangle(draft, anchors, { min, max, step, margin }) {
           // so eleven is the half-width plus a tile of slack.
           if (x < margin || z < margin) continue;
           if (x + w > draft.w - margin || z + h > draft.h - margin) continue;
+          // Cheap rejections first: the score is only worth computing for a ring that closes.
+          if (best && w * h <= best.floor) continue;
           const cells = perimeter(x, z, w, h);
-          if (cells) return { cells, w, h, x, z };
+          if (!cells) continue;
+          const squareness = Math.min(w, h) / Math.max(w, h);
+          const score = w * h
+            * (0.45 + 0.55 * squareness)
+            * (1 + 0.60 * composedFraction(cells))
+            * (1 - 0.01 * Math.min(a, 20));
+          if (!best || score > best.score) {
+            // `floor` is the area below which no later candidate can possibly beat this one:
+            // every multiplier above is at most `1 * 1.6 * 1`, so an area under `score / 1.6`
+            // is hopeless. It turns an exhaustive sweep into one that stops looking early.
+            best = { cells, w, h, x, z, score, floor: score / 1.6 };
+          }
         }
       }
     }
   }
-  return null;
+  return best;
 }
 
 /**

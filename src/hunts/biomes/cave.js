@@ -65,7 +65,6 @@ export const CAVE = {
    * it matters twice over, because the rooms are joined by corridors and a corridor a party
    * files *up* is a corridor the camera sees one sprite in.
    */
-  walk: { route: 'e14 s2 e8 n2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 /** A rounded room. Rooms plus the corridors between them is a cave; noise is a sponge. */

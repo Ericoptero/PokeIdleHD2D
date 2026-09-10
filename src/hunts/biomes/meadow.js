@@ -88,7 +88,6 @@ export const MEADOW = {
    * nothing but the back of the trainer's cap, which is the one defect all three blind A/B
    * rounds named.
    */
-  walk: { route: 'e16 n2 e10 s2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 export function buildMeadow(draft, ctx, palette, rng, log) {

@@ -59,7 +59,6 @@ export const COAST = {
    * read correctly: the party files across the frame instead of up it. Everything else in
    * `hunts` is now built to do the same.
    */
-  walk: { route: 'e16 n2 e10 s2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 /** Where the sea's surface sits, so the deep water is flush with the shallows sheet. */

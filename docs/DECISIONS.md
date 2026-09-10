@@ -286,3 +286,68 @@ So the deletion is reverted, and the defect is filed with its numbers. Deleting 
 still right and still has to happen; it lands after the circuit visits the composition, because the
 alternative is shipping a lightless night frame to close a bookkeeping item. A green gate that costs
 a frame its practical is the gate being wrong about what it can see, not permission.
+
+---
+
+### 74 — 2026-09-10 — The circuit was a corridor in a corner, and one route means the showcases walk it too
+
+Phase B shipped a detour that reaches the creature standing on a slot (#73), and the party still
+never got near one — in the view a person is most likely to open. Measured in
+`?showcase=hunts&mode=meadow`: **53 cells visited, two of them on the loop, zero encounters in two
+thousand ticks.** Three separate defects, each hiding the next.
+
+**(a) `findRectangle` returned the first rectangle that fit, and walked height-major.** `size` from
+`max` down, and for each `size` a width from `size` down to `min` — so the entire width sweep at
+size 22 ran before size 21 began, and a **6×22 corridor was accepted before a 21×21 square was ever
+tried**. On the shipped meadow that produced a 6×17 ring at x 38–43: fifty cells of a 64×60 map,
+hugging one edge, with the campfire that is the biome's only night practical **14 cells away** and
+the marker every showcase frames 23 away.
+
+It scores now, and each term is there for something a picture shows: **area**, because a bigger ring
+walks more of the map and holds more slots; **squareness**, because a corridor reads as a corridor
+and at Chebyshev 2 its two sides compete for the same cells, which is why a narrow ring thins its
+own slots; and **composed ground**, the share of the ring standing on `preferTags`, which is what
+pulls the circuit onto the trail the biome laid and past the lamps that make a frame worth looking
+at. An area floor derived from the best score so far keeps the sweep from being exhaustive.
+
+| | before | after |
+| --- | --- | --- |
+| meadow | 50 cells, 6×17, **5 slots**, light 14 away | **78 cells, 26×13, 9 slots, light 1 away** |
+| forest | — | 68 cells, 8 slots, light 2 away |
+| coast | — | 82 cells, 9 slots |
+| cave | — | 56 cells, 8 slots, lights 1 away |
+
+Nine slots is the number `SLOTS` asks for, so this also closes the open item that said slots thin as
+the circuit bends: they were thinning because the ring was narrow, not because it was bent.
+
+**(b) `biome.walk` is deleted, and `setFormation` is the wrong door.** The authored routes predate
+the found loop (#65) and survived it, so `/` walked the circuit and every showcase walked
+`'e16 n2 e10 s2'`. Replacing them with the found loop staged **nothing moving at all**, because
+`setFormation` refuses to start an autopilot under `config.showcase` — a showcase stages its own
+frame. `stageWalk` had been going through `sim.walk()`, which bypasses that guard, and so does its
+replacement; `enter()` has already set the formation, so all a staging call has to hand over is the
+route.
+
+**(c) Two bugs the first working version then showed, both measured.** The head ping-ponged:
+**216 detours in 2000 ticks over twelve cells of map**, because nothing took the creature — a
+showcase does not arm `encounter` — so the head stepped back onto the cell it left, the
+`player:enteredTile` for that cell fired again, and it committed the same detour forever. One
+attempt per slot per lap, cleared on `hunt:lap`, which is also the honest reading of *move toward
+the next nearby living target*. And the coast walked **63 of 70 visited cells off its own loop**,
+because the staged trainer was handed `dirs[best + gap]` — the head's next step — where `Line.place`
+lays the whole queue along the direction of travel at the **trainer's own** cell. The staged start
+also has to begin a straight run of `gap + 1`, which is DECISIONS #65(c) for the third time and now
+asserted where a start is chosen rather than only where the ring is opened.
+
+**What the frames say.** `hunts/meadow/21` had lost its motivated light entirely when this phase was
+first attempted — flat blue darkness, which is what four rounds of blind A/B lost on every round —
+and that is why the deletion was reverted rather than accepted. With the circuit fixed the campfire
+is **in frame, lighting the trainer**, on the composed bank of the brook. The forest's default
+framing moved from `clearing` (13 cells from its fire) to `path` (6 from the fire, 1 from the
+circuit), which puts the fire centre-frame instead of raking in from the right edge.
+
+**Baseline re-accepted, frames named:** `hunts/meadow/12`, `hunts/meadow/21`, `hunts/forest/12`,
+`hunts/forest/17.5`, `hunts/forest/21`, `hunts/coast/12`, `hunts/cave/12`. Every one was looked at.
+`hunts/cave/12` reads as a regression by histogram (`over200Pct 1.175 → 0.748`) and is a better
+picture: a torchlit gallery with four creatures, a mine cart and a cool blue pool, instead of a
+tighter shot of less of it.

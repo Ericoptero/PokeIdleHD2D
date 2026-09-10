@@ -149,7 +149,17 @@ export const FOREST = {
     // is the ride east of the clearing, one step tighter than `path`.
     route: { marker: 'path', ppu: 32 },
   },
-  showcaseDefault: 'clearing',
+  /**
+   * **`path`, because that is where the fire is.**
+   *
+   * `clearing` framed a part of the wood 13 cells from this biome's only practical, and with
+   * one route (DECISIONS #74) the party now stands on the circuit nearest whatever the default
+   * frames — so the campfire ended up raking in from the right edge with half its glare off
+   * screen (`hunts/forest/21 over200Pct 0.939 -> 0.349`). The `path` marker is **6 cells from
+   * the fire and 1 from the circuit**, so the default framing is the party on its own trail
+   * with its light in shot, which is what every frame that beat its reference had (§0).
+   */
+  showcaseDefault: 'path',
   /**
    * East along the south ride, then a jog through the clearing and on east again.
    *
@@ -159,7 +169,6 @@ export const FOREST = {
    * north leg that had to be walked off first, and they walked the party out of the framing
    * the marker was chosen for.
    */
-  walk: { route: 'e14 n2 e10 s2', tiles: 3, subTicks: 7, dir: 3 },
 };
 
 export function buildForest(draft, ctx, palette, rng, log) {
