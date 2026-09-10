@@ -337,14 +337,19 @@ export default {
     }
 
     /** Where the wild Pokemon stands: two cells in front of the lead, on the ground. */
-    function stageCell() {
+    function stageCell(slotCell = null) {
       const sim = ctx.get('simulation');
       const cell = isLive(sim) ? sim.followerCell?.() : null;
       const terrain = ctx.get('terrain');
       const DX = [0, -1, 0, 1], DZ = [1, 0, -1, 0];      // core/dir.js order
       const dir = (cell?.dir ?? 0) & 3;
-      const cx = (cell?.cx ?? 0) + DX[dir] * 2;
-      const cz = (cell?.cz ?? 0) + DZ[dir] * 2;
+      // **The wild fights where it was standing.** The party walked off its circuit to reach
+      // this creature (DECISIONS #73), so staging it two cells in front of the head — which is
+      // what a tall-grass encounter wanted — would move it away from the spot the player just
+      // walked to. A slot encounter stages on the slot's own cell; everything else keeps the
+      // old framing.
+      const cx = slotCell ? slotCell.cx : (cell?.cx ?? 0) + DX[dir] * 2;
+      const cz = slotCell ? slotCell.cz : (cell?.cz ?? 0) + DZ[dir] * 2;
       // `simulation.surfaceAt` measures the top of the cell off the loaded map's placements;
       // `terrain.height()` reports the authored heightfield, which the demo maps never set
       // (DECISIONS #27). Prefer the measured one and fall back to the authored one.
@@ -754,6 +759,7 @@ export default {
         shiny: enc.shiny || !!taken.shiny,
         catchRate: authoredCatchRate(species.name) ?? catchRateFor(species.bst) ?? enc.catchRate,
         slot: slot.k,
+        slotCell: { cx: slot.cx, cz: slot.cz, dir: slot.dir ?? 0 },
       };
       return begin(merged);
     }
@@ -920,7 +926,7 @@ export default {
         });
       }
 
-      const at = stageCell();
+      const at = stageCell(enc.slotCell ?? null);
       const sim = ctx.get('simulation');
       const trainer = isLive(sim) ? sim.player?.() : null;
       scene = {

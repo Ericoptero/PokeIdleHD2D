@@ -183,3 +183,71 @@ with no simulated time passing. And `battle`'s API grew five members; §5.17 was
 with four claims in it that were already wrong before this work started (`turn`'s phantom
 `turnNo` argument, a `ppSpent` field `resolve` never returned, `movesFor` returning "exactly 4"
 when it returns 1–4, and `moves()` where the code has `moveIds()`).
+
+---
+
+### 73 — 2026-09-10 — A hunt walks to its wildlife: one step off the circuit, both legs queued at once
+
+DECISIONS #67 moved the trigger from a tile to a slot and set the reach to **2**, and the
+reasoning was right for what the game did then: a slot is authored at Chebyshev 2 from the
+circuit, so a reach of 1 could never fire from a cell on the path — measured, 23 encounters over
+four laps and every one from tall grass. The brief asks for something else. A battle should begin
+when the trainer's Pokémon **physically reaches** a living wild, and the party should move toward
+the next living target rather than walk past one at shouting distance.
+
+**(a) The detour is exactly one step, and the geometry is what proves it.** `slotsForLoop` tries
+only *axial* offsets — `[±2,0]`, `[0,±2]` — from a specific perimeter cell, and its `near()` test
+already rejected any candidate with a loop cell at Chebyshev < 2. So the midpoint between the path
+cell and the slot is Chebyshev 1 from both **and is provably never a loop cell**. That kills the
+path search the first design reached for: a slot records `from`, `step` and `approach`, and the
+detour is the pair `[step, opposite(step)]`.
+
+**(b) Both legs are queued at commit time, and that is the load-bearing choice.** Nothing has to
+run when the fight ends to bring the party home — so a `hunts` quarantined mid-duel cannot strand
+the queue off its own route, which is §2.1's rule applied to a walk rather than to a frame.
+
+**(c) It is drained AHEAD of the autopilot, so the route never learns it happened.** `route.next`
+is not called on a queued step, so a scripted route's index cannot advance; the head returns to the
+cell it left owing exactly the step it owed before. Checked against `route.js` itself rather than
+reasoned about (`simulation/selftest.js`): six steps of `'e4 s4 w4 n4'` leaves the route at index 6
+on (14,12); a `[NORTH, SOUTH]` leg returns the head to (14,12) with the index still 6, and the next
+four steps are `s s w w` — exactly what it owed. `audit()` is untouched because it walks
+`loop.cells`, which a detour never edits.
+
+**One defect this found in itself.** The first cut drained the detour *before* testing `paused`,
+so `pause(true)` — which is what a battle does — did not stop it: the head walked the return leg
+**during the fight** and the wild was left punching an empty cell. Measured on the frozen frame:
+head and trainer on the same cell at (32,29) with the wild staged two away. `paused` gates the
+detour now, which is what makes queuing both legs work at all — the queue freezes with the return
+leg in it and `pause(false)` on `encounter:resolved` walks it home.
+
+**(d) `slotEngageTiles` goes 2 → 1.** At 2 the encounter fires from the path *before* the detour is
+taken and the party never leaves the circuit at all. The number that was right in #67 is wrong now
+for the same reason it was right then: it measures the distance from the walk, and the walk moved.
+
+**(e) The wild fights where it was standing.** `stageCell()` put it two cells in front of the head,
+which is what a tall-grass encounter wanted; after a detour that would move the creature away from
+the spot the player just walked to. A slot encounter stages on the slot's own cell.
+
+**(f) Wild Pokémon are solid, and the same arithmetic is why that cannot wedge anything.** The
+worry was a tethered wild drifting onto the path and stalling a `strict` route. It cannot: a slot
+is at Chebyshev exactly 2 from the circuit (`audit()` asserts it on every `enter()`) and the tether
+radius is 1, so **a wild's reachable set never touches a loop cell**. The only blocked cell a
+walker can meet is a detour's approach, and `holdNpc` freezes the target at commit — because a
+creature that drifts a tile between the commit and the arrival turns a two-step detour into a miss.
+Only `hunts` opts its wildlife in; the city's NPCs stay walk-through.
+
+**(g) The decorative-wildlife fallback is deleted.** `spawnWild` fell back to the biome's
+`wildCells` scatter when a map got no circuit, and those creatures sit at no slot — `takeSlot` has
+nothing to hand over and a player can walk past them forever. The brief is explicit that every wild
+visible on a hunt map must be huntable, so a map with no loop now stands empty and warns. A wood
+with no animals is a legible bug; a wood full of animals that cannot be fought is not.
+
+**(h) `lapSteps` is reset in `enter()`.** It carried across a biome change, so the first lap of a
+new hunt healed early by however many steps the previous one had banked.
+
+**Measured, forest, three slots:** 3 detours → 3 battles started, ended and resolved, engaged in
+lap order (slots 0, 1, 2); the head left the circuit at exactly three cells, which are the three
+authored approaches; `audit()` `ok: true, checked: 9, fails: []`; **zero console errors and zero
+warnings**, so `strict` never stalled. `shots/out/contact.png` is the Oshawott standing next to a
+shiny Seedot with both moves called out and the trainer behind it on the path.

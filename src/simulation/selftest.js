@@ -228,6 +228,49 @@ function drive(line, route, ticks, { passable = open() } = {}) {
     DIR_DX[EAST] === 1 && DIR_DZ[SOUTH] === 1 && DIR_DX[WEST] === -1 && DIR_DZ[NORTH] === -1);
 }
 
+// --- the detour: off the circuit and back, with the route none the wiser ------
+//
+// The mechanism Phase B rests on, checked against `route.js` itself rather than reasoned about.
+// A hunt walks a closed loop; to reach a creature standing two cells off it the head takes one
+// step out and one back, and the route must owe **exactly** the step it owed before — otherwise
+// every lap after the first fight walks a different circuit (DECISIONS #73).
+{
+  const world = { passable: () => true, tagsAt: () => [] };
+  const loop = makeScriptedRoute('e4 s4 w4 n4', { loop: true, strict: true });
+  let head = { cx: 10, cz: 10 };
+  const D = { dx: [0, -1, 0, 1], dz: [1, 0, -1, 0] };
+  const walk = (r, n) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const cmd = r.next(head, world);
+      if (!cmd) { out.push(null); break; }
+      head = { cx: head.cx + D.dx[cmd.dir], cz: head.cz + D.dz[cmd.dir] };
+      out.push(cmd.dir);
+    }
+    return out;
+  };
+
+  eq('detour: six steps of the circuit', walk(loop, 6), [EAST, EAST, EAST, EAST, SOUTH, SOUTH]);
+  const home = { ...head };
+  const index = loop.index;
+  eq('detour: the route is six steps in', index, 6);
+  eq('detour: and the head is where those steps put it', home, { cx: 14, cz: 12 });
+
+  // The detour is a one-shot, non-looping route walked in place of the circuit.
+  const leg = makeScriptedRoute([NORTH, SOUTH], { loop: false, strict: true });
+  eq('detour: out and back', walk(leg, 2), [NORTH, SOUTH]);
+  eq('detour: it ends on the cell it left', head, home);
+  eq('detour: the circuit never advanced', loop.index, index);
+  // An exhausted one-shot route answers `null` BEFORE the strict branch (`route.js`), which is
+  // the same value a blocked strict route answers — so a caller must test the index, never a
+  // bare null, or it cannot tell "finished" from "wedged".
+  check('detour: an exhausted leg is told apart by its index, not by a null',
+    leg.next(head, world) === null && leg.index >= leg.length);
+
+  eq('detour: the circuit resumes owing exactly what it owed',
+    walk(loop, 4), [SOUTH, SOUTH, WEST, WEST]);
+}
+
 const total = passed + failures.length;
 if (failures.length) {
   console.error(`simulation selftest: ${passed}/${total} checks passed`);

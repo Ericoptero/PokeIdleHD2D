@@ -926,9 +926,39 @@ export function slotsForLoop(draft, loopCells, rng, { count = 10, accept } = {})
       if (near(cx, cz)) continue;
       if (draft.occupied[draft.idx(cx, cz)]) continue;
       if (accept && !accept(cx, cz)) continue;
+
+      /**
+       * **The approach, and why it is exactly one cell.**
+       *
+       * Every offset above is *axial* — `[±2,0]` or `[0,±2]` — so the midpoint between the
+       * path cell and the slot is a single step off the circuit. It is Chebyshev 1 from the
+       * slot, Chebyshev 1 from the path cell, and (because `near` has just rejected anything
+       * within one cell of the circuit) it is **provably never a loop cell**. That is what
+       * makes a detour a queued pair `[step, opposite(step)]` rather than a path search: the
+       * head steps off, makes contact, fights, and steps back onto the cell it left, so the
+       * route's index is untouched by construction (DECISIONS #73).
+       *
+       * A slot you cannot step toward — or, on a one-way `ledge`, cannot step back from — is
+       * not a slot. Rejecting it here rather than discovering it at the edge of a lap is what
+       * keeps `strict` honest.
+       */
+      const step = dx > 0 ? EAST_ : dx < 0 ? WEST_ : dz > 0 ? SOUTH_ : NORTH_;
+      const mx = c.cx + DX[step];
+      const mz = c.cz + DZ[step];
+      if (!draft.inside(mx, mz)) continue;
+      if (!draft.passable(mx, mz, step)) continue;
+      if (!draft.passable(c.cx, c.cz, (step + 2) & 3)) continue;
+
       taken.add(key);
       // Facing the path, so a wild reads as having noticed the party rather than as scenery.
-      out.push({ cx, cz, dir: dx > 0 ? WEST_ : dx < 0 ? EAST_ : dz > 0 ? NORTH_ : SOUTH_ });
+      out.push({
+        cx, cz,
+        dir: dx > 0 ? WEST_ : dx < 0 ? EAST_ : dz > 0 ? NORTH_ : SOUTH_,
+        // Where the party leaves the circuit, which way it steps, and where it stands to fight.
+        from: { cx: c.cx, cz: c.cz },
+        step,
+        approach: { cx: mx, cz: mz },
+      });
       break;
     }
   }

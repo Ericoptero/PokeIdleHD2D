@@ -192,6 +192,52 @@ export default {
     });
 
     /**
+     * **The party leaves the circuit to reach what it is hunting.**
+     *
+     * The brief asks that a battle begin when the trainer's Pokemon *physically reaches* a
+     * living wild, and until now a slot fired at Chebyshev 2 — proximity, not contact. The
+     * circuit is still the spine; what changes is that when the head lands on the cell a slot
+     * was measured from, it takes **one step off the path and one back**, queued together.
+     *
+     * One step, and the geometry proves it (`compose.slotsForLoop`): every slot sits at an
+     * axial offset of 2 from a specific path cell, so the midpoint is Chebyshev 1 from both and
+     * is never itself a loop cell. Queued as a pair at commit time, so nothing has to run when
+     * the fight ends to bring the party home — a `hunts` quarantined mid-duel cannot strand the
+     * queue off its own route. And drained ahead of the autopilot, so the route's index never
+     * learns it happened (DECISIONS #73).
+     *
+     * The target is frozen at commit, because a tethered wild drifts a tile and a target that
+     * steps aside between the commit and the arrival turns the detour into a miss.
+     */
+    bus.on('player:enteredTile', ({ cx, cz }) => {
+      const sim = ctx.get('simulation');
+      const enc = ctx.get('encounter');
+      if (!isLive(sim) || typeof sim.detour !== 'function') return;
+      if (sim.detouring() || (isLive(enc) && enc.active?.())) return;
+      const list = built.get(currentId)?.slots ?? [];
+      for (let k = 0; k < list.length; k++) {
+        const slot = list[k];
+        if (!slot?.from || slot.from.cx !== cx || slot.from.cz !== cz) continue;
+        const held = occupancy.get(k);
+        if (!held) return;                       // defeated and not yet respawned: walk on
+        // Re-checked against the draft rather than trusted from build time: a prop placed after
+        // the slot was chosen would make the approach a step into a wall, and `strict` would
+        // stall where the player can see it. A refusal is `debug`, never `warn` — the harness
+        // records `consoleWarnings` in every shot's JSON and a handled path must not spend them
+        // (DECISIONS #15).
+        const terrain = ctx.get('terrain');
+        const back = (slot.step + 2) & 3;
+        const ok = isLive(terrain) && typeof terrain.passable === 'function'
+          ? terrain.passable(slot.approach.cx, slot.approach.cz, slot.step) && terrain.passable(cx, cz, back)
+          : true;
+        if (!ok) { log.debug?.(`hunts/${currentId}: slot ${k} has no approach — skipped this lap`); return; }
+        if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+        sim.detour([slot.step, back]);
+        return;
+      }
+    });
+
+    /**
      * Stands wild Pokemon in the biome's own grass.
      *
      * The whole-game critic's headline: *"not one wild Pokemon appears in any of the sixteen
@@ -240,10 +286,19 @@ export default {
       // party meets the same wildlife in the same places on every lap — which is what makes a
       // hunt a route rather than a lucky dip. Falls back to the old scatter when a map could
       // not be given a loop, so a biome with no circuit still has animals in it.
-      const cells = (built.get(biome.id)?.slots?.length
-        ? built.get(biome.id).slots
-        : (built.get(biome.id)?.wild ?? [])).map((c, i) => ({ ...c, k: i }));
-      if (!cells.length) return 0;
+      /**
+       * **Slots only.** The old fallback spawned the biome's decorative `wildCells` scatter
+       * when a map got no circuit — and those creatures are scenery: they sit at no slot, so
+       * `takeSlot` has nothing to hand over and a player can walk past them forever. The brief
+       * is explicit that every wild visible on a hunt map must be huntable, so a map with no
+       * loop now stands empty and says so. A wood with no animals is a legible bug; a wood full
+       * of animals that cannot be fought is not (DECISIONS #73).
+       */
+      const cells = (built.get(biome.id)?.slots ?? []).map((c, i) => ({ ...c, k: i }));
+      if (!cells.length) {
+        log.warn(`hunts/${biome.id}: no spawn slots (no circuit was found) — the wood stands empty`);
+        return 0;
+      }
 
       const env = ctx.get('environment');
       const tod = (isLive(env) && typeof env.getTimeOfDay === 'function')
@@ -284,6 +339,9 @@ export default {
           // One tile of drift around the slot and no further: far enough that the wood is
           // alive, near enough that the slot is still where the player learned it was.
           tether: { cx: p.cx, cz: p.cz, radius: 1 },
+          // Blocks the party's step (§5.4). Safe because a slot is at Chebyshev exactly 2 from
+          // the circuit and the tether radius is 1, so a wild can never stand on a loop cell.
+          solid: true,
           // Named, because `simulation` forks its stream off the name: an unnamed NPC keys off
           // an incrementing id, so adding one more would reshuffle the walk of every creature
           // already on the map.
@@ -448,6 +506,9 @@ export default {
           biome: biome.id, seed: ctx.config.seed,
         });
         currentId = biome.id;
+      // Reset with the scene: it used to carry across a biome change, so the first lap of a
+      // new hunt healed early by however many steps the previous one had banked.
+      lapSteps = 0;
 
         // `terrain.load` builds one `InstancedWorld` from one tileset, and `InstancedWorld`
         // resolves every placement's id against that tileset alone. A model from `props` put
@@ -689,6 +750,10 @@ export default {
           const held = id == null || id === currentId ? occupancy.get(k) : null;
           return {
             k, cx: s2.cx, cz: s2.cz, dir: s2.dir ?? 0,
+            // Where the party leaves the circuit for this slot, and which way it steps.
+            from: s2.from ? { ...s2.from } : null,
+            step: s2.step ?? null,
+            approach: s2.approach ? { ...s2.approach } : null,
             occupied: !!held,
             species: held?.species?.name ?? null,
             shiny: !!held?.shiny,
@@ -764,6 +829,7 @@ export default {
             const npc = sim.spawnNpc({
               species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
               tether: { cx: cell.cx, cz: cell.cz, radius: 1 },
+              solid: true,
               name: `wild/${biome.id}/${cell.cx},${cell.cz}/${gen}`,
             });
             if (!npc) return;

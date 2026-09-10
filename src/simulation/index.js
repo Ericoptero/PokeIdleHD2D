@@ -115,6 +115,15 @@ export default {
      */
     let formation = { head: 'pokemon', input: true, autopilot: 'none', preferTags: ['path'], label: 'simulation/wander' };
     let intent = null;
+    /**
+     * Steps the party owes before the autopilot is consulted again.
+     *
+     * A detour pushes BOTH legs at commit time — out and back — so nothing has to run when the
+     * fight ends to bring the party home. A `hunts` that is quarantined mid-duel therefore
+     * cannot strand the queue off its own circuit; the return leg is already in the queue and
+     * `pause(false)` drains it (DECISIONS #73).
+     */
+    const detour = [];
     let frozen = false;
     let paused = false;
     let placed = false;
@@ -141,18 +150,40 @@ export default {
 
     const terrainApi = () => ctx.get('terrain');
 
+    /**
+     * Cells a **solid** NPC is standing on, `"cx,cz" -> npc id`.
+     *
+     * Wild Pokemon block the party now (the brief asks for it), and the geometry is why that is
+     * safe rather than a way to wedge a `strict` route: a slot is at Chebyshev exactly 2 from
+     * the circuit (`hunts.audit()` asserts it on every `enter()`) and its tether radius is 1, so
+     * a wild's reachable set **never touches a loop cell**. The one blocked cell a walker can
+     * meet is the approach cell of a detour, and the target is frozen before the step is taken.
+     * Only `hunts` opts its wildlife in; the city's NPCs stay walk-through (DECISIONS #73).
+     */
+    const solid = new Map();
+    const cellKey = (cx, cz) => `${cx},${cz}`;
+
     /** Collision goes through terrain, always — this module never reads a tile itself. */
     function passable(cx, cz, dir) {
       const terrain = terrainApi();
       if (!isLive(terrain) || typeof terrain.passable !== 'function') return true;
       return !!terrain.passable(cx, cz, dir);
     }
+    /** Terrain, plus whatever is standing there. `mover` is allowed to occupy its own cell. */
+    function clear(cx, cz, dir, mover = 0) {
+      if (!passable(cx, cz, dir)) return false;
+      const who = solid.get(cellKey(cx, cz));
+      return who === undefined || who === mover;
+    }
     function tagsAt(cx, cz) {
       const terrain = terrainApi();
       if (!isLive(terrain) || typeof terrain.tagsAt !== 'function') return [];
       return terrain.tagsAt(cx, cz) ?? [];
     }
-    const world = { passable, tagsAt };
+    /** What the PARTY walks against: terrain and every solid creature on it. */
+    const world = { passable: (cx, cz, dir) => clear(cx, cz, dir, 0), tagsAt };
+    /** What an NPC walks against: the same, minus its own claim. */
+    const worldFor = (id) => ({ passable: (cx, cz, dir) => clear(cx, cz, dir, id), tagsAt });
 
     // ------------------------------------------------------------- the party
 
@@ -238,6 +269,8 @@ export default {
       surface.rebuild();
       line.place(trainerIndex, cx, cz, dir & 3, passable);
       intent = null;
+      // A queued detour belongs to the cell it was queued from; an absolute move abandons it.
+      detour.length = 0;
       route.reset?.();
       placed = true;
       restage();
@@ -276,16 +309,36 @@ export default {
         // `advance` above) and then stands, and a deliberate `moveIntent` still works, because
         // pausing is what a battle does and not what a cutscene does. The route keeps its
         // index, which is the whole difference between this and `halt()`.
-        const cmd = intent ?? (paused ? null : route.next(head, world));
+        // **The detour is drained AHEAD of the autopilot**, which is what makes it invisible
+        // to the route: `route.next` is never called on a detour step, so its index cannot
+        // advance, and the head comes home to the cell it left with the route owing exactly
+        // the step it owed before (DECISIONS #73).
+        // `paused` gates the detour too, and that is the whole point of queuing both legs at
+        // once: the party walks OUT, the fight starts, `pause(true)` freezes the queue with the
+        // return leg still in it, and `pause(false)` on `encounter:resolved` walks it home. Left
+        // ungated the head strolled back to the path while the duel was still being fought, and
+        // the wild was left punching an empty cell (DECISIONS #73).
+        const cmd = intent ?? (paused ? null
+          : (detour.length ? { dir: detour.shift() } : route.next(head, world)));
         intent = null;
         if (cmd) line.step(cmd.dir, stepOptions());
       }
 
       for (const npc of npcs) {
+        const before = npc.line.pose(0, 0);
         npc.line.advance(dt);
         if (!npc.line.moving) {
-          const cmd = npc.route.next(npc.line.pose(0, 0), world);
+          // Held creatures stand still: `hunts` freezes a wild the instant the party commits to
+          // walking at it, so a tether step cannot move the target out from under the detour.
+          const cmd = npc.held ? null : npc.route.next(npc.line.pose(0, 0), worldFor(npc.id));
           if (cmd) npc.line.step(cmd.dir, stepOptions());
+        }
+        if (npc.solid) {
+          const at = npc.line.pose(0, 0);
+          if (at.cx !== before.cx || at.cz !== before.cz) {
+            if (solid.get(cellKey(before.cx, before.cz)) === npc.id) solid.delete(cellKey(before.cx, before.cz));
+            solid.set(cellKey(at.cx, at.cz), npc.id);
+          }
         }
       }
     }
@@ -383,6 +436,7 @@ export default {
           label: next.label ?? 'simulation/wander',
         };
         intent = null;
+        detour.length = 0;
         paused = false;
         // A showcase always starts still and stages its own walk, and `?autowalk=0` pins a
         // frame — both guards are the ones the boot-time wander used to carry.
@@ -463,6 +517,10 @@ export default {
           line: l,
           spec: { trainer: spec.trainer, species: spec.species, shiny: spec.shiny, name: spec.name },
           who: spec.trainer ?? null,
+          /** Blocks the party's step. Wildlife opts in; the city's NPCs do not (§5.4). */
+          solid: !!spec.solid,
+          /** Frozen where it stands, so a detour's target cannot walk out from under it. */
+          held: false,
           route: spec.tether
             // A wild on a spawn slot drifts one tile and no further (§5.14).
             ? makeTether(rng, spec.tether)
@@ -472,6 +530,7 @@ export default {
                 : STILL,
         };
         npcs.push(npc);
+        if (npc.solid) solid.set(cellKey(spec.cx ?? 0, spec.cz ?? 0), npc.id);
         npcOffset = members.length;
         restage();
         return { id: npc.id, cx: spec.cx ?? 0, cz: spec.cz ?? 0, dir };
@@ -483,21 +542,54 @@ export default {
       removeNpc(id) {
         const i = npcs.findIndex((n) => n.id === id);
         if (i < 0) return false;
+        const at = npcs[i].line.cellOf(0);
+        if (solid.get(cellKey(at.cx, at.cz)) === id) solid.delete(cellKey(at.cx, at.cz));
         npcs.splice(i, 1);
         restage();
         return true;
       },
+
+      /**
+       * Freezes one NPC where it stands, or lets it go again.
+       *
+       * `hunts` holds a wild the instant the party commits to walking at it: the creature
+       * drifts a tile around its slot, and a target that steps aside between the commit and the
+       * arrival turns a two-step detour into a miss (DECISIONS #73).
+       */
+      holdNpc(id, on = true) {
+        const npc = npcs.find((n) => n.id === id);
+        if (!npc) return false;
+        npc.held = !!on;
+        return true;
+      },
+
+      /**
+       * Queues steps the party takes before the autopilot is asked again.
+       *
+       * Hand it a **round trip** — `[step, opposite(step)]` — and the route never learns it
+       * happened: `route.next` is not called on a queued step, so its index does not advance,
+       * and the head returns to the cell it left owing exactly the step it owed before. That is
+       * the whole mechanism by which a hunt can leave its closed circuit to reach a creature
+       * and still come home to the same lap (§5.14, DECISIONS #73).
+       */
+      detour(dirs) {
+        const list = (Array.isArray(dirs) ? dirs : [dirs]).filter((d) => Number.isFinite(d));
+        if (!list.length) return false;
+        detour.push(...list.map((d) => d & 3));
+        return true;
+      },
+      detouring: () => detour.length > 0,
 
       placePlayer,
       teleport: placePlayer,
 
       // --- the walk --------------------------------------------------------
       /** Follows a fixed path forever: `walk('n8 w6 s8 e6')`. */
-      walk(spec, opts = {}) { route = makeScriptedRoute(spec, opts); return api; },
+      walk(spec, opts = {}) { detour.length = 0; route = makeScriptedRoute(spec, opts); return api; },
       /** Strolls, seeded. Prefers the tags it is given, so a town walker keeps to the road. */
       wander(opts = {}) { route = makeWander(ctx.rng.fork(opts.label ?? 'simulation/wander'), opts); return api; },
       /** Stands still. */
-      halt() { route = STILL; return api; },
+      halt() { detour.length = 0; route = STILL; return api; },
       /** What the autopilot is doing: `'route' | 'wander' | 'still'`. */
       autopilot: () => route.kind,
 

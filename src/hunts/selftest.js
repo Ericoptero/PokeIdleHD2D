@@ -668,6 +668,39 @@ function floodFrom(draft, cx, cz) {
       new Set(slots.map((s2) => `${s2.cx},${s2.cz}`)).size === slots.length);
     check('every slot is somewhere a creature can stand',
       slots.every((s2) => room.passable(s2.cx, s2.cz, 0)));
+
+    /**
+     * The detour's geometry, asserted rather than reasoned about (DECISIONS #73).
+     *
+     * Every offset `slotsForLoop` tries is axial, so the midpoint between the path cell and
+     * the slot is ONE step off the circuit — Chebyshev 1 from both ends and never a loop cell,
+     * because `near()` has already rejected anything within one cell of the path. That is what
+     * lets a detour be a queued pair rather than a path search, and it is the claim the whole
+     * of Phase B rests on, so it is pinned here on a room a Node test can build.
+     */
+    const cheb = (a, b) => Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cz - b.cz));
+    check('every slot records where the party leaves the circuit',
+      slots.every((s2) => s2.from && s2.approach && Number.isFinite(s2.step)));
+    check('the cell it leaves from is ON the loop',
+      slots.every((s2) => loop.cells.some((c) => c.cx === s2.from.cx && c.cz === s2.from.cz)));
+    check('the departure cell is exactly two from its slot',
+      slots.every((s2) => cheb(s2.from, s2) === 2));
+    check('the approach is ONE step off the path and ONE from the wild',
+      slots.every((s2) => cheb(s2.approach, s2.from) === 1 && cheb(s2.approach, s2) === 1),
+      slots.map((s2) => `${cheb(s2.approach, s2.from)}/${cheb(s2.approach, s2)}`).join(' '));
+    check('no approach cell is itself a loop cell',
+      !slots.some((s2) => loop.cells.some((c) => c.cx === s2.approach.cx && c.cz === s2.approach.cz)));
+    check('the approach is walkable in both directions',
+      slots.every((s2) => room.passable(s2.approach.cx, s2.approach.cz, s2.step)
+        && room.passable(s2.from.cx, s2.from.cz, (s2.step + 2) & 3)));
+    check('stepping out and back lands on the cell it left',
+      slots.every((s2) => {
+        const DXl = [0, -1, 0, 1]; const DZl = [1, 0, -1, 0];
+        const back = (s2.step + 2) & 3;
+        const outCell = { cx: s2.from.cx + DXl[s2.step], cz: s2.from.cz + DZl[s2.step] };
+        const home = { cx: outCell.cx + DXl[back], cz: outCell.cz + DZl[back] };
+        return home.cx === s2.from.cx && home.cz === s2.from.cz;
+      }));
   }
 
   // --- corners: configurable, and closure survives every one of them ------

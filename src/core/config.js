@@ -166,16 +166,19 @@ export const DEFAULTS = {
   /**
    * How close the walking head has to come to an occupied spawn slot to start a fight.
    *
-   * **Two, because that is where a slot IS.** `hunts` authors every slot at Chebyshev 2 from
-   * the circuit (§5.14), so a reach of one can never fire from a cell on the path — measured:
-   * 23 encounters over four laps and every one of them came from tall grass, with the
-   * proximity trigger silent the whole time. The tether's ±1 drift is what makes the meeting
-   * read as a creature noticing the party rather than as a tripwire; it is not extra reach.
+   * **One, because the party now walks to it.** It was 2 for three phases, and the reasoning was
+   * sound for what the game did then: a slot is authored at Chebyshev 2 from the circuit, so a
+   * reach of one could never fire from a cell on the path, and 23 encounters over four laps all
+   * came from tall grass with the proximity trigger silent throughout.
    *
-   * Three would engage a slot from the far side of the path. Zero would need the party to
-   * stand on a cell a tethered wild is already standing on.
+   * What changed is the walk. The head leaves the circuit for one cell to make contact
+   * (`hunts` queues the pair; `simulation.detour` walks it), so from the approach cell the wild
+   * is exactly one step away — and a fight that begins because the trainer's Pokemon *reached*
+   * the creature is what the brief asks for, rather than one that begins because it came within
+   * shouting distance. At 2 the encounter would fire from the path before the detour was ever
+   * taken, and the party would never leave the circuit at all (DECISIONS #73).
    */
-  slotEngageTiles: 2,
+  slotEngageTiles: 1,
 
   /**
    * How many fixed sim steps one exchange of a visible battle takes.
