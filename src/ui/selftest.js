@@ -23,7 +23,7 @@ import {
   glyph, has, characters, measure, ellipsize, wrap,
 } from './font.js';
 import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
-import { MOVE_KEYS, PANEL_KEYS } from './input.js';
+import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
 // `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
@@ -165,9 +165,12 @@ const check = (name, ok, detail = '') => {
   check('arrow keys are bound by physical code', ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].every((k) => MOVE_KEYS.has(k)));
   const clash = [...PANEL_KEYS.keys()].filter((k) => MOVE_KEYS.has(k));
   check('no panel shortcut steals a movement key', clash.length === 0, clash.join(' '));
+  // Derived from `PANEL_IDS`, not from a copy of it kept here: the hand-written list failed
+  // the day a panel was added, which is the check being brittle rather than the panel being
+  // wrong (DECISIONS #77).
   check('every panel shortcut names a panel this module ships',
-    [...PANEL_KEYS.values()].every((id) => ['travel', 'party', 'shop', 'boxes', 'dex', 'menu'].includes(id)),
-    [...new Set(PANEL_KEYS.values())].join(' '));
+    [...PANEL_KEYS.values()].every((id) => PANEL_IDS.includes(id)),
+    [...new Set(PANEL_KEYS.values())].filter((id) => !PANEL_IDS.includes(id)).join(' ') || 'all known');
 }
 
 // --- the layout clamp (round-2 issue 1) -------------------------------------

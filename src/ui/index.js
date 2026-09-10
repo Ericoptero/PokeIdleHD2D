@@ -21,7 +21,8 @@ import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeToasts } from './toasts.js';
 import { makeCallouts } from './callout.js';
-import { makeInput } from './input.js';
+import { makeInput, PANEL_IDS } from './input.js';
+import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
 import { makeTravel } from './panels/travel.js';
 import { makeOfflineCard } from './panels/offline.js';
@@ -29,6 +30,7 @@ import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
+import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
@@ -150,6 +152,7 @@ export default {
       shop: makeShop(app),
       boxes: makeBoxes(app),
       dex: makeDex(app),
+      automation: makeAutomation(app),
       party: makeParty(app),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
@@ -283,6 +286,9 @@ export default {
         { id: 'shop', label: 'SHOP', key: 'B' },
         { id: 'boxes', label: 'BOX', key: 'C' },
         { id: 'dex', label: 'DEX', key: '4' },
+        // Only when there is an `automation` to configure: a chip that opens an empty window is
+        // worse than no chip, and the strip is already the widest thing on the bottom bar.
+        ...(isLive(ctx.get('automation')) ? [{ id: 'automation', label: 'AUTO', key: 'A' }] : []),
         { id: 'menu', label: 'MENU', key: 'X' },
       ];
       const h = 13;
@@ -445,6 +451,31 @@ export default {
     live = {
       /** §4: anything may toast; this is the shorthand `offline` and `idle` already call. */
       toast: (text, kind = 'info') => { bus.emit('ui:toast', { text, kind }); return true; },
+
+      /**
+       * The checks a Node run cannot make, because this module needs a canvas to exist.
+       *
+       * It reports through `reportSelfTest`, which `console.error`s on failure — §7 budgets zero
+       * console errors, and that is what turns a red invariant into a failed capture rather than
+       * red text in a screenshot nobody reads (§8.1).
+       */
+      selfTest() {
+        const results = [];
+        const chk = (name, ok, detail = '') => results.push({ name, ok: !!ok, detail });
+        const ids = Object.keys(PANELS);
+        // `selftest.js` checks every shortcut names a panel that exists, against `PANEL_IDS`.
+        // This is the other half: that `PANEL_IDS` is what this module actually ships. Without
+        // it the Node check would pass against a list that had quietly stopped being true.
+        chk('every shipped panel is in PANEL_IDS', ids.every((id) => PANEL_IDS.includes(id)),
+          ids.filter((id) => !PANEL_IDS.includes(id)).join(' '));
+        chk('…and PANEL_IDS names nothing that does not exist',
+          PANEL_IDS.every((id) => ids.includes(id)),
+          PANEL_IDS.filter((id) => !ids.includes(id)).join(' '));
+        chk('every panel answers the shape ui drives it through',
+          ids.every((id) => typeof PANELS[id].draw === 'function' && typeof PANELS[id].key === 'function'));
+        reportSelfTest('ui', results);
+        return { ok: results.every((r) => r.ok), results };
+      },
       open: (id, opts) => app.open(id, opts),
       /**
        * The message box. `text` is a string or an array of pages; the player advances it.

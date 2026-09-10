@@ -38,10 +38,24 @@ export const MOVE_KEYS = new Map([
 ]);
 
 /** Panel shortcuts. `KeyD` walks east, so the dex has no letter of its own — it is `4`. */
+/**
+ * Every panel `ui` ships, in strip order.
+ *
+ * It lives here rather than in `index.js` because `index.js` is not importable under Node — it
+ * reaches a canvas at init — and `selftest.js` has to be able to check that no shortcut names a
+ * panel that does not exist. `ui.selfTest()` asserts the live `PANELS` map matches this list, so
+ * the two cannot drift; before DECISIONS #77 the Node check carried its own hand-written copy
+ * and adding a panel failed it.
+ */
+export const PANEL_IDS = Object.freeze([
+  'menu', 'travel', 'offline', 'shop', 'boxes', 'dex', 'automation', 'party', 'battle', 'dialogue',
+]);
+
 export const PANEL_KEYS = new Map([
   ['KeyT', 'travel'], ['KeyP', 'party'], ['KeyB', 'shop'], ['KeyC', 'boxes'], ['KeyM', 'menu'],
+  ['KeyU', 'automation'],
   ['Digit1', 'party'], ['Digit2', 'shop'], ['Digit3', 'boxes'], ['Digit4', 'dex'],
-  ['Digit5', 'travel'],
+  ['Digit5', 'travel'], ['Digit6', 'automation'],
 ]);
 
 const isLive = (api) => !!api && api.__missing === undefined;

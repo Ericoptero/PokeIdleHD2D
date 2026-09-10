@@ -13,6 +13,7 @@ const ITEMS = [
   { id: 'shop', label: 'SHOP', blurb: 'four shops and the deal' },
   { id: 'boxes', label: 'BOXES', blurb: '960 slots, ten orders' },
   { id: 'dex', label: 'DEX', blurb: 'by generation and type' },
+  { id: 'automation', label: 'AUTO', blurb: 'what the party does on its own' },
   { id: 'away', label: 'REPORT', blurb: 'the last away card' },
   { id: 'close', label: 'CLOSE', blurb: '' },
 ];

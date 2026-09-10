@@ -883,12 +883,28 @@ auto-catch would die with no console error at all (DECISIONS #61(j)).
 ```
 
 One **2-D canvas at the renderer's own internal resolution**, upscaled with the scene, costing
-zero draw calls (DECISIONS #34a). Owns: HUD, party bar, dex/box screens, shop,
+zero draw calls (DECISIONS #34a). Owns: HUD, party bar, dex/box screens, shop, the **automation
+panel**,
 dialogue boxes, the "while you were away" modal, the **battle panel** (both HP bars, the move,
 its PP, status and the effectiveness line), the **EVOLVE button and its bill** in the party
 panel, the **evolution cutscene**, the **pity meter**, the trainer's level, the per-Pokémon
 move-priority list, and the **debug overlay** (`?debug=1`: fps, draw calls, tris,
 module status, tod, seed).
+
+**The automation panel is where a rule is reordered, and reordering is buttons.** The canvas has
+a hit-region list rebuilt every paint and no pointer-capture layer, so drag would be a subsystem
+in service of a flourish on a list of at most eight rows. `↑`/`↓` per row drive
+`automation.moveRule` — which had **zero callers anywhere in `src/`** until DECISIONS #77 — and
+every list draws its rank in the margin, because *first match wins* is invisible otherwise.
+
+**`ui.PANEL_IDS` lives in `input.js`, and both halves are checked.** `selftest.js` runs under Node
+and cannot import `index.js` (it reaches a canvas at init), so the list of panels lives beside the
+shortcut map; `ui.selfTest()` asserts the live `PANELS` object matches it. The Node check used to
+carry its own hand-written copy and failed the day a panel was added.
+
+**`screen.regions()` publishes the clickable boxes of the last paint**, like `bus.spy()` publishes
+events: it is what lets a capture assert a control is *reachable* rather than merely drawn — a
+button under another panel looks identical in a screenshot to one that works.
 
 **`ui` is what throws the ball.** Until DECISIONS #61 nothing in the game called
 `encounter.attempt(ballId)` and a player could not catch anything by hand.

@@ -272,6 +272,14 @@ export function makeScreen({ root, view, log }) {
      */
     clearTints() { tints.clear(); dirty = true; },
     markDirty() { dirty = true; },
+    /**
+     * The clickable boxes the last paint registered, in paint order.
+     *
+     * A diagnostic surface, like `bus.spy()`: it is what lets a capture assert that a control is
+     * actually *reachable* rather than merely drawn. A button painted under another panel, or
+     * off the buffer, looks identical in a screenshot to one that works (DECISIONS #77).
+     */
+    regions: () => regions.map((r) => ({ tag: r.tag, box: { x: r.x, y: r.y, w: r.w, h: r.h } })),
     get dirty() { return dirty; },
     imagesSettled,
     /** Clears, resets the hit list, and hands the painter to `draw`. */

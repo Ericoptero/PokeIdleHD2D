@@ -493,3 +493,53 @@ chose, and reordering somebody's list from a patch note is a reset with extra st
 end — the ladder falling through an empty Max Potion rung, which is (c)'s whole point — then eight
 Potions as HP recovered into the 45 % band, one Ether into an emptied top move, one lead change,
 8 potions and 1 ether actually debited from the bag, party alive, **zero console errors**.
+
+---
+
+### 77 — 2026-09-10 — The automation panel: reordering is buttons, and a control has to be reachable rather than drawn
+
+`automation` has published `schema()`, `fields()`, `operators()`, `addRule`, `updateRule`,
+`removeRule`, **`moveRule`**, `settings()` and `configure()` since it was written, and §5.11 has
+called that "the schema `ui` renders from" for as long. Nothing rendered it: `moveRule` had **zero
+callers anywhere in `src/`**, and after #76 four automations that decide what happens inside a
+fight were configurable only from a console. Four automations nobody can see are not shipped.
+
+**(a) Reordering is `↑`/`↓` buttons, and drag was rejected on the mechanism rather than the
+taste.** The HUD is one 2-D canvas whose hit-region list is rebuilt every paint (`screen.js`);
+there is no pointer capture, no drag state, and nothing that survives a repaint mid-gesture.
+Building that for a list of at most eight rows would be a subsystem in service of a flourish. Two
+buttons per row are keyboard-reachable, work on touch, say what they do, and land exactly on the
+primitive that was already there.
+
+**(b) Every list draws its rank, because first-match-wins is invisible otherwise.** The healing
+ladder, the rulesets and the ball tiers are all "the first one that applies". A player who cannot
+see that writes a first row that eats every case and then reports the automation as broken. The
+number is in the margin of every row and the footer says it in words.
+
+**(c) The panel list moved to `input.js`, and both halves are now checked.** `ui/selftest.js` runs
+under Node and cannot import `index.js` — it reaches a canvas at init — so the Node check carried
+its **own hand-written copy** of which panels exist, and failed the day one was added. That is the
+check being brittle, not the panel being wrong. `PANEL_IDS` lives beside the shortcut map now, the
+Node check derives from it, and `ui.selfTest()` asserts the live `PANELS` object matches — so
+neither half can quietly stop being true.
+
+The shortcut is `U`, not `A`: `A` is *walk left*, and `selftest.js` caught it in the same run.
+
+**(d) `screen.regions()` publishes the clickable boxes of the last paint.** A diagnostic surface
+like `bus.spy()`, and it earns its place immediately: a button drawn under another panel, or off
+the buffer, looks **identical in a screenshot** to one that works. With it a capture can drive the
+shipped pointer path and assert what actually changed. Used exactly that way to check this panel
+in: the `+` took the ladder's first rung from 10 % to 15 %, `v` swapped it below Hyper Potion, and
+`up-sell-balls` reordered a ruleset — measured as `[10,22,32,45] → [22,15,32,45]` and
+`[unsellable, balls, …] → [balls, unsellable, …]`, through real `pointerdown` events at real
+canvas coordinates.
+
+**Two things the frames caught.** The selected row's blurb was drawn in a fixed grey over the
+selection highlight — the one line in the panel you could not read — and now follows the row's own
+ink. And the ladder printed `Maxpotion`, because the panel was title-casing an item **id**;
+`economy` owns the catalogue and is the only thing that knows it is called a Max Potion.
+
+**What is deliberately not here.** Rule *authoring* — adding a condition, picking an operator — is
+not in this panel. Every rule can be reordered, switched off and read, which is what the four new
+automations need; a condition builder is a second panel's worth of work and nothing is blocked on
+it. Saying so beats shipping half of one.
