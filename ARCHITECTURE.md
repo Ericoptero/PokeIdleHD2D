@@ -842,9 +842,29 @@ on by default.
   setRules(list), resetRules(), validate(r), describeRule(r), errors(),
   evaluate(r, facts), explain(id), facts(), preview(id),
   chooseBall(enc), ballTable(), ballLog(), history(), totals(), stats(),
+  duel({ stock, itemOf, effectiveness }),   // -> { between(state), chooseLead(party, wild) }
   diagnostics(), reset(), saveState(), loadState(v), selfTest()
 }
 ```
+
+**Four automations run inside a fight and are NOT on a cadence.** `heal`, `revive` and `ether`
+are the `between` hook `battle.stepper` calls before every turn; `lead` is asked once, at
+engagement. `PASSES` is the round-robin tick, and on a cadence these would fire against no fight
+at all — which is the trap `hunt` and `catch` already sit in, declaring an `everyS` nothing reads.
+They declare `everyS: 0` to say so (DECISIONS #76).
+
+`duel()` hands them over as **pure functions**: `automation` supplies the player's configuration,
+the caller supplies the stock it is going to debit and `battle`'s `effectiveness`. One
+implementation then serves the watched fight and the closed-tab replay, which is what stops a
+replayed fight being a different fight. **`automation` never spends the item** — the Action names
+it and `encounter` takes it.
+
+**An unlock gate may name any counter `economy.progress()` keeps.** It used to be three
+hand-listed keys, so the first automation to gate on `battlesWon` read `0` forever and could
+never be unlocked.
+
+**A saved ruleset is merged with the current builtins**, appended by id at the end so a shipped
+default can never outvote an ordering the player chose (DECISIONS #76).
 
 **Auto-catch triggers on `battle:ended`, not `encounter:started`.** It used to call
 `attempt()` synchronously from inside the `encounter:started` emit (#35(f)); now that a ball

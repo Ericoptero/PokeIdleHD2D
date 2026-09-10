@@ -429,3 +429,67 @@ fold, and a save key for no reason.
 `loadState` to tolerate an older one, so `sellLock` defaults to `[]` slice-side and
 `offline/migrations.js CURRENT_VERSION` stays at 4. A version bump is for a shape change that
 crosses slices, and this is not one.
+
+---
+
+### 76 — 2026-09-10 — The fight decides for itself: four automations that are not on a cadence, and a gate that could never open
+
+**(a) `src/automation/duel.js` is pure, and that is the requirement rather than the taste.** The
+visible fight steps `battle.stepper` and calls these between turns; `idle` and `offline` drain the
+same stepper and call the same functions. Anything that decided differently in one path would make
+a replayed fight a different fight (#72). So no function here draws a coin, reads a clock or
+reaches a module, and it runs under Node against literals.
+
+**Items are named, never spent.** `applyAction` in `battle` changes the combatant and **the caller
+debits** — `encounter` through `economy.take()`, the fold against its own carry. That is what lets
+one implementation serve both, and it is why `automation` gets a `stock` snapshot rather than an
+inventory.
+
+**(b) None of the four is in `PASSES`, and `everyS: 0` says so.** `PASSES` is the round-robin
+tick; heal, revive and ether run *between turns* and lead runs *at engagement*. On a cadence they
+would fire against no fight at all — which is exactly the trap `hunt` and `catch` already sit in,
+declaring an `everyS` that nothing reads. Naming the two call sites beats adding a third.
+
+**(c) The healing ladder is an ordered list and not a condition tree, and the reason is the bag.**
+The brief's rule is *the first enabled rule whose HP threshold has been reached **and whose item is
+available***. The rules engine cannot see an inventory, so a ruleset can express the threshold and
+not the stock — and a ladder that stops at the first *threshold* it meets reports nothing when that
+bottle has run out, leaving a party at 8 % HP holding a shelf of Potions it never reaches. So
+`ladder` and `order` join the setting types, coerced and shape-checked on restore because a save is
+a file a player can edit and a malformed rung would be a silent no-op at the worst possible moment.
+
+Dearest-first is the ordering the brief gives and the selftest asserts it as a property: a Potion at
+10 % HP does not prevent the faint it was spent on, and the faint costs the item *and* the Pokémon.
+
+**(d) Auto-Lead weights offence, then defence, then health — spread far enough apart that the order
+is the order.** `offence * 1000 + defence * 10 + health`, so a good matchup at 5 % HP still outranks
+a bad one at full, and health only ever separates equals. Fainted members are never eligible, which
+is the rule a Potion could break until #72. The type chart is injected rather than imported:
+`automation` may not reach into `battle`, and a pure function with two stubs is testable in Node.
+
+This closes the top open item, which has read *"a Water starter walks into a Grass wood"* since
+DECISIONS #68(d) measured it. Live in the forest: one lead change, Tepig to the front.
+
+**(e) An unlock gate could not be met, and nothing had noticed because nothing had tried.**
+`automation`'s `progress()` returned three hand-listed keys — `dexCaught`, `stored`, `money`. Every
+shipped automation gated on the first two, so it worked. The first one to gate on `battlesWon` read
+`Number(undefined) || 0` and the gate could **never** open: measured at 21 battles won, with
+`unlock('heal')` still answering *"needs 5 battlesWon (0)"*. It spreads `economy.progress()` now, so
+a gate can name any counter the ledger keeps and a new one is covered the day it lands.
+
+`money` changed meaning with it, from the **balance** to `totalEarned`. Its own label in
+`requirementText` has always read "₽ earned", and every money-priced shop gate is measured on
+`totalEarned` — so a wallet spent down was quietly re-locking things it had never unlocked. No
+shipped automation gates on it, so this is a latent mislabel fixed rather than a behaviour change.
+
+**(f) A builtin added after a save now reaches it, appended.** The old line was
+`from.rules?.length ? clone(from.rules) : defaultRules(id)` — a saved list won outright, so a rule
+shipped after a player's last save could never reach them, which the brief forbids in as many
+words. New builtins go on the **end** and a saved rule always keeps its place: the engine is
+first-match-wins, so inserting one would let a shipped default outvote an ordering the player
+chose, and reordering somebody's list from a patch note is a reset with extra steps.
+
+**Measured, forest, twelve encounters with the four switched on:** three Super Potions at the deep
+end — the ladder falling through an empty Max Potion rung, which is (c)'s whole point — then eight
+Potions as HP recovered into the 45 % band, one Ether into an emptied top move, one lead change,
+8 potions and 1 ether actually debited from the bag, party alive, **zero console errors**.

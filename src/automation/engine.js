@@ -160,6 +160,32 @@ export function makeEngine({ onChange = () => {} } = {}) {
       const v = String(raw);
       return spec.values?.includes(v) ? v : undefined;
     }
+    /**
+     * **A ladder and an order are lists, and `String(raw)` would have eaten them.**
+     *
+     * The brief's healing priority is an ordered list of `{item, enabled, atPercent}` and its
+     * revival and PP priorities are ordered lists of item ids — neither is expressible as a
+     * condition tree, because the match depends on what is in the bag and the rules engine
+     * cannot see one (DECISIONS #76). They come through here on restore, so they are coerced
+     * here: shape-checked rather than trusted, because a save is a file a player can edit and a
+     * malformed rung would be a silent no-op at the moment somebody needed a Max Potion.
+     */
+    if (spec.type === 'ladder') {
+      if (!Array.isArray(raw)) return undefined;
+      const rows = raw
+        .filter((r) => r && typeof r.item === 'string')
+        .map((r) => ({
+          item: r.item,
+          enabled: r.enabled !== false,
+          atPercent: Math.min(100, Math.max(0, Number(r.atPercent) || 0)),
+        }));
+      return rows.length ? rows : undefined;
+    }
+    if (spec.type === 'order') {
+      if (!Array.isArray(raw)) return undefined;
+      const ids = raw.filter((x) => typeof x === 'string');
+      return ids.length ? ids : undefined;
+    }
     return String(raw);
   }
 
@@ -294,6 +320,32 @@ export function makeEngine({ onChange = () => {} } = {}) {
     return out;
   }
 
+  /**
+   * A saved ruleset, plus any **builtin rule that has been added since it was saved**.
+   *
+   * The old line was `from.rules?.length ? clone(from.rules) : defaultRules(id)` — a saved list
+   * won outright, so a builtin shipped after a player's last save could never reach them. That
+   * is the thing the brief forbids in as many words: *saved automation configurations are merged
+   * with current defaults so newly introduced items do not invalidate older saves*. Settings
+   * already merged this way (defaults laid down first, then known keys overwritten); this is the
+   * rules half of the same discipline (DECISIONS #76).
+   *
+   * **New builtins are appended, never inserted**, and a saved rule always keeps its place. The
+   * engine is first-match-wins, so inserting one would let a shipped default outvote an ordering
+   * the player chose — and reordering somebody's list from a patch note is not a merge, it is a
+   * reset with extra steps. At the end it can be read, moved or switched off.
+   */
+  function mergeRules(saved, id) {
+    const defaults = defaultRules(id);
+    if (!Array.isArray(saved) || !saved.length) return defaults;
+    const out = clone(saved);
+    const known = new Set(out.map((r) => r?.id).filter(Boolean));
+    for (const r of defaults) {
+      if (r?.builtin && r.id && !known.has(r.id)) out.push(clone([r])[0]);
+    }
+    return out;
+  }
+
   function restore(value) {
     if (!value || typeof value !== 'object') return false;
     const src = value.automations ?? {};
@@ -311,7 +363,7 @@ export function makeEngine({ onChange = () => {} } = {}) {
           if (v !== undefined) s.settings[spec.key] = v;
         }
       }
-      s.rules = Array.isArray(from.rules) && from.rules.length ? clone(from.rules) : defaultRules(def.id);
+      s.rules = mergeRules(from.rules, def.id);
       if (from.stats) for (const k in s.stats) if (Number.isFinite(from.stats[k])) s.stats[k] = from.stats[k];
       s.compiled = null;
     }

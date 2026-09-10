@@ -479,6 +479,8 @@ export default {
           crit: strike.crit, miss: strike.miss, immune: strike.immune,
           targetHp: strike.targetHp, targetMaxHp: strike.targetMaxHp,
           status: strike.status, fainted: strike.fainted, cause: strike.cause,
+          // What was used, when the strike is an item rather than a blow.
+          item: strike.item ?? null, use: strike.use ?? null,
         });
       }
 
@@ -758,6 +760,26 @@ export default {
         slot: slot.k,
         slotCell: { cx: slot.cx, cz: slot.cz, dir: slot.dir ?? 0 },
       };
+      /**
+       * **Auto-Lead is asked here, before the duel opens**, because that is the only moment the
+       * answer means anything: once `begin()` has built its combatant the member is out.
+       *
+       * It is asked at engagement rather than on a cadence for the same reason heal and ether
+       * are not in `PASSES` — there is nothing to decide when there is no wild in front of you
+       * (DECISIONS #76).
+       */
+      const auto = ctx.get('automation');
+      const pokemon = ctx.get('pokemon');
+      if (isLive(auto) && typeof auto.duel === 'function' && isLive(pokemon)) {
+        const bt = ctx.get('battle');
+        const roster = typeof pokemon.party === 'function' ? pokemon.party() : [];
+        const wild = merged.sheet ?? pokemon.species?.(merged.species);
+        const want = auto.duel({
+          effectiveness: isLive(bt) && typeof bt.effectiveness === 'function' ? bt.effectiveness : null,
+        }).chooseLead(roster, wild ? { ...wild, species: wild.name } : null);
+        const at = want ? roster.findIndex((m) => m.instanceId === want) : -1;
+        if (at > 0) pokemon.setLead(at);
+      }
       return begin(merged);
     }
 
@@ -828,7 +850,49 @@ export default {
         return c;
       }
 
-      const run = bt.stepper(ally, wild, seed, enc.index, { nextAlly });
+      /**
+       * **The item decisions, injected — and this module is what debits the bag.**
+       *
+       * `automation` decides *what* to use from pure rules; `battle.applyAction` changes the
+       * combatant; neither of them may touch an inventory (§5.17, DECISIONS #72). So the Action
+       * comes back naming an item, and the take happens here, against a `stock` snapshot the
+       * hook reads so it can never propose what is no longer there.
+       *
+       * A quarantined `automation` costs the fight its items and nothing else — `duel()` is
+       * reached through `ctx.get` and is not in `needs`, for the same reason `battle` is not.
+       */
+      const auto = ctx.get('automation');
+      const economy = ctx.get('economy');
+      const stock = {};
+      const restock = () => {
+        if (!isLive(economy) || typeof economy.inventory !== 'function') return;
+        for (const k of Object.keys(stock)) delete stock[k];
+        Object.assign(stock, economy.inventory());
+      };
+      restock();
+      const plan = isLive(auto) && typeof auto.duel === 'function'
+        ? auto.duel({ stock, itemOf: (id) => (isLive(economy) ? economy.item?.(id) : null),
+          effectiveness: typeof bt.effectiveness === 'function' ? bt.effectiveness : null })
+        : null;
+
+      const between = plan?.between
+        ? (state) => {
+          const acts = plan.between(state) ?? [];
+          const paid = [];
+          for (const act of acts) {
+            // Spend it before it is applied. A `take` that fails means the snapshot was stale,
+            // and dropping the action is the right answer — better a turn without a potion than
+            // a potion drunk twice.
+            if (isLive(economy) && typeof economy.take === 'function'
+              && !economy.take(act.item, 1, 'battle')) continue;
+            stock[act.item] = Math.max(0, (stock[act.item] ?? 0) - 1);
+            paid.push(act);
+          }
+          return paid;
+        }
+        : null;
+
+      const run = bt.stepper(ally, wild, seed, enc.index, { nextAlly, between });
       return { engine: true, run, ally, wild, fought, win: null, turns: 0, transcript: [], hpFraction: 1 };
     }
 

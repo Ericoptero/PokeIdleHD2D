@@ -35,7 +35,10 @@
 /** @typedef {Object} SettingSpec
  *  @property {string} key
  *  @property {string} label
- *  @property {'number'|'bool'|'enum'|'text'} type
+ *  @property {'number'|'bool'|'enum'|'text'|'ladder'|'order'} type
+ *    `ladder` is an ordered list of `{item, enabled, atPercent}` — the brief's healing priority
+ *    list, which a condition tree cannot express because the match depends on **stock** and the
+ *    rules engine cannot see a bag. `order` is a bare ordered list of item ids.
  *  @property {*} default
  *  @property {string} [unit]
  *  @property {number} [min] @property {number} [max] @property {number} [step]
@@ -56,6 +59,8 @@
  * something a reader can find.
  */
 export const BUY_COOLDOWN = 30;
+
+import { HEAL_DEFAULTS, REVIVE_DEFAULTS, ETHER_DEFAULTS, LEAD_DEFAULTS } from './duel.js';
 
 export const KEEP_ORDERS = Object.freeze([
   { id: 'iv', label: 'best IVs' },
@@ -173,6 +178,114 @@ export const AUTOMATIONS = [
         when: { all: [{ field: 'value', op: 'lt', value: 200 }, { field: 'ownedCount', op: 'gte', value: 3 }] },
         then: 'cheap' },
     ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // The four that run INSIDE a fight, and one that runs at the start of it.
+  //
+  // **None of them is in `PASSES`.** `PASSES` is the round-robin tick, and these do not run on
+  // a cadence: heal, revive and ether are the `between` hook `battle.stepper` calls before each
+  // turn, and lead is asked once, at engagement. On a cadence they would fire against no fight
+  // at all — which is the trap `hunt` and `catch` already sit in, declaring an `everyS` nothing
+  // reads (DECISIONS #76). `everyS: 0` says so out loud.
+  {
+    id: 'heal',
+    name: 'Auto-Heal',
+    blurb: 'Drinks the right bottle before the hit that would have ended it.',
+    detail: 'An ordered ladder, checked top to bottom every turn. The first rung whose HP '
+      + 'threshold has been reached AND whose item is in the bag is the one used — so a party '
+      + 'out of Max Potions falls through to a Hyper rather than standing there holding none.',
+    kind: 'duel',
+    unlock: { currency: 'research', cost: 160, requires: { battlesWon: 5 } },
+    idleUnlock: null,
+    everyS: 0,
+    actions: [
+      { id: 'use', label: 'Drink it', blurb: 'Costs the item and a turn of pacing.' },
+      { id: 'skip', label: 'Ride it out', blurb: 'Keep the bottle.' },
+    ],
+    defaultAction: 'skip',
+    settings: [
+      { key: 'ladder', label: 'Healing priority', type: 'ladder', default: HEAL_DEFAULTS,
+        blurb: 'Dearest first: a Potion at 10% HP does not prevent the faint it was spent on.' },
+    ],
+    rules: [],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    id: 'revive',
+    name: 'Auto-Revive',
+    blurb: 'Puts the one that just fell back on its feet.',
+    detail: '`any` raises whoever needs it; `specific` raises only the member you name. Using '
+      + 'one pauses the duel for `config.reviveSeconds` on screen and costs nothing at all in a '
+      + 'closed-tab replay, because a fold has no clock.',
+    kind: 'duel',
+    unlock: { currency: 'research', cost: 260, requires: { battlesWon: 20 } },
+    idleUnlock: null,
+    everyS: 0,
+    actions: [
+      { id: 'use', label: 'Revive', blurb: 'Costs the item; the duel goes on.' },
+      { id: 'skip', label: 'Send the next one', blurb: 'Swap instead.' },
+    ],
+    defaultAction: 'skip',
+    settings: [
+      { key: 'mode', label: 'Revive', type: 'enum', values: ['any', 'specific'], default: REVIVE_DEFAULTS.mode },
+      { key: 'member', label: 'Only this member', type: 'text', default: '',
+        blurb: 'An instance id. Ignored unless the mode is "specific".' },
+      { key: 'order', label: 'Item priority', type: 'order', default: [...REVIVE_DEFAULTS.order],
+        blurb: 'Revive before Max Revive: half the price for the half of the bar the heal ladder tops up anyway.' },
+    ],
+    rules: [],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    id: 'ether',
+    name: 'Auto-Ether',
+    blurb: 'Keeps the move you actually want to use payable.',
+    detail: 'Watches the PP of the HIGHEST-PRIORITY move — the one `choose` reaches for every '
+      + 'turn — rather than the emptiest. If PP cannot be restored the move is skipped, and if '
+      + 'every move runs dry the Pokemon Struggles, which is the game telling you this is off '
+      + 'or out of stock.',
+    kind: 'duel',
+    unlock: { currency: 'research', cost: 220, requires: { battlesWon: 10 } },
+    idleUnlock: null,
+    everyS: 0,
+    actions: [
+      { id: 'use', label: 'Use an Ether', blurb: 'Restores the top move.' },
+      { id: 'skip', label: 'Struggle on', blurb: 'Keep the Ether.' },
+    ],
+    defaultAction: 'skip',
+    settings: [
+      { key: 'atPercent', label: 'When the top move reaches', type: 'number', unit: '% PP',
+        min: 0, max: 100, step: 5, default: ETHER_DEFAULTS.atPercent,
+        blurb: '0 means "when it is actually empty", which is the default because an Ether is dear.' },
+      { key: 'order', label: 'Item priority', type: 'order', default: [...ETHER_DEFAULTS.order] },
+    ],
+    rules: [],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    id: 'lead',
+    name: 'Lead Selection',
+    blurb: 'Sends the member that can win, not the one at the front.',
+    detail: 'Offensive effectiveness against the wild decides it; the defensive matchup against '
+      + 'what the wild throws back breaks ties; current HP breaks those. A fainted member is '
+      + 'never eligible. `manual` reads your own per-species assignment instead.',
+    kind: 'duel',
+    unlock: { currency: 'research', cost: 200, requires: { battlesWon: 10 } },
+    idleUnlock: null,
+    everyS: 0,
+    actions: [
+      { id: 'send', label: 'Send it', blurb: 'Lead with the chosen member.' },
+      { id: 'keep', label: 'Keep the current lead', blurb: 'Change nothing.' },
+    ],
+    defaultAction: 'send',
+    settings: [
+      { key: 'mode', label: 'Choose the lead', type: 'enum', values: ['auto', 'manual'], default: LEAD_DEFAULTS.mode },
+    ],
+    rules: [],
   },
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -301,7 +414,14 @@ export const AUTOMATION_IDS = Object.freeze(AUTOMATIONS.map((a) => a.id));
 export function defaultSettings(id) {
   const def = BY_ID.get(id);
   const out = {};
-  for (const s of def?.settings ?? []) out[s.key] = s.default;
+  // Deep-copied for the list types, because a frozen shipped default handed straight to a
+  // player's settings record is a default they cannot edit — and one they *could* edit would be
+  // the catalogue itself, shared by every save in the tab (DECISIONS #76).
+  for (const s of def?.settings ?? []) {
+    out[s.key] = Array.isArray(s.default)
+      ? s.default.map((v) => (v && typeof v === 'object' ? { ...v } : v))
+      : s.default;
+  }
   return out;
 }
 

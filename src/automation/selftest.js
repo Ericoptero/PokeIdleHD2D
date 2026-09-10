@@ -19,6 +19,10 @@ import {
   BUY_COOLDOWN, AUTOMATIONS, automation, defaultRules,
 } from './automations.js';
 import { worldFacts, storedFacts, wildFacts, catchRateFor } from './fields.js';
+import {
+  HEAL_DEFAULTS, REVIVE_DEFAULTS, ETHER_DEFAULTS,
+  healChoice, reviveChoice, etherChoice, leadChoice, betweenFor,
+} from './duel.js';
 import { chooseBall, rankBalls, DEFAULT_SETTINGS as BALL_DEFAULTS } from './ball.js';
 
 const ok = (name, pass, detail = '') => ({ name, ok: !!pass, detail: String(detail) });
@@ -360,6 +364,131 @@ export function pureChecks() {
   results.push(ok('no auto-sell rule reasons about the lock at all',
     defaultRules('sell').every((r) => !/lock/i.test(JSON.stringify(r.when ?? {}))),
     'the lock is a gate, not a rule'));
+
+  // 19 ── the healing ladder, which is the brief's own words in code.
+  {
+    const bag = { maxpotion: 1, hyperpotion: 1, superpotion: 1, potion: 1 };
+    const items = {
+      maxpotion: { heal: { hp: 'full' } }, hyperpotion: { heal: { hp: 120 } },
+      superpotion: { heal: { hp: 60 } }, potion: { heal: { hp: 20 } },
+      revive: { heal: { revive: 0.5 } }, maxrevive: { heal: { revive: 1 } },
+      ether: { heal: { pp: 10 } }, maxether: { heal: { pp: 'full' } },
+    };
+    const at = (p) => ({ hp: p, maxHp: 100, moves: [] });
+    const of = (id) => items[id];
+    results.push(ok('a critical hit takes the biggest bottle',
+      healChoice(HEAL_DEFAULTS, at(8), bag, of)?.item === 'maxpotion', 'hp 8%'));
+    results.push(ok('and a scratch takes the smallest',
+      healChoice(HEAL_DEFAULTS, at(44), bag, of)?.item === 'potion', 'hp 44%'));
+    results.push(ok('above every threshold it does nothing',
+      healChoice(HEAL_DEFAULTS, at(60), bag, of) === null, 'hp 60%'));
+    // The rule the ordering exists for: a Potion at 10% HP does not prevent the faint it was
+    // spent on, so the ladder is dearest-first and never the other way round.
+    results.push(ok('the ladder is dearest-first',
+      HEAL_DEFAULTS.every((r, i) => i === 0 || r.atPercent > HEAL_DEFAULTS[i - 1].atPercent),
+      HEAL_DEFAULTS.map((r) => r.atPercent).join('<')));
+    // "…AND whose item is available". Without it a party out of Max Potions stands at 8% HP
+    // holding a shelf of Potions it never reaches.
+    results.push(ok('an empty rung falls through to the next one that is stocked',
+      healChoice(HEAL_DEFAULTS, at(8), { hyperpotion: 2 }, of)?.item === 'hyperpotion',
+      'no maxpotion in the bag'));
+    results.push(ok('a rung switched off is skipped, not deleted',
+      healChoice(HEAL_DEFAULTS.map((r) => (r.item === 'maxpotion' ? { ...r, enabled: false } : r)),
+        at(8), bag, of)?.item === 'hyperpotion'));
+    results.push(ok('a fainted Pokemon is never healed',
+      healChoice(HEAL_DEFAULTS, { hp: 0, maxHp: 100, moves: [] }, bag, of) === null));
+
+    // Revival.
+    results.push(ok('revive before max revive',
+      reviveChoice(REVIVE_DEFAULTS, { hp: 0, maxHp: 100 }, { revive: 1, maxrevive: 1 }, of)?.item === 'revive'));
+    results.push(ok('and max revive when that is all there is',
+      reviveChoice(REVIVE_DEFAULTS, { hp: 0, maxHp: 100 }, { maxrevive: 1 }, of)?.item === 'maxrevive'));
+    results.push(ok('a conscious member is never revived',
+      reviveChoice(REVIVE_DEFAULTS, { hp: 12, maxHp: 100 }, { revive: 1 }, of) === null));
+    results.push(ok('"specific" only raises the member it names',
+      reviveChoice({ ...REVIVE_DEFAULTS, mode: 'specific', member: 'a#1' },
+        { hp: 0, maxHp: 100, instanceId: 'b#2' }, { revive: 1 }, of) === null));
+
+    // PP. The HIGHEST-PRIORITY move, not the emptiest — that is the brief's wording and the
+    // right target, because the top move is the one `choose` reaches for every turn.
+    const mon = {
+      hp: 50, maxHp: 100, priority: ['surf'],
+      moves: [{ id: 'tackle', pp: 0, maxPp: 35 }, { id: 'surf', pp: 0, maxPp: 15 }],
+    };
+    results.push(ok('the ether goes into the top-priority move',
+      etherChoice(ETHER_DEFAULTS, mon, { ether: 1 }, of)?.moveId === 'surf'));
+    results.push(ok('…and not while it still has PP',
+      etherChoice(ETHER_DEFAULTS, { ...mon, moves: [{ id: 'surf', pp: 9, maxPp: 15 }] },
+        { ether: 1 }, of) === null));
+    results.push(ok('with no ether in the bag it says nothing, and the move is skipped',
+      etherChoice(ETHER_DEFAULTS, mon, {}, of) === null));
+
+    // The composition, in the brief's order.
+    const plan = betweenFor({ heal: HEAL_DEFAULTS, revive: REVIVE_DEFAULTS, ether: ETHER_DEFAULTS },
+      { revive: 1, maxpotion: 1, ether: 1 }, of);
+    results.push(ok('a fallen member is revived before anything else is considered',
+      plan({ a: { hp: 0, maxHp: 100, moves: [] } })[0]?.kind === 'revive'));
+    results.push(ok('one action per turn, never three',
+      plan({ a: { ...mon, hp: 5 } }).length === 1, 'a turn is a turn'));
+  }
+
+  // 20 ── Auto-Lead: offence first, then defence, then health.
+  {
+    const chart = { water: { fire: 2, grass: 0.5 }, grass: { water: 2, fire: 0.5 }, fire: { grass: 2, water: 0.5 } };
+    const eff = (t, ds) => (ds ?? []).reduce((n, d) => n * (chart[t]?.[d] ?? 1), 1);
+    const mk = (id, type, hp, moveType) => ({
+      instanceId: id, hp, maxHp: 100, species: { types: [type] },
+      moves: [{ id: 'm', pp: 10, type: moveType }],
+    });
+    const party = [
+      mk('grass#1', 'grass', 100, 'grass'),
+      mk('fire#2', 'fire', 100, 'fire'),
+      mk('water#3', 'water', 100, 'water'),
+    ];
+    const deps = { effectiveness: eff, typesOf: (m) => m.species.types, movesOf: (m) => m.moves };
+    // Against a Water wild, the Grass member's move is 2x and it also resists water back.
+    results.push(ok('it sends the type that wins the matchup',
+      leadChoice(party, { types: ['water'] }, deps, { mode: 'auto' }) === 'grass#1'));
+    results.push(ok('…and against fire it sends the water one',
+      leadChoice(party, { types: ['fire'] }, deps, { mode: 'auto' }) === 'water#3'));
+    // HP is a TIEBREAK, so it must not outrank a better matchup.
+    const hurt = [mk('grass#1', 'grass', 5, 'grass'), mk('fire#2', 'fire', 100, 'fire')];
+    results.push(ok('a bad matchup at full health still loses to a good one at 5%',
+      leadChoice(hurt, { types: ['water'] }, deps, { mode: 'auto' }) === 'grass#1'));
+    // …but it does break a tie between equals.
+    const tie = [mk('a#1', 'fire', 40, 'fire'), mk('b#2', 'fire', 90, 'fire')];
+    results.push(ok('between equals it sends the healthier one',
+      leadChoice(tie, { types: ['grass'] }, deps, { mode: 'auto' }) === 'b#2'));
+    results.push(ok('a fainted member is never eligible',
+      leadChoice([mk('down#1', 'grass', 0, 'grass'), mk('up#2', 'fire', 50, 'fire')],
+        { types: ['water'] }, deps, { mode: 'auto' }) === 'up#2'));
+    results.push(ok('an all-fainted party has no lead at all',
+      leadChoice([mk('x#1', 'grass', 0, 'grass')], { types: ['water'] }, deps, { mode: 'auto' }) === null));
+    results.push(ok('manual sends the member the player assigned',
+      leadChoice(party, { types: ['water'], species: 'squirtle' }, deps,
+        { mode: 'manual', assign: { squirtle: 'fire#2' } }) === 'fire#2'));
+  }
+
+  // 21 ── none of the four runs on a cadence.
+  // `PASSES` is the round-robin tick and these run between turns or at engagement; on a cadence
+  // they would fire against no fight at all, which is the trap `hunt` and `catch` sit in.
+  results.push(ok('the in-fight automations declare no cadence',
+    ['heal', 'revive', 'ether', 'lead'].every((id) => automation(id).everyS === 0),
+    ['heal', 'revive', 'ether', 'lead'].map((id) => `${id}:${automation(id).everyS}`).join(' ')));
+
+  // 22 ── a builtin added after a save reaches it, at the end.
+  {
+    const engine = makeEngine();
+    engine.restore({ automations: { sell: { unlocked: true, enabled: true, rules: [
+      { id: 'sell-treasure', name: 'mine', builtin: true, when: null, then: 'sell' },
+    ] } } });
+    const got = engine.rules('sell');
+    results.push(ok('the player\'s own rule keeps its place at the top',
+      got[0].id === 'sell-treasure' && got[0].name === 'mine'));
+    results.push(ok('…and every builtin it had not seen is appended after it',
+      defaultRules('sell').every((r) => got.some((g) => g.id === r.id)),
+      `${got.length} rules`));
+  }
 
   return results;
 }

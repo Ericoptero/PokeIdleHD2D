@@ -66,6 +66,7 @@ import {
 } from './fields.js';
 import { OPERATORS } from './ops.js';
 import { chooseBall, rankBalls, evaluatorFrom, DEFAULT_SETTINGS as BALL_DEFAULTS } from './ball.js';
+import { betweenFor, leadChoice } from './duel.js';
 import { validateRule, kindSchema, describeCondition, MAX_RULES, MAX_LEAVES } from './rules.js';
 import { reportSelfTest } from '../core/log.js';
 
@@ -188,11 +189,30 @@ export default {
     }
 
     /** Progress snapshot the unlock requirements are checked against. */
+    /**
+     * The counters an unlock gate is measured against.
+     *
+     * **It is `economy.progress()` plus this module's own two**, and it was three hand-listed
+     * keys until DECISIONS #76. That was fine while every automation gated on `dexCaught` or
+     * `stored`; the moment one gated on `battlesWon` it read `undefined || 0` and the gate
+     * could **never** open — measured: 21 battles won and `unlock('heal')` still answering
+     * *"needs 5 battlesWon (0)"*. Spreading `economy.progress()` means a gate can name any
+     * counter the ledger already keeps, and a new one is covered the day it lands.
+     *
+     * `money` now means **earned**, not the balance. Its own label in `requirementText` has
+     * always read "₽ earned", and every money-priced shop gate is measured on `totalEarned` —
+     * so a wallet you spent down was quietly re-locking things it had never unlocked. No
+     * shipped automation gates on it, so this is a latent mislabel fixed rather than a
+     * behaviour change.
+     */
     function progress() {
+      const economy = mod('economy');
+      const p = isLive(economy) && typeof economy.progress === 'function' ? economy.progress() : {};
       return {
+        ...p,
         dexCaught: dexCaught(),
         stored: num(mod('collection').count?.(), 0),
-        money: num(mod('economy').balance?.('money')),
+        money: num(p.totalEarned, 0),
       };
     }
 
@@ -937,6 +957,45 @@ export default {
         );
       },
       ballLog: () => ballLog.slice(),
+
+      /**
+       * **The decisions that happen inside a fight**, handed over as pure functions.
+       *
+       * `encounter` opens a duel and `battle.stepper` steps it; neither may reach in here for a
+       * ruleset, and this module may not reach into `battle` for a type chart. So the seam is a
+       * bundle: the caller gets `between(state)` and `chooseLead(party, wild)` closed over this
+       * player's configuration, and hands in the two things only it can supply — the stock it
+       * is going to debit, and `battle`'s `effectiveness`. One implementation then serves the
+       * watched fight and the closed-tab replay, which is the whole of DECISIONS #72's claim.
+       *
+       * An automation that is locked or switched off simply contributes nothing: `settingsOf`
+       * returns `null` for it and every chooser treats that as "not configured".
+       */
+      duel({ stock = {}, itemOf = null, effectiveness = null, party = null } = {}) {
+        const live = (id) => (engine.isActive(id) && !paused(id) ? engine.settings(id) : null);
+        const heal = live('heal');
+        const cfg = {
+          heal: heal?.ladder ?? null,
+          revive: live('revive'),
+          ether: live('ether'),
+        };
+        const economy = mod('economy');
+        const look = itemOf ?? ((id) => (isLive(economy) ? economy.item?.(id) : null));
+        return {
+          /** `null` when nothing is enabled, so the stepper can skip the hook entirely. */
+          between: (cfg.heal || cfg.revive || cfg.ether) ? betweenFor(cfg, stock, look) : null,
+          chooseLead: (roster, wild) => {
+            const s2 = live('lead');
+            if (!s2) return null;
+            return leadChoice(roster ?? party ?? [], wild, {
+              effectiveness: effectiveness ?? (() => 1),
+              typesOf: (m) => m?.species?.types ?? [],
+              movesOf: (m) => m?.moves ?? [],
+            }, s2);
+          },
+          settings: cfg,
+        };
+      },
 
       // --- dry runs and manual runs -------------------------------------------
       /** What a pass would do, without doing it. The reason a player dares enable one. */
