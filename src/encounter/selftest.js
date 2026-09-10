@@ -22,7 +22,10 @@
  */
 
 import { makeRng } from '../core/rng.js';
-import { dropsFor, BIOME_LOOT, LOOT_IDS, DROP_CHANCE } from './drops.js';
+import {
+  dropsFor, tableFor, BIOME_LOOT, LOOT_IDS, DROP_CHANCE,
+  MATERIAL_FAMILIES, FAMILY_BY_TYPE, MAX_DROP_ROWS, SPECIES_DROPS,
+} from './drops.js';
 import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
@@ -48,6 +51,7 @@ const BAND = { min: 3, max: 9 };
 export function runSelfTest({ species = null } = {}) {
   const out = [];
   const check = (name, ok, detail = '') => { out.push({ name, ok: !!ok, detail: String(detail) }); return ok; };
+  const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
 
   // --- 1-2 the stream label ---------------------------------------------------
   // `ctx.rng` is makeRng(seed, 'root') and fork() appends '/label', so the browser's
@@ -367,7 +371,66 @@ export function runSelfTest({ species = null } = {}) {
   // fights what is standing on it. `stepRoll`/`stepValue` remain in `rolls.js`, unexported from
   // the module API and uncalled, and go the next time that file is touched.
 
-  // --- 21 the two rules a fight is settled by -------------------------------------
+  // --- 21 a drop table is the species' own ----------------------------------------
+  //
+  // The brief asks for a per-species table with an item, a min, a max and a probability. All
+  // 1253 of them are derived rather than authored, so what is worth pinning is the derivation:
+  // that it produces the shape asked for, that it stays inside its draw budget, and that the
+  // place still leads (DECISIONS #75).
+  {
+    const by = Array.isArray(species) ? Object.fromEntries(species.map((x) => [x.name, x])) : {};
+    if (by.caterpie) {
+      const t = tableFor(by.caterpie, 'forest');
+      check('a table has the shape the brief asks for',
+        t.every((r) => typeof r.id === 'string' && r.min >= 1 && r.max >= r.min
+          && r.chance > 0 && r.chance <= 1), JSON.stringify(t[0]));
+      // A Bug type in a mushroom wood draws the same item from the place row and its own type
+      // row. That is not a bug: the wood pays double for what it is full of.
+      check('a caterpie in a forest is a mushroom, twice over',
+        t[0].id === 'tinymushroom' && t[1].id === 'tinymushroom', JSON.stringify(t.map((r) => r.id)));
+    }
+    if (by.gible) {
+      // Ground/Dragon: the place leads (cave -> mineral), then its own type (dragon -> star).
+      const t = tableFor(by.gible, 'cave');
+      eq('the place leads, not the typing', t[0].id, 'bignugget');
+      eq('…and the species flavours it', t[1].id, 'cometshard');
+    }
+    // The budget, which is the determinism claim: a table may never cost more draws than the
+    // stream reserves for it, whatever species a slot happens to be holding.
+    let widest = 0;
+    let badRow = 0;
+    for (const sp of Array.isArray(species) ? species : []) {
+      for (const b of ['forest', 'cave', 'coast', 'meadow']) {
+        const t = tableFor(sp, b);
+        widest = Math.max(widest, t.length);
+        if (t.some((r) => !LOOT_IDS.includes(r.id))) badRow++;
+      }
+    }
+    check('no table exceeds the draw budget', widest <= MAX_DROP_ROWS, `widest ${widest} of ${MAX_DROP_ROWS}`);
+    eq('every row of every table is a real treasure item', badRow, 0);
+    eq('the override map is empty and therefore honest', Object.keys(SPECIES_DROPS).length, 0);
+
+    // Two different species at the SAME index take the same number of draws, so a respawn
+    // cannot renumber the loot of every encounter after it.
+    if (by.caterpie && by.dragonite) {
+      const a = dropsFor(SEED, 5, { species: by.caterpie, biome: 'forest', catchRate: 255, level: 5 });
+      const b = dropsFor(SEED, 5, { species: by.dragonite, biome: 'forest', catchRate: 45, level: 5 });
+      check('a different species at one index gives different loot',
+        JSON.stringify(a) !== JSON.stringify(b), `${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+      const after = dropsFor(SEED, 6, { species: by.caterpie, biome: 'forest', catchRate: 255, level: 5 });
+      eq('…and index 6 is untouched by which species index 5 held',
+        JSON.stringify(after),
+        JSON.stringify(dropsFor(SEED, 6, { species: by.caterpie, biome: 'forest', catchRate: 255, level: 5 })));
+    }
+
+    // The mirror `tools/seams/run.js` rule 7 polices, asserted here too so a Node run says why.
+    eq('four families of three', Object.keys(MATERIAL_FAMILIES).length, 4);
+    check('every family has three rungs',
+      Object.values(MATERIAL_FAMILIES).every((f) => f.length === 3));
+    eq('every one of the eighteen types has a family', Object.keys(FAMILY_BY_TYPE).length, 18);
+  }
+
+  // --- 22 the two rules a fight is settled by -------------------------------------
   //
   // Both are constants rather than settings, and both are the kind of thing a later change
   // would quietly relax: a second ball "so a rare one is not lost", a five per cent wipe

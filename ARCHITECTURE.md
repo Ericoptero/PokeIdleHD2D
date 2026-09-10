@@ -612,7 +612,8 @@ animation and catch flow are untouched.
   advance(), advanceToStage(s), setProgress(t),   // drive the encounter cutscene
   scene(), alerting(), refit(), ready(), dispose(),
   setBall(id), ball(), bestBall(enc), oddsFor(id, enc, turn), ballContext(),
-  dropsFor(index),                  // -> [{ id, n }]  pure, index-addressed
+  dropsFor(index, { species, biome, … }),   // -> [{ id, n }]  pure, index-addressed
+  dropTableFor(species, biome),             // -> [{ id, min, max, chance }]  the species' table
   tables(), rows(biome, tod), band(), stepRate(biome), shinyRate(), progress(), seed(),
   armed(), freeze(on), frozen(),
   pure()                            // -> { rollAt, dropAt, resolve } for idle/offline injection
@@ -741,6 +742,8 @@ quarantined to `pokeidle.save.broken` and the game starts fresh rather than whit
   balance(c), wallet(), currencies(), capacity(c),
   add(c, n, reason), spend(c, n, reason), canAfford(c, n),
   inventory(), item(id), stock(id),
+  bag(), stash(),                  // two VIEWS of one Map, identical row shape
+  sellLocked(id), sellLocks(), setSellLock(id, on),
   buy(id, n), sell(id, n), sellValue(id), prices(),
   upgrades(), upgradeLevel(id), upgradeCost(id), buyUpgrade(id),
   multipliers(), catchMultiplier(), buffs(), sinks(),
@@ -782,6 +785,19 @@ and therefore how many balls a species is expected to cost. Capture rate does mo
 base-stat total a little, final forms a touch; the anchor is the ball line itself, so an
 ordinary common is seven Poké Balls to a guaranteed catch and nothing exceeds `PRICE_CEILING`
 (188 balls). A grind has to end.
+
+**Stash and Bag are two views of one Map**, filtered on `item.category === 'treasure'`
+(DECISIONS #75). Splitting the Map would fork nine call sites for no behaviour and would strand a
+re-categorised item in the wrong container in every existing save; derived, it moves for free.
+Both views return the same row shape so `ui` renders either with one function.
+
+**Sell-Lock is an *auto*-sell lock.** `economy.sell()` ignores it — a player at the counter asking
+to sell something is not what it protects against — and `automation`'s `planSell` skips a locked id
+*before* its rules run, so no ruleset can outvote the player's own instruction.
+
+**`config.fieldStartMoney` (₽100,000) is credited as `earned: false`.** `progress().totalEarned` is
+what every money-priced shop gate is measured against, so counting the opening purse would put a
+brand-new save two thirds of the way to the Department Store before it had sold anything.
 
 **Drops are `encounter`'s** (`encounter/drops.js`), not `economy`'s: they are authored like a
 spawn table and must be a pure `(seed, index) → [{id, n}]` so `offline` replays a hunt's loot

@@ -50,7 +50,7 @@ import {
   streamFor, catchRateFor, levelBand, rollAt, catchRoll,
   shakesFor, rewardsFor,
 } from './rolls.js';
-import { dropsFor } from './drops.js';
+import { dropsFor, tableFor as dropTableFor } from './drops.js';
 import {
   BIOMES, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
 } from './tables.js';
@@ -271,6 +271,14 @@ export default {
         tableCache.set(key, { table: expand(rows, { slots: 120, biome: b, tod }), bumps: bumpsFor(rows) });
       }
       return tableCache.get(key);
+    }
+
+    /** A species record from a name, a record, or nothing. Null is a legal answer. */
+    function speciesRecord(v) {
+      if (!v) return null;
+      if (typeof v === 'object') return v;
+      const pokemon = ctx.get('pokemon');
+      return isLive(pokemon) && typeof pokemon.species === 'function' ? pokemon.species(v) ?? null : null;
     }
 
     // ---------------------------------------------------------------- rolling
@@ -1149,6 +1157,9 @@ export default {
       // written — and it is what an evolution is paid for with (DECISIONS #62, #68).
       if (win) {
         const loot = dropsFor(seed, enc.index, {
+          // The species' own record, so its table is its own (DECISIONS #75). `sheet` is what
+          // `rollIndex` already resolved, so this costs no lookup and no new plumbing.
+          species: enc.sheet ?? null,
           biome: enc.biome, catchRate: enc.catchRate, level: enc.level, shiny: enc.shiny,
         });
         if (loot.length && isLive(economy) && typeof economy.give === 'function') {
@@ -1475,7 +1486,13 @@ export default {
           const out = resolveFight(leadOf(), { ...enc, index: index ?? enc.index });
           return { win: out.win, turns: out.turns, hpFraction: out.hpFraction };
         },
+        /**
+         * The fold's loot. It is handed a species **name** — `accrual.js` holds what
+         * `rollAt` returned and cannot reach `pokemon` (seam rule 2) — so the record is
+         * resolved here, where there is a `ctx`, and the pure function stays pure.
+         */
         dropAt: (index, opts = {}) => dropsFor(seed, index, {
+          species: speciesRecord(opts.species),
           biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
           level: opts.level ?? 5, shiny: !!opts.shiny,
         }),
@@ -1483,9 +1500,13 @@ export default {
 
       /** What encounter `index` drops. Pure and index-addressed; `idle` replays it verbatim. */
       dropsFor: (index, opts = {}) => dropsFor(seed, index, {
+        species: speciesRecord(opts.species),
         biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
         level: opts.level ?? 5, shiny: !!opts.shiny,
       }),
+      /** The table a species drops from, for a readout that wants the rows and not a roll. */
+      dropTableFor: (species, biome = biomeNow(), opts = {}) =>
+        dropTableFor(speciesRecord(species), biome, opts),
 
       /** The last fight's turn-by-turn transcript, for a battle panel to replay. */
       transcript: () => (last?.battle?.transcript ?? []).map((e) => ({ ...e })),

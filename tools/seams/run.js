@@ -124,6 +124,39 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
   }
 }
 
+// --- 7. the drop catalogue matches the evolution bill --------------------------
+// `pokemon/evolution.js` bills an evolution in twelve `treasure` items keyed by the child's
+// type; `encounter/drops.js` hands the same twelve out keyed by the defeated wild's. Two views
+// of one catalogue (DECISIONS #68(a), #75) — and they have to be one catalogue, or a player
+// grinds a wood for mushrooms to pay a bill that has quietly started asking for pearls.
+//
+// A copy rather than a shared file because seam rule 2 forbids the import and neither table
+// belongs in `core`. Rule 5 sets the precedent and exists because exactly this kind of copy
+// drifted once with nothing able to notice.
+{
+  const evo = await import(pathToFileURL(join(REPO, 'src', 'pokemon', 'evolution.js')).href);
+  const drops = await import(pathToFileURL(join(REPO, 'src', 'encounter', 'drops.js')).href);
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const key of ['MATERIAL_FAMILIES', 'FAMILY_BY_TYPE']) {
+    const a = evo[key];
+    const b = drops[key];
+    if (a === undefined) { fail('drop-mirror', join(REPO, 'src/pokemon/evolution.js'), `evolution.js no longer exports ${key}`); continue; }
+    if (b === undefined) { fail('drop-mirror', join(REPO, 'src/encounter/drops.js'), `drops.js is missing ${key}`); continue; }
+    // Sorted, because the two files may list a family in whatever order reads best.
+    const norm = (o) => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : 1)));
+    if (!same(norm(a), norm(b))) {
+      fail('drop-mirror', join(REPO, 'src/encounter/drops.js'),
+        `${key} has drifted from pokemon/evolution.js`);
+    }
+  }
+  // And every id either side names has to be a real item, or a drop is a no-op and an
+  // evolution is unpayable.
+  const items = await import(pathToFileURL(join(REPO, 'src', 'economy', 'items.js')).href);
+  const bad = [...new Set(Object.values(drops.MATERIAL_FAMILIES ?? {}).flat())]
+    .filter((id) => !items.item(id));
+  if (bad.length) fail('drop-mirror', join(REPO, 'src/encounter/drops.js'), `not real items: ${bad.join(', ')}`);
+}
+
 // --- 6. every module's own property checks ------------------------------------
 // Any module may ship a `selftest.js` that exits non-zero on failure; they are discovered
 // rather than listed, so a new one starts being enforced the moment it is written. These are

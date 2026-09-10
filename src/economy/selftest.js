@@ -24,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 import { speciesPrice, throwsToPity, BASE_PRICE } from './pricing.js';
 import { makePity, PITY_START, PITY_FULL, BP_MONEY_EQUIVALENT } from './pity.js';
 import { trainerFromWins, levelFromWins, winsForLevel, STEP } from './trainer.js';
-import { item, ITEMS } from './items.js';
+import { item, ITEMS, isStashItem, STASH_CATEGORIES } from './items.js';
+import { FIELD_START_MONEY } from './currencies.js';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const species = JSON.parse(readFileSync(join(REPO, 'public', 'generated', 'species.json'), 'utf8'));
@@ -156,6 +157,35 @@ check('8. the anchor is the ball line', BASE_PRICE / 200 >= 5 && BASE_PRICE / 20
   const KNOWN = new Set(['hp', 'status', 'revive', 'pp', 'fraction']);
   const strange = ITEMS.filter((d) => d.heal && Object.keys(d.heal).some((k) => !KNOWN.has(k)));
   eq('30. every medicine payload is one the appliers understand', strange.length, 0);
+}
+
+// --- the opening purse, and why it is not "earned" --------------------------
+{
+  eq('31. FIELD_START_MONEY is the brief\'s number', FIELD_START_MONEY, 100000);
+  // The kit the purse is sized against, priced from the shelf rather than asserted by hand.
+  const kit = [['pokeball', 20], ['potion', 10], ['superpotion', 3], ['revive', 2], ['ether', 3]];
+  const cost = kit.reduce((n, [id, q]) => n + (item(id).price ?? 0) * q, 0);
+  check('32. one complete hunt kit is affordable at the start', cost <= FIELD_START_MONEY,
+    `kit ₽${cost} against ₽${FIELD_START_MONEY}`);
+  // And comfortably so, or "enough for a kit before loot income" is technically true and
+  // practically a lie — the brief wants a first session, not a first lap.
+  check('33. …with most of the purse left for the shelves a level opens',
+    cost < FIELD_START_MONEY * 0.25, `kit is ${((cost / FIELD_START_MONEY) * 100).toFixed(1)}% of it`);
+  // The gate this would otherwise walk straight through.
+  check('34. the Department Store still has to be earned',
+    150000 > FIELD_START_MONEY, 'dept unlocks at totalEarned 150000');
+}
+
+// --- Stash and Bag are two views of one Map ---------------------------------
+{
+  eq('35. exactly one category is loot', STASH_CATEGORIES.size, 1);
+  check('36. every treasure item is Stash and nothing else is',
+    ITEMS.every((d) => isStashItem(d) === (d.category === 'treasure')));
+  // The twelve that had no source until DECISIONS #68 are the twelve the Stash holds.
+  eq('37. the Stash holds the twelve treasures', ITEMS.filter(isStashItem).length, 12);
+  // A consumable a hunt spends is never loot, or Auto-Sell would sell the balls.
+  check('38. nothing a hunt spends can be sold as loot',
+    ['pokeball', 'potion', 'ether', 'revive', 'maxrevive'].every((id) => !isStashItem(item(id))));
 }
 
 const failed = results.filter((r) => !r.ok);

@@ -34,7 +34,9 @@ import { speciesPrice } from './pricing.js';
 import { makePity } from './pity.js';
 import { trainerFromWins } from './trainer.js';
 import { CURRENCIES, formatCurrency } from './currencies.js';
-import { ITEMS, item, itemsBy, ballMultiplier, catchOdds, stackCap } from './items.js';
+import {
+  ITEMS, item, itemsBy, ballMultiplier, catchOdds, stackCap, isStashItem,
+} from './items.js';
 import { UPGRADES, upgrade, costOf, bulkCost, foldUpgrades } from './upgrades.js';
 import {
   shop, shopList, stockOf, priceOf, sellValueOf, dealFor, bestSource, requirementMet,
@@ -117,10 +119,25 @@ export default {
     // do we. The money is credited rather than assigned (see `state.js`) so the HUD has an
     // `economy:changed` to render from before anything else happens.
     for (const c of CURRENCIES) {
-      if (c.start > 0) state.add(c.id, c.start, { reason: 'start', raw: true });
+      const start = c.id === 'money' ? (ctx.config?.fieldStartMoney ?? c.start) : c.start;
+      // `earned: false` keeps the opening purse out of `totalEarned`, which is what the shop
+      // gates read (DECISIONS #75).
+      if (start > 0) state.add(c.id, start, { reason: 'start', raw: true, earned: false });
     }
-    state.give('pokeball', 10, 'start');
-    state.give('potion', 3, 'start');
+    /**
+     * **One complete hunt kit**, which is what `FIELD_START_MONEY` is sized against.
+     *
+     * The brief asks that the opening purse cover a full kit before loot income begins, so the
+     * kit is what a lap actually consumes: balls to throw at what it beats, potions and a
+     * revive for attrition, and an ether now that PP is spendable and Struggle is what running
+     * out looks like. It costs ₽10,600 of the ₽100,000, which leaves the rest for the shelves
+     * the trainer's level opens.
+     */
+    state.give('pokeball', 20, 'start');
+    state.give('potion', 10, 'start');
+    state.give('superpotion', 3, 'start');
+    state.give('revive', 2, 'start');
+    state.give('ether', 3, 'start');
 
     /** Purchases of limited stock, per in-game day, so `limit` means "per day". */
     let limitDay = -1;
@@ -265,12 +282,42 @@ export default {
       return true;
     }
 
+    /**
+     * One row per item held, in the shape both the Stash and the Bag views hand to `ui`.
+     *
+     * Identical for both on purpose: the brief asks that the two render consistently, and one
+     * shape is how that stops being a promise and starts being a type.
+     */
+    function rows(keep) {
+      const held = state.inventory();
+      const out = [];
+      for (const [id, n] of Object.entries(held)) {
+        const def = item(id);
+        if (!def || !keep(def)) continue;
+        const unitSell = sellValueOf(id, { multipliers: state.multipliers() });
+        out.push({
+          id, name: def.name, category: def.category, tier: def.tier ?? 1, n,
+          cap: stackCap(id, state.levelOf('bag_upgrade')),
+          price: def.price ?? null,
+          unitSell,
+          totalSell: unitSell * n,
+          locked: state.sellLocked(id),
+          desc: def.desc ?? '',
+        });
+      }
+      // Dearest first inside a tier, so the thing worth deciding about is at the top.
+      return out.sort((a, b) => (a.tier - b.tier) || (b.totalSell - a.totalSell) || (a.id < b.id ? -1 : 1));
+    }
+
     function sell(id, n = 1) {
       const def = item(id);
       const qty = Math.floor(n);
       if (!def || qty <= 0) return false;
       const unit = sellValueOf(id, { multipliers: state.multipliers() });
       if (unit <= 0) return false;                       // key items and Master Balls
+      // **Sell-lock is not checked here, and that is deliberate.** It is an *auto*-sell lock;
+      // a player standing at the counter asking to sell something is not the thing it protects
+      // against. `automation`'s pass is where it bites (DECISIONS #75).
       if (!state.take(id, qty, `sell:${id}`)) return false;
       state.add('money', unit * qty, `sell:${id}`);
       state.bump('itemsSold', qty);
@@ -468,6 +515,27 @@ export default {
       add: (c, n, reason) => state.add(c, n, reason),
       spend: (c, n, reason) => state.spend(c, n, reason),
       inventory: () => state.inventory(),
+
+      /**
+       * **Stash and Bag are two views of one Map, not two Maps.**
+       *
+       * The brief asks for loot storage and consumable storage as separate things the HUD can
+       * render consistently, and the item id already carries the answer: `category: 'treasure'`
+       * is loot and everything else is a consumable. Splitting the Map would fork `count`,
+       * `give`, `take`, `inventory`, `bagSize`, `stackCap` and `multipliers` — which scans the
+       * bag for `passive` items — for no behaviour, and would make a re-categorised item
+       * unrecoverable: it would sit in the wrong container in every existing save with no way
+       * for a migration to guess. Derived, an item that changes category moves for free
+       * (DECISIONS #75).
+       *
+       * Both return the SAME row shape, so `ui` renders either with one function.
+       */
+      stash: () => rows((d) => isStashItem(d)),
+      bag: () => rows((d) => !isStashItem(d)),
+      /** Never sold by `automation`; `sell()` by hand ignores it. */
+      sellLocked: (id) => state.sellLocked(id),
+      sellLocks: () => state.sellLocks(),
+      setSellLock: (id, on = true) => state.setSellLock(id, on),
       buy, sell,
       prices() {
         const c = shopContext();

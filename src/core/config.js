@@ -191,6 +191,14 @@ export const DEFAULTS = {
    */
   turnSteps: 24,
   /**
+   * The opening purse, `FIELD_START_MONEY` in the brief.
+   *
+   * Enough for one complete hunt kit before any loot income. It is credited as **not earned**,
+   * so it does not move `progress().totalEarned` — the number every money-priced shop gate is
+   * unlocked against (DECISIONS #75).
+   */
+  fieldStartMoney: 100000,
+  /**
    * How long the duel pauses while a revival item is used, in seconds.
    *
    * **Presentation, not a rule.** It is multiplied by 20 into sim steps for the watched fight

@@ -351,3 +351,81 @@ circuit), which puts the fire centre-frame instead of raking in from the right e
 `hunts/cave/12` reads as a regression by histogram (`over200Pct 1.175 → 0.748`) and is a better
 picture: a torchlit gallery with four creatures, a mine cart and a cool blue pool, instead of a
 tighter shot of less of it.
+
+---
+
+### 75 — 2026-09-10 — Every species gets its own drop table, the bag splits into two views, and the opening purse is not "earned"
+
+**(a) A per-species table, derived, on a fixed draw budget.** 1253 hand-written tables is not a
+thing anyone keeps correct, so a table is derived from what `species.json` already carries — and
+the derivation reuses **`pokemon/evolution.js`'s type → material map**, so the wood full of Grass
+types is where mushrooms come from and mushrooms are what a Grass evolution costs. Four rows: the
+biome's ladder, the species' own type's material, its second type's a rung lower, and its family's
+best rung if it is a big species. `SPECIES_DROPS` is the hand-authored override and is empty,
+which is an honest statement that nothing has earned one yet.
+
+**The order of those rows is a balance decision, and the obvious order was wrong.** Putting the
+species' own type first moves the main payout from *rarity* to *typing*, because the four families
+do not carry the same money — `star` tops out at a Comet Shard (₽60,000) and `pearl` at a Pearl
+String (₽15,000). Measured: a Gible in a forest went from a Balm Mushroom (₽25,000) to a Comet
+Shard at the same 46 %, quadrupling the top of the drop curve as a side effect of a table *shape*.
+So the place leads and the species flavours it, and the economics are where #68 left them.
+
+**A second thing the arithmetic hid:** rows are independent coins, so adding them raises the chance
+a win pays *anything* even though no single row got likelier. At 0.46/0.28/0.15 the measured rate
+was **66.6 %** against `DROP_CHANCE` 0.46 — a 45 % rise in hunt income smuggled in as a shape. The
+per-row odds are now chosen so the aggregate lands back on 46 % (measured 45.2 % over 20,000 rolls,
+asserted in the selftest over a sweep rather than trusted from the arithmetic).
+
+**Determinism: eight draws, always.** One whether/quantity pair per row of `MAX_DROP_ROWS`, taken
+before anything is decided and discarded where a row does not exist. Without the budget the stream
+position would depend on which species a slot happened to be holding — and a slot respawns a
+different species every time it refills, which would renumber the loot of every encounter after it.
+
+**And a cache bug the selftest caught, not the eye.** `tableFor` keyed its memo on the species
+*name*, so every nameless caller shared one entry under `null` and a rate-40 rare was handed a
+rate-255 common's rows. The key is every input it reads now.
+
+**(b) The mirrored catalogue gets a seam rule.** `encounter` may not import `pokemon`'s internals
+and neither table belongs in `core`, so the twelve treasures and the type map are copied — and
+`tools/seams/run.js` **rule 7** holds the copy to the original by name and by value, plus checks
+every id is a real item. Rule 5 sets the precedent and exists because exactly this kind of copy
+drifted once with nothing able to notice. Proved it fires by flipping `water: 'pearl'` to
+`'mineral'` and watching it fail.
+
+**(c) Stash and Bag are two views of ONE Map.** The item id already carries the answer —
+`category: 'treasure'` is loot, everything else is something a hunt spends. Splitting the Map
+forks `count`, `give`, `take`, `inventory`, `bagSize`, `stackCap` and `multipliers` (which scans
+the bag for `passive` items) for no behaviour, and makes a re-categorised item **unrecoverable**:
+it would sit in the wrong container in every existing save with no way for a migration to guess.
+Derived, it moves for free. Both views return the same eleven-field row, which is how "the HUD
+renders both consistently" stops being a promise and becomes a type.
+
+**(d) Sell-Lock bites on the automation, not at the counter.** The brief calls it a lock on
+*automatic* selling. `economy.sell()` ignores it — a player standing at the shop asking to sell
+something is not what it protects against, and refusing them there is a trap — and `planSell` skips
+a locked id **before its rules run**, so no ruleset can outvote the player's own instruction. That
+is stricter than auto-release's protective rules, which can at least be reordered.
+
+**(e) `FIELD_START_MONEY` is ₽100,000 and is deliberately not earned.** **Checked, not assumed:**
+`state.add` did `if (applied > 0) stats.earned[id] += applied` with no `raw` test, and
+`progress().totalEarned` is `floor(stats.earned.money)` — the number every money-priced shelf is
+unlocked against (Department Store ₽150,000, Full Restore ₽400,000). At ₽3,000 counting the start
+credit was noise; at ₽100,000 it would put a brand-new save two thirds of the way to a gate it is
+meant to earn. `earned: false` is one line, against the alternative of lifting every gate ~3× and
+re-balancing a ladder nobody has measured.
+
+The kit the purse is sized against is what a lap actually consumes — 20 balls, 10 Potions, 3 Super
+Potions, 2 Revives, 3 Ethers, ₽10,600 — and the selftest asserts it is under a quarter of the
+purse, because "enough for a kit" can be technically true and practically a lie.
+
+**(f) `BUY_COOLDOWN` is not new state.** The brief names a cooldown between automatic purchase
+cycles; `restock` already declared one as `everyS`, counted in the automation engine's own **sim
+seconds** (`due()`/`mark()`). Naming it is what makes the brief's word point at something a reader
+can find. Wall-clock milliseconds in `economy` would have been a third clock, unreplayable in a
+fold, and a save key for no reason.
+
+**No document migration.** `economy/state.js` already migrates its own slice and §5 requires
+`loadState` to tolerate an older one, so `sellLock` defaults to `[]` slice-side and
+`offline/migrations.js CURRENT_VERSION` stays at 4. A version bump is for a shape change that
+crosses slices, and this is not one.

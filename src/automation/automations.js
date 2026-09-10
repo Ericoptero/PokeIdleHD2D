@@ -44,6 +44,19 @@
  */
 
 /** Keep orders auto-release can rank a pile of duplicates by. */
+/**
+ * **`BUY_COOLDOWN`** — the seconds between two automatic purchase cycles.
+ *
+ * The brief names it, and it is the cadence `restock` already declared: `everyS`, counted in
+ * the engine's own **sim seconds** (`engine.js` `lastRunS`/`due()`/`mark()`), not in wall time.
+ * That is what keeps it replayable — a fold has no clock — and keeps it out of the save
+ * entirely, which is why this phase needs no document migration for it (DECISIONS #75).
+ *
+ * Named here rather than left as a bare `30` on one automation, so the brief's word points at
+ * something a reader can find.
+ */
+export const BUY_COOLDOWN = 30;
+
 export const KEEP_ORDERS = Object.freeze([
   { id: 'iv', label: 'best IVs' },
   { id: 'level', label: 'highest level' },
@@ -247,7 +260,8 @@ export const AUTOMATIONS = [
     kind: 'item',
     unlock: { currency: 'research', cost: 150, requires: { dexCaught: 5 } },
     idleUnlock: null,
-    everyS: 30,
+    /** `BUY_COOLDOWN`: the brief's cooldown between automatic purchase cycles. */
+    everyS: BUY_COOLDOWN,
     actions: [
       { id: 'buy', label: 'Buy up to', blurb: 'Tops the stack up to the rule\'s `upTo` count.' },
       { id: 'skip', label: 'Leave it', blurb: 'Buy nothing.' },

@@ -540,6 +540,20 @@ export default {
       for (const [id, count] of Object.entries(inv)) {
         const def = economy.item?.(id);
         if (!def || count <= 0) continue;
+        /**
+         * **The Sell-Lock, and it is checked here rather than in `economy.sell()`.**
+         *
+         * The brief calls it a lock on *automatic* selling: collectibles, rare loot, crafting
+         * materials, anything the player marked. A player standing at the shop counter asking
+         * to sell a locked item is not what it protects against, and refusing them there would
+         * be a trap — so `economy.sell()` ignores it and this pass does not (DECISIONS #75).
+         *
+         * Checked before the rules run, so no ruleset can outvote it. That is the same
+         * discipline auto-release uses, where seven protective rules sit above the one that
+         * releases anything — except a lock is the player's own instruction and does not even
+         * get to be reordered.
+         */
+        if (economy.sellLocked?.(id)) continue;
         const unit = num(economy.sellValue?.(id), 0);
         const facts = itemFacts(def, count, w, { unitValue: unit, price: num(economy.source?.(id)?.price, def.price ?? 0) });
         const decision = ruleset.evaluate(facts);

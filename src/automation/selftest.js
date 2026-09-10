@@ -15,7 +15,9 @@
 
 import { makeEngine } from './engine.js';
 import { compileRuleset, validateRule, normaliseRule } from './rules.js';
-import { AUTOMATIONS, automation, defaultRules } from './automations.js';
+import {
+  BUY_COOLDOWN, AUTOMATIONS, automation, defaultRules,
+} from './automations.js';
 import { worldFacts, storedFacts, wildFacts, catchRateFor } from './fields.js';
 import { chooseBall, rankBalls, DEFAULT_SETTINGS as BALL_DEFAULTS } from './ball.js';
 
@@ -340,6 +342,24 @@ export function pureChecks() {
     results.push(ok('every field the shipped rules test is present in the facts', missing.length === 0,
       missing.length ? `missing: ${missing.join(', ')}` : `${Object.keys(facts).length} fields built`));
   }
+
+  // 17 ── the purchase cooldown the brief names.
+  //
+  // `BUY_COOLDOWN` is not a new mechanism: it is the cadence `restock` already declared, in
+  // the engine's own **sim seconds** (`due()`/`mark()`), not wall time. That is what keeps it
+  // replayable in a fold and out of the save entirely (DECISIONS #75). Naming it is what makes
+  // the brief's word point at something a reader can find.
+  results.push(ok('BUY_COOLDOWN is the restock cadence',
+    automation('restock').everyS === BUY_COOLDOWN && BUY_COOLDOWN > 0 && BUY_COOLDOWN < 3600,
+    `${BUY_COOLDOWN}s`));
+
+  // 18 ── Sell-Lock cannot be outvoted by a ruleset.
+  // It is enforced in `planSell` before the rules run, not in `economy.sell()` — the same
+  // discipline auto-release's protective rules use, except the player's own instruction does
+  // not even get to be reordered (DECISIONS #75).
+  results.push(ok('no auto-sell rule reasons about the lock at all',
+    defaultRules('sell').every((r) => !/lock/i.test(JSON.stringify(r.when ?? {}))),
+    'the lock is a gate, not a rule'));
 
   return results;
 }

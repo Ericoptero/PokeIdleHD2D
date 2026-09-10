@@ -42,11 +42,16 @@ export const MATERIAL_FAMILIES = {
 /**
  * Which family a species draws on, by its primary type.
  *
+ * **Exported so `tools/seams/run.js` rule 7 can hold `encounter/drops.js`'s copy to it.** The
+ * hunt hands these out keyed by the defeated wild's type and this file bills an evolution in
+ * them keyed by the child's; if the two ever disagree, a player grinds a wood for mushrooms to
+ * pay a bill that has started asking for pearls (DECISIONS #75).
+ *
  * Thematic rather than balanced — a Grass-type wanting mushrooms and a Water-type wanting
  * pearls is the kind of thing a player reads once and never has to look up again. Balance
  * lives in the rung and the count below, which are the same for every family.
  */
-const FAMILY_BY_TYPE = {
+export const FAMILY_BY_TYPE = {
   grass: 'mushroom', bug: 'mushroom', poison: 'mushroom', fighting: 'mushroom',
   water: 'pearl', ice: 'pearl', flying: 'pearl',
   psychic: 'star', fairy: 'star', ghost: 'star', dark: 'star', dragon: 'star',

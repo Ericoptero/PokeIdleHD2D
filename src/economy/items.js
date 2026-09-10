@@ -279,6 +279,15 @@ export const ITEMS = [
 const BY_ID = new Map(ITEMS.map((i) => [i.id, Object.freeze(i)]));
 Object.freeze(ITEMS);
 
+/**
+ * Which categories are **loot** rather than consumables.
+ *
+ * The whole of the Stash/Bag split, in one set (DECISIONS #75). `treasure` items have no buy
+ * price and exist only to be sold; everything else is something a hunt spends.
+ */
+export const STASH_CATEGORIES = Object.freeze(new Set(['treasure']));
+export const isStashItem = (def) => STASH_CATEGORIES.has(def?.category);
+
 export const ITEM_IDS = Object.freeze(ITEMS.map((i) => i.id));
 
 export function item(id) {

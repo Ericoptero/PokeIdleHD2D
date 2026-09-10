@@ -398,7 +398,12 @@ export function rollEncounter(index, seed, prod, opts) {
   if (shiny) rewards.research = +(rewards.research * 4).toFixed(3);
 
   const drops = win && pure?.dropAt
-    ? pure.dropAt(index, { biome: opts.biome, catchRate: rolled?.catchRate, level, shiny })
+    // The species goes with it: a drop table is the species' own now (DECISIONS #75), and
+    // `rolled.species` is a NAME — `encounter.pure().dropAt` resolves it to a record on the
+    // other side of the seam, because this file may not reach `pokemon`.
+    ? pure.dropAt(index, {
+      species: rolled?.species, biome: opts.biome, catchRate: rolled?.catchRate, level, shiny,
+    })
     : [];
 
   // Auto-battling occasionally turns up a spare ball; auto-catching spends one.

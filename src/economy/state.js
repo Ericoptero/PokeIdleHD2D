@@ -123,7 +123,17 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
     const before = wallet[id];
     wallet[id] = Math.max(0, before + credited);
     const applied = wallet[id] - before;
-    if (applied > 0) stats.earned[id] += applied; else stats.spent[id] -= applied;
+    /**
+     * **`earned: false` means it was not earned**, and the shop gates depend on the difference.
+     *
+     * `progress().totalEarned` is `floor(stats.earned.money)` and it is what every money-priced
+     * shelf is unlocked against — the Department Store at ₽150,000, Full Restore at ₽400,000.
+     * At the old ₽3,000 opening balance counting the start credit was noise; at the brief's
+     * `FIELD_START_MONEY` of ₽100,000 it would put a brand-new save two thirds of the way to a
+     * gate it is meant to earn. "Total earned" has to mean the player earned it, or the gate is
+     * measuring the wrong thing (DECISIONS #75).
+     */
+    if (applied > 0) { if (opts.earned !== false) stats.earned[id] += applied; } else stats.spent[id] -= applied;
     invalidate();
     onChange({
       kind: 'currency', currency: id, delta: applied, base: amount,
@@ -178,6 +188,16 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
 
   const inventory = () => Object.fromEntries([...bag.entries()].filter(([, n]) => n > 0));
 
+  /**
+   * Loot the player has told the game never to sell **automatically**.
+   *
+   * Per save rather than per item definition, because the definition is shared and frozen and
+   * the lock is a preference. And it gates the *automatic* sale only: `sell()` by hand still
+   * works, because a lock that blocked the shop counter would be a trap — the player is
+   * standing there asking for it (DECISIONS #75).
+   */
+  const sellLock = new Set();
+
   // --------------------------------------------------------------- upgrades
 
   const levelOf = (id) => Math.floor(levels[id] ?? 0);
@@ -225,6 +245,7 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
       v: SAVE_VERSION,
       wallet: Object.fromEntries(CURRENCY_IDS.map((c) => [c, +wallet[c].toFixed(4)])),
       bag: inventory(),
+      sellLock: [...sellLock].sort(),
       upgrades: { ...levels },
       stats: {
         earned: { ...stats.earned }, spent: { ...stats.spent },
@@ -255,6 +276,12 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
     // `tokens` from a pre-research save.
     const legacy = clean(Number(s.wallet?.tokens), 0);
     if (legacy > 0 && !Number.isFinite(Number(s.wallet?.research))) wallet.research = legacy;
+
+    // A slice from before DECISIONS #75 has no lock list, and an empty one is the right
+    // default — nothing was locked, because nothing could be. Slice-level, so the document
+    // version does not move (§5: `loadState` tolerates an older slice).
+    sellLock.clear();
+    for (const id of Array.isArray(s.sellLock) ? s.sellLock : []) if (item(id)) sellLock.add(id);
 
     bag.clear();
     for (const [id, n] of Object.entries(s.bag ?? {})) {
@@ -287,6 +314,16 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
     // bag
     count, give, take, inventory,
     bagSize: () => [...bag.values()].reduce((a, b) => a + b, 0),
+    /** The auto-sell lock. `sell()` by hand ignores it; `automation`'s pass does not. */
+    sellLocked: (id) => sellLock.has(String(id)),
+    sellLocks: () => [...sellLock].sort(),
+    setSellLock(id, on = true) {
+      const def = item(id);
+      if (!def) return false;
+      if (on) sellLock.add(def.id); else sellLock.delete(def.id);
+      onChange({ kind: 'sellLock', item: def.id, locked: on });
+      return true;
+    },
     // upgrades
     levelOf, setLevel, nextCost,
     levels: () => ({ ...levels }),

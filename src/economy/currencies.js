@@ -26,7 +26,12 @@ export const CURRENCIES = Object.freeze([
     minted: 'idle accrual, battle payouts, selling items',
     /** Fractions are carried, never floored away — see `state.js`. */
     fractional: true,
-    start: 3000,
+    /**
+     * `FIELD_START_MONEY`. The brief asks for enough to buy one complete hunt kit before any
+     * loot income, and ₽3,000 was two Poké Balls short of a Great Ball. Exported below as well,
+     * so `economy/selftest.js` can assert it without a `ctx` (DECISIONS #75).
+     */
+    start: 100000,
   }),
   Object.freeze({
     id: 'research', name: 'Research Points', short: 'Research', symbol: '◈', colour: '#7fe6c4',
@@ -95,3 +100,13 @@ export function formatCurrency(id, n, opts) {
   if (!c) return formatAmount(n, opts);
   return c.id === 'money' ? `${c.symbol}${formatAmount(n, opts)}` : `${formatAmount(n, opts)} ${c.symbol}`;
 }
+
+/**
+ * The opening balance, named because the brief names it.
+ *
+ * **It is credited with `earned: false`** (`economy/index.js`), so it does not count toward
+ * `progress().totalEarned` — which is what every money-priced shop gate is measured against.
+ * Counting it would put a brand-new save two thirds of the way to the Department Store's
+ * ₽150,000 before the player had sold anything (DECISIONS #75).
+ */
+export const FIELD_START_MONEY = 100000;
