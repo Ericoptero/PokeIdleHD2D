@@ -256,6 +256,10 @@ export default {
         ...BALL_DEFAULTS,
         oddsFloor: s.oddsFloor, minOdds: s.minOdds, bpWeight: s.bpWeight,
         maxSpend: s.maxSpend, masterFloor: s.masterFloor, hpFraction: s.hpFraction,
+        // The player's own ladder, which `decideBall` asks before the optimiser. Listed here
+        // rather than spread, because this function is deliberately a whitelist: `ball.js`'s
+        // optimiser takes a fixed shape and a stray key from a save would reach it silently.
+        mode: s.mode ?? 'simple', ladder: s.ladder ?? [], perSpecies: s.perSpecies ?? {},
         reserve: { masterball: s.reserveMaster ?? 1 },
       };
     }
@@ -289,6 +293,36 @@ export default {
       const facts = wildFacts(subject, w);
       const tier = engine.isActive('ball') ? engine.compiled('ball').evaluate(facts).action : 'value';
       const settings = ballSettings();
+
+      /**
+       * **The player's ladder is asked first, and it is a preference rather than an override.**
+       *
+       * The brief asks for a chosen first, second and third ball, per species in Advanced mode —
+       * and for a fallback to "the best available option" when the preferred one is not there.
+       * So: walk the ladder, take the first ball actually in the bag, and if none of them is,
+       * fall through to the cost-per-catch optimiser that was here before. A ladder therefore
+       * never makes the choice *worse* than not having one (DECISIONS #78).
+       */
+      const ladder = settings.mode === 'advanced'
+        ? (settings.perSpecies?.[facts.species] ?? settings.ladder ?? [])
+        : (settings.ladder ?? []);
+      for (const id of ladder) {
+        if (num(economy.count?.(id), 0) <= 0) continue;
+        totals.ballsChosen++;
+        const odds = num(economy.catchOdds?.({
+          ball: id, catchRate: facts.catchRate,
+          hpFraction: subject.hpFraction ?? settings.hpFraction,
+          status: subject.status ?? 'none', context: ballContext(subject, w),
+        }), 0);
+        const chosen = { ball: id, odds, expected: null, cost: null, tier, why: 'your ladder', table: [], considered: ladder.length };
+        ballLog.push({
+          at: simTime(), species: facts.species, level: facts.level, shiny: facts.shiny,
+          tier, ball: id, odds, expected: null, why: 'your ladder',
+        });
+        if (ballLog.length > 60) ballLog.shift();
+        return chosen;
+      }
+
       const pick = chooseBall(
         evaluatorFrom(economy),
         {
@@ -635,8 +669,19 @@ export default {
         const count = num(economy.count?.(def.id), 0);
         const facts = itemFacts(def, count, w, { unitValue: num(economy.sellValue?.(def.id), 0), price: source.price });
         const decision = ruleset.evaluate(facts);
-        if (decision.action !== 'buy') continue;
-        const upTo = Math.max(0, Math.floor(decision.args?.upTo ?? 0));
+        // A target is its own instruction: an item the player has asked to keep ten of is
+        // bought whether or not a rule happens to name it.
+        const targeted = Number(s.targets?.[def.id]) > 0;
+        if (decision.action !== 'buy' && !targeted) continue;
+        /**
+         * **A per-item target beats the rule's `upTo`.** The brief asks for "10 Potions, 5
+         * Ethers, 20 Poké Balls" as a thing a player sets directly, and a target the player
+         * typed is a stronger statement than a default a rule shipped with.
+         */
+        const target = Number(s.targets?.[def.id]);
+        const upTo = Number.isFinite(target) && target > 0
+          ? Math.floor(target)
+          : Math.max(0, Math.floor(decision.args?.upTo ?? 0));
         const cap = num(economy.capacity?.(def.id), Infinity);
         const want = Math.min(upTo, cap) - count;
         if (want <= 0) continue;
@@ -646,9 +691,26 @@ export default {
           order: ruleOrder.get(decision.ruleId) ?? 99,
         });
       }
-      // Rule order is the priority: the ball rule is above the potion rule, so a thin
-      // wallet buys balls. Within a rule, cheapest first.
-      rows.sort((a, b) => a.order - b.order || a.price - b.price || a.id.localeCompare(b.id));
+      /**
+       * **Category first, then rule order, then price — and never price first.**
+       *
+       * The brief is explicit that a budget is spent *Healing, Revival, PP restoration, Poké
+       * Balls*, and that Auto-Buy "must not simply purchase the cheapest item first". Rule order
+       * alone nearly did that job and could not finish it: three of those four classes are
+       * `category: 'medicine'`, so a single rule covering medicine ordered them by price and a
+       * thin wallet bought twenty Potions instead of the one Max Potion that would have kept the
+       * party standing.
+       *
+       * `purchaseClass` reads what the item *does* rather than what shelf it is on, and the
+       * player can reorder the four (DECISIONS #78). Price still breaks ties inside a class,
+       * which is the one place cheapest-first is right.
+       */
+      const order = Array.isArray(s.categoryOrder) && s.categoryOrder.length
+        ? s.categoryOrder : (economy.purchaseOrder?.() ?? ['heal', 'revive', 'pp', 'ball']);
+      const classOrder = new Map(order.map((c, i) => [c, i]));
+      const classOf = (id) => classOrder.get(economy.purchaseClass?.(id) ?? 'other') ?? 99;
+      rows.sort((a, b) => classOf(a.id) - classOf(b.id)
+        || a.order - b.order || a.price - b.price || a.id.localeCompare(b.id));
 
       const plan = [];
       const short = [];

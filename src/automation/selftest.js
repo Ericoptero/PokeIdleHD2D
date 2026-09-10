@@ -16,7 +16,7 @@
 import { makeEngine } from './engine.js';
 import { compileRuleset, validateRule, normaliseRule } from './rules.js';
 import {
-  BUY_COOLDOWN, AUTOMATIONS, automation, defaultRules,
+  BUY_COOLDOWN, AUTOMATIONS, automation, defaultRules, defaultSettings,
 } from './automations.js';
 import { worldFacts, storedFacts, wildFacts, catchRateFor } from './fields.js';
 import {
@@ -488,6 +488,53 @@ export function pureChecks() {
     results.push(ok('…and every builtin it had not seen is appended after it',
       defaultRules('sell').every((r) => got.some((g) => g.id === r.id)),
       `${got.length} rules`));
+  }
+
+  // 23 ── Auto-Buy spends by class, not by price.
+  //
+  // The brief: *Healing -> Revival -> PP restoration -> Poké Balls*, and "must not simply
+  // purchase the cheapest item first". Rule order alone could not express it — three of those
+  // four classes are `category: 'medicine'`, so one medicine rule ordered them by price and a
+  // thin wallet bought twenty Potions instead of the Max Potion that keeps a party standing
+  // (DECISIONS #78).
+  {
+    const s2 = defaultSettings('restock');
+    results.push(ok('the budget order is the brief\'s own',
+      JSON.stringify(s2.categoryOrder) === JSON.stringify(['heal', 'revive', 'pp', 'ball']),
+      JSON.stringify(s2.categoryOrder)));
+    results.push(ok('and the targets are per item, not per rule',
+      s2.targets && s2.targets.potion === 10 && s2.targets.ether === 5 && s2.targets.pokeball === 20,
+      JSON.stringify(s2.targets)));
+    // A default that is a shared object handed to a save is a default the player cannot edit —
+    // or worse, one they can edit for every save in the tab.
+    const a = defaultSettings('restock');
+    const b = defaultSettings('restock');
+    a.targets.potion = 99;
+    results.push(ok('every save gets its own copy of a map default', b.targets.potion === 10,
+      `${b.targets.potion}`));
+  }
+
+  // 24 ── the ball ladder is a preference, and Advanced is per species.
+  {
+    const s2 = defaultSettings('ball');
+    results.push(ok('simple is the default mode', s2.mode === 'simple', String(s2.mode)));
+    results.push(ok('the shipped ladder is dearest-first',
+      JSON.stringify(s2.ladder) === JSON.stringify(['ultraball', 'greatball', 'pokeball']),
+      JSON.stringify(s2.ladder)));
+    results.push(ok('advanced starts empty, so it behaves exactly like simple until told otherwise',
+      s2.perSpecies && Object.keys(s2.perSpecies).length === 0));
+    // Shape-checked on restore, because a save is a file a player can edit and a malformed
+    // ladder would be a silent no-op at the moment a shiny appeared.
+    const e = makeEngine();
+    e.restore({ automations: { ball: { unlocked: true, enabled: true, settings: {
+      ladder: ['greatball', 7, null], perSpecies: { gible: ['ultraball'], bad: 'nope' },
+    } } } });
+    const got = e.settings('ball');
+    results.push(ok('a ladder keeps only the ids it can use',
+      JSON.stringify(got.ladder) === JSON.stringify(['greatball']), JSON.stringify(got.ladder)));
+    results.push(ok('…and a per-species map drops the rows that are not ladders',
+      JSON.stringify(got.perSpecies) === JSON.stringify({ gible: ['ultraball'] }),
+      JSON.stringify(got.perSpecies)));
   }
 
   return results;

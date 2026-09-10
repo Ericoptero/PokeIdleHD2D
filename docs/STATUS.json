@@ -1,7 +1,7 @@
 {
   "updatedMs": 1789030000000,
   "seed": 1337,
-  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. A hunt walks a circuit that visits the places the biome composes, steps off it to reach the creature standing on a slot, and fights it there; there is one route and the showcases walk it too. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. Every species has its own drop table, derived from its typing and rarity and mirrored against the evolution bill; loot lands in a Stash and consumables in a Bag, two views of one Map with a Sell-Lock the automation obeys and the counter does not; and a run opens with FIELD_START_MONEY that is deliberately not 'earned'. Auto-Heal, Auto-Revive, Auto-Ether and Auto-Lead decide inside the fight from pure rules the fold runs too. and a panel configures all ten of them - the healing ladder edited in place, rules reordered with buttons. What is left of the brief is per-species ball ladders, Auto-Buy targets, and the move VFX - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
+  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. A hunt walks a circuit that visits the places the biome composes, steps off it to reach the creature standing on a slot, and fights it there; there is one route and the showcases walk it too. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. Every species has its own drop table, derived from its typing and rarity and mirrored against the evolution bill; loot lands in a Stash and consumables in a Bag, two views of one Map with a Sell-Lock the automation obeys and the counter does not; and a run opens with FIELD_START_MONEY that is deliberately not 'earned'. Auto-Heal, Auto-Revive, Auto-Ether and Auto-Lead decide inside the fight from pure rules the fold runs too. and a panel configures all ten of them - the healing ladder edited in place, rules reordered with buttons. What is left of the brief is the move VFX - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
   "baseline": {
     "at": "2026-09-08",
     "size": "1920x1080",
@@ -46,16 +46,12 @@
     {
       "module": "economy",
       "what": "`pacing.js MEASURED` still projects the income model DECISIONS #69 deleted, and now also predates per-species drop tables and the \u20bd100,000 opening purse. The header (`pacing.js:22`) says the table is stale; it is staler."
-    },
-    {
-      "module": "automation",
-      "what": "Ball Selection has no Advanced (per-species ladder) mode, and Auto-Buy has no per-consumable targets or category priority \u2014 the brief asks for both. `planRestock` sorts by rule index then price, so the 'must not buy the cheapest first' half is already true; what is missing is the targets and the Healing/Revival/PP/Balls ordering."
     }
   ],
   "modules": {
     "automation": {
       "status": "in tree, loads clean",
-      "openIssues": 1
+      "openIssues": 0
     },
     "battle": {
       "status": "in tree, loads clean",

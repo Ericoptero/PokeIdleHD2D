@@ -543,3 +543,46 @@ ink. And the ladder printed `Maxpotion`, because the panel was title-casing an i
 not in this panel. Every rule can be reordered, switched off and read, which is what the four new
 automations need; a condition builder is a second panel's worth of work and nothing is blocked on
 it. Saying so beats shipping half of one.
+
+---
+
+### 78 — 2026-09-10 — A budget is spent by what an item does, not by what shelf it is on
+
+Two halves of the brief that #76 left: the per-species ball ladder, and Auto-Buy's targets and
+category priority.
+
+**(a) `item.category` cannot express the brief's order, and that is the whole difficulty.** The
+brief spends a budget *Healing → Revival → PP restoration → Poké Balls*, and **three of those four
+are `category: 'medicine'`**. Rule order got most of the way there and could not finish: one
+medicine rule ordered its items by price, so a thin wallet bought twenty Potions instead of the
+one Max Potion that keeps a party standing — which is exactly the "must not simply purchase the
+cheapest item first" the brief forbids.
+
+So `economy.purchaseClass(id)` reads what an item **does** — `heal.revive` makes it a revival,
+`heal.pp` makes it PP, `heal.hp` makes it healing, `category: 'ball'` a ball — and is derived, so
+an item added tomorrow is classed the day it lands. It is exposed through the API because
+`automation` may not import `economy`'s internals. Price still breaks ties *inside* a class, which
+is the one place cheapest-first is right.
+
+**(b) A target the player typed beats a default a rule shipped with.** `targets` is
+`{itemId: count}` — the brief's own "10 Potions, 5 Ethers, 20 Poké Balls" — and it wins over a
+rule's `upTo`. An item with a target is bought whether or not a rule happens to name it, because
+a number somebody entered is an instruction and a rule they never edited is a suggestion.
+
+**(c) The ball ladder is a preference, not an override.** The brief asks for a chosen first,
+second and third — per species in Advanced mode — *and* for a fallback to "the best available
+option". So `decideBall` walks the ladder, takes the first ball actually in the bag, and falls
+through to the cost-per-catch optimiser when none of them is there. A ladder can therefore never
+make the choice **worse** than not having one. Measured: with only Great Balls in the bag a
+`['ultraball','greatball','pokeball']` ladder answers `greatball` with `why: 'your ladder'`.
+
+**One thing that had to be said out loud in code.** `ballSettings()` is a deliberate *whitelist* —
+`ball.js`'s optimiser takes a fixed shape and a stray key from a save would reach it silently — so
+the three new keys are listed there rather than spread in. The ladder was written, saved, coerced
+and ignored until they were, which is the whitelist working and then being wrong.
+
+**(d) Two more setting types, both maps.** `targets` (`{id: count}`) and `ladders`
+(`{key: id[]}`) join `ladder` and `order`. Every one is shape-checked on restore rather than
+trusted, because a save is a file a player can edit and a malformed ladder is a silent no-op at
+the moment a shiny appears. And `defaultSettings` deep-copies them: a shared object handed to a
+save is a default the player cannot edit — or worse, one they can edit for every save in the tab.

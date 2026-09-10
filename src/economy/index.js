@@ -36,6 +36,7 @@ import { trainerFromWins } from './trainer.js';
 import { CURRENCIES, formatCurrency } from './currencies.js';
 import {
   ITEMS, item, itemsBy, ballMultiplier, catchOdds, stackCap, isStashItem,
+  purchaseClass, PURCHASE_ORDER,
 } from './items.js';
 import { UPGRADES, upgrade, costOf, bulkCost, foldUpgrades } from './upgrades.js';
 import {
@@ -533,6 +534,13 @@ export default {
       stash: () => rows((d) => isStashItem(d)),
       bag: () => rows((d) => !isStashItem(d)),
       /** Never sold by `automation`; `sell()` by hand ignores it. */
+      /**
+       * What a consumable is **for** — finer than its category, because three of the brief's
+       * four purchase classes are all `medicine`. `automation` orders a budget by it and may
+       * not import this module's internals, so it comes through the API (DECISIONS #78).
+       */
+      purchaseClass: (id) => purchaseClass(item(id)),
+      purchaseOrder: () => [...PURCHASE_ORDER],
       sellLocked: (id) => state.sellLocked(id),
       sellLocks: () => state.sellLocks(),
       setSellLock: (id, on = true) => state.setSellLock(id, on),

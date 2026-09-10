@@ -155,6 +155,20 @@ export const AUTOMATIONS = [
     ],
     defaultAction: 'value',
     settings: [
+      /**
+       * **Simple is one ladder for everything; Advanced is a ladder per species.**
+       *
+       * Both are *preferences*, not overrides: the first ball on the ladder that is actually in
+       * the bag is thrown, and a ladder that is empty or entirely out of stock falls through to
+       * the cost-per-catch optimiser below — which is what the brief's "falls back to the best
+       * available option" means (DECISIONS #78).
+       */
+      { key: 'mode', label: 'Ball choice', type: 'enum', values: ['simple', 'advanced'], default: 'simple' },
+      { key: 'ladder', label: 'Preferred balls', type: 'order',
+        default: ['ultraball', 'greatball', 'pokeball'],
+        blurb: 'First one in stock wins. Empty falls through to the optimiser.' },
+      { key: 'perSpecies', label: 'Per species', type: 'ladders', default: {},
+        blurb: 'Advanced mode only. A species with no ladder of its own uses the one above.' },
       { key: 'oddsFloor', label: 'Secure floor', type: 'number', unit: '×', min: 0.5, max: 1, step: 0.01, default: 0.9,
         blurb: 'A secured target must have at least this chance from one throw.' },
       { key: 'minOdds', label: 'Never throw below', type: 'number', unit: '×', min: 0.01, max: 0.6, step: 0.01, default: 0.12 },
@@ -381,6 +395,21 @@ export const AUTOMATIONS = [
     ],
     defaultAction: 'skip',
     settings: [
+      /**
+       * The brief's own example — "10 Potions, 5 Ethers, 20 Poké Balls". A target the player
+       * typed is a stronger statement than a default a rule shipped with, so it wins over the
+       * rule's `upTo`, and an item with a target is bought whether or not a rule names it.
+       */
+      { key: 'targets', label: 'Keep this many', type: 'targets',
+        default: { potion: 10, ether: 5, pokeball: 20, revive: 3 },
+        blurb: 'Bought up to this count, budget allowing.' },
+      /**
+       * Healing, Revival, PP, Balls — and it cannot be `item.category`, because three of those
+       * four ARE `medicine`. `economy.purchaseClass` reads what an item does (DECISIONS #78).
+       */
+      { key: 'categoryOrder', label: 'Budget priority', type: 'order',
+        default: ['heal', 'revive', 'pp', 'ball'],
+        blurb: 'Earlier classes get the money first. Price only breaks ties inside a class.' },
       { key: 'budgetFraction', label: 'Spend at most', type: 'number', unit: '× wallet', min: 0.01, max: 1, step: 0.01, default: 0.25,
         blurb: 'One pass never spends more than this share of the money on hand.' },
       { key: 'floor', label: 'Never go below', type: 'number', unit: '₽', min: 0, max: 1000000, step: 100, default: 2000,
@@ -418,9 +447,10 @@ export function defaultSettings(id) {
   // player's settings record is a default they cannot edit — and one they *could* edit would be
   // the catalogue itself, shared by every save in the tab (DECISIONS #76).
   for (const s of def?.settings ?? []) {
-    out[s.key] = Array.isArray(s.default)
-      ? s.default.map((v) => (v && typeof v === 'object' ? { ...v } : v))
-      : s.default;
+    const d = s.default;
+    if (Array.isArray(d)) out[s.key] = d.map((v) => (v && typeof v === 'object' ? { ...v } : v));
+    else if (d && typeof d === 'object') out[s.key] = JSON.parse(JSON.stringify(d));
+    else out[s.key] = d;
   }
   return out;
 }

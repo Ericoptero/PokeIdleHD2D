@@ -285,6 +285,31 @@ Object.freeze(ITEMS);
  * The whole of the Stash/Bag split, in one set (DECISIONS #75). `treasure` items have no buy
  * price and exist only to be sold; everything else is something a hunt spends.
  */
+/**
+ * What a consumable is **for**, which is finer than what category it is in.
+ *
+ * The brief orders automatic buying by *Healing, Revival, PP restoration, Poké Balls* — and
+ * three of those four are `category: 'medicine'`, so the category cannot express the order. The
+ * payload can: an item that restores HP heals, one that raises a fainted Pokémon revives, one
+ * that restores PP is PP. Derived rather than authored, so an item added tomorrow is classed
+ * the day it lands (DECISIONS #78).
+ */
+export function purchaseClass(def) {
+  if (!def) return 'other';
+  if (def.category === 'ball') return 'ball';
+  const h = def.heal;
+  if (h) {
+    if (h.revive !== undefined) return 'revive';
+    if (h.pp !== undefined) return 'pp';
+    if (h.hp !== undefined) return 'heal';
+    if (h.status) return 'heal';
+  }
+  return 'other';
+}
+
+/** The brief's own order, and the default an Auto-Buy budget is spent in. */
+export const PURCHASE_ORDER = Object.freeze(['heal', 'revive', 'pp', 'ball', 'other']);
+
 export const STASH_CATEGORIES = Object.freeze(new Set(['treasure']));
 export const isStashItem = (def) => STASH_CATEGORIES.has(def?.category);
 

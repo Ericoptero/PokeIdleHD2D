@@ -186,6 +186,27 @@ export function makeEngine({ onChange = () => {} } = {}) {
       const ids = raw.filter((x) => typeof x === 'string');
       return ids.length ? ids : undefined;
     }
+    /** `{itemId: count}` — the brief's "10 Potions, 5 Ethers, 20 Poké Balls". */
+    if (spec.type === 'targets') {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+      const out = {};
+      for (const [k, v] of Object.entries(raw)) {
+        const n = Math.floor(Number(v));
+        if (typeof k === 'string' && Number.isFinite(n) && n >= 0) out[k] = Math.min(999, n);
+      }
+      return out;
+    }
+    /** `{key: itemId[]}` — a ball ladder per species. */
+    if (spec.type === 'ladders') {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+      const out = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (typeof k !== 'string' || !Array.isArray(v)) continue;
+        const ids = v.filter((x) => typeof x === 'string');
+        if (ids.length) out[k] = ids;
+      }
+      return out;
+    }
     return String(raw);
   }
 
