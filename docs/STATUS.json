@@ -1,7 +1,7 @@
 {
   "updatedMs": 1789030000000,
   "seed": 1337,
-  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. Phases B-E of the brief - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
+  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. The rest of phases B-E of the brief - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
   "baseline": {
     "at": "2026-09-08",
     "size": "1920x1080",
@@ -15,6 +15,14 @@
     "note": "demo city at noon. Real numbers, but the scene has no buildings, no NPCs and no characters yet."
   },
   "open": [
+    {
+      "module": "hunts",
+      "what": "**A found circuit does not visit the places the biome composes.** Measured in the meadow: the loop is a 6x17 corridor at x 38-43, 50 cells of a 64x60 map, and the campfire that is its only night practical is at (25,32) \u2014 14 cells away, with the `lane` marker 23. So a hunt is walked in a corner the player never sees composed. Invisible until now because `biome.walk` stages every showcase and preset at the markers instead: every hunt frame ever judged shows a part of the map the game does not walk."
+    },
+    {
+      "module": "hunts",
+      "what": "`biome.walk` \u2014 the pre-loop scripted routes \u2014 is still read by `stageWalk` and by `showcase.js`. Two ways to move a party through a biome, one of them superseded. Deleting it was tried and reverted in the same session: with one route, the meadow's night frame loses its practical entirely (`over200Pct 1.198 -> 0`), because of the circuit-placement defect above. The deletion is correct and lands after the circuit does."
+    },
     {
       "module": "encounter",
       "what": "`stepDuel`'s `between` and `nextAlly` hooks are wired but stubbed: `between` is always empty and `nextAlly` takes the next conscious member in party order. Auto-Heal, Auto-Ether, Auto-Revive and the matchup-aware lead are the rules that belong there (brief, phase D)."
@@ -30,10 +38,6 @@
     {
       "module": "economy",
       "what": "`pacing.js MEASURED` projects an income model that DECISIONS #69 deleted. The table is stale and the header (`pacing.js:22`) says so. (DECISIONS #70(j))"
-    },
-    {
-      "module": "hunts",
-      "what": "`biome.walk` -- the pre-loop scripted routes -- is still read by `index.js:363` and by `showcase.js:66`. Two ways to move a party through a biome, one of them superseded."
     },
     {
       "module": "hunts",
@@ -95,7 +99,7 @@
     },
     "hunts": {
       "status": "in tree, loads clean",
-      "openIssues": 3
+      "openIssues": 4
     },
     "idle": {
       "status": "in tree, loads clean",

@@ -628,14 +628,26 @@ function render(ctx, mode, staged) {
 
   const proof = proofOf(enc, e?.index ?? 0, { biome: staged.biome, tod });
 
-  // The trigger, spelled out. `player:enteredTile` fires once per cell the LEAD lands on
-  // (DECISIONS #27) and each of those is one indexed roll against the biome's step rate;
-  // a frame of grass that produced nothing looks exactly like a frame of grass that is not
-  // wired up, so the last eight verdicts are printed with the coins that produced them.
-  const from = Math.max(0, prog.steps - 8);
-  const steps = Array.from({ length: Math.min(8, prog.steps) }, (_, i) => enc.stepRollAt(from + i, staged.biome))
-    .map((r) => `<tr><td>step ${r.index}</td><td class="r">${r.roll.toFixed(4)} ${r.hit ? '&lt;' : '≥'} ${r.rate.toFixed(3)} `
-      + `<span class="${r.hit ? 'good' : 'k'}">${r.hit ? 'ENCOUNTER' : 'nothing'}</span></td></tr>`).join('');
+  /**
+   * The slot roster — what a lap will actually meet.
+   *
+   * `hunts` is not in this module's `showcaseNeeds` (this scene builds its own map), so an
+   * empty roster is the ordinary case here and the section simply does not draw.
+   */
+  const hunts = ctx.get('hunts');
+  const slotList = (hunts && hunts.__missing === undefined && typeof hunts.slots === 'function')
+    ? hunts.slots() : [];
+  const slotSummary = slotList.length
+    ? `${slotList.filter((s2) => s2.occupied).length} of ${slotList.length} occupied` : '';
+  const slotRows = slotList.slice(0, 8).map((s2) => `<tr><td>#${s2.k}</td>`
+    + `<td>${s2.occupied ? (s2.species ?? '?') : '—'}${s2.shiny ? ' ★' : ''}</td>`
+    + `<td>${s2.cx},${s2.cz}</td>`
+    + `<td>${s2.approach ? `via ${s2.approach.cx},${s2.approach.cz}` : ''}</td></tr>`).join('');
+
+  // The eight-row "last grass steps and their verdicts" table went with the roll it printed
+  // (DECISIONS #73): nothing decides whether a Pokemon appears any more, so there is no coin to
+  // show. What replaces it as the trigger's evidence is the **slot roster** below — which slots
+  // this lap holds, what is standing on them, and which one the party is walking at.
 
   // Every ball in the bag, priced against this encounter. `economy` evaluates the
   // conditions; nothing here re-derives a multiplier.
@@ -711,17 +723,17 @@ function render(ctx, mode, staged) {
       <table>${top}</table>
     </section>` : ''}
 
-    ${showSteps ? `<section>
-      <div class="row"><span class="k">the trigger · one roll per cell</span><span class="v">${pct(enc.stepRate(staged.biome))}/step</span></div>
-      <table>${steps}</table>
+    ${showSteps && slotRows ? `<section>
+      <div class="row"><span class="k">slots · what a lap will meet</span><span class="v">${slotSummary}</span></div>
+      <table>${slotRows}</table>
     </section>` : ''}
 
     <section>
       <div class="row"><span class="k">rolled twice, independently</span><span class="proof">${proof.same ? 'IDENTICAL' : 'DIVERGED'}</span></div>
       <div class="k">#${e?.index ?? 0} → ${proof.a?.species} Lv${proof.a?.level} iv${proof.a?.ivTotal}${proof.a?.shiny ? ' ★' : ''}</div>
       <div class="k">#${e?.index ?? 0} → ${proof.b?.species} Lv${proof.b?.level} iv${proof.b?.ivTotal}${proof.b?.shiny ? ' ★' : ''}</div>
-      <div class="row"><span class="k">grass steps / encounters</span><span class="v">${prog.steps} / ${prog.encounters}</span></div>
-      <div class="row"><span class="k">step rate · shiny rate</span><span class="v">${pct(enc.stepRate(staged.biome))} · 1/${Math.round(1 / enc.shinyRate())}</span></div>
+      <div class="row"><span class="k">encounters</span><span class="v">${prog.encounters}</span></div>
+      <div class="row"><span class="k">shiny rate</span><span class="v">1/${Math.round(1 / enc.shinyRate())}</span></div>
       ${dex ? `<div class="row"><span class="k">dex</span><span class="v">${dex.seen} seen · ${dex.caught} caught · ${dex.stored} stored</span></div>` : ''}
       ${isLive(economy) ? `<div class="row"><span class="k">bag</span><span class="v">${economy.count('pokeball')} Poké · ${economy.count('greatball')} Great · ₽${economy.balance('money').toLocaleString()}</span></div>` : ''}
     </section>

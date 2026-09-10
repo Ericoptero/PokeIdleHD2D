@@ -251,3 +251,38 @@ lap order (slots 0, 1, 2); the head left the circuit at exactly three cells, whi
 authored approaches; `audit()` `ok: true, checked: 9, fails: []`; **zero console errors and zero
 warnings**, so `strict` never stalled. `shots/out/contact.png` is the Oshawott standing next to a
 shiny Seedot with both moves called out and the trainer behind it on the path.
+
+**(i) The tall-grass step roll is deleted everywhere, and the city table with it.** #61(h) kept the
+lobby's 23 rows on the argument that a walkable map the player drives is played differently from a
+hunt. The brief asks for the random-encounter system to go, and with slots and a detour there is
+nothing left for it to do: a hunt meets what is standing on a slot, and the city is a Center, a
+Mart and a plaza. `roll()`, `stepRollAt`, `stepRate`, `STEP_RATE` and the `step/0` stream pin all
+go; `roll/7` and `catch/5/1` did not move, which is the evidence the index space survived.
+
+The city table is **emptied and not deleted**, and the difference is the bug it prevents:
+`tableFor` falls back to **meadow** for a biome not in `BIOMES`, so dropping the key would have the
+lobby quietly spawning the meadow's wildlife through `idle` rather than none at all. A silent wrong
+answer in place of a loud empty one. `validate()` moved with the rule — a table with no rows is a
+deliberate empty and is skipped; a table with rows that leave an hour bare is still a bug.
+
+A tab closed in the city now accrues nothing, which is a real behaviour change and is the point:
+the hunt is the game.
+
+**(j) `biome.walk` was deleted and put back, and what that measured is worth more than the change.**
+The plan for this phase was to delete the pre-loop authored routes so `/` and every showcase walk
+one circuit — an open STATUS item since the loop landed. Done, and the gate said: `hunts/meadow/21`
+`over200Pct 1.198 -> 0`, `max 255 -> 161`. The night frame had lost its brightest pixels, and
+looking at it, its **motivated light source** — flat blue darkness with wildlife in it, which is the
+one thing four rounds of blind A/B lost on every round (§0).
+
+The cause is not the staging. Measured on the running page: the meadow's found circuit is a
+**6×17 corridor at x 38–43**, fifty cells of a 64×60 map, and the campfire that is its only night
+practical sits at (25,32) — **14 cells away**, with the `lane` marker the showcase frames 23 away.
+The circuit does not visit the places the biome composes. `biome.walk` had been hiding that
+completely: it stages every showcase and preset at the *markers*, so **every hunt frame this project
+has ever judged shows a part of the map the game does not walk.**
+
+So the deletion is reverted, and the defect is filed with its numbers. Deleting the second route is
+still right and still has to happen; it lands after the circuit visits the composition, because the
+alternative is shipping a lightless night frame to close a bookkeeping item. A green gate that costs
+a frame its practical is the gate being wrong about what it can see, not permission.

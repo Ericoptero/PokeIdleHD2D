@@ -638,15 +638,15 @@ rule, not a setting — the pity ladder only measures anything while a throw cos
 from inside `tick()` and `travel.go()` is async and serialised behind `busy`. `travel` listens
 and does the hop on the next frame.
 
-**How an encounter starts depends on the place, the way the formation does (§0).** A scene the
-player *drives* rolls on a tall-grass step, as it always has. A scene walking a **loop path**
-engages when the head of the queue comes within `config.slotEngageTiles` of an occupied **spawn
-slot**.
+**There is one way a wild Pokemon is met, and it is a spawn slot.** The party walks its circuit,
+steps one cell off it to reach an occupied slot, and fights the creature standing there. The
+tall-grass step roll — `roll()`, `stepRollAt`, `stepRate` and the `city` table — is **gone**
+(DECISIONS #73), so nothing in this game appears from nothing. `progress().steps` is kept in the
+shape and in the save slice but no longer moves.
 
-That distance is **2, because that is where a slot is** — `hunts` authors every one at Chebyshev
-2 from the circuit (§5.14). The tether's ±1 drift is what makes the meeting read as a creature
-noticing the party; it is not extra reach, and counting it as reach silences the trigger
-entirely.
+That reach is **1, because the party walks to it**. It was 2 while the walk was blind, which was
+right then and is wrong now: at 2 the encounter fires from the path before the detour is taken and
+the party never leaves the circuit at all (§5.14, DECISIONS #73).
 
 `hunts.takeSlot(k)` hands the creature over **and takes its sprite off the map**, so the wild
 that walks out to fight is the one that was standing there rather than a second copy beside it,

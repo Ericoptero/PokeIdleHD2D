@@ -26,7 +26,7 @@ import { dropsFor, BIOME_LOOT, LOOT_IDS, DROP_CHANCE } from './drops.js';
 import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
-  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
+  streamFor, catchRateFor, levelBand, stepValue, rollAt, catchRoll,
   shakesFor,
 } from './rolls.js';
 import {
@@ -118,11 +118,13 @@ export function runSelfTest({ species = null } = {}) {
     // `src/battle/selftest.js` (DECISIONS #67). The three streams that still exist are pinned
     // exactly as they were — that they did NOT move is the evidence the index space survived
     // the switchover.
+    // `step/0` retired with the grass roll it indexed (DECISIONS #73), the way `battle/12`
+    // retired with `resolveBattle` in #67. The two that remain are the load-bearing ones, and
+    // that they did NOT move across either switchover is the whole evidence.
     check('every stream still starts where it started',
       Math.abs(s7 - 0.9075717055238783) < 1e-15
-      && Math.abs(c51 - 0.16200905269943178) < 1e-15
-      && Math.abs(s0 - 0.8985949635971338) < 1e-15,
-      `roll/7 ${s7.toFixed(12)}, catch/5/1 ${c51.toFixed(12)}, step/0 ${s0.toFixed(12)}`);
+      && Math.abs(c51 - 0.16200905269943178) < 1e-15,
+      `roll/7 ${s7.toFixed(12)}, catch/5/1 ${c51.toFixed(12)}`);
   }
 
   // --- 4 index-addressed, not stream-continued ---------------------------------
@@ -215,6 +217,12 @@ export function runSelfTest({ species = null } = {}) {
       const rows = Object.values(TABLES).reduce((n, r) => n + r.length, 0);
       check('every table species exists in the snapshot, with a legal rate and weight',
         bad.length === 0, bad.length ? bad.slice(0, 6).join('; ') : `${rows} rows across ${BIOMES.length} biomes`);
+      // The lobby is a lobby: it has a key so `tableFor` cannot fall back to the meadow's
+      // wildlife, and no rows so nothing can spawn there (DECISIONS #73).
+      check('the city spawns nothing at all', (TABLES.city ?? []).length === 0,
+        `${(TABLES.city ?? []).length} rows`);
+      check('…and it is still a known biome, so no lookup falls through to the meadow',
+        BIOMES.includes('city'));
     }
   }
 
@@ -222,13 +230,15 @@ export function runSelfTest({ species = null } = {}) {
   {
     let empty = 0;
     const detail = [];
-    for (const biome of BIOMES) {
+    // Every biome a HUNT is played in. The city is deliberately not one of them any more, and
+    // the check moved with the rule rather than being loosened around it (DECISIONS #73).
+    for (const biome of BIOMES.filter((b) => b !== 'city')) {
       for (const tod of [0, 5, 8, 12, 16, 19, 22]) {
         const rows = rowsFor(biome, tod);
         if (!rows.length) { empty++; detail.push(`${biome}@${tod}`); }
       }
     }
-    check('every biome spawns something at every hour', empty === 0,
+    check('every hunt biome spawns something at every hour', empty === 0,
       detail.length ? detail.join(' ') : summary().map((s) => `${s.biome}:${s.rows}`).join(' '));
   }
 
@@ -350,16 +360,12 @@ export function runSelfTest({ species = null } = {}) {
       levelBand(0).min >= 2 && levelBand(undefined).max >= 3, JSON.stringify(levelBand(0)));
   }
 
-  // --- 20 grass steps -------------------------------------------------------------
-  {
-    let hits = 0;
-    for (let i = 0; i < 20000; i++) if (stepRoll(SEED, i, 0.12)) hits++;
-    check('a grass step fires at the rate it is given', Math.abs(hits / 20000 - 0.12) < 0.01,
-      `${((hits / 20000) * 100).toFixed(2)}% against 12.00%`);
-    check('a step replays', stepRoll(SEED, 77, 0.12) === stepRoll(SEED, 77, 0.12), 'step 77');
-    check('rate 0 never fires and rate 1 always does',
-      !stepRoll(SEED, 3, 0) && stepRoll(SEED, 3, 1), 'clamped');
-  }
+  // --- 20 RETIRED: grass steps ----------------------------------------------------
+  // Three checks on `stepRoll` — that it fires at the rate it is given, that it replays, and
+  // that 0 and 1 clamp — went with the random-encounter system they measured (DECISIONS #73).
+  // Nothing rolls to decide whether a Pokemon appears any more: a hunt walks to a slot and
+  // fights what is standing on it. `stepRoll`/`stepValue` remain in `rolls.js`, unexported from
+  // the module API and uncalled, and go the next time that file is touched.
 
   // --- 21 the two rules a fight is settled by -------------------------------------
   //

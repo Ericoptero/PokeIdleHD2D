@@ -47,12 +47,12 @@
 import { makeBallSprite } from './ball.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
-  streamFor, catchRateFor, levelBand, stepRoll, stepValue, rollAt, catchRoll,
+  streamFor, catchRateFor, levelBand, rollAt, catchRoll,
   shakesFor, rewardsFor,
 } from './rolls.js';
 import { dropsFor } from './drops.js';
 import {
-  BIOMES, STEP_RATE, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
+  BIOMES, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
 } from './tables.js';
 import { runSelfTest, summarise } from './selftest.js';
 import { reportSelfTest } from '../core/log.js';
@@ -303,17 +303,6 @@ export default {
       };
     }
 
-    /**
-     * §5.6's `roll(biome, tod, luck)`. **This one consumes indices** — it rolls the next
-     * grass step and, if that fires, the next encounter — which is what makes it the live
-     * path rather than a probe. `rollAt(index)` above is the pure form.
-     */
-    function roll(biome = biomeNow(), tod = todNow(), luck = 1) {
-      const rate = (STEP_RATE[biome] ?? STEP_RATE.meadow) * multipliers().encounterRate * (Number(luck) || 1);
-      const index = steps++;
-      if (!stepRoll(seed, index, rate)) return null;
-      return rollIndex(encounters++, { biome, tod });
-    }
 
     // ---------------------------------------------------------------- the moment
 
@@ -1254,18 +1243,13 @@ export default {
       bus.on('player:enteredTile', ({ cx, cz, tags }) => {
         if (!armed || frozen || active || scene) return;
 
-        // **A hunt meets its wildlife where the wildlife is standing.** A scene walking a
-        // closed loop has fixed spawn slots two cells off the path (§5.14), and coming within
-        // `slotEngageTiles` of an occupied one is the encounter — no roll, no grass, and the
-        // same creature every lap until it is beaten. A walkable map the player drives keeps
-        // the tall-grass step roll it has always had (DECISIONS #67).
+        // **The only way a wild Pokemon is met.** A hunt walks a closed loop past fixed spawn
+        // slots, steps off it to reach an occupied one, and fights the creature standing there
+        // (§5.14, DECISIONS #73). There is no second path: the tall-grass step roll that used
+        // to spawn a Pokemon out of nowhere on any cell tagged `tallgrass` is gone, everywhere,
+        // and with it the city's own spawn table. Nothing in this game appears from nothing.
         const slot = slotNear(cx, cz);
-        if (slot) { engage(slot); return; }
-
-        if (!Array.isArray(tags)) return;
-        if (!tags.includes('tallgrass') && !tags.includes('encounter')) return;
-        const enc = roll();
-        if (enc) begin(enc);
+        if (slot) engage(slot);
       }),
       // A new map is a new biome and a new table; the memo is keyed on both, but the level
       // band moves with the party and the cached expansion does not carry it, so this is
@@ -1283,7 +1267,6 @@ export default {
        * directly; see the header of `tables.js` for why that shape and not `{name, weight}`.
        */
       tablesFor(biome = biomeNow(), tod = todNow()) { return tableFor(biome, tod).table; },
-      roll,
       begin,
       attempt,
       flee,
@@ -1318,20 +1301,13 @@ export default {
       /** The catch coin for `index`/`turn`, without spending a ball. Used to stage a shot. */
       catchRollAt: (index, turn = 1) => catchRoll(seed, index, turn),
       /**
-       * The coin behind grass step `index`, and the line it was compared against.
+       * `{ steps, encounters }`.
        *
-       * The trigger is the half of this module a screenshot has the hardest time showing —
-       * a cell of grass either did or did not produce a Pokemon, and a frame of nothing
-       * happening looks the same as a frame of it not being wired up. Handing back the roll
-       * lets the showcase print the last dozen steps with their verdicts, which is the only
-       * way that mechanic is visible at all.
+       * `steps` no longer moves: it counted cells of tall grass the lead had walked, and
+       * indexed the "is there one?" roll that DECISIONS #73 deleted. It is kept in the shape,
+       * and in the save slice, so an existing document still loads — reading a number nobody
+       * writes is harmless, and a slice key that vanished would need a migration for nothing.
        */
-      stepRollAt(index, biome = biomeNow()) {
-        const rate = (STEP_RATE[biome] ?? STEP_RATE.meadow) * multipliers().encounterRate;
-        const roll = stepValue(seed, index);
-        return { index, roll, rate, hit: roll < rate };
-      },
-      /** `{ steps, encounters }` — the only two numbers this module remembers. */
       progress: () => ({ steps, encounters }),
       seed: () => seed,
 
@@ -1402,8 +1378,6 @@ export default {
       tables: () => summary(),
       rows: (biome = biomeNow(), tod = todNow()) => tableFor(biome, tod).table.rows,
       band: () => levelBand(topLevel()),
-      stepRate: (biome = biomeNow()) =>
-        (STEP_RATE[biome] ?? STEP_RATE.meadow) * multipliers().encounterRate,
       shinyRate,
       armed: () => armed,
 

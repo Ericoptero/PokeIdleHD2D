@@ -52,19 +52,20 @@ const R = (n, w, r, when = 'any', bump = 0) => ({ n, w, r, when, bump });
 
 /** @type {Object<string, {n:string,w:number,r:number,when:string,bump:number}[]>} */
 export const TABLES = {
-  // The lobby's verges. Common, urban, and deliberately thin — `idle` pays the city 1.55×
-  // on money and 0.35× on encounters, so the town is where you bank, not where you hunt.
-  city: [
-    R('rattata', 20, 255, 'any'), R('patrat', 16, 255, 'day'), R('yungoos', 12, 255, 'day'),
-    R('skwovet', 14, 255, 'day'), R('lechonk', 12, 255, 'day'), R('pidgey', 12, 255, 'morning'),
-    R('rookidee', 10, 255, 'morning'), R('meowth', 12, 255, 'any'),
-    R('minccino', 7, 255, 'day'), R('growlithe', 5, 190, 'day'),
-    R('magnemite', 6, 190, 'any'), R('voltorb', 4, 190, 'any'), R('trubbish', 6, 190, 'any'),
-    R('klink', 3, 130, 'any'), R('grimer', 4, 190, 'night'),
-    R('purrloin', 14, 255, 'night'), R('hoothoot', 12, 255, 'night'), R('zubat', 10, 255, 'night'),
-    R('murkrow', 6, 30, 'night'), R('gastly', 5, 190, 'night'), R('litwick', 4, 190, 'night'),
-    R('pawniard', 3, 120, 'night', 2), R('pikachu', 3, 190, 'any', 1),
-  ],
+  /**
+   * **The lobby has no wildlife, and the key stays anyway.**
+   *
+   * DECISIONS #61(h) kept the city's 23 rows on the argument that a walkable map the player
+   * drives is played differently from a hunt. #73 removed the tall-grass step roll everywhere,
+   * so nothing can read them: the city is a lobby now — a Center, a Mart, a plaza — and the
+   * hunt is the only place a wild Pokemon exists.
+   *
+   * Emptied and not deleted, because `tableFor` falls back to **meadow** for a biome that is
+   * not in `BIOMES` (`encounter/index.js`). Dropping `'city'` from the list would therefore
+   * have the lobby quietly spawning the meadow's wildlife through `idle` rather than none at
+   * all — a silent wrong answer in place of a loud empty one.
+   */
+  city: [],
 
   // Route grass. The broadest table and the softest — this is where a new save actually
   // fills a Pokedex.
@@ -127,18 +128,13 @@ export const TABLES = {
 };
 
 /**
- * Per-step encounter chance in tall grass, by biome.
- *
- * The shape of the curve is `idle/accrual.js`'s: the city spawns almost nothing (it is
- * where you bank, not where you hunt), caves and forests spawn most. The absolute number is
- * mainline-flavoured rather than mirrored from idle — the mainline runs ~11-21 % per step
- * and idle's `BASE_ENCOUNTERS` is a *rate per second*, which is a different quantity and
- * cannot be compared directly. Multiplied by `economy`'s `encounterRate` upgrade track at
- * the point of use.
+ * RETIRED (DECISIONS #73). The per-step chance a cell of tall grass produced a Pokemon, which
+ * was the whole of the random-encounter system: `encounter.roll()` compared `stepValue(seed,
+ * steps++)` against it on every `player:enteredTile`. A hunt meets its wildlife where the
+ * wildlife is standing now, so nothing rolls and there is no rate to declare. The `step/0`
+ * stream pin retired with it; the `roll/7` and `catch/5/1` pins did not move, which is the
+ * evidence the index space survived.
  */
-export const STEP_RATE = {
-  city: 0.06, meadow: 0.12, forest: 0.16, cave: 0.18, coast: 0.13,
-};
 
 /** Every capture rate any table declares, flattened once at module load. */
 const CATCH_RATE = new Map();
@@ -221,6 +217,11 @@ export function validate(lookup) {
       if (!(r.r >= 3 && r.r <= 255)) bad.push(`${key} capture rate ${r.r} out of range`);
       if (!(r.w > 0)) bad.push(`${key} weight ${r.w} is not positive`);
     }
+    // A table with **no rows at all** is a deliberate empty — the city, since DECISIONS #73 —
+    // and asking which hours it covers is asking the wrong question. A table with rows that
+    // leave an hour bare is still a bug: a lap at that hour would meet nothing and the player
+    // would have no way to tell that from a broken trigger.
+    if (!rows.length) continue;
     for (const band of ['morning', 'day', 'night']) {
       if (!rows.some((r) => r.when === 'any' || r.when === band)) {
         bad.push(`${biome} has nothing to spawn at ${band}`);
