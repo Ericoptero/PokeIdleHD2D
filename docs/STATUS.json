@@ -17,7 +17,7 @@
   "open": [
     {
       "module": "encounter",
-      "what": "`stepDuel`'s `between` and `nextAlly` hooks are wired but stubbed: `between` is always empty and `nextAlly` takes the next conscious member in party order. Auto-Heal, Auto-Ether, Auto-Revive and the matchup-aware lead are the rules that belong there (brief, phase D)."
+      "what": "`openDuel`'s `nextAlly` still swaps in **party order**, not by matchup. `between` is wired for real (DECISIONS #76) and `automation.chooseLead` is asked at engagement, but a member that faints mid-fight is replaced by whoever is next in line rather than by whoever can win \u2014 so the brief's lead rule holds when a fight starts and not when one turns."
     },
     {
       "module": "economy",
