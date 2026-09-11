@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Every tunable a critic might ask us to change lives here, not in a module constant
  * (ARCHITECTURE §2.6). Overridable per-session by query string and by localStorage, so a

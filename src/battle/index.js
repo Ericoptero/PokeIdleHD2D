@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * battle — the turn engine (ARCHITECTURE §5.17).
  *

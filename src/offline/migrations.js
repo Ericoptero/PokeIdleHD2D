@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Save versions and the forward migrations between them (ARCHITECTURE §10).
  *

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Console wrapper that also keeps a structured buffer. The screenshot harness reads
  * `window.__LOG__` to report console errors without racing Chrome's console events, and

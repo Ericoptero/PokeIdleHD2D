@@ -1,3 +1,4 @@
+// @ts-check
 /** The four grid directions. Fixed forever — saves and sprite sheets index by these. */
 export const SOUTH = 0, WEST = 1, NORTH = 2, EAST = 3;
 

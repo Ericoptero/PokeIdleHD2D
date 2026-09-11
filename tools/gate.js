@@ -14,6 +14,8 @@
  *
  *   lint       ESLint, generic correctness only (undefined names, unused bindings, `==`);
  *              the project's own contracts stay in the seams — eslint.config.js says why
+ *   typecheck  tsc over the files that opt in with `// @ts-check` (JSDoc types, no .ts);
+ *              the opted-in list is the ratchet, zero errors is the bar — tsconfig.json
  *   seams      static contracts + every src/<module>/selftest.js under Node
  *   unit       vitest over `src/**\/*.test.js` and `tools/**\/*.test.js` — the fine-grained
  *              tests; selftests are not migrated, they stay under the seams
@@ -64,6 +66,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 /** @type {{name:string, argv:string[]|null, needsServer:boolean}[]} */
 const STAGES = [
   { name: 'lint', argv: null, needsServer: false },
+  { name: 'typecheck', argv: null, needsServer: false },
   { name: 'seams', argv: ['tools/seams/run.js'], needsServer: false },
   { name: 'unit', argv: null, needsServer: false },
   { name: 'build', argv: null, needsServer: false },
@@ -180,6 +183,8 @@ for (const stage of STAGES) {
   let r;
   if (stage.name === 'lint') {
     r = spawnSync('npx', ['eslint', '.'], { stdio: 'inherit' });
+  } else if (stage.name === 'typecheck') {
+    r = spawnSync('npx', ['tsc', '-p', 'tsconfig.json'], { stdio: 'inherit' });
   } else if (stage.name === 'unit') {
     r = spawnSync('npx', ['vitest', 'run'], { stdio: 'inherit' });
   } else if (stage.name === 'build') {

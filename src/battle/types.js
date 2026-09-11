@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * The type chart, and the one question every damaging move asks of it.
  *

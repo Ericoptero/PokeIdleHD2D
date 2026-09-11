@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Synchronous, ordered, isolated event bus (ARCHITECTURE §2.3).
  *
@@ -10,6 +11,7 @@
 const SPY_CAPACITY = 256;
 const THROW_LIMIT = 3;
 
+/** @param {{onError?: (err: unknown, meta: {type: string, throws?: number}) => void}} [options] */
 export function makeBus({ onError } = {}) {
   /** @type {Map<string, Set<{fn:Function, throws:number, once:boolean}>>} */
   const listeners = new Map();
