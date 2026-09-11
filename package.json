@@ -15,8 +15,9 @@
     "gauntlet": "node tools/shots/gauntlet.js",
     "lint": "eslint .",
     "seams": "node tools/seams/run.js",
+    "unit": "vitest run",
     "gate": "node tools/gate.js",
-    "gate:fast": "node tools/gate.js --only lint,seams",
+    "gate:fast": "node tools/gate.js --only lint,seams,unit",
     "boot": "node tools/shots/boot.js"
   },
   "dependencies": {

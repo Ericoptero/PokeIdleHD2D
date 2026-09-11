@@ -15,6 +15,8 @@
  *   lint       ESLint, generic correctness only (undefined names, unused bindings, `==`);
  *              the project's own contracts stay in the seams — eslint.config.js says why
  *   seams      static contracts + every src/<module>/selftest.js under Node
+ *   unit       vitest over `src/**\/*.test.js` and `tools/**\/*.test.js` — the fine-grained
+ *              tests; selftests are not migrated, they stay under the seams
  *   build      the production build, which nothing used to run — everything was verified
  *              against the dev server, so a Vite build break was silent until deploy. It
  *              also asserts the build CONTAINS what the game fetches: `assets/` is served
@@ -63,6 +65,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const STAGES = [
   { name: 'lint', argv: null, needsServer: false },
   { name: 'seams', argv: ['tools/seams/run.js'], needsServer: false },
+  { name: 'unit', argv: null, needsServer: false },
   { name: 'build', argv: null, needsServer: false },
   { name: 'coldboot', argv: null, needsServer: false },
   { name: 'boot', argv: ['tools/shots/boot.js', '--out', `${OUT}/boot`, '--base', BASE], needsServer: true },
@@ -177,6 +180,8 @@ for (const stage of STAGES) {
   let r;
   if (stage.name === 'lint') {
     r = spawnSync('npx', ['eslint', '.'], { stdio: 'inherit' });
+  } else if (stage.name === 'unit') {
+    r = spawnSync('npx', ['vitest', 'run'], { stdio: 'inherit' });
   } else if (stage.name === 'build') {
     r = spawnSync('npx', ['vite', 'build'], { stdio: 'inherit' });
     if (r.status === 0) r = { status: builtAssets() };
