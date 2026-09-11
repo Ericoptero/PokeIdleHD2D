@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * The HD2D render pipeline (ARCHITECTURE §2.7). Owned by core, tuned by `environment`.
  *

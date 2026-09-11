@@ -77,7 +77,7 @@ export const MEADOW = {
     copse: { marker: 'copse', ppu: 32 },
     wide: { marker: 'brook', ppu: 16 },
     close: { marker: 'grass', ppu: 64 },
-    /** The judge plan asks every biome for `route`; here it is the farm lane east of the gate. */
+    /** Every biome answers `route` (the blind-A/B framing); here it is the farm lane east of the gate. */
     route: { marker: 'lane', ppu: 32 },
     lane: { marker: 'lane', ppu: 32 },
   },
@@ -90,7 +90,7 @@ export const MEADOW = {
    */
 };
 
-export function buildMeadow(draft, ctx, palette, rng, log) {
+export function buildMeadow(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 

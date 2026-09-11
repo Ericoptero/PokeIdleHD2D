@@ -18,7 +18,6 @@
  */
 
 import { SOUTH, WEST, NORTH, EAST } from '../core/dir.js';
-import { TEXELS_PER_UNIT } from './sprites.js';
 
 const SLUG = 'bw2-adastra';
 const DIRS = [SOUTH, WEST, NORTH, EAST];

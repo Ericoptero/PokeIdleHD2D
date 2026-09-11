@@ -60,7 +60,7 @@ export async function showcaseHunt(mode, ctx, biomes) {
  * and a scene that stops another module's simulation as a side effect of being entered is
  * the kind of action at a distance that is impossible to find later (DECISIONS #26d).
  */
-export function stageAtSpawn(ctx, biome) {
+export function stageAtSpawn(ctx, _biome) {
   const sim = ctx.get('simulation');
   if (!isLive(sim)) return false;
   // Walks a few tiles along **the circuit `enter()` already installed**. It used to install

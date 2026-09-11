@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Three clocks, never conflated (ARCHITECTURE §2.4):
  *   frameDt  render-rate seconds, clamped so an alt-tab does not teleport the world

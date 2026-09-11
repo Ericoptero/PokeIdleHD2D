@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Stats, levels and experience — the arithmetic that turns a species plus six IVs plus a level
  * into a body that can take a hit.

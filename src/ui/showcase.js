@@ -342,7 +342,6 @@ function installSpecimen(ui) {
       const chars = characters();
       const cellW = 8;
       const cellH = 11;
-      const cols = Math.max(8, Math.floor((g.width - 16) / cellW));
       g.text(8, 6, `${chars.length} glyphs, ${HEIGHT} rows, baseline ${BASELINE}`, '#8C8C80');
       let gx = 8;
       let gy = 18;

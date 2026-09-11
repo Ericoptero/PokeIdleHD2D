@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Every tunable a critic might ask us to change lives here, not in a module constant
  * (ARCHITECTURE §2.6). Overridable per-session by query string and by localStorage, so a
@@ -122,7 +123,7 @@ export const DEFAULTS = {
   latitude: 36,
   /**
    * Two knobs that bend the *rendered* sun away from the real one, for a reason four blind
-   * judges found independently (docs/judge/r1): at 36N the noon sun sits at 60 degrees of
+   * judges found independently (docs/STATUS-ARCHIVE.json → gate.blindJudging): at 36N the noon sun sits at 60 degrees of
    * elevation on an azimuth of 180 — due south — and this camera looks north and never
    * yaws. So at midday the key is directly behind the viewer and every shadow hides behind
    * the object that casts it: `--envNoShadow 1` at tod 12 changes 0.07% of the frame. The

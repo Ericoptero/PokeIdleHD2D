@@ -32,8 +32,8 @@ const PATCH = {
   center: () => true,
   edge_n: (x, z) => z > 0,
   edge_s: (x, z) => z < 2,
-  edge_w: (x, z) => x > 0,
-  edge_e: (x, z) => x < 2,
+  edge_w: (x, _z) => x > 0,
+  edge_e: (x, _z) => x < 2,
   corner_nw: (x, z) => x > 0 && z > 0,
   corner_ne: (x, z) => x < 2 && z > 0,
   corner_sw: (x, z) => x > 0 && z < 2,
@@ -404,7 +404,7 @@ function overviewMode({ ctx, tiles, ts, overlay, lawn, sets }) {
 
 // --- mode: one tile of every category ---------------------------------------------------
 
-function catalogMode({ ctx, tiles, ts, overlay, lawn }) {
+function catalogMode({ ctx, tiles, overlay, lawn }) {
   const categories = [...new Set(tiles.models(SLUG).map((m) => m.category))]
     .filter((c) => c !== 'meta').sort();
 
@@ -455,7 +455,7 @@ function catalogMode({ ctx, tiles, ts, overlay, lawn }) {
 
 // --- mode: rotation of multi-cell models -------------------------------------------------
 
-function rotateMode({ ctx, tiles, ts, overlay, lawn }) {
+function rotateMode({ ctx, tiles, overlay, lawn }) {
   const subjects = [
     tiles.byName(SLUG, 'stairs'),                    // 3x1, strongly asymmetric north/south
     tiles.byName(SLUG, 'forest_entrance_front'),     // 4x4, the biggest single model shipped
@@ -520,7 +520,7 @@ function rotateMode({ ctx, tiles, ts, overlay, lawn }) {
  * even if the author changed the order of their loops. The left patch of each pair is what
  * a field looks like without it.
  */
-function variantsMode({ ctx, tiles, ts, overlay, lawn }) {
+function variantsMode({ ctx, tiles, overlay, lawn }) {
   const families = ['michi03b', 'cliff_top']
     .map((name) => tiles.variantsOf(SLUG, tiles.byName(SLUG, name)))
     .filter((v) => v.length > 1);
@@ -571,7 +571,7 @@ function variantsMode({ ctx, tiles, ts, overlay, lawn }) {
  * "arm to the west" is a query and not a guess. `?emissive=1` drives `setEmissiveScale`
  * directly — `environment` owns the night ramp, but the lamp has to be provable without it.
  */
-function lampsMode({ ctx, tiles, ts, overlay, lawn }) {
+function lampsMode({ ctx, tiles, overlay, lawn }) {
   const lamps = tiles.find(SLUG, { category: 'light' });
   const paving = tiles.byName(SLUG, 'stone_path_center') ?? tiles.byName(SLUG, 'grass_path_center');
   const bench = tiles.byName(SLUG, 'bench_s');
@@ -696,7 +696,7 @@ function groundMode({ ctx, tiles, ts, overlay, lawn }) {
  * actually plants at, so a fix can be judged on an isolated object and on a mass in the
  * same frame. One `lamp_h` stands at the end of the row on paving for the same reason.
  */
-function treesMode({ ctx, tiles, ts, overlay, lawn }) {
+function treesMode({ ctx, tiles, overlay, lawn }) {
   const trees = ['tree', 'round_tree', 'darker_pine', 'big_tree_dark']
     .map((n) => tiles.byName(SLUG, n)).filter(Boolean);
   const lamp = tiles.find(SLUG, { category: 'light', orientation: 'w' })[0]

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * The four currencies, and the rule that keeps them from collapsing into one.
  *
@@ -70,12 +71,13 @@ const ALIASES = Object.freeze({
 export function normaliseCurrency(id) {
   if (typeof id !== 'string') return null;
   const key = id.toLowerCase();
-  if (BY_ID.has(key)) return /** @type {CurrencyId} */ (key);
-  return ALIASES[key] ?? null;
+  if (BY_ID.has(/** @type {CurrencyId} */ (key))) return /** @type {CurrencyId} */ (key);
+  return /** @type {CurrencyId|null} */ (ALIASES[key] ?? null);
 }
 
 export function currency(id) {
-  return BY_ID.get(normaliseCurrency(id) ?? '') ?? null;
+  const key = normaliseCurrency(id);
+  return (key && BY_ID.get(key)) ?? null;
 }
 
 /**
@@ -85,6 +87,7 @@ export function currency(id) {
 export function formatAmount(n, { compact = true } = {}) {
   const v = Math.floor(n);
   if (!compact || Math.abs(v) < 1e5) return v.toLocaleString('en-US');
+  /** @type {[number, string][]} */
   const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
   for (const [scale, suffix] of units) {
     if (Math.abs(v) >= scale) {

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Module registry with failure isolation (ARCHITECTURE §2.1).
  *
@@ -5,6 +6,21 @@
  * Other agents are screenshotting the dev server continuously, so a module that throws in
  * `init` gets quarantined and replaced by a null object, and the frame loop keeps running
  * with everything else intact.
+ */
+
+/**
+ * What every `src/<module>/index.js` default-exports. `id` and `init` are required (seams rule
+ * 3); the rest are the hooks the registry will call if present.
+ * @typedef {object} ModuleDescriptor
+ * @property {string} id
+ * @property {string[]} [needs]
+ * @property {string[]} [showcaseNeeds]
+ * @property {(ctx: any) => any} [init]
+ * @property {(mode: string, ctx: any) => any} [showcase]
+ * @property {(dt: number, ctx: any) => void} [tick]
+ * @property {(dt: number, alpha: number, ctx: any) => void} [frame]
+ * @property {(dt: number, alpha: number, ctx: any) => void} [lateFrame]
+ * @property {() => void} [dispose]  called with no arguments, in reverse init order
  */
 
 const NULL_WARNED = new Set();
@@ -32,10 +48,11 @@ function nullObject(id, report) {
 }
 
 export function makeRegistry({ bus, log }) {
-  /** @type {Map<string, {desc:object, status:string, api:any, error:Error|null, initMs:number}>} */
+  /** @type {Map<string, {desc:ModuleDescriptor, status:string, api:any, error:Error|null, initMs:number}>} */
   const mods = new Map();
   const order = [];
 
+  /** @param {ModuleDescriptor} desc */
   function add(desc) {
     if (!desc?.id) throw new Error('registry.add: descriptor needs an id');
     if (mods.has(desc.id)) throw new Error(`registry.add: duplicate module "${desc.id}"`);
@@ -43,9 +60,12 @@ export function makeRegistry({ bus, log }) {
   }
 
   /**
-   * @param {boolean} [opts.deliberate] the break was *asked for* (`?break=`), so it is
-   *   reported at `warn`. A handled path may not spend §7's zero-console-error budget, and a
-   *   quarantine the URL requested is the most handled path there is.
+   * @param {string} id
+   * @param {Error} err
+   * @param {string} phase
+   * @param {{deliberate?: boolean}} [opts] `deliberate`: the break was *asked for* (`?break=`),
+   *   so it is reported at `warn`. A handled path may not spend §7's zero-console-error budget,
+   *   and a quarantine the URL requested is the most handled path there is.
    */
   function fail(id, err, phase, { deliberate = false } = {}) {
     const rec = mods.get(id);

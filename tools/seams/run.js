@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 /**
- * Cross-module contract checks (ARCHITECTURE §12). These are the rules the integrator
- * polices, expressed as code so a builder finds out before the critic does.
+ * Cross-module contract checks (ARCHITECTURE §2 and §5). These are the rules the reviewer
+ * polices, expressed as code so a builder finds out before the reviewer does. Every rule is
+ * derived from the tree at check time — nothing here is a list that has to be kept up.
  *
  *   node tools/seams/run.js
+ *
+ * Rules, in file order: 1 no Math.random; 2 no deep imports (static or dynamic); 3 module
+ * descriptor shape; 4 the default tile pack is consistent; 5 economy's copy of idle's income
+ * constants; 7 the drop catalogue mirrors the evolution bill; 8 every listened event is one
+ * something emits; 9 an expected-to-fail test and its STATUS entry exist together; 6 every
+ * selftest passes and actually ran something.
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
@@ -46,8 +53,11 @@ const MODULES = readdirSync(SRC, { withFileTypes: true })
 
 for (const f of files) {
   const owner = relative(SRC, f).split('/')[0];
-  const src = readFileSync(f, 'utf8');
-  for (const m of src.matchAll(/from\s+['"](\.\.\/[^'"]+)['"]/g)) {
+  // Comments are stripped first: a JSDoc `@param {import('../terrain/draft.js').MapDraft}` is
+  // a type reference, not a reach into the module. Static `from '../x/y.js'` and dynamic
+  // `import('../x/y.js')` are then treated alike — a dynamic import reaches just as far.
+  const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const m of src.matchAll(/(?:from\s+|import\s*\(\s*)['"](\.\.\/[^'"]+)['"]/g)) {
     const spec = m[1];
     const target = relative(SRC, join(dirname(f), spec));
     const targetModule = target.split('/')[0];
@@ -157,6 +167,61 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
   if (bad.length) fail('drop-mirror', join(REPO, 'src/encounter/drops.js'), `not real items: ${bad.join(', ')}`);
 }
 
+// --- 8. every listened event is one something emits ---------------------------
+// A `bus.on('catch:succeded')` — one letter off — compiles, runs, and simply never fires. The
+// two sets are identical today, so this is green from the start and catches the rename that
+// forgets a listener. Derived from the tree: nothing to keep up when an event is added.
+{
+  const emitted = new Set();
+  const listened = new Map();
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/bus\.emit\(\s*['"]([a-z]+:[a-zA-Z]+)['"]/g)) emitted.add(m[1]);
+    for (const m of src.matchAll(/bus\.(?:on|once)\??\.?\(\s*['"]([a-z]+:[a-zA-Z]+)['"]/g)) {
+      if (!listened.has(m[1])) listened.set(m[1], f);
+    }
+  }
+  for (const [type, f] of listened) {
+    if (!emitted.has(type)) fail('event-never-emitted', f, `listens for "${type}" and nothing in src/ emits it`);
+  }
+}
+
+// --- 9. an expected-to-fail test and its STATUS entry exist together -----------
+// `it.fails` / `test.fail` is how a known bug is pinned by a test that turns red the day it is
+// fixed. Left alone, it would also be how a bug is laundered into a permanent expectation.
+// So each one carries a `STATUS:<id>` token on the line before it, the id must be an `open`
+// entry in docs/STATUS.json, and every `open` entry that names a `test` file must still have
+// its token in that file. Removing either side without the other fails here.
+{
+  const status = JSON.parse(readFileSync(join(REPO, 'docs', 'STATUS.json'), 'utf8'));
+  const open = new Map((status.open ?? []).filter((o) => o.id).map((o) => [o.id, o]));
+  const testFiles = [...walk(SRC), ...(existsSync(join(REPO, 'tests')) ? walk(join(REPO, 'tests')) : [])]
+    .filter((f) => /\.(test|spec)\.js$/.test(f));
+  const seenTokens = new Map();
+  for (const f of testFiles) {
+    const lines = readFileSync(f, 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!/\b(?:it|test)\.fails?\s*\(/.test(line)) return;
+      const tokenLine = [lines[i - 1] ?? '', line].join(' ');
+      const tok = tokenLine.match(/STATUS:([a-z0-9-]+)/);
+      if (!tok) { fail('expected-fail-untracked', f, `line ${i + 1}: an expected failure with no STATUS:<id> token on the line before it`); return; }
+      seenTokens.set(tok[1], f);
+      if (!open.has(tok[1])) fail('expected-fail-untracked', f, `line ${i + 1}: STATUS:${tok[1]} is not an \`open\` entry id in docs/STATUS.json — fixed? then drop the .fails`);
+    });
+  }
+  // The other direction: the entry names a test, so that test must still EXPECT to fail. A
+  // token left in a comment above a test that now passes does not count — when the bug is
+  // fixed, the `.fails` goes and this rule asks for the STATUS entry to go with it.
+  for (const [id, o] of open) {
+    if (!o.test) continue;
+    const at = join(REPO, o.test);
+    if (relative(REPO, seenTokens.get(id) ?? '') !== o.test) {
+      fail('expected-fail-untracked', at,
+        `docs/STATUS.json open "${id}" names this test but no it.fails/test.fail there carries STATUS:${id} — fixed? then close the entry`);
+    }
+  }
+}
+
 // --- 6. every module's own property checks ------------------------------------
 // Any module may ship a `selftest.js` that exits non-zero on failure; they are discovered
 // rather than listed, so a new one starts being enforced the moment it is written. These are
@@ -172,11 +237,21 @@ for (const m of [...MODULES, 'core']) {
   const selftest = join(REPO, 'src', m, 'selftest.js');
   if (!existsSync(selftest)) continue;
   const out = spawnSync(process.execPath, [selftest], { encoding: 'utf8', timeout: 120000 });
+  const lines = (out.stdout ?? '').split('\n');
   if (out.status !== 0) {
-    const why = (out.stdout ?? '').split('\n').filter((l) => l.startsWith('✗')).slice(0, 6);
+    // `trimStart()`: hunts indents its failure lines, and a failure the report cannot quote is
+    // a failure the reader has to reproduce before they can read it.
+    const why = lines.map((l) => l.trimStart()).filter((l) => l.startsWith('✗')).slice(0, 6);
     fail('selftest', selftest,
       why.length ? why.join(' | ') : `exited ${out.status}: ${(out.stderr ?? '').slice(0, 200)}`);
+    continue;
   }
+  // Exit 0 is only a pass if something ran. `collection/selftest.js` exported its checks for the
+  // browser showcase and had no main guard, so `node` on it exited 0 having run nothing, and
+  // this rule counted it green for weeks. A selftest has to say what it checked.
+  const ran = lines.some((l) => /^\s*[✓✗]/.test(l))
+    || lines.some((l) => /\b\d+\s*\/\s*\d+\b/.test(l) || /\ball\s+\d+\s+checks?\b/.test(l));
+  if (!ran) fail('selftest', selftest, 'exited 0 but printed no ✓/✗ line and no N/M summary — nothing ran');
 }
 
 // --- report ----------------------------------------------------------------

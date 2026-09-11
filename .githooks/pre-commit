@@ -1,0 +1,8 @@
+#!/bin/sh
+# The browser-free half of the gate, before every commit: lint, typecheck, seams, unit — a few
+# seconds. Twelve commits once landed without the build stage running; this is the smallest
+# thing that stops a commit from skipping the checks it can run in seconds. Bypass with
+# `git commit --no-verify` when you must, and say so in the message.
+#
+# Installed by `npm install` through the `prepare` script (`git config core.hooksPath .githooks`).
+exec npm run --silent gate:fast

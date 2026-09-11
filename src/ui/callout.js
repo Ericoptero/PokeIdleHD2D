@@ -47,13 +47,16 @@ export function makeCallouts() {
       lines.push({ text: String(text), x, y: y + LIFT, z, side, born: step, life });
       return true;
     },
-    /** One sim step. Answers whether anything changed, so the canvas repaints only when it did. */
+    /**
+     * One sim step. Answers whether the canvas needs a repaint: false when nothing is up,
+     * true otherwise — a live callout drifts and fades every step, so any step with one alive
+     * is a changed frame even when none expired.
+     */
     tick(n = 1) {
       if (!lines.length) return false;
       step += n;
-      const before = lines.length;
       lines = lines.filter((l) => step - l.born < l.life);
-      return true || before !== lines.length;
+      return true;
     },
     clear() { lines = []; return true; },
     count: () => lines.length,

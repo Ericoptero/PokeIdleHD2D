@@ -6,14 +6,12 @@ import { defineConfig } from 'vite';
  * The runtime roots under `assets/` — the ones a *browser* fetches, not the ones `tools/` reads.
  *
  * `publicDir` only copies `public/`, and `assets/` is served in dev because Vite serves the
- * project root. That is the whole of why `dist/` shipped with **no Pokemon sprite art at all**
- * and nobody noticed: `tools/shots/boot.js` and `regress.js` shoot the dev server, and the one
- * stage that uses the build (`coldBoot`) measures time rather than pixels. On `vite preview`
- * every creature in the game drew as an untextured quad.
+ * project root — which is how `dist/` once shipped with no sprite art while every gate stage
+ * stayed green (DECISIONS #72; `tools/gate.js builtAssets()` is the check that came out of it).
  *
  * Listed rather than copying `assets/` wholesale: `props/` and `structures/` are OBJ + MTL
- * source that `tools/assets/build-tiles.js` bakes into `public/generated/`, and shipping them
- * would put a megabyte of build input in front of a player for nothing.
+ * source that `tools/assets/build-structures.js` bakes into `public/generated/tiles/`, and
+ * shipping them would put a megabyte of build input in front of a player for nothing.
  */
 export const RUNTIME_ASSET_ROOTS = ['overworld', 'trainer'];
 

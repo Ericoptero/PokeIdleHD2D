@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Seeded RNG. `Math.random()` is banned in src/ (ARCHITECTURE §2.5) — every random
  * decision the game makes must be replayable from a seed and an input log.

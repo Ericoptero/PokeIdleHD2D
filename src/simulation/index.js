@@ -682,7 +682,7 @@ export default {
      * costs the moment its animation, never its correctness — and the restage runs even if the
      * animation could not, which is the half that is a bug fix rather than a flourish.
      */
-    bus.on('pokemon:evolved', async ({ from, to } = {}) => {
+    bus.on('pokemon:evolved', async () => {
       if (!placed) return;
       const pokemon = ctx.get('pokemon');
       const actorId = pokemonIndex >= 0 ? cast.actorId(pokemonIndex) : 0;

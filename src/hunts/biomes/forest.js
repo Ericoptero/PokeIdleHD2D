@@ -134,8 +134,8 @@ export const FOREST = {
     glade: { marker: 'glade', ppu: 32 },
     wide: { marker: 'clearing', ppu: 16 },
     close: { marker: 'clearing', ppu: 64 },
-    // `tools/judge/plan.json` shoots `preset: 'route'` for forest-day and forest-night and
-    // no biome defined one, so both blind-A/B pairs were silently falling back to the
+    // The blind-A/B plan (tools/judge, since deleted) shot `preset: 'route'` for forest-day and
+    // forest-night and no biome defined one, so both pairs were silently falling back to the
     // default framing with `presetApplied: false`. The reference for both is a *route* —
     // docs/refs/01 and 03 are each a trail with the wood closing behind it — so the alias
     // is the path framing, one step closer than `path` because ref01 is a tighter frame.
@@ -171,7 +171,7 @@ export const FOREST = {
    */
 };
 
-export function buildForest(draft, ctx, palette, rng, log) {
+export function buildForest(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 

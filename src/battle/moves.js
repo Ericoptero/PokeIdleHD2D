@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * The move table, the learnsets, and which four moves a Pokemon actually has.
  *

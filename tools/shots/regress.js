@@ -94,7 +94,7 @@ export async function measure(a) {
   const shots = a.out ?? DEFAULT_SHOTS;
   mkdirSync(shots, { recursive: true });
   for (const m of rows) {
-    const file = join(shots, `${m.id.replace(/[\/.]/g, '_')}.png`);
+    const file = join(shots, `${m.id.replace(/[/.]/g, '_')}.png`);
     const log = await shoot({
       base: a.base, out: file, size: a.size, settle: 40, hudRows: a.hudRows,
       showcase: m.showcase ?? null, mode: m.mode ?? null, preset: m.preset ?? null,

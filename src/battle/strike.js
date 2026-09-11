@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * strike.js — one record per blow, folded out of a turn's transcript.
  *
@@ -89,7 +90,8 @@ function blank(turn, actor, names, cause) {
 /**
  * Folds one turn's events (or a whole transcript) into strike records, in order.
  *
- * @param {Array<object>} events  from `turn()` or `resolve().transcript`
+ * @param {any[]} events  from `turn()` or `resolve().transcript` (the event records are
+ *   plain objects with a `kind` and per-kind fields; see `turn()`)
  * @param {{a?:string, b?:string}} names  the two species, for the display half
  * @returns {Strike[]}
  */

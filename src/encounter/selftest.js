@@ -30,7 +30,7 @@ import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
 import { ELEMENT, elementOf, shapeOf } from './strikes.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
-  streamFor, catchRateFor, levelBand, stepValue, rollAt, catchRoll,
+  streamFor, catchRateFor, levelBand, rollAt, catchRoll,
   shakesFor,
 } from './rolls.js';
 import {
@@ -116,7 +116,6 @@ export function runSelfTest({ species = null } = {}) {
     // scheme or to any draw order inside them cannot land quietly either.
     const s7 = streamFor(SEED, 'roll', 7).next();
     const c51 = catchRoll(SEED, 5, 1);
-    const s0 = stepValue(SEED, 0);
     // **`battle/12` is gone from this pin, and that is a deletion rather than a relaxation.**
     // `resolveBattle` was eleven lines comparing two levels; a fight is `src/battle/`'s turn
     // engine now, on `root/battle/<index>/<turn>`, and its own golden transcript is pinned in

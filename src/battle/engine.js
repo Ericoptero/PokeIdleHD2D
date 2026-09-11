@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * The turn engine.
  *
@@ -27,7 +28,7 @@
 import { makeRng } from '../core/rng.js';
 import { effectiveness, STAB } from './types.js';
 import { statsOf, stageMultiplier, STAT_KEYS } from './stats.js';
-import { PHYSICAL, SPECIAL, STATUS, resolveMove, movesFor, choose, STRUGGLE_ID } from './moves.js';
+import { PHYSICAL, STATUS, resolveMove, movesFor, choose, STRUGGLE_ID } from './moves.js';
 
 /** `ctx.rng` is `makeRng(seed,'root')` and `fork` appends, so this is `ctx.rng.fork('battle')`. */
 export const STREAM_ROOT = 'root/battle';
@@ -40,14 +41,15 @@ const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
 /** The ceiling on how many actions one `between` call may land before a turn. */
 export const MAX_BETWEEN = 4;
 
-/** Statuses that stop a Pokemon acting, and the ones that only cost it HP. */
-const MAJOR = new Set(['brn', 'par', 'psn', 'tox', 'slp', 'frz']);
-
 /**
  * A combatant: everything the engine needs and nothing it does not.
  *
  * Deliberately **not** a `pokemon` instance (§5.17). It is a plain structured-cloneable record,
  * so `offline` can carry a party through a fold and a selftest can build one by hand.
+ */
+/**
+ * @param {{species?: any, level?: number, ivs?: object, shiny?: boolean, moves?: any,
+ *   hp?: number, status?: string|null, instanceId?: string|null, priority?: string[]}} [spec]
  */
 export function makeCombatant({
   species, level = 5, ivs = {}, shiny = false, moves, hp, status = null, instanceId = null,
@@ -79,6 +81,12 @@ const cloneSide = (c) => ({
 });
 
 /** The opening state of a fight. `a` acts for the player; `b` is the wild. */
+/**
+ * The whole fight, as a value: both sides, the turn count, and whether it is over.
+ * @typedef {{a: any, b: any, turn: number, over: boolean, winner: any}} BattleState
+ */
+
+/** @returns {BattleState} */
 export function begin(a, b) {
   return { a: cloneSide(a), b: cloneSide(b), turn: 0, over: false, winner: null };
 }
@@ -293,9 +301,10 @@ function endOfTurn(state, order, rng, events) {
  * One turn. Returns a NEW state plus the events that happened, so a caller can render them and
  * keep the previous state to interpolate from.
  *
- * @param {object} state  from `begin()`
+ * @param {BattleState} state  from `begin()`
  * @param {number} seed   `config.seed`
  * @param {number} index  the global encounter index
+ * @returns {{state: BattleState, events: any[]}}
  */
 export function turn(state, seed, index) {
   if (state.over) return { state, events: [] };
@@ -427,9 +436,11 @@ export function applyAction(state, act) {
  *
  * @param {object} a  the party's combatant
  * @param {object} b  the wild
+ * @param {number} seed
+ * @param {number} index
  * @param {{maxTurns?:number,
- *          between?:(state:object)=>Action[],
- *          nextAlly?:(state:object)=>object|null}} [opts]
+ *          between?:(state:BattleState)=>Action[],
+ *          nextAlly?:(state:BattleState)=>any}} [opts]  `nextAlly` answers a combatant or null
  */
 export function stepper(a, b, seed, index, { maxTurns = 60, between = null, nextAlly = null } = {}) {
   let state = begin(a, b);

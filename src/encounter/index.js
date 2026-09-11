@@ -48,7 +48,7 @@ import { makeBallSprite } from './ball.js';
 import { makeStrikeVfx, shapeOf } from './strikes.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
-  streamFor, catchRateFor, levelBand, rollAt, catchRoll,
+  catchRateFor, levelBand, rollAt, catchRoll,
   shakesFor, rewardsFor,
 } from './rolls.js';
 import { dropsFor, tableFor as dropTableFor } from './drops.js';
@@ -1386,7 +1386,7 @@ export default {
      * That is the entire reason the event exists, and this is its only consumer.
      */
     const off = [
-      bus.on('player:enteredTile', ({ cx, cz, tags }) => {
+      bus.on('player:enteredTile', ({ cx, cz }) => {
         if (!armed || frozen || active || scene) return;
 
         // **The only way a wild Pokemon is met.** A hunt walks a closed loop past fixed spawn

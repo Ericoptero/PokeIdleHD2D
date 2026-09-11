@@ -11,13 +11,11 @@
  *        --showcase city --preset plaza --tod 12 --size 1920x1080
  */
 
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import puppeteer from 'puppeteer-core';
 import { decodePng, sceneStats } from './png.js';
-
-const CHROME = process.env.CHROME_PATH
-  ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+import { CHROME, assertChrome, chromeArgs } from './chrome.js';
 
 export function parseArgs(argv) {
   const a = { base: 'http://127.0.0.1:5173', size: '1920x1080', tod: null, preset: null,
@@ -60,25 +58,14 @@ async function shootOnce(opts) {
   const out = resolve(a.out);
   mkdirSync(dirname(out), { recursive: true });
 
-  if (!existsSync(CHROME)) {
-    throw new Error(`Chrome not found at ${CHROME}. Set CHROME_PATH.`);
-  }
+  assertChrome();
 
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: 'shell',
-    args: [
-      '--headless=new',
-      '--hide-scrollbars',
-      '--mute-audio',
-      '--no-sandbox',
-      '--enable-unsafe-swiftshader',
-      // The real GPU by default: SwiftShader renders the same pixels but at a tenth of the
-      // frame rate, so a software fps number cannot be checked against the budget. Pass
-      // --software when you want bit-identical output across machines instead.
-      ...(a.software ? ['--use-gl=angle', '--use-angle=swiftshader'] : ['--enable-gpu']),
-      `--window-size=${w},${h}`,
-    ],
+    // The flags live in chrome.js so the flow tests launch the same browser the same way; see
+    // there for why the real GPU is the default and `--software` exists.
+    args: ['--headless=new', ...chromeArgs({ software: !!a.software }), `--window-size=${w},${h}`],
     defaultViewport: { width: w, height: h, deviceScaleFactor: 1 },
   });
 

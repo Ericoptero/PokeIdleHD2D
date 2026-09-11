@@ -4,15 +4,16 @@
 `docs/DECISIONS.md`.** The numbering continues across both files, so a citation is
 unambiguous: #1–#70 live here, #71 and up live there.
 
-**How to read it.** ~290 comments in `src/` and `tools/` cite an entry by number. Jump to
-the one you want — `grep -n '^### 61 ' docs/DECISIONS-ARCHIVE.md` — rather than reading
-from the top.
+**How to read it.** Hundreds of comments in `src/` and `tools/` cite an entry by number. Jump
+to the one you want — `grep -n '^### N ' docs/DECISIONS-ARCHIVE.md` — rather than reading
+from the top. #22 is filed at line 288, between #15 and #16 — navigate by grep, never
+sequentially.
 
 **Entries correct each other forward, in place.** An entry is not the last word on its own
 subject: later entries narrow, supersede and withdraw earlier ones without editing them
-(#34(c) is demoted at `:5231`, #41a is narrowed at `:3249`, #52's own conclusion is
-withdrawn at `:4259`). Before acting on what an entry says, `grep -n '#<n>' ` this file for
-the later ones that touch it.
+(#34(c) is demoted at `:5250`, #41a is narrowed at `:3269`, #52's own conclusion is
+withdrawn at `:4278`). Before acting on what an entry says, `grep -nE '#N([a-f]?\b|$)'`
+this file for the later ones that touch it.
 
 **Two dead names appear throughout.** `docs/STATUS.json → coreRequests[]` and
 `integratorFindings` were keys of the old resume file, written for a builder/critic/integrator

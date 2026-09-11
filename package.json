@@ -4,25 +4,38 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "vite --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "assets": "node tools/assets/build-tiles.js && node src/pokemon/tools/build-species.js && node src/pokemon/tools/build-battle-data.js",
+    "assets": "node tools/assets/build-tiles.js && node tools/assets/build-structures.js && node tools/assets/build-structures.js --src assets/props --slug props && node src/pokemon/tools/build-species.js && node src/pokemon/tools/build-battle-data.js",
     "shot": "node tools/shots/shoot.js",
     "gauntlet": "node tools/shots/gauntlet.js",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
     "seams": "node tools/seams/run.js",
-    "check": "node tools/gate.js",
+    "unit": "vitest run",
+    "flows": "playwright test",
     "gate": "node tools/gate.js",
+    "gate:fast": "node tools/gate.js --only lint,typecheck,seams,unit",
     "boot": "node tools/shots/boot.js"
   },
   "dependencies": {
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^20.19.43",
+    "@types/three": "^0.185.4",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "puppeteer-core": "^24.10.0",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "puppeteer-core": "^24.10.0"
+    "vitest": "^4.1.11"
   }
 }

@@ -52,8 +52,8 @@ export const CAVE = {
     // Its own marker, not `pool`'s: at this zoom the near half of the frame is a few cells of
     // ground, and `pool` stood one cell north of a terrace lip. See `mark('close', …)`.
     close: { marker: 'close', ppu: 64 },
-    // `tools/judge/plan.json` shoots `preset: 'route'` for the cave pair and no biome
-    // defined one, so it was silently falling back with `presetApplied: false`. The
+    // The blind-A/B plan (tools/judge, since deleted) shot `preset: 'route'` for the cave pair
+    // and no biome defined one, so it was silently falling back with `presetApplied: false`. The
     // reference is docs/refs/02, a walked cave gallery: the corridor between the hall and
     // the pool, with rock on both sides.
     route: { marker: 'gallery', ppu: 32 },
@@ -97,11 +97,13 @@ function corridor(field, a, b, half, seed) {
   return field;
 }
 
-export function buildCave(draft, ctx, palette, rng, log) {
+export function buildCave(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 
-  const floorModels = palette.all({ category: 'cave', tags: ['floor', 'flat'], maxCells: 1 }, 'cave floor');
+  // Not placed by this builder (the floor is the draft's ground); the lookup stays so a
+  // missing cave-floor tile is still warned about once, like every other palette miss.
+  palette.all({ category: 'cave', tags: ['floor', 'flat'], maxCells: 1 }, 'cave floor');
   const stalactites = palette.all({ category: 'prop', tags: ['stalactite'] });
   const bigRock = palette.all({ category: 'cave', tags: ['tall'] }).filter((m) => m.w >= 5)[0] ?? null;
   const exits = palette.all({ category: 'cave', tags: ['cliff', 'tall'] }).filter((m) => m.w === 2 && m.h === 3);

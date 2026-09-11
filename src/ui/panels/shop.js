@@ -11,7 +11,7 @@
  * Every number is pulled from the module at paint time. Nothing here re-derives a price.
  */
 
-import { C, windowFrame, section, list, tabs, action, well, fit } from './common.js';
+import { C, windowFrame, section, list, action, well, fit } from './common.js';
 import { CURRENCY_COLOUR } from '../theme.js';
 import { WALLET } from '../hud.js';
 

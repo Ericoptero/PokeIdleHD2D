@@ -227,7 +227,6 @@ function lampPostTexture() {
 function lampHeadTexture() {
   const c = new Canvas(64, 64);
   const r = ramp('stone');
-  const glass = ramp('glass');
 
   // --- housing, top half: a tapered cowl with a rim and a mounting boss
   c.rect(0, 0, 64, 32, PALETTE.shadowInk);
