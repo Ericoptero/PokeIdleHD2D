@@ -11,15 +11,17 @@ no test framework, no bundler tricks.
 npm run gate
 ```
 
-Seams (which run every `selftest.js`) → production build → boot matrix → parity → regress.
-Nothing is finished on the strength of having been written carefully. If a check is wrong,
-fix the check in the same commit and say so — never loosen a budget to get a green run.
+`node tools/gate.js --list` prints the stages in order (derived from `tools/gate.js`, not
+restated here, because a restated list drifted). Nothing is finished on the strength of having
+been written carefully. If a check is wrong, fix the check in the same commit and say so — never
+loosen a budget to get a green run.
 
 Two things the gate will not do for you:
 
-- **It cannot see composition.** `regress` compares luminance and saturation histograms, so
-  a sprite in the wrong place or a panel drawn off-screen passes it. For anything visual,
-  take the screenshot and look at it: `npm run shot -- --out shots/out/x.png --tod 11`.
+- **It cannot see composition.** `regress` compares ten scalars per frame (fps, draw calls,
+  console errors, luminance and saturation statistics), so a sprite in the wrong place or a
+  panel drawn off-screen passes it. For anything visual, take the screenshot and look at it:
+  `npm run shot -- --out shots/out/x.png --tod 11`.
 - **A deliberate visual change is expected to move `regress` metrics.** That is not a
   failure. Re-accept the baseline (`node tools/shots/regress.js --accept`) in the same
   commit and name the frames that moved in the commit message.
@@ -30,8 +32,9 @@ Two things the gate will not do for you:
   inputs ⇒ same world, forever.
 - **Cross-module access goes through `ctx.get(id)`**, and only at the other module's
   `index.js`. Reaching into a sibling's internals fails the seams.
-- **Select tiles by category and tag, never by name.** A model is named after its dominant
-  texture, so the name is a build artefact (DECISIONS #6).
+- **Select tiles by category and tag (`tiles.find`), not by name.** A model is named after its
+  dominant texture, so the name is a build artefact (DECISIONS #6). `tiles.byName` exists as the
+  escape hatch for the authored `structures`/`props` sets, whose names are chosen, not derived.
 - **A handled path logs `warn`. `error` means a real fault** — the perf budget is zero
   console errors, so an `error` on a path you already recovered from fails every capture
   (DECISIONS #15).
@@ -42,16 +45,18 @@ Two things the gate will not do for you:
 - **Compose from real geometry.** An untextured box, a magenta placeholder or a flat-shaded
   primitive is a bug, not a milestone.
 - **Every scene needs a motivated light source.** Lamps, windows, torches, shafts through a
-  canopy. Four rounds of blind A/B said the same thing every round: flat daylight loses.
+  canopy. Blind A/B judging against reference stills (`docs/STATUS-ARCHIVE.json` →
+  `gate.blindJudging`) lost every flat-daylight frame.
 - **Money is earned by selling, never accrued by the clock.** A backgrounded or closed tab
-  mints experience, drops and catches — never currency.
+  mints experience, drops, catches and research — never money. Where the code currently
+  deviates from this rule, `docs/STATUS.json` says so under `open`.
 
 ## Where the code lives
 
 One folder per module under `src/`, each a default-exported descriptor with `id`, `needs`,
 `init(ctx)` and `showcase`. `src/core/` is the only thing every module may import.
 
-| | |
+| module | owns |
 | --- | --- |
 | `core` | registry, event bus, clock, seeded rng, config, the render pipeline |
 | `tiles` | tileset loading, materials, geometry, auto-tiling |
@@ -59,19 +64,22 @@ One folder per module under `src/`, each a default-exported descriptor with `id`
 | `environment` | sky, sun, weather, per-time-of-day grade |
 | `simulation` | the grid walker and the tick everything is looked at through |
 | `pokemon` | species data, party, instances, overworld sprites |
-| `battle` | type chart, moves, the turn engine — pure, no `ctx` |
+| `battle` | type chart, moves, the turn engine (`engine.js` is pure — no `ctx`; `index.js` takes `ctx`, fetches the move data and keeps a small save slice) |
 | `encounter` | spawn tables, spawn slots, catching |
 | `idle` / `offline` | accrual in a live tab / catch-up for a closed one, and the save format |
 | `economy` | currency, items, shop, prices, the pity ledger, the trainer's level |
 | `collection` | dex, boxes, organisation |
-| `automation` | auto-hunt, auto-catch, auto-sell |
+| `automation` | ten automations — hunt, catch, ball, heal, revive, ether, lead, release, sell, restock — and the rules they run on |
 | `ui` | HUD, panels, dialogue — one 2-D canvas, zero draw calls |
 | `city` / `hunts` | the lobby / the four biomes |
 | `travel` | where the player is, and how they leave |
-| `preview` | asset viewer, never part of the game |
+| `preview` | asset viewer; registered on every boot but inert until `?showcase=preview` |
 
-Diagnostic URLs: `?showcase=<module>` boots one module and what it needs, `?scene=<id>` boots
-a destination, `?debug=1` draws the overlay, `?break=<module>` quarantines one.
+Diagnostic URLs: `?showcase=<module>[&mode=<m>]` boots one module, what it needs, and
+`environment` + `ui`; `?scene=<id>` boots a destination (and stands the trainer-level lock down
+for that id); `?debug=1` draws the overlay; `?break=<a>,<b>` quarantines modules; `?seed=`,
+`?tod=` and `?timeFrozen=1` pin what a capture sees. Every key in `src/core/config.js DEFAULTS`
+is a URL param.
 
 ## Testing
 
@@ -95,8 +103,8 @@ must `console.error` on failure, or a red invariant is invisible to the capture 
 - **`docs/DECISIONS.md`** — the live decision log, from #71. Add an entry when a choice
   constrains future code and the reason is not obvious from reading that code, and cite it
   from the code it constrains.
-- **`docs/DECISIONS-ARCHIVE.md`** — entries #1–#70, frozen. ~290 comments in `src/` and `tools/` cite one
-  by number; when you hit `DECISIONS #34`, jump straight to it
+- **`docs/DECISIONS-ARCHIVE.md`** — entries #1–#70, frozen. Hundreds of comments in `src/` and
+  `tools/` cite one by number; when you hit `DECISIONS #34`, jump straight to it
   (`grep -n '^### 34 ' docs/DECISIONS-ARCHIVE.md`) rather than reading from the top. Entries
   correct each other *forward*, so check for later ones that touch it before acting on what
   it says.

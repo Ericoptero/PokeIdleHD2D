@@ -1,28 +1,33 @@
 #!/usr/bin/env node
 /**
- * The gate. `npm run gate` exiting 0 is what "done" means (ARCHITECTURE §11).
+ * The gate. `npm run gate` exiting 0 is what "done" means (CLAUDE.md).
  *
  *   npm run gate
+ *   npm run gate -- --list                # print the stages, in order — the only list there is
  *   npm run gate -- --skip regress        # while a baseline re-accept is pending
+ *   npm run gate -- --only lint,seams     # a subset; `npm run gate:fast` is the browser-free one
  *
- * Five stages, cheapest first, so a broken contract fails in two seconds rather than after
- * a full screenshot matrix:
+ * Stages run cheapest first, so a broken contract fails in seconds rather than after a full
+ * screenshot matrix. `STAGES` below is the truth; a stage list restated in a document drifted
+ * (it said "five" over a six-entry array for a week), so nothing restates it any more — `--list`
+ * prints it. What each one is for:
  *
- *   1. seams     static contracts + every src/<module>/selftest.js under Node
- *   2. build     the production build, which nothing used to run — everything was verified
- *                against the dev server, so a Vite build break was silent until deploy. It
- *                also asserts the build CONTAINS what the game fetches: `assets/` is served
- *                from the project root in dev and copied into `dist/` by a plugin, and when
- *                that plugin did not exist the build shipped with no sprite art and every
- *                other stage stayed green (DECISIONS #72)
- *   3. coldboot  §7's time-to-__READY__ budget, measured against that build on `vite preview`
- *   4. boot      every showcase and every scene draws a real frame, not an empty void
- *   5. parity    the pixel grid is identical across seven viewports
- *   6. regress   the fixed frame matrix against docs/baseline.json
+ *   seams      static contracts + every src/<module>/selftest.js under Node
+ *   build      the production build, which nothing used to run — everything was verified
+ *              against the dev server, so a Vite build break was silent until deploy. It
+ *              also asserts the build CONTAINS what the game fetches: `assets/` is served
+ *              from the project root in dev and copied into `dist/` by a plugin, and when
+ *              that plugin did not exist the build shipped with no sprite art and every
+ *              other stage stayed green (DECISIONS #72)
+ *   coldboot   §7's time-to-__READY__ budget, measured against that build on `vite preview`
+ *   boot       every showcase and every scene draws a real frame, not an empty void
+ *   parity     the pixel grid is identical across seven viewports
+ *   regress    the fixed frame matrix against docs/baseline.json
  *
  * Everything that needs a browser gets one server, started here if the port is cold and
  * stopped on the way out, and every artifact is written under `shots/out/` — which is
- * ignored, so a gate run never dirties the working tree.
+ * ignored, so a gate run never dirties the working tree. Every stage is timed and the
+ * summary prints the seconds, so "the gate is slow" is a number rather than a feeling.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -33,10 +38,18 @@ import { RUNTIME_ASSET_ROOTS } from '../vite.config.js';
 
 const args = process.argv.slice(2);
 const skip = new Set();
-for (let i = 0; i < args.length; i++) if (args[i] === '--skip') skip.add(args[++i]);
+/** @type {Set<string>|null} `--only a,b` runs exactly those stages, in STAGES order. */
+let only = null;
+let list = false;
+const names = (v) => String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--skip') for (const n of names(args[++i])) skip.add(n);
+  else if (args[i] === '--only') { only = only ?? new Set(); for (const n of names(args[++i])) only.add(n); }
+  else if (args[i] === '--list') list = true;
+  else { console.error(`gate: unknown argument "${args[i]}" (use --list, --only a,b, --skip a,b)`); process.exit(2); }
+}
 
 const OUT = 'shots/out';
-mkdirSync(OUT, { recursive: true });
 
 // One port for the whole run, so `GATE_PORT=5199 npm run gate` starts the server and shoots
 // at the same place. Without threading it through, the server would move and the harness
@@ -44,7 +57,7 @@ mkdirSync(OUT, { recursive: true });
 const PORT = Number(process.env.GATE_PORT ?? 5173);
 const BASE = `http://127.0.0.1:${PORT}`;
 
-/** @type {{name:string, argv:string[], needsServer:boolean}[]} */
+/** @type {{name:string, argv:string[]|null, needsServer:boolean}[]} */
 const STAGES = [
   { name: 'seams', argv: ['tools/seams/run.js'], needsServer: false },
   { name: 'build', argv: null, needsServer: false },
@@ -53,6 +66,20 @@ const STAGES = [
   { name: 'parity', argv: ['tools/shots/parity.js', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
   { name: 'regress', argv: ['tools/shots/regress.js', '--out', `${OUT}/regress`, '--base', BASE], needsServer: true },
 ];
+
+if (list) {
+  for (const s of STAGES) console.log(s.name);
+  process.exit(0);
+}
+// A stage name nobody has is a typo, and a typo in `--skip` would silently run everything while
+// the caller believes one stage was skipped. Refuse rather than guess.
+for (const n of [...skip, ...(only ?? [])]) {
+  if (!STAGES.some((s) => s.name === n)) {
+    console.error(`gate: no stage "${n}" — stages are: ${STAGES.map((s) => s.name).join(', ')}`);
+    process.exit(2);
+  }
+}
+mkdirSync(OUT, { recursive: true });
 
 /**
  * Everything the browser fetches from `/assets/` is actually in `dist/`.
@@ -102,6 +129,8 @@ function builtAssets() {
 const noop = () => {};
 let stop = noop;
 const failures = [];
+/** @type {{name:string, status:string, seconds:number}[]} */
+const timings = [];
 
 /**
  * §7: time to `__READY__` <= 6 s cold. Measured once, against the production bundle on
@@ -129,9 +158,15 @@ async function coldBoot() {
   }
 }
 
+const t0 = Date.now();
 for (const stage of STAGES) {
-  if (skip.has(stage.name)) { console.log(`\n— ${stage.name}: skipped\n`); continue; }
+  if (skip.has(stage.name) || (only && !only.has(stage.name))) {
+    timings.push({ name: stage.name, status: 'skipped', seconds: 0 });
+    console.log(`\n— ${stage.name}: skipped\n`);
+    continue;
+  }
   console.log(`\n${'='.repeat(72)}\n  ${stage.name}\n${'='.repeat(72)}`);
+  const started = Date.now();
 
   // Started once, on the first stage that needs it, and stopped after the last.
   if (stage.needsServer && stop === noop) stop = await ensureServer();
@@ -146,6 +181,8 @@ for (const stage of STAGES) {
     r = spawnSync(process.execPath, stage.argv, { stdio: 'inherit' });
   }
 
+  const seconds = (Date.now() - started) / 1000;
+  timings.push({ name: stage.name, status: r.status === 0 ? 'ok' : 'FAILED', seconds });
   if (r.status !== 0) {
     failures.push(stage.name);
     // Keep going: one report of everything that is red beats five runs finding one each.
@@ -156,6 +193,10 @@ for (const stage of STAGES) {
 stop();
 
 console.log(`\n${'='.repeat(72)}`);
+for (const t of timings) {
+  console.log(`  ${t.name.padEnd(10)} ${t.status.padEnd(8)} ${t.status === 'skipped' ? '' : `${t.seconds.toFixed(1)}s`}`);
+}
+console.log(`  ${'total'.padEnd(10)} ${''.padEnd(8)} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 if (!failures.length) {
   console.log('✓ gate: every stage passed');
   process.exit(0);
