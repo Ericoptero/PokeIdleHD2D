@@ -13,20 +13,25 @@ before/after screenshots, no "the critic said X". That material is 55–60% of t
 and is why the archive became unreadable. It belongs in the commit message, which is where
 this repo has always put it well.
 
-Format — the decision, then why, then what it costs:
+Format — a `### NN — YYYY-MM-DD — title` heading, then the decision, then why, then what it
+costs:
 
 ```
+The decision, in one bold sentence, and the paragraphs that make it checkable from the code.
+
+**Why:** the alternatives, and what each one would have cost.
+
+**Cost:** what this constrains, and what it will not catch.
+```
+
+---
+
 ### 71 — 2026-09-09 — The cold-start budget is measured against the build, not the dev server
 
 §7 has budgeted "time to `__READY__` ≤ 6 s cold" since the harness was written, and nothing
-ever asserted it. Turning the assertion on against the dev server produced this:
+ever asserted it. Measured 2026-09-09 against the dev server: 3.6–6.0 s warm, 7.5–15.0 s cold.
 
-| | warm dev server | cold dev server | production build |
-| --- | --- | --- | --- |
-| `/` and `?scene=` | 3.6–5.0 s | 7.5–10.9 s | measured by the gate |
-| `?showcase=` | 4.5–6.0 s | 9.4–15.0 s | not measured |
-
-The page's own boot did not change between those columns. What changed is that Vite's dev
+The page's own boot did not change between those runs. What changed is that Vite's dev
 server hands the browser several hundred separate ES modules and compiles them on demand, so
 the first request to a route pays for the whole graph and a warm one does not. A budget
 asserted there fails or passes on how recently someone else loaded the same URL.
@@ -53,7 +58,7 @@ does not.
 `ARCHITECTURE.md` has said since DECISIONS #61 that "the visible fight calls `turn()` once every
 few sim steps so it can be animated and screenshotted". It never did. `encounter.begin()` called
 `battle.resolve()` synchronously at `index.js:654` — **before a single frame was drawn** — and
-`ui/panels/battle.js` said so in its own header: "It is a readout of a *finished* fight." The
+`ui/panels/battle.js` said so in its own header, "Why it reads a finished fight". The
 tell is that `battle.turn()`, pure and published since the engine landed, had **zero callers in
 `src/`**. §5.12 recorded the truth and §5.17 recorded the intention, and the code agreed with
 neither for long enough that a grep was the only way to find out which.
@@ -67,9 +72,11 @@ the golden fight (Oshawott L12 vs Caterpie L8 at IVs 20, seed 1337 index 12) sti
 winner `a`, 2 turns, ally HP 34, `hpFraction` 0, transcript length 7 and `watergun` first —
 **verbatim**, and check 37 asserts a stepped fight is `JSON.stringify`-identical to a drained one.
 If those ever move together, the hook has leaked a draw and every replay in the game is wrong.
+→ Superseded by #80: `nextAlly` asks `automation.chooseLead`; party order is only the fallback.
 
 **`battle` never sees a bag.** Every Action carries its item id and the *caller* debits, so one
-decision implementation serves a live `economy.take()` and an offline carry.
+decision implementation serves the watched fight and the fold alike — both through `encounter`'s
+`economy.take()`, because the fold drains the same closure and carries no items of its own.
 
 **(b) An ally faint stops being terminal, and `winner` is redefined.** `turn()` calls a fight
 over the instant either side hits zero, which is right for the turn and wrong for the duel: the
@@ -91,8 +98,10 @@ mirror — which the meadow table produces — cannot say which one fell.
 **(d) A Potion was a working Revive, and had been all along.** `pokemon/instance.js heal()` took
 a 0 HP Pokemon to 20 with no guard, so the brief's "fainted Pokémon cannot participate" was
 unenforceable the moment an auto-heal list existed: the first rule would resurrect whatever had
-just gone down, for ₽200. `heal()` refuses `hp <= 0` now and `revive()` refuses `hp > 0`, and
-`{ revive: true }` is the Pokemon Center's escape hatch and nothing else's. The old
+just gone down, for ₽200. `heal()` refuses `hp <= 0` now and `revive()` refuses `hp > 0`;
+`{ revive: true }` is passed by the Pokemon Center (`pokemon.reviveAll`) and by `encounter`'s
+post-fight writeback when a Revive was used mid-duel — and a level-up or evolution still raises a
+fainted member to 1 HP, because `refreshStats` keeps the HP *fraction* with a floor of 1. The old
 `pokemon/selftest.js` check 25 asserted the broken behaviour ("a full heal restores maxHp",
 healing from 0) and was rewritten with the rule rather than around it.
 
@@ -101,14 +110,16 @@ PP and Struggle have been modelled since the turn engine landed and no item anyw
 put PP back, so a long hunt ended in a Pokemon flailing at 50 power with recoil and no
 purchasable answer. ₽1,200 for 10 PP and ₽2,000 for a slot — ₽120 per PP against a Potion's ₽10
 per HP, because a point of PP is worth several turns of attacking and a point of HP is worth one
-hit. Both satisfy the no-arbitrage clamp `economy/selftest.js` holds every money-priced item to.
+hit. Both satisfy the 90 % resale clamp: `economy/selftest.js` check 28 pins the two ethers to
+it, and the every-item sweep is `economy.selfTest()`, which runs in the browser, not under seams.
 
-**(f) Two beats are presentation and must never be rules.** `config.turnSteps` (24, so one
-exchange is 1.2 s) and `config.reviveSeconds` (5) are counted in **sim steps**, because the
-harness freezes the clock and a beat measured in wall time cannot be stopped on an exact frame
-(#14). In a fold they are **zero**: a revive costs the item and nothing else. Charging it turns
-instead would mean skipping both sides (a no-op) or only the enemy's (a free heal a player would
-farm), and either way the fold would need a clock it does not have.
+**(f) Two beats are presentation and must never be rules.** `T.TURN` in `encounter/index.js`
+(24 sim steps, so one exchange is 1.2 s — `config.turnSteps` is declared but not read; wire it
+or delete it) and `config.reviveSeconds` (5 s, ×20 into 100 sim steps) are spent in **sim
+steps**, because the harness freezes the clock and a beat measured in wall time cannot be stopped
+on an exact frame (#14). In a fold they are **zero**: a revive costs the item and nothing else.
+Charging it turns instead would mean skipping both sides (a no-op) or only the enemy's (a free
+heal a player would farm), and either way the fold would need a clock it does not have.
 
 **(g) The card had to become live, and two of its readings were wrong the moment it did.**
 `win: null` rendered as `Lost after 3` — a defeat printed on screen in the middle of a fight the
@@ -136,9 +147,10 @@ a later change relaxes quietly ("a second ball so a rare one is not lost"), and 
 `economy/pricing.js` is anchored to only measures anything while a throw costs a *victory*.
 
 **(j) The wipe is emitted, not executed.** `encounter` pays, heals and emits `party:wiped`;
-`travel` listens and hops on the next frame. Doing it inline would re-enter `travel.go()` — async,
-serialised behind `busy`, and itself a caller of `encounter.cancel()` — from inside the encounter
-it is cancelling, which is how a deadlock gets written.
+`travel` listens and hops from a queued microtask, once the synchronous emit has returned. Doing
+it inline would re-enter `travel.go()` — async, serialised behind `busy`, and itself a caller of
+`encounter.cancel()` — from inside the encounter it is cancelling, which is how a deadlock gets
+written.
 
 **(k) The production build shipped with no sprite art, and every stage of the gate was green.**
 `publicDir` copies `public/`; `assets/` was reachable in dev only because Vite serves the project
@@ -153,8 +165,9 @@ now asserts that every `/assets/<root>/` URL `src/` constructs is a root `vite.c
 and that each one landed in `dist/` non-empty. Both halves are *derived* — the roots from the
 config, so the plugin and the check cannot disagree, and the URLs from a grep of `src/`, so a
 fetch added tomorrow is covered tomorrow. `props/` and `structures/` are deliberately not copied:
-they are OBJ/MTL build input that `tools/assets/build-tiles.js` bakes into `public/generated/`,
-and shipping them would put a megabyte in front of a player for nothing.
+they are OBJ/MTL build input that `tools/assets/build-structures.js` (once per slug: `structures`
+by default, `--src assets/props --slug props`) bakes into `public/generated/tiles/`, and shipping
+them would put a megabyte in front of a player for nothing.
 
 **(l) Two things were running the hunt at once.** `idle/index.js` tracked `document.hidden` for
 *reporting* and never as a gate — `reconcile()` fires from worker beats, frames and
@@ -169,9 +182,8 @@ The second is still measured and `lastWallMs` still advances when the fold is sk
 discarded second can never be paid twice later — it is simply not that module's second. And the
 **encounter counter changes hands at the edge**: there is one index space (#61(f)) and there were
 two counters walking it independently, which is that entry's own disagreement arriving from the
-other end. Measured in the forest: 300 s visible folds nothing (`watchedS 300.27`, 0 encounters);
-the same 300 s hidden folds 10; coming back leaves `encounter.progress().encounters` at 10 rather
-than at 0, so it resumes where the fold stopped instead of re-walking indices it already spent.
+other end. Measured 2026-09-10, forest: 300 s visible folds nothing, the same 300 s hidden folds
+10, and the counter comes back at 10 rather than 0.
 
 `idle.driver()` is published and `?debug=1` draws it, because "exactly one driver" is a claim a
 screenshot should be able to settle rather than one a comment asserts — the same reasoning
@@ -180,9 +192,10 @@ screenshot should be able to settle rather than one a comment asserts — the sa
 **Cost.** `ui` gains a `tick` hook it did not have, because a callout's life is a count of sim
 steps and spending it at render rate made a balloon expire between two `__HOOKS__.step()` calls
 with no simulated time passing. And `battle`'s API grew five members; §5.17 was rewritten, along
-with four claims in it that were already wrong before this work started (`turn`'s phantom
-`turnNo` argument, a `ppSpent` field `resolve` never returned, `movesFor` returning "exactly 4"
-when it returns 1–4, and `moves()` where the code has `moveIds()`).
+with two of the four claims in it that were already wrong before this work started (`turn`'s
+phantom `turnNo` argument and a `ppSpent` field `resolve` never returned); the other two —
+`movesFor` returning "exactly 4" when it returns 1–4, and `moves()` where the code has
+`moveIds()` — outlived that rewrite.
 
 ---
 
@@ -246,18 +259,17 @@ with no animals is a legible bug; a wood full of animals that cannot be fought i
 **(h) `lapSteps` is reset in `enter()`.** It carried across a biome change, so the first lap of a
 new hunt healed early by however many steps the previous one had banked.
 
-**Measured, forest, three slots:** 3 detours → 3 battles started, ended and resolved, engaged in
-lap order (slots 0, 1, 2); the head left the circuit at exactly three cells, which are the three
-authored approaches; `audit()` `ok: true, checked: 9, fails: []`; **zero console errors and zero
-warnings**, so `strict` never stalled. `shots/out/contact.png` is the Oshawott standing next to a
-shiny Seedot with both moves called out and the trainer behind it on the path.
+**Measured 2026-09-10, forest, three slots:** 3 detours → 3 battles in lap order, `audit()` ok,
+zero console errors or warnings — `strict` never stalled.
 
-**(i) The tall-grass step roll is deleted everywhere, and the city table with it.** #61(h) kept the
-lobby's 23 rows on the argument that a walkable map the player drives is played differently from a
-hunt. The brief asks for the random-encounter system to go, and with slots and a detour there is
-nothing left for it to do: a hunt meets what is standing on a slot, and the city is a Center, a
-Mart and a plaza. `roll()`, `stepRollAt`, `stepRate`, `STEP_RATE` and the `step/0` stream pin all
-go; `roll/7` and `catch/5/1` did not move, which is the evidence the index space survived.
+**(i) The tall-grass step roll is disconnected everywhere, and the city table with it.** #61(h)
+kept the lobby's 23 rows on the argument that a walkable map the player drives is played
+differently from a hunt. The brief asks for the random-encounter system to go, and with slots and
+a detour there is nothing left for it to do: a hunt meets what is standing on a slot, and the city
+is a Center, a Mart and a plaza. `roll()`, `stepRollAt`, `stepRate`, `STEP_RATE` and the `step/0`
+stream pin all go; `roll/7` and `catch/5/1` did not move, which is the evidence the index space
+survived. `stepRoll`/`stepValue` still sit in `rolls.js`, uncalled, and go the next time that file
+is touched.
 
 The city table is **emptied and not deleted**, and the difference is the bug it prevents:
 `tableFor` falls back to **meadow** for a biome not in `BIOMES`, so dropping the key would have the
@@ -265,27 +277,19 @@ lobby quietly spawning the meadow's wildlife through `idle` rather than none at 
 answer in place of a loud empty one. `validate()` moved with the rule — a table with no rows is a
 deliberate empty and is skipped; a table with rows that leave an hour bare is still a bug.
 
-A tab closed in the city now accrues nothing, which is a real behaviour change and is the point:
-the hunt is the game.
+A tab closed in the city now meets no species — `rollAt` returns null on the empty table — but
+`idle/accrual.js` still pays the city's passive EXP and per-event EXP on those null encounters, so
+"accrues nothing" is not yet true; money was already zero everywhere (`BASE_MONEY = 0`). The
+hunt is the game, and closing that gap is open work.
 
 **(j) `biome.walk` was deleted and put back, and what that measured is worth more than the change.**
-The plan for this phase was to delete the pre-loop authored routes so `/` and every showcase walk
-one circuit — an open STATUS item since the loop landed. Done, and the gate said: `hunts/meadow/21`
-`over200Pct 1.198 -> 0`, `max 255 -> 161`. The night frame had lost its brightest pixels, and
-looking at it, its **motivated light source** — flat blue darkness with wildlife in it, which is the
-one thing four rounds of blind A/B lost on every round (§0).
-
-The cause is not the staging. Measured on the running page: the meadow's found circuit is a
-**6×17 corridor at x 38–43**, fifty cells of a 64×60 map, and the campfire that is its only night
-practical sits at (25,32) — **14 cells away**, with the `lane` marker the showcase frames 23 away.
-The circuit does not visit the places the biome composes. `biome.walk` had been hiding that
-completely: it stages every showcase and preset at the *markers*, so **every hunt frame this project
-has ever judged shows a part of the map the game does not walk.**
-
-So the deletion is reverted, and the defect is filed with its numbers. Deleting the second route is
-still right and still has to happen; it lands after the circuit visits the composition, because the
-alternative is shipping a lightless night frame to close a bookkeeping item. A green gate that costs
-a frame its practical is the gate being wrong about what it can see, not permission.
+Deleting the pre-loop authored routes so `/` and every showcase walk one circuit cost
+`hunts/meadow/21` its only night practical (`over200Pct 1.198 → 0`): the meadow's found circuit
+was a 6×17 corridor at x 38–43, fourteen cells from the campfire, and `biome.walk` had hidden that
+by staging every showcase and preset at the *markers* — so **every hunt frame this project had
+ever judged showed a part of the map the game does not walk.** Reverted here, because a green gate
+that costs a frame its practical is the gate being wrong about what it can see, not permission.
+→ Reversed by #74(b): the circuit was fixed and `biome.walk` deleted one entry later.
 
 ---
 
@@ -310,12 +314,8 @@ own slots; and **composed ground**, the share of the ring standing on `preferTag
 pulls the circuit onto the trail the biome laid and past the lamps that make a frame worth looking
 at. An area floor derived from the best score so far keeps the sweep from being exhaustive.
 
-| | before | after |
-| --- | --- | --- |
-| meadow | 50 cells, 6×17, **5 slots**, light 14 away | **78 cells, 26×13, 9 slots, light 1 away** |
-| forest | — | 68 cells, 8 slots, light 2 away |
-| coast | — | 82 cells, 9 slots |
-| cave | — | 56 cells, 8 slots, lights 1 away |
+Measured 2026-09-10: the meadow ring went 50 cells, 6×17, 5 slots, light 14 away → 78 cells,
+26×13, 9 slots, light 1 away; forest 68 cells / 8 slots, coast 82 / 9, cave 56 / 8.
 
 Nine slots is the number `SLOTS` asks for, so this also closes the open item that said slots thin as
 the circuit bends: they were thinning because the ring was narrow, not because it was bent.
@@ -346,11 +346,8 @@ is **in frame, lighting the trainer**, on the composed bank of the brook. The fo
 framing moved from `clearing` (13 cells from its fire) to `path` (6 from the fire, 1 from the
 circuit), which puts the fire centre-frame instead of raking in from the right edge.
 
-**Baseline re-accepted, frames named:** `hunts/meadow/12`, `hunts/meadow/21`, `hunts/forest/12`,
-`hunts/forest/17.5`, `hunts/forest/21`, `hunts/coast/12`, `hunts/cave/12`. Every one was looked at.
-`hunts/cave/12` reads as a regression by histogram (`over200Pct 1.175 → 0.748`) and is a better
-picture: a torchlit gallery with four creatures, a mine cart and a cool blue pool, instead of a
-tighter shot of less of it.
+**Baseline re-accepted 2026-09-10** for the seven hunts rows, every frame looked at; `hunts/cave/12`
+reads as a regression by histogram (`over200Pct 1.175 → 0.748`) and is the better picture.
 
 ---
 
@@ -358,8 +355,9 @@ tighter shot of less of it.
 
 **(a) A per-species table, derived, on a fixed draw budget.** 1253 hand-written tables is not a
 thing anyone keeps correct, so a table is derived from what `species.json` already carries — and
-the derivation reuses **`pokemon/evolution.js`'s type → material map**, so the wood full of Grass
-types is where mushrooms come from and mushrooms are what a Grass evolution costs. Four rows: the
+the derivation mirrors **`pokemon/evolution.js`'s type → material map** (a copy, held equal by
+seams rule 7 because `encounter` may not import it), so the wood full of Grass types is where
+mushrooms come from and mushrooms are what a Grass evolution costs. Four rows: the
 biome's ladder, the species' own type's material, its second type's a rung lower, and its family's
 best rung if it is a big species. `SPECIES_DROPS` is the hand-authored override and is empty,
 which is an honest statement that nothing has earned one yet.
@@ -374,8 +372,8 @@ So the place leads and the species flavours it, and the economics are where #68 
 **A second thing the arithmetic hid:** rows are independent coins, so adding them raises the chance
 a win pays *anything* even though no single row got likelier. At 0.46/0.28/0.15 the measured rate
 was **66.6 %** against `DROP_CHANCE` 0.46 — a 45 % rise in hunt income smuggled in as a shape. The
-per-row odds are now chosen so the aggregate lands back on 46 % (measured 45.2 % over 20,000 rolls,
-asserted in the selftest over a sweep rather than trusted from the arithmetic).
+per-row odds are now chosen so the aggregate lands back near 46 % (the arithmetic says 44.6 %; the
+selftest sweeps 3,000 rolls and asserts within ±4 points rather than trusting the arithmetic).
 
 **Determinism: eight draws, always.** One whether/quantity pair per row of `MAX_DROP_ROWS`, taken
 before anything is decided and discarded where a row does not exist. Without the budget the stream
@@ -416,7 +414,7 @@ meant to earn. `earned: false` is one line, against the alternative of lifting e
 re-balancing a ladder nobody has measured.
 
 The kit the purse is sized against is what a lap actually consumes — 20 balls, 10 Potions, 3 Super
-Potions, 2 Revives, 3 Ethers, ₽10,600 — and the selftest asserts it is under a quarter of the
+Potions, 2 Revives, 3 Ethers, ₽15,700 — and the selftest asserts it is under a quarter of the
 purse, because "enough for a kit" can be technically true and practically a lie.
 
 **(f) `BUY_COOLDOWN` is not new state.** The brief names a cooldown between automatic purchase
@@ -441,8 +439,10 @@ a replayed fight a different fight (#72). So no function here draws a coin, read
 reaches a module, and it runs under Node against literals.
 
 **Items are named, never spent.** `applyAction` in `battle` changes the combatant and **the caller
-debits** — `encounter` through `economy.take()`, the fold against its own carry. That is what lets
-one implementation serve both, and it is why `automation` gets a `stock` snapshot rather than an
+debits** — `encounter`'s `between` wrapper through `economy.take()`, on the watched fight and on
+the closed-tab fold alike, because the fold's `pure().resolve` builds the same closure and neither
+`idle` nor `offline` carries items (both carry money and tokens only). That is what lets one
+implementation serve both, and it is why `automation` gets a `stock` snapshot rather than an
 inventory.
 
 **(b) None of the four is in `PASSES`, and `everyS: 0` says so.** `PASSES` is the round-robin
@@ -469,6 +469,8 @@ is the rule a Potion could break until #72. The type chart is injected rather th
 
 This closes the top open item, which has read *"a Water starter walks into a Grass wood"* since
 DECISIONS #68(d) measured it. Live in the forest: one lead change, Tepig to the front.
+→ Superseded by #80: the offence term was inert until the move resolver was injected, so that
+lead change was decided by defence and health; the rule is also asked at every swap now.
 
 **(e) An unlock gate could not be met, and nothing had noticed because nothing had tried.**
 `automation`'s `progress()` returned three hand-listed keys — `dexCaught`, `stored`, `money`. Every
@@ -489,10 +491,8 @@ words. New builtins go on the **end** and a saved rule always keeps its place: t
 first-match-wins, so inserting one would let a shipped default outvote an ordering the player
 chose, and reordering somebody's list from a patch note is a reset with extra steps.
 
-**Measured, forest, twelve encounters with the four switched on:** three Super Potions at the deep
-end — the ladder falling through an empty Max Potion rung, which is (c)'s whole point — then eight
-Potions as HP recovered into the 45 % band, one Ether into an emptied top move, one lead change,
-8 potions and 1 ether actually debited from the bag, party alive, **zero console errors**.
+**Measured 2026-09-10, forest, twelve encounters with the four on:** the ladder fell through an
+empty Max Potion rung to Super Potions, 8 Potions and 1 Ether were debited, party alive, zero errors.
 
 ---
 
@@ -504,12 +504,13 @@ called that "the schema `ui` renders from" for as long. Nothing rendered it: `mo
 callers anywhere in `src/`**, and after #76 four automations that decide what happens inside a
 fight were configurable only from a console. Four automations nobody can see are not shipped.
 
-**(a) Reordering is `↑`/`↓` buttons, and drag was rejected on the mechanism rather than the
+**(a) Reordering is `^`/`v` buttons, and drag was rejected on the mechanism rather than the
 taste.** The HUD is one 2-D canvas whose hit-region list is rebuilt every paint (`screen.js`);
 there is no pointer capture, no drag state, and nothing that survives a repaint mid-gesture.
-Building that for a list of at most eight rows would be a subsystem in service of a flourish. Two
-buttons per row are keyboard-reachable, work on touch, say what they do, and land exactly on the
-primitive that was already there.
+Building that for lists that ship at most nine rows (auto-release's; the engine caps any at
+`MAX_RULES` 64) would be a subsystem in service of a flourish. Two buttons per row work on pointer
+and touch and say what they do — no key moves a rule — and land exactly on the primitive that was
+already there.
 
 **(b) Every list draws its rank, because first-match-wins is invisible otherwise.** The healing
 ladder, the rulesets and the ball tiers are all "the first one that applies". A player who cannot
@@ -616,14 +617,16 @@ listing them is the point of this entry:
    with no `USE_MAP`; assigning `.map` afterwards left it drawing **flat white**. A control quad —
    a plain magenta square added beside it — is what separated "the mesh pipeline is broken" from
    "this material is". Materials are built *with* their texture now.
-4. **The screenshot itself.** The 350 ms settle before the shutter let `registry.tick` run on and
-   the effect expire; the sparkles that survived were the **shiny's shimmer from `ball.js`**, not
+4. **The screenshot itself.** The settle before the shutter — `spin(settle)`, 30 rAF frames by
+   default and 40 from regress, then 60 more after the metrics reset — let `registry.tick` run on
+   and the effect expire; the sparkles that survived were the **shiny's shimmer from `ball.js`**, not
    the strike. `encounter.freeze(true)` before the frame is the fix and is exactly what that
    method exists for (DECISIONS #14).
 
 **The art, and the trap `ball.js` already recorded.** The first impact was a solid block of core
 colour and it read as a pale wash over the creature it landed on — because `bloomThreshold` is
-0.72 at noon and a shape whose *whole silhouette* clears it stops being a shape. It is outline and
+1.15 at noon (the outdoor preset's value; `core/config.js`'s 0.72 is only the default `environment`
+overwrites) and a shape whose *whole silhouette* clears it stops being a shape. It is outline and
 thin arms around a two-pixel core now, so the bloom has something small to catch and the dark
 outline keeps the form under it. `selftest.js` pins the property that follows: **every palette's
 core is brighter than its own edge.**
@@ -639,10 +642,10 @@ So `encounter.stageStrike({ shape, type, phase })` is a showcase tool now, and
 any of the fifty-four combinations at an exact beat. Looked at: a fire contact at noon is an
 orange four-armed star on the target, a fire projectile is a bolt with a tail between the two
 creatures, a fire field is a ring on the ground under the wild — and an **electric** contact at
-21:00, where `environment` lifts the bloom threshold, is a clean yellow star rather than the wash
-the first art produced. Two of them (`encounter/vfx/12`, `encounter/vfx/21`) join the regress
-matrix, because the first cut washed out at noon and the redraw had to be re-checked at night, and
-without a row neither would be noticed again.
+21:00, where `environment` drops the bloom threshold to 0.85 and raises the strength to 1.15, is
+a clean yellow star rather than the wash the first art produced. Two of them (`encounter/vfx/12`,
+`encounter/vfx/21`) join the regress matrix, because the first cut washed out at noon and the
+redraw had to be re-checked at night, and without a row neither would be noticed again.
 
 The lesson is the one this project keeps relearning from the other side: *a visual claim needs a
 screenshot someone actually looked at* — and a screenshot of the wrong moment is not that.
