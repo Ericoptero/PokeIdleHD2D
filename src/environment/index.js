@@ -310,7 +310,6 @@ const TILT_GAIN_MIN = MIN_ELEV_DEG > 0 ? 0.35 : 1;
  * bends the sun by, because it is the same fact: this camera looks north, so a shadow that
  * runs due north runs straight up-screen behind its own caster.
  */
-const HIDDEN_CONE = 38 * (Math.PI / 180);
 
 /**
  * Pushes the *night* key's azimuth out of that cone.

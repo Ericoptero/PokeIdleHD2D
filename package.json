@@ -13,15 +13,25 @@
     "assets": "node tools/assets/build-tiles.js && node tools/assets/build-structures.js && node tools/assets/build-structures.js --src assets/props --slug props && node src/pokemon/tools/build-species.js && node src/pokemon/tools/build-battle-data.js",
     "shot": "node tools/shots/shoot.js",
     "gauntlet": "node tools/shots/gauntlet.js",
+    "lint": "eslint .",
     "seams": "node tools/seams/run.js",
     "gate": "node tools/gate.js",
+    "gate:fast": "node tools/gate.js --only lint,seams",
     "boot": "node tools/shots/boot.js"
   },
   "dependencies": {
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^20.19.43",
+    "@types/three": "^0.185.4",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "puppeteer-core": "^24.10.0",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "puppeteer-core": "^24.10.0"
+    "vitest": "^4.1.11"
   }
 }

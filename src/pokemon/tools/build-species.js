@@ -44,7 +44,6 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const OVERWORLD = join(REPO, 'assets', 'overworld');
 const OUT = join(REPO, 'public', 'generated', 'species.json');
 const DEX_URL = 'https://play.pokemonshowdown.com/data/pokedex.json';
-const CACHE = join(REPO, 'node_modules', '.cache', 'pokedex.json');
 const POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv';
 
 /**

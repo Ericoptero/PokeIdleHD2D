@@ -71,7 +71,7 @@ export default {
   showcaseNeeds: ['city', 'terrain', 'economy'],
 
   init(ctx) {
-    const { bus, clock, config, log } = ctx;
+    const { bus, clock, log } = ctx;
     const pokemon = ctx.get('pokemon');
 
     const table = (isLive(pokemon) && typeof pokemon.all === 'function' ? pokemon.all() : null) ?? [];

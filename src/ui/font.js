@@ -34,7 +34,6 @@ export const LINE_HEIGHT = 10;
 /** Width of a space, in pixels, excluding tracking. */
 export const SPACE_WIDTH = 3;
 
-/* eslint-disable quote-props */
 const GLYPHS = {
   '!': '#/#/#/#/#/./#',
   '"': '#.#/#.#',
@@ -164,7 +163,6 @@ const GLYPHS = {
   '♥': '1|.#.#./#####/#####/.###./..#..',               // ♥
   '█': '#####/#####/#####/#####/#####/#####/#####',     // █ full block
 };
-/* eslint-enable quote-props */
 
 /** Parsed once. `{ w, top, rows }`, rows being strings of `#` and `.`. */
 const CACHE = new Map();

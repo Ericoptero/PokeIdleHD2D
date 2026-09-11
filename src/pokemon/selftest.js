@@ -52,8 +52,7 @@ const lookup = (k) => byName.get(String(k ?? '').toLowerCase()) ?? null;
  */
 globalThis.fetch = async (url) => {
   const name = String(url).split('/').pop();
-  try { return { ok: true, json: async () => gen(name) }; }
-  catch { return { ok: false, json: async () => null }; }
+  return { ok: true, json: async () => gen(name) };
 };
 const economy = await economyModule.init({
   bus: { emit() {}, on: () => () => {} },

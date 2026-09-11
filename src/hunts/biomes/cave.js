@@ -97,11 +97,13 @@ function corridor(field, a, b, half, seed) {
   return field;
 }
 
-export function buildCave(draft, ctx, palette, rng, log) {
+export function buildCave(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 
-  const floorModels = palette.all({ category: 'cave', tags: ['floor', 'flat'], maxCells: 1 }, 'cave floor');
+  // Not placed by this builder (the floor is the draft's ground); the lookup stays so a
+  // missing cave-floor tile is still warned about once, like every other palette miss.
+  palette.all({ category: 'cave', tags: ['floor', 'flat'], maxCells: 1 }, 'cave floor');
   const stalactites = palette.all({ category: 'prop', tags: ['stalactite'] });
   const bigRock = palette.all({ category: 'cave', tags: ['tall'] }).filter((m) => m.w >= 5)[0] ?? null;
   const exits = palette.all({ category: 'cave', tags: ['cliff', 'tall'] }).filter((m) => m.w === 2 && m.h === 3);

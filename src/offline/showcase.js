@@ -396,14 +396,16 @@ export async function showcaseOffline(mode, ctx) {
   const v1 = loadScenario(JSON.stringify({ v: 1, lastSeenMs: T0 - HOUR, totals: { money: 8675 } }));
   const corrupt = loadScenario('{"v":3,"slices":{"economy":');
   const futureText = JSON.stringify({ v: CURRENT_VERSION + 96, treasure: 'from a later build' });
-  const future = loadScenario(futureText);
+  // Loaded for its side effect on the scratch store (the newer-version refusal path); the
+  // result is not shown in the table below yet.
+  loadScenario(futureText);
   const tamperedBase = (() => {
     const s = loadScenario(null);
     s.store.register('economy', { capture: () => ({ wallet: { money: 4200 } }), restore: () => {} });
     s.store.flush('showcase');
     return s.storage.getItem(KEY);
   })();
-  const tampered = loadScenario(tamperedBase.replace('4200', '9999'));
+  loadScenario(tamperedBase.replace('4200', '9999'));   // same: the checksum-refusal path
   const trip = realRoundTrip();
   const live = offline.info?.() ?? {};
 

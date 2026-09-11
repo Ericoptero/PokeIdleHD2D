@@ -12,6 +12,8 @@
  * (it said "five" over a six-entry array for a week), so nothing restates it any more — `--list`
  * prints it. What each one is for:
  *
+ *   lint       ESLint, generic correctness only (undefined names, unused bindings, `==`);
+ *              the project's own contracts stay in the seams — eslint.config.js says why
  *   seams      static contracts + every src/<module>/selftest.js under Node
  *   build      the production build, which nothing used to run — everything was verified
  *              against the dev server, so a Vite build break was silent until deploy. It
@@ -59,6 +61,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 /** @type {{name:string, argv:string[]|null, needsServer:boolean}[]} */
 const STAGES = [
+  { name: 'lint', argv: null, needsServer: false },
   { name: 'seams', argv: ['tools/seams/run.js'], needsServer: false },
   { name: 'build', argv: null, needsServer: false },
   { name: 'coldboot', argv: null, needsServer: false },
@@ -172,7 +175,9 @@ for (const stage of STAGES) {
   if (stage.needsServer && stop === noop) stop = await ensureServer();
 
   let r;
-  if (stage.name === 'build') {
+  if (stage.name === 'lint') {
+    r = spawnSync('npx', ['eslint', '.'], { stdio: 'inherit' });
+  } else if (stage.name === 'build') {
     r = spawnSync('npx', ['vite', 'build'], { stdio: 'inherit' });
     if (r.status === 0) r = { status: builtAssets() };
   } else if (stage.name === 'coldboot') {

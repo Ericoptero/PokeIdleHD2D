@@ -863,17 +863,6 @@ function applyBump(draft, cells, run, side, d, margin) {
   return isClosedWalk(draft, out) ? out : null;
 }
 
-const dedupe = (cells) => {
-  const seen = new Set();
-  const out = [];
-  for (const c of cells) {
-    const k = `${c.cx},${c.cz}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(c);
-  }
-  return out;
-};
 
 /** Every consecutive pair one 4-way step apart, passable, and the last pair closing the ring. */
 function isClosedWalk(draft, cells) {

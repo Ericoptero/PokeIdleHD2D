@@ -65,7 +65,7 @@ export const COAST = {
 const SHALLOW_Y = -0.65;
 const SEA_SURFACE_DY = 0.3125;      // `sea`'s translucent top, above its own placement y
 
-export function buildCoast(draft, ctx, palette, rng, log) {
+export function buildCoast(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 
@@ -327,7 +327,6 @@ export function buildCoast(draft, ctx, palette, rng, log) {
   const usable = (m) => !BASKETS.test(m.name);
   const props = ctx.get('tiles').find('props', { category: 'prop', tags: ['rock'] }) ?? [];
   const dryRocks = props.filter((m) => !m.tags.includes('water') && usable(m));
-  const wetRocks = props.filter((m) => m.tags.includes('water'));
   const drift = ctx.get('tiles').find('props', { category: 'prop', tags: ['rustic'] })
     .filter((m) => m.name.includes('log') && usable(m));
   // A `Placement` names a model id and nothing else, and `InstancedWorld` resolves that id

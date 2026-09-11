@@ -624,7 +624,7 @@ export default {
     }
 
     function runSell() {
-      const { plan, money, capped } = planSell();
+      const { plan, capped } = planSell();
       if (!plan.length) return { plan, money: 0, capped };
       const economy = mod('economy');
       let sold = 0;
@@ -725,7 +725,7 @@ export default {
     }
 
     function runRestock() {
-      const { plan, spend, budget, short } = planRestock();
+      const { plan, budget, short } = planRestock();
       if (!plan.length) return { plan, spend: 0, budget, short };
       const economy = mod('economy');
       let bought = 0;

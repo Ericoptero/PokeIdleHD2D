@@ -90,7 +90,7 @@ export const MEADOW = {
    */
 };
 
-export function buildMeadow(draft, ctx, palette, rng, log) {
+export function buildMeadow(draft, ctx, palette, rng, _log) {
   const W = draft.w, H = draft.h;
   const seed = draft.seed;
 

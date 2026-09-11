@@ -484,7 +484,7 @@ export default {
       // to paper over with a start that puts the head in a hedge: fall back to the ring's own
       // opening, which `rotateToStraight` already chose for exactly this property.
       if (best < 0) best = 0;
-      const { dirs, rotated } = routeFrom(loop, best, gap);
+      const { rotated } = routeFrom(loop, best, gap);
       // **`walk()` and not `setFormation()`**, and the reason is a guard three lines long:
       // `setFormation` refuses to start an autopilot under `config.showcase` (a showcase stages
       // its own frame and `?autowalk=0` pins one), so installing the route through it leaves a

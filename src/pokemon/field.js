@@ -320,7 +320,6 @@ export class SpriteField {
    * changes any per-sprite object would cost.
    */
   update() {
-    const { THREE } = this;
     const pitch = this.ctx.config.cameraPitch;
     if (pitch !== this._pitch) {
       this._pitch = pitch;

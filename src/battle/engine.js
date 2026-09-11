@@ -27,7 +27,7 @@
 import { makeRng } from '../core/rng.js';
 import { effectiveness, STAB } from './types.js';
 import { statsOf, stageMultiplier, STAT_KEYS } from './stats.js';
-import { PHYSICAL, SPECIAL, STATUS, resolveMove, movesFor, choose, STRUGGLE_ID } from './moves.js';
+import { PHYSICAL, STATUS, resolveMove, movesFor, choose, STRUGGLE_ID } from './moves.js';
 
 /** `ctx.rng` is `makeRng(seed,'root')` and `fork` appends, so this is `ctx.rng.fork('battle')`. */
 export const STREAM_ROOT = 'root/battle';
@@ -39,9 +39,6 @@ const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
 
 /** The ceiling on how many actions one `between` call may land before a turn. */
 export const MAX_BETWEEN = 4;
-
-/** Statuses that stop a Pokemon acting, and the ones that only cost it HP. */
-const MAJOR = new Set(['brn', 'par', 'psn', 'tox', 'slp', 'frz']);
 
 /**
  * A combatant: everything the engine needs and nothing it does not.

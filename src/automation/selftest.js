@@ -14,7 +14,7 @@
  */
 
 import { makeEngine } from './engine.js';
-import { compileRuleset, validateRule, normaliseRule } from './rules.js';
+import { compileRuleset, validateRule } from './rules.js';
 import {
   BUY_COOLDOWN, AUTOMATIONS, automation, defaultRules, defaultSettings,
 } from './automations.js';
