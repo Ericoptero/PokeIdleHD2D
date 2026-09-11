@@ -16,6 +16,12 @@
   },
   "open": [
     {
+      "id": "research-unmintable",
+      "module": "economy",
+      "test": "src/idle/unlock.test.js",
+      "what": "Research — the unlock currency of all ten automations — cannot be minted from a fresh save: it starts at 0 (economy/currencies.js), live wins credit money and BP only (encounter/index.js:1260, economy/index.js:219-223), the fold mints it only on a WON encounter (idle/accrual.js:396) which needs flags.battle (:369), and that flag is granted only by the `hunt` automation (automation/index.js:227-236), which costs 120 research. The only economy.add('research', …) calls in src/ are grant:showcase lines. No automation is reachable in play; auto-sell is among them and economy.sell() has no other caller, so loot never becomes money."
+    },
+    {
       "module": "economy",
       "what": "`useItem()` still has zero consumers. The duel applies items through `battle.applyAction` on a combatant record, not on a `pokemon` instance, so the intent object it returns has no caller and the manual-use path is still unbuilt."
     },
@@ -41,7 +47,7 @@
     },
     {
       "module": "economy",
-      "what": "`pacing.js MEASURED` still projects the income model DECISIONS #69 deleted, and now also predates per-species drop tables and the \u20bd100,000 opening purse. The header (`pacing.js:22`) says the table is stale; it is staler."
+      "what": "`pacing.js MEASURED` still projects the income model DECISIONS #69 deleted, and now also predates per-species drop tables and the ₽100,000 opening purse. The header (`pacing.js:22`) says the table is stale; it is staler."
     }
   ],
   "modules": {

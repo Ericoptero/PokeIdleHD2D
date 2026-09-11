@@ -220,3 +220,46 @@ export function runSelfTest(api, ctx) {
 
   return { ok: results.every((r) => r.ok), passed: results.filter((r) => r.ok).length, results };
 }
+
+// ---------------------------------------------------------------------------
+// The scratch runner the header promises. Until this existed, `node src/collection/selftest.js`
+// exited 0 having run nothing — the seams counted it green, and the 20-odd invariants above
+// only ever ran inside the browser showcase. Boots the REAL module through its own `init`
+// against a stub ctx (the way `hunts/selftest.js` boots `terrain`), with the species snapshot
+// read off disk in place of the `pokemon` module's fetch.
+if (process.argv[1]?.endsWith('selftest.js')) {
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { makeRng } = await import('../core/rng.js');
+  const { makeBus } = await import('../core/bus.js');
+  const collectionModule = (await import('./index.js')).default;
+
+  const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const table = JSON.parse(readFileSync(join(REPO, 'public', 'generated', 'species.json'), 'utf8'));
+  const byName = new Map(table.map((s) => [s.name, s]));
+  const pokemon = {
+    all: () => table,
+    species: (k) => byName.get(String(k ?? '').toLowerCase()) ?? null,
+  };
+  const quiet = { info() {}, warn() {}, error() {} };
+  const ctx = {
+    bus: makeBus({ onError: () => {} }),
+    clock: { simTime: 0, wallMs: () => 0 },
+    config: { seed: 1337 },
+    rng: makeRng(1337, 'root'),
+    log: quiet,
+    get: (id) => (id === 'pokemon' ? pokemon : undefined),
+  };
+  const api = await collectionModule.init(ctx);
+  // A few catches so the ordering, dex and release checks have something to order.
+  api.importBatch([
+    { species: 'sprigatito', level: 12, origin: 'catch' }, { species: 'starly', level: 7, origin: 'catch' },
+    { species: 'starly', level: 9, origin: 'catch' }, { species: 'poochyena', level: 5, origin: 'catch' },
+    { species: 'eevee', level: 14, origin: 'gift', shiny: true },
+  ]);
+  const out = runSelfTest(api, ctx);
+  for (const r of out.results) console.log(`${r.ok ? '✓' : '✗'} ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
+  console.log(`\n${out.ok ? '✓' : '✗'} collection selftest: ${out.passed}/${out.results.length} checks passed`);
+  process.exit(out.ok ? 0 : 1);
+}
