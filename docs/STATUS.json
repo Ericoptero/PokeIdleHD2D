@@ -1,127 +1,216 @@
 {
-  "updatedMs": 1789030000000,
+  "updated": "2026-09-11",
+  "commit": "0d0c561",
   "seed": 1337,
-  "now": "The hunt's fight is visible: `encounter` steps `battle.stepper` one turn every `config.turnSteps` sim steps, emits a `battle:strike` per blow, calls the move out over the trainer and the wild, and a fainted lead is replaced mid-duel rather than ending it. A wiped party pays a tenth of the wallet and is taken to the Pokemon Center. Ether and Max Ether exist, a Potion no longer revives, and one ball per defeated wild is a named rule (DECISIONS #72). The production build now carries its sprite art and the gate asserts it, and exactly one thing runs the hunt at a time - visible is `encounter`, hidden is `idle`, and the encounter counter changes hands at the edge. A hunt walks a circuit that visits the places the biome composes, steps off it to reach the creature standing on a slot, and fights it there; there is one route and the showcases walk it too. Nothing appears from nowhere any more: the tall-grass step roll is deleted everywhere and the city spawns nothing. Every species has its own drop table, derived from its typing and rarity and mirrored against the evolution bill; loot lands in a Stash and consumables in a Bag, two views of one Map with a Sell-Lock the automation obeys and the counter does not; and a run opens with FIELD_START_MONEY that is deliberately not 'earned'. Auto-Heal, Auto-Revive, Auto-Ether and Auto-Lead decide inside the fight from pure rules the fold runs too. and a panel configures all ten of them - the healing ladder edited in place, rules reordered with buttons. and every move is drawn as its own element and delivery. The brief is implemented end to end; and the effects are photographable at any element and hour through `?showcase=encounter&mode=vfx-*`, with two of them under the regress matrix - targeting, the stash/bag split and per-species loot, the five missing automations, and the move VFX - are not started.",
-  "baseline": {
-    "at": "2026-09-08",
-    "size": "1920x1080",
-    "scene": "demo-city",
-    "fps": 60,
-    "drawCalls": 159,
-    "triangles": 15000,
-    "programs": 9,
-    "consoleErrors": 0,
-    "shot": "docs/progress/_boot/wave-a-end.png",
-    "note": "demo city at noon. Real numbers, but the scene has no buildings, no NPCs and no characters yet."
+  "now": "The harness is in place — ten gate stages (lint, typecheck, seams, unit, build, coldboot, boot, flows, parity, regress), all green in ~186 s on this branch — and the economy loop it exposed is not: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand, so the automations shipped in #76/#77 are unreachable in play.",
+  "gate": {
+    "at": "2026-09-11",
+    "result": "every stage passed",
+    "seconds": {
+      "lint": 2.2,
+      "typecheck": 0.4,
+      "seams": 1.4,
+      "unit": 0.6,
+      "build": 3.4,
+      "coldboot": 4.3,
+      "boot": 78.3,
+      "flows": 6.4,
+      "parity": 31.8,
+      "regress": 57.2
+    },
+    "baseline": "docs/baseline.json — 1280x720, 17 regress rows, last accepted 39883bb; the live one, unlike the archive's 2026-09-08 boot row"
   },
   "open": [
     {
       "id": "research-unmintable",
       "module": "economy",
       "test": "src/idle/unlock.test.js",
-      "what": "Research — the unlock currency of all ten automations — cannot be minted from a fresh save: it starts at 0 (economy/currencies.js), live wins credit money and BP only (encounter/index.js:1260, economy/index.js:219-223), the fold mints it only on a WON encounter (idle/accrual.js:396) which needs flags.battle (:369), and that flag is granted only by the `hunt` automation (automation/index.js:227-236), which costs 120 research. The only economy.add('research', …) calls in src/ are grant:showcase lines. No automation is reachable in play; auto-sell is among them and economy.sell() has no other caller, so loot never becomes money."
+      "what": "Research — the unlock currency of all ten automations — cannot be minted from a fresh save. It starts at 0 (economy/currencies.js); live wins credit money and BP only (encounter/index.js:1260, economy/index.js:219-223); the fold mints it only on a WON encounter (idle/accrual.js:396), a win needs flags.battle (:369), and that flag is granted only by the `hunt` automation (automation/index.js:227-236), which costs 120 research. The only economy.add('research', …) calls in src/ are grant:showcase lines — which is how the automations were 'verified'.",
+      "repro": "npx vitest run src/idle/unlock.test.js — the it.fails case; or a fresh save, win fights, economy.balance('research') stays 0"
     },
     {
+      "id": "no-manual-sell",
       "module": "economy",
-      "what": "`useItem()` still has zero consumers. The duel applies items through `battle.applyAction` on a combatant record, not on a `pokemon` instance, so the intent object it returns has no caller and the manual-use path is still unbuilt."
+      "what": "There is no player-facing sell path. economy.sell() has exactly one caller, automation.runSell (automation/index.js:633), behind the research-priced 'sell' unlock; the shop panel only buys (ui/panels/shop.js); economy.stash()/bag() have no caller in src/ui. With research-unmintable, loot never becomes money in play, against CLAUDE.md's 'money is earned by selling'.",
+      "repro": "grep -rn '\\.sell(' src | grep -v 'selftest\\|showcase'"
     },
     {
+      "id": "closed-tab-exp-discarded",
+      "module": "offline",
+      "what": "A closed tab's experience is computed into pending.exp (offline/index.js:278), shown as 'exp (held)' on the away card, and never granted: grantPartyExp is called only from idle/index.js:283 (a backgrounded tab) and encounter/index.js:1272. CLAUDE.md and ARCHITECTURE §0 say a closed tab mints experience.",
+      "repro": "grep -rn 'grantPartyExp\\|pending.exp' src/offline src/idle src/encounter"
+    },
+    {
+      "id": "shiny-charm-id-mismatch",
+      "module": "encounter",
+      "what": "The live shiny-odds check reads economy.count('shiny-charm') (encounter/index.js:264) but the item id is 'shinycharm' (economy/items.js:251), so a bought charm never affects a watched hunt. The fold path works: economy maps the purchase to idle's 'shiny-charm' unlock (economy/index.js:67).",
+      "repro": "grep -n \"'shiny-charm'\" src/encounter/index.js; grep -n \"id: 'shinycharm'\" src/economy/items.js"
+    },
+    {
+      "id": "catchup-biome-always-meadow",
+      "module": "offline",
+      "what": "The closed-tab catch-up always simulates the meadow: offline.decide() runs at init before any scene exists, terrain.handle() is null, and idle falls to own.biome ?? DEFAULT_BIOME (idle/index.js:107); own.biome is set only by idle.setBiome(), which has no callers, and is not in idle's save snapshot. The saved scene is never consulted.",
+      "repro": "grep -rn 'setBiome' src | grep -v 'selftest\\|showcase'  # only the definition"
+    },
+    {
+      "id": "turnsteps-dead",
+      "module": "encounter",
+      "what": "config.turnSteps (core/config.js:193) is read by nothing; the visible fight steps every T.TURN = 24 sim steps, a literal (encounter/index.js:116), and the comment at :109 claiming an override is false. Three documents repeated the claim.",
+      "repro": "grep -rn 'turnSteps' src | grep -v core/config.js  # one comment, no reader"
+    },
+    {
+      "id": "watched-win-mints-money",
+      "module": "encounter",
+      "what": "A watched, won battle credits money directly — rewardsFor pays 8×(1+level×0.16), ×1.5 on a catch, ×6 shiny (encounter/rolls.js:201-208; encounter/index.js:1260) — while the fold pays 0 (idle/accrual.js:387-393). Watched and unwatched hunts disagree on the rule ARCHITECTURE §0 states as 'money is earned by selling and from nowhere else'. One of the two is wrong; a decision is owed.",
+      "repro": "grep -n \"economy.add?.('money'\" src/encounter/index.js; grep -n 'money: 0' src/idle/accrual.js"
+    },
+    {
+      "id": "selftest-in-bundle",
+      "module": "encounter",
+      "what": "encounter/index.js:58 imports ./selftest.js for the browser selfTest(), so an 18.7 kB Node selftest chunk ships in the production bundle with node:fs, node:path and node:url externalised (three rolldown warnings in every build).",
+      "repro": "npx vite build 2>&1 | grep externalized; ls dist/assets | grep selftest"
+    },
+    {
+      "id": "useitem-no-consumers",
+      "module": "economy",
+      "what": "economy.useItem() (economy/index.js:335) has zero consumers. The duel applies items through battle.applyAction on a combatant record, not on a pokemon instance, so the intent object it returns has no caller and the manual-use path is unbuilt.",
+      "repro": "grep -rn 'useItem' src | grep -v 'economy/index.js'"
+    },
+    {
+      "id": "coast-circuit-inland",
       "module": "hunts",
-      "what": "The coast circuit runs through inland grass rather than along the shoreline -- the bend heuristic prefers path/tallgrass, and the shore is neither."
+      "what": "The coast circuit runs through inland grass rather than along the shoreline: the loop's bend heuristic prefers path/tallgrass and the shore is neither.",
+      "repro": "npm run shot -- --out shots/out/coast.png --showcase hunts --mode coast --tod 12 — and look at the route"
     },
     {
+      "id": "travel-go-not-cancellable",
       "module": "travel",
-      "what": "`go()` is serialised but not cancellable: once a scene starts building, the player waits for it."
+      "what": "travel.go() is serialised behind `busy` (travel/index.js:40,105,125) but not cancellable: once a scene starts building, the player waits for it.",
+      "repro": "read travel/index.js go()"
     },
     {
+      "id": "travel-mid-encounter-silent",
       "module": "travel",
-      "what": "Travelling mid-encounter calls `encounter.cancel()` with no prompt. A silent loss of a fight the player was in."
+      "what": "Travelling mid-encounter calls encounter.cancel() with no prompt (travel/index.js:132) — a silent loss of a fight the player was in.",
+      "repro": "read travel/index.js:130-134"
     },
     {
+      "id": "battle-no-accuracy-evasion",
       "module": "battle",
-      "what": "Accuracy and evasion stages are not modelled -- deliberate, and stated at `stats.js:41`. Only the five battle stats stage."
+      "what": "Accuracy and evasion stages are not modelled — deliberate and stated at battle/stats.js:42-43; only the five battle stats stage. Kept here so nobody rediscovers it as a bug.",
+      "repro": "read battle/stats.js:40-44"
     },
     {
-      "module": "environment",
-      "what": "Daylight frames have no motivated light source, which is what four rounds of blind A/B judging lost on every time. Night and cave frames, which have practicals, win. See `docs/STATUS-ARCHIVE.json` -> gate.blindJudging."
-    },
-    {
+      "id": "pacing-measured-stale",
       "module": "economy",
-      "what": "`pacing.js MEASURED` still projects the income model DECISIONS #69 deleted, and now also predates per-species drop tables and the ₽100,000 opening purse. The header (`pacing.js:22`) says the table is stale; it is staler."
+      "what": "economy/pacing.js MEASURED projects an income model DECISIONS #69 deleted and predates per-species drop tables and the ₽100,000 opening purse; its checkMeasured() is never called. The header says the table is stale; it is staler.",
+      "repro": "grep -n 'checkMeasured' src/economy/pacing.js  # defined, never called"
+    },
+    {
+      "id": "assets-machine-specific",
+      "module": "tools",
+      "what": "npm run assets depends on a PDSMS install hard-coded at tools/assets/build-tiles.js:25 (/Users/ericnantes/Downloads/…); on any other machine every set is 'skipped: missing', the script exits 0 having rebuilt nothing, and public/generated/tiles/index.json is rewritten to sets: [] (:263-266). .mcp.json and tools/props/adapt.py:29 carry absolute user paths too.",
+      "repro": "sed -n 25p tools/assets/build-tiles.js"
     }
   ],
   "modules": {
     "automation": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "battle": {
-      "status": "in tree, loads clean",
-      "openIssues": 1
+      "selftest": true,
+      "openIssues": [
+        "battle-no-accuracy-evasion"
+      ]
     },
     "city": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": false,
+      "openIssues": []
     },
     "collection": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "core": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "economy": {
-      "status": "in tree, loads clean",
-      "openIssues": 2
+      "selftest": true,
+      "openIssues": [
+        "research-unmintable",
+        "no-manual-sell",
+        "useitem-no-consumers",
+        "pacing-measured-stale"
+      ]
     },
     "encounter": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": [
+        "shiny-charm-id-mismatch",
+        "turnsteps-dead",
+        "watched-win-mints-money",
+        "selftest-in-bundle"
+      ]
     },
     "environment": {
-      "status": "in tree, loads clean",
-      "openIssues": 1
+      "selftest": false,
+      "openIssues": []
     },
     "hunts": {
-      "status": "in tree, loads clean",
-      "openIssues": 1
+      "selftest": true,
+      "openIssues": [
+        "coast-circuit-inland"
+      ]
     },
     "idle": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "offline": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": [
+        "closed-tab-exp-discarded",
+        "catchup-biome-always-meadow"
+      ]
     },
     "pokemon": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "preview": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": false,
+      "openIssues": []
     },
     "simulation": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
     },
     "terrain": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": false,
+      "openIssues": []
     },
     "tiles": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": false,
+      "openIssues": []
     },
     "travel": {
-      "status": "in tree, loads clean",
-      "openIssues": 2
+      "selftest": true,
+      "openIssues": [
+        "travel-go-not-cancellable",
+        "travel-mid-encounter-silent"
+      ]
     },
     "ui": {
-      "status": "in tree, loads clean",
-      "openIssues": 0
+      "selftest": true,
+      "openIssues": []
+    },
+    "tools": {
+      "selftest": null,
+      "openIssues": [
+        "assets-machine-specific"
+      ]
     }
   }
 }
