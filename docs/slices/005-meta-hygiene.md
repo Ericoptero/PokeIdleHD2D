@@ -51,3 +51,10 @@ recorded in STATUS (slice 3), not fixed.
 seams green. Deleted: `tools/judge/{build,plan.json,score}.js`, `docs/refs/01-forest-tilemap.gif`,
 `05-interior-lab.png`, `06-interior-pokecenter.png`, `07-interior-market.png` (06 was cited only
 by the judge plan, so it joined the uncited set the moment the plan went).
+
+Post-hoc check (after the final gate run): the two builders `npm run assets` now chains —
+`node tools/assets/build-structures.js` (structures: 4 models, 24 materials, 39 KB) and
+`… --src assets/props --slug props` (props: 15 models, 15 materials, 103 KB) — were run on this
+machine and `git status` stayed clean, so the committed packs are byte-identical to a rebuild.
+`prepare` gained `|| true`: `npm install` from a tarball or a non-git checkout must not fail
+because the hook cannot be pointed at.
