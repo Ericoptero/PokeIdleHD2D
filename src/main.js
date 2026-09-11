@@ -33,14 +33,15 @@ import city from './city/index.js';
 import hunts from './hunts/index.js';
 import preview from './preview/index.js';
 
-// `travel` sits after `simulation` and **before `offline`** on purpose: `offline` builds its
-// provider list during its own `init`, so a module registered after it never gets a save
-// slice — and the scene the player was standing in would be lost on every reload.
-//
-// `battle` sits before `encounter` for the same class of reason and one of its own: it
-// declares `needs: []` and fetches 330 KB of move data in its own `init`, so starting it early
-// overlaps that fetch with the tile packs instead of stalling `encounter` behind it. It also
-// keeps the registry's alphabetical tie-break from deciding the order for us (DECISIONS #61).
+// Registration order is NOT init order. `registry.init` runs a Kahn sort over `needs` and
+// re-sorts the ready queue alphabetically after every dequeue (`core/registry.js resolveOrder`),
+// so this array could be reversed and nothing would change; inits are awaited one at a time,
+// so nothing overlaps either. The derived order today is: battle, economy, environment,
+// pokemon, collection, tiles, preview, terrain, city, encounter, automation, hunts, simulation,
+// idle, offline, travel, ui. Two consequences worth knowing: `offline` discovers its save
+// providers during its own init, before `travel` and `ui` exist — `travel` registers its
+// slice itself for that reason (`travel/index.js`) — and `battle`'s move-data fetch completes
+// before `economy` even starts. A comment here used to claim the opposite; it was wrong.
 const MODULES = [
   tiles, terrain, environment, pokemon, simulation, travel, battle, encounter,
   economy, collection, idle, offline, automation, ui, city, hunts, preview,

@@ -3,16 +3,8 @@ dist/
 .DS_Store
 *.log
 .vite/
-coverage/
-out/
 
 # Everything the gate writes. A gate run must never dirty the working tree, or the agent
 # that ran it cannot tell its own edits from capture noise. Screenshots worth keeping are
 # committed deliberately, under docs/progress/.
 shots/out/
-docs/progress/_regress/
-docs/progress/_parity/
-
-# Blind-judge packets are build output of tools/judge/build.js -- regenerate with
-# `node tools/judge/build.js --round rN`, do not commit.
-docs/judge/

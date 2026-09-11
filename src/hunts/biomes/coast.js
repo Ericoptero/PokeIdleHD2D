@@ -50,7 +50,7 @@ export const COAST = {
     sea: { marker: 'sea', ppu: 32 },
     wide: { marker: 'shore', ppu: 16 },
     close: { marker: 'shore', ppu: 64 },
-    /** The judge plan asks every biome for `route`; here it is the strand along the bay. */
+    /** Every biome answers `route` (the blind-A/B framing); here it is the strand along the bay. */
     route: { marker: 'shore', ppu: 32 },
   },
   showcaseDefault: 'shore',
