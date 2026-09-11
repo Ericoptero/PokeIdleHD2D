@@ -227,7 +227,9 @@ export function runSelfTest(api, ctx) {
 // only ever ran inside the browser showcase. Boots the REAL module through its own `init`
 // against a stub ctx (the way `hunts/selftest.js` boots `terrain`), with the species snapshot
 // read off disk in place of the `pokemon` module's fetch.
-if (process.argv[1]?.endsWith('selftest.js')) {
+// `typeof process` first: the browser showcase dynamically imports this file (index.js), where
+// `process` does not exist and a bare reference throws at module scope.
+if (typeof process !== 'undefined' && process.argv?.[1]?.endsWith('selftest.js')) {
   const { readFileSync } = await import('node:fs');
   const { join, dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');

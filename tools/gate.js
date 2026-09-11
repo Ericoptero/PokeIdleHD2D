@@ -75,7 +75,7 @@ const STAGES = [
   { name: 'coldboot', argv: null, needsServer: false },
   { name: 'boot', argv: ['tools/shots/boot.js', '--out', `${OUT}/boot`, '--base', BASE], needsServer: true },
   { name: 'flows', argv: null, needsServer: true },
-  { name: 'parity', argv: ['tools/shots/parity.js', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
+  { name: 'parity', argv: ['tools/shots/parity.js', '--walk', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
   { name: 'regress', argv: ['tools/shots/regress.js', '--out', `${OUT}/regress`, '--base', BASE], needsServer: true },
 ];
 

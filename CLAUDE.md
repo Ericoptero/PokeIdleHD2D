@@ -2,8 +2,9 @@
 
 A browser Pokémon idle game in the HD2D style: 3D voxel-ish geometry textured with DS-era
 pixel art, a fixed 45° camera, and a hunt that walks a closed loop past fixed spawn slots
-while the tab is backgrounded or closed. Plain ES modules, three.js, Vite. No TypeScript,
-no test framework, no bundler tricks.
+while the tab is backgrounded or closed. Plain ES modules, three.js, Vite. No `.ts` files (types
+are JSDoc, checked per file), no bundler tricks. Vitest for unit tests, Playwright for flows,
+ESLint, `tsc` — all behind one command.
 
 ## Done means the gate exits 0
 
@@ -12,9 +13,10 @@ npm run gate
 ```
 
 `node tools/gate.js --list` prints the stages in order (derived from `tools/gate.js`, not
-restated here, because a restated list drifted). Nothing is finished on the strength of having
-been written carefully. If a check is wrong, fix the check in the same commit and say so — never
-loosen a budget to get a green run.
+restated here, because a restated list drifted). `npm run gate:fast` is the browser-free
+subset (lint, typecheck, seams, unit — seconds) and the pre-commit hook runs it. Nothing is
+finished on the strength of having been written carefully. If a check is wrong, fix the check
+in the same commit and say so — never loosen a budget to get a green run.
 
 Two things the gate will not do for you:
 
@@ -83,15 +85,51 @@ is a URL param.
 
 ## Testing
 
-**`src/<module>/selftest.js` runs under plain Node and exits non-zero on failure.** The
-seams discover them by existence — writing one starts enforcing it immediately, with nothing
-to register. Write one for anything deterministic: a formula, a table, a state machine, a
-save migration, a boot decision. Compare against **literals**, not against a second live
-call: two calls reorder identically and agree with each other while both are wrong
-(DECISIONS #35).
+Four kinds, each for what the others cannot see:
 
-Logic only reachable in a browser goes in a `selfTest()` on the module's API instead. It
-must `console.error` on failure, or a red invariant is invisible to the capture harness.
+- **`src/<module>/selftest.js`** runs under plain Node and exits non-zero on failure. The seams
+  discover them by existence and refuse one that prints nothing. Golden values from seed 1337,
+  invariants swept over many runs. Compare against **literals**, not against a second live
+  call: two calls reorder identically and agree while both are wrong (DECISIONS #35).
+- **`src/<module>/*.test.js`** (vitest) for fine-grained behaviour with real diffs; import the
+  real module and `init(stubCtx)` it. Tests obey the module boundaries like any other file.
+- **`tests/flows/*.spec.js`** (Playwright) for user flows at `/`: drive through
+  `window.__HOOKS__` (`step`, `key`, `pause`) and `__CTX__.get(id)`, assert on bus events and
+  module state — never pixels, never DOM selectors (the UI is one canvas). Bound every
+  step-until loop so it fails with a message, never by timeout. Seed the world with `?seed=`.
+- **The screenshot stages** (boot, parity, regress) for what only a frame shows.
+
+Logic only reachable in a browser and only worth a frame goes in a `selfTest()` on the module's
+API (`reportSelfTest` in `core/log.js`), which `console.error`s on failure so the capture sees it.
+
+**A known bug is pinned, not hidden.** `it.fails` / `test.fail` with `// STATUS:<id>` on the
+line before it, where `<id>` is an `open` entry in `docs/STATUS.json` naming that test. The
+seams refuse either half without the other, so the expected failure cannot outlive the fix.
+
+**Type checking is opt-in per file** (`// @ts-check` at the top, JSDoc types) and zero errors
+is the bar; a file never opts back out.
+
+## How work is done
+
+**The unit of work is a slice** — `docs/slices/NNN-<slug>.md`, from `TEMPLATE.md`, written
+*after* inspecting the code it will touch and small enough to finish in one sitting. Never a
+multi-phase plan: the twelve commits of one day that this workflow replaced were "phase A…D"
+of a brief, and the gate's build stage did not run for any of them.
+
+**Roles**, as `.claude/agents/*.md`: `implementer` (the only one that edits app code; re-reads
+every file the slice names before editing), `reviewer` and `tester` (always, in parallel; they
+run the checks themselves and read the diff — an implementer's summary is not evidence),
+`integrator` (when `needs`, an event, the save format or ARCHITECTURE.md changes),
+`adversary` (when `economy`, `idle`, `offline`, the save format or a flow is touched). Then
+`npm run gate` green, then commit — the message names any regress frame that moved.
+
+**Reality wins.** Before implementing, re-inspect the modules the slice names. If the code
+disagrees with the slice, ARCHITECTURE.md, DECISIONS or STATUS, the code is right and the
+document is corrected in the same commit. A generated summary is an input to inspection, not a
+substitute for it.
+
+**Parallel agents work in separate `git worktree`s with their own `GATE_PORT`**: two gates on
+one port share a server the first one kills on exit.
 
 ## The other documents
 
