@@ -537,6 +537,61 @@ export function pureChecks() {
       JSON.stringify(got.perSpecies)));
   }
 
+  // 25 ── a move slot carries no type, and the lead rule has to survive that.
+  //
+  // **The check that would have caught DECISIONS #80 and did not.** Check 20 above builds its
+  // party with `moves: [{ id, pp, type }]` — a shape no `pokemon` instance has. A real slot is
+  // `{ id, pp, maxPp }`, so `leadChoice` read `undefined` for every type, scored every member at
+  // the offensive floor, and fell through to the health tiebreak: against a Grass wild, with a
+  // Tepig holding Ember on the bench, it sent the Snivy. The stub was more generous than the
+  // game and the test passed on it.
+  //
+  // So this one uses the REAL slot shape and resolves types the way `automation.duel()` does.
+  {
+    const chart = { fire: { grass: 2 }, grass: { fire: 0.5, water: 2 }, water: { fire: 2, grass: 0.5 } };
+    const eff = (t, ds) => (ds ?? []).reduce((n, d) => n * (chart[t]?.[d] ?? 1), 1);
+    const TABLE = { ember: { t: 'fire' }, vinewhip: { t: 'grass' }, watergun: { t: 'water' }, tackle: { t: 'normal' } };
+    const mk = (id, type, moves) => ({
+      instanceId: id, hp: 40, maxHp: 40, species: { types: [type] },
+      // The shape `pokemon/instance.js` actually stores: an id and its PP, and nothing else.
+      moves: moves.map((x) => ({ id: x, pp: 10, maxPp: 10 })),
+    });
+    const bench = [
+      mk('oshawott#1', 'water', ['tackle', 'watergun']),
+      mk('snivy#2', 'grass', ['tackle', 'vinewhip']),
+      mk('tepig#3', 'fire', ['tackle', 'ember']),
+    ];
+    const resolved = {
+      effectiveness: eff,
+      typesOf: (m2) => m2.species.types,
+      movesOf: (m2) => m2.moves.map((x) => ({ ...x, type: TABLE[x.id]?.t ?? null })),
+    };
+    results.push(ok('with types resolved, a Grass wild is met by the Fire type',
+      leadChoice(bench, { types: ['grass'] }, resolved, { mode: 'auto' }) === 'tepig#3',
+      String(leadChoice(bench, { types: ['grass'] }, resolved, { mode: 'auto' }))));
+
+    /**
+     * And the failure mode itself, isolated.
+     *
+     * The bench above cannot prove it: all three differ in *defence* too, so the right answer
+     * comes out either way and the first fixture agreed with the broken code by luck — which is
+     * exactly how the original defect survived. So: three members of the **same type**, whose
+     * defence against the wild is therefore identical, differing only in what their moves are
+     * made of. Resolved, the Fire one is sent. Unresolved, every offence is the floor, nothing
+     * separates them, and the first in line goes — the behaviour that shipped.
+     */
+    const same = [
+      mk('a#1', 'normal', ['watergun']),
+      mk('b#2', 'normal', ['vinewhip']),
+      mk('c#3', 'normal', ['ember']),
+    ];
+    results.push(ok('offence alone picks the Fire mover against a Grass wild',
+      leadChoice(same, { types: ['grass'] }, resolved, { mode: 'auto' }) === 'c#3'));
+    const raw = { ...resolved, movesOf: (m2) => m2.moves };
+    results.push(ok('…and with unresolved slots it falls to first-in-line, which is the bug',
+      leadChoice(same, { types: ['grass'] }, raw, { mode: 'auto' }) === 'a#1'));
+  }
+
   return results;
 }
 

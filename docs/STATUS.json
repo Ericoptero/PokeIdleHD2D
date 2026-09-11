@@ -16,10 +16,6 @@
   },
   "open": [
     {
-      "module": "encounter",
-      "what": "`openDuel`'s `nextAlly` still swaps in **party order**, not by matchup. `between` is wired for real (DECISIONS #76) and `automation.chooseLead` is asked at engagement, but a member that faints mid-fight is replaced by whoever is next in line rather than by whoever can win \u2014 so the brief's lead rule holds when a fight starts and not when one turns."
-    },
-    {
       "module": "economy",
       "what": "`useItem()` still has zero consumers. The duel applies items through `battle.applyAction` on a combatant record, not on a `pokemon` instance, so the intent object it returns has no caller and the manual-use path is still unbuilt."
     },
@@ -75,7 +71,7 @@
     },
     "encounter": {
       "status": "in tree, loads clean",
-      "openIssues": 1
+      "openIssues": 0
     },
     "environment": {
       "status": "in tree, loads clean",

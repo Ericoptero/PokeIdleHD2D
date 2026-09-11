@@ -860,6 +860,11 @@ engagement. `PASSES` is the round-robin tick, and on a cadence these would fire 
 at all — which is the trap `hunt` and `catch` already sit in, declaring an `everyS` nothing reads.
 They declare `everyS: 0` to say so (DECISIONS #76).
 
+`chooseLead` is asked **twice**: once at engagement, and again by `battle.stepper`'s `nextAlly`
+whenever a member falls — so the matchup rule holds when a fight *turns* and not only when one
+starts. Because `nextAlly` is handed to the stepper, the closed-tab replay swaps by the same rule
+as the watched fight.
+
 `duel()` hands them over as **pure functions**: `automation` supplies the player's configuration,
 the caller supplies the stock it is going to debit and `battle`'s `effectiveness`. One
 implementation then serves the watched fight and the closed-tab replay, which is what stops a

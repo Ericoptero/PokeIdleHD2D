@@ -821,6 +821,7 @@ export default {
         const wild = merged.sheet ?? pokemon.species?.(merged.species);
         const want = auto.duel({
           effectiveness: isLive(bt) && typeof bt.effectiveness === 'function' ? bt.effectiveness : null,
+          moveOf: isLive(bt) && typeof bt.move === 'function' ? bt.move : null,
         }).chooseLead(roster, wild ? { ...wild, species: wild.name } : null);
         const at = want ? roster.findIndex((m) => m.instanceId === want) : -1;
         if (at > 0) pokemon.setLead(at);
@@ -887,8 +888,33 @@ export default {
        */
       function nextAlly() {
         if (typeof pokemon.conscious !== 'function') return null;
-        const who = pokemon.conscious().find((m) => !sent.has(m.instanceId));
-        if (!who) return null;
+        // Only members that can still fight AND have not already been out. The second half is
+        // what stops a duel cycling one Pokemon back in after it faints.
+        const bench = pokemon.conscious().filter((m) => !sent.has(m.instanceId));
+        if (!bench.length) return null;
+        /**
+         * **The matchup decides the swap, not the party order.**
+         *
+         * `automation.chooseLead` is asked at engagement (DECISIONS #76), which made the
+         * brief's lead rule true when a fight *started* and false the moment one *turned*: a
+         * member that fainted mid-duel was replaced by whoever happened to be next in line,
+         * which on a bad matchup is how a party loses three Pokemon to one wild.
+         *
+         * It is asked here rather than in `stepDuel` because `nextAlly` is handed to
+         * `battle.stepper` and the stepper is drained by `idle` and `offline` too — so the
+         * closed-tab replay swaps by the same rule as the watched fight, which is the whole of
+         * §5.7's one-implementation claim applied to a decision instead of to a turn.
+         */
+        const auto = ctx.get('automation');
+        let who = bench[0];
+        if (isLive(auto) && typeof auto.duel === 'function') {
+          const bt2 = ctx.get('battle');
+          const want = auto.duel({
+            effectiveness: isLive(bt2) && typeof bt2.effectiveness === 'function' ? bt2.effectiveness : null,
+            moveOf: isLive(bt2) && typeof bt2.move === 'function' ? bt2.move : null,
+          }).chooseLead(bench, wildSpecies ? { ...wildSpecies, species: wildSpecies.name } : null);
+          who = bench.find((m) => m.instanceId === want) ?? bench[0];
+        }
         sent.add(who.instanceId);
         const c = combatantOf(who);
         fought.push(c);

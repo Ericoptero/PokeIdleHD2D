@@ -1033,7 +1033,7 @@ export default {
        * An automation that is locked or switched off simply contributes nothing: `settingsOf`
        * returns `null` for it and every chooser treats that as "not configured".
        */
-      duel({ stock = {}, itemOf = null, effectiveness = null, party = null } = {}) {
+      duel({ stock = {}, itemOf = null, effectiveness = null, moveOf = null, party = null } = {}) {
         const live = (id) => (engine.isActive(id) && !paused(id) ? engine.settings(id) : null);
         const heal = live('heal');
         const cfg = {
@@ -1049,10 +1049,20 @@ export default {
           chooseLead: (roster, wild) => {
             const s2 = live('lead');
             if (!s2) return null;
+            /**
+             * **The move slots are resolved to their types here, and that is the whole fix.**
+             *
+             * A `pokemon` instance carries `{ id, pp, maxPp }` and **no type** — so handing the
+             * slots straight to `leadChoice` left every offensive score at its floor and the
+             * rule that is supposed to dominate was inert: measured against a Grass wild with a
+             * Tepig holding Ember on the bench, it sent the Snivy. `battle` owns the move table
+             * and this module may not import it, so the resolver is injected (DECISIONS #80).
+             */
+            const look = moveOf ?? (() => null);
             return leadChoice(roster ?? party ?? [], wild, {
               effectiveness: effectiveness ?? (() => 1),
               typesOf: (m) => m?.species?.types ?? [],
-              movesOf: (m) => m?.moves ?? [],
+              movesOf: (m) => (m?.moves ?? []).map((x) => ({ ...x, type: x.type ?? look(x.id)?.t ?? null })),
             }, s2);
           },
           settings: cfg,

@@ -646,3 +646,41 @@ without a row neither would be noticed again.
 
 The lesson is the one this project keeps relearning from the other side: *a visual claim needs a
 screenshot someone actually looked at* — and a screenshot of the wrong moment is not that.
+
+---
+
+### 80 — 2026-09-10 — The lead rule held when a fight started and not when one turned, and the check that should have caught it was more generous than the game
+
+DECISIONS #76 asked `automation.chooseLead` at **engagement**. `battle.stepper`'s `nextAlly` — the
+hook that replaces a member who falls mid-duel — still took **whoever was next in the party**. So
+the brief's rule was true at the moment a fight began and false the moment one turned, which on a
+bad matchup is how a party loses three Pokémon to one wild. `nextAlly` asks the same rule now, and
+because it is handed to the stepper the closed-tab replay swaps by it too.
+
+**Then the rule turned out never to have worked at all.** Wiring the swap up and watching it sent
+the **Snivy** at a Grass wild with a Tepig holding Ember on the bench. The cause:
+
+```
+a pokemon move slot is  { id, pp, maxPp }      — and carries no type
+leadChoice reads         slot.type ?? slot.t    — undefined, so `continue`
+```
+
+Every offensive score therefore sat at its floor, the term that is supposed to **dominate**
+contributed nothing, and the decision fell through to the health tiebreak. `battle` owns the move
+table and `automation` may not import it, so the resolver is injected alongside `effectiveness`.
+
+**The part worth keeping is why the selftest was green.** DECISIONS #76's lead checks build their
+party with `moves: [{ id, pp, type }]` — **a shape no `pokemon` instance has**. The stub was more
+generous than the game, so the test exercised a code path the game could never reach. That is the
+exact failure mode #35 warns about from the other direction: it is not enough to compare against
+literals if the *fixture* is fiction.
+
+The new check uses the real slot shape, and it isolates the term under test rather than trusting a
+fixture to. Three members of the **same type** — so their defence against the wild is identical —
+differing only in what their moves are made of. Resolved, the Fire mover is sent; unresolved, every
+offence is the floor and the first in line goes, which is the behaviour that shipped. The first
+fixture I wrote could not have told them apart: all three of its members differed in defence too,
+so it agreed with the broken code by luck, which is how this survived in the first place.
+
+**Measured in a forest hunt:** two mid-fight swaps, both to Tepig, against a Grass table — where
+party order would have sent Oshawott.
