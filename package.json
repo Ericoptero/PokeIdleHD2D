@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "seams": "node tools/seams/run.js",
     "unit": "vitest run",
+    "flows": "playwright test",
     "gate": "node tools/gate.js",
     "gate:fast": "node tools/gate.js --only lint,typecheck,seams,unit",
     "boot": "node tools/shots/boot.js"

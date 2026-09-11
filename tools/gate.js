@@ -27,6 +27,8 @@
  *              other stage stayed green (DECISIONS #72)
  *   coldboot   §7's time-to-__READY__ budget, measured against that build on `vite preview`
  *   boot       every showcase and every scene draws a real frame, not an empty void
+ *   flows      Playwright user flows at `/` (tests/flows), driven through __HOOKS__ and
+ *              asserted on bus events and module state — the things a frame cannot show
  *   parity     the pixel grid is identical across seven viewports
  *   regress    the fixed frame matrix against docs/baseline.json
  *
@@ -72,6 +74,7 @@ const STAGES = [
   { name: 'build', argv: null, needsServer: false },
   { name: 'coldboot', argv: null, needsServer: false },
   { name: 'boot', argv: ['tools/shots/boot.js', '--out', `${OUT}/boot`, '--base', BASE], needsServer: true },
+  { name: 'flows', argv: null, needsServer: true },
   { name: 'parity', argv: ['tools/shots/parity.js', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
   { name: 'regress', argv: ['tools/shots/regress.js', '--out', `${OUT}/regress`, '--base', BASE], needsServer: true },
 ];
@@ -187,6 +190,9 @@ for (const stage of STAGES) {
     r = spawnSync('npx', ['tsc', '-p', 'tsconfig.json'], { stdio: 'inherit' });
   } else if (stage.name === 'unit') {
     r = spawnSync('npx', ['vitest', 'run'], { stdio: 'inherit' });
+  } else if (stage.name === 'flows') {
+    // Playwright reuses the server this gate started (playwright.config.js probes GATE_PORT).
+    r = spawnSync('npx', ['playwright', 'test'], { stdio: 'inherit', env: { ...process.env, GATE_PORT: String(PORT) } });
   } else if (stage.name === 'build') {
     r = spawnSync('npx', ['vite', 'build'], { stdio: 'inherit' });
     if (r.status === 0) r = { status: builtAssets() };
