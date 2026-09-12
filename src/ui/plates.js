@@ -23,24 +23,24 @@ import { HEIGHT } from './font.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 /**
- * How high above a Pokémon's feet its plate floats, in world units.
+ * How high above a Pokémon's feet its plate floats, in world units. Exported: `ui/index.js`
+ * reuses it to anchor a balloon *above* the plate rather than guessing a second constant for
+ * the same head (DECISIONS #87).
  *
- * A measured constant, not a computed one — `callout.js`'s own `LIFT` (3.1) is the same
- * measurement for the same purpose (something hung over a creature's head) and the sprite
- * sheets it was measured against are the same ones this file draws over. Sprite frames vary
- * in texel size per species (ARCHITECTURE §5.5), so no single constant is exact for all of
- * them; 3.1 clears the tallest ones with air to spare and does not float over the shortest.
+ * A measured constant, not a computed one — sprite frames vary in texel size per species
+ * (ARCHITECTURE §5.5), so no single constant is exact for all of them; 3.1 clears the tallest
+ * ones with air to spare and does not float over the shortest.
  */
-const POKEMON_LIFT = 3.1;
+export const POKEMON_LIFT = 3.1;
 /**
- * How high above the trainer's feet its plate floats.
+ * How high above the trainer's feet its plate floats. Exported for the same reason as
+ * `POKEMON_LIFT`.
  *
  * Trainer sheets are one fixed size (32×768, 32-texel frames) — 16 texels/unit stretched by
  * `1/cos(45°)` (DECISIONS #18) is 2 world units tall — so a constant here is exact rather than
- * measured-to-fit, unlike `POKEMON_LIFT`. A quarter-tile of air above the crown, matching
- * `callout.js`'s own margin.
+ * measured-to-fit, unlike `POKEMON_LIFT`. A quarter-tile of air above the crown.
  */
-const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
+export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
 
 /** Vertical gap between the name row and the HP bar, and the bar's own height, in px. */
 const ROW_GAP = 1;

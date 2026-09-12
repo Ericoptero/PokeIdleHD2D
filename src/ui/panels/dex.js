@@ -14,12 +14,14 @@ import { meter, pokeball } from '../theme.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
 
-/** The eighteen types, in the colours the games use. Kept short so a bar can be labelled. */
-const TYPE_COLOUR = {
-  normal: '#A8A878', fire: '#F08030', water: '#6890F0', electric: '#F8D030', grass: '#78C850',
-  ice: '#98D8D8', fighting: '#C03028', poison: '#A040A0', ground: '#E0C068', flying: '#A890F0',
-  psychic: '#F85888', bug: '#A8B820', rock: '#B8A038', ghost: '#705898', dragon: '#7038F8',
-  dark: '#705848', steel: '#B8B8D0', fairy: '#EE99AC',
+/** A type's own colour for the completion bar — `battle.typeColour(t).edge`, the same vivid
+ *  tone `encounter`'s strike effects use (DECISIONS #87); `C.stoneBase` only if `battle` itself
+ *  is quarantined, never a second copy of the eighteen. */
+const typeBarColour = (app, type) => {
+  const bt = app.ctx.get('battle');
+  return isLive(bt) && typeof bt.typeColour === 'function'
+    ? bt.typeColour(type)?.edge ?? C.stoneBase
+    : C.stoneBase;
 };
 
 export function makeDex(app) {
@@ -103,7 +105,7 @@ export function makeDex(app) {
 
       const bars = tab === 'gen'
         ? (completion?.byGen ?? []).map((b) => ({ label: `Gen ${b.gen}`, pct: b.pct, caught: b.caught, total: b.total, colour: C.martBase }))
-        : (completion?.byType ?? []).map((b) => ({ label: b.type, pct: b.pct, caught: b.caught, total: b.total, colour: TYPE_COLOUR[b.type] ?? C.stoneBase }));
+        : (completion?.byType ?? []).map((b) => ({ label: b.type, pct: b.pct, caught: b.caught, total: b.total, colour: typeBarColour(app, b.type) }));
       const barH = Math.max(8, Math.min(13, Math.floor((mid.h - 4) / Math.max(1, bars.length))));
       bars.forEach((b, i) => {
         const y = mid.y + 2 + i * barH;

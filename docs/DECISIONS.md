@@ -971,3 +971,64 @@ broken de-duplication re-recorded the same already-seen strike on every later po
 happened to produce a small, wrong, but plausible-looking gap). `hunt.spec.js`'s existing tick
 budgets did not need raising — the common case (one side already fainted, or a one-strike turn)
 is unaffected, and the slower two-strike case still lands well inside the existing ceilings.
+
+### 87 — 2026-09-12 — One colour table for a strike, a balloon and a floater; the balloon's paper stays neutral
+
+The user asked for a tail on the speech/attack balloons and for the move's name inside them to
+be coloured by its type — explicitly **not** the balloon itself, since a bright type painted
+over the whole box is unreadable for the lighter ones (ice, fairy, electric) exactly the way
+`encounter/strikes.js`'s own effects would be if their bloom-safe edge colour were used at full
+size, per DECISIONS #79.
+
+**`battle/types.js` gains `TYPE_INK`** — `{ core, edge, ink }` per type, the fourth independent
+copy of this table this project has had (`encounter/strikes.js`, `ui/panels/dex.js`,
+`idle/panel.js`, `collection/showcase.js` each already carried their own). `core`/`edge` are
+`strikes.js`'s own values, unmoved: that file is rewritten wholesale in the next slice (a
+shader-based VFX system) and refactoring its *current* pixel-art palette usage now would be
+work deleted within the week. `ink` is new and **derived, not chosen**: `edge`, darkened in
+equal RGB steps (never shifting the hue) until it clears a 4.5:1 WCAG contrast ratio against
+`C.wallLight` (the balloon's own paper). Eight of eighteen needed no darkening; `electric`'s raw
+edge was 1.39:1 against cream paper (a lemon yellow that came from the same table that had to
+survive a very different test — bloom at noon, not legibility on a page) and needed eight steps.
+`battle/selftest.js` #61–66 pins the *computed ratio*, not the hex, so a future palette edit
+cannot reintroduce an unreadable type silently. This is the canonical table now; `dex.js`'s type
+completion bar reads `typeColour(t).edge` through the same undeclared, `isLive`-guarded access
+`ui/index.js` already uses for `battle` (§5.12's own list), replacing its own copy — unlike
+`idle/panel.js` and `collection/showcase.js`, `dex.js` is a live panel (`Digit4`, `input.js`),
+not a showcase surface, so it was in scope for real. The other two copies are left: both are
+genuinely showcase-only, painting a fixed reference frame no player reaches.
+
+**No `EMISSIVE` entry was needed.** The plan going in assumed `TYPE_INK` would need adding to
+`ui/theme.js`'s `EMISSIVE` set so the sky does not dim it at night — but the table lives in
+`battle/types.js`, entirely outside `theme.js`'s `C`/`applyLight` machinery, so it was never
+subject to that dimming in the first place. Reality corrected the plan for free.
+
+**`callout.js`'s tail is four rows of `g.fill`, drawn after the panel and its drop shadow, not
+before** — the first cut drew it first and the panel's own `drop: true` shadow (which shades a
+strip exactly where the tail sits) ate its top row. The tail's horizontal position is the *true*
+projected anchor, clamped inside the balloon's own width, independent of the lean that already
+separates the two sides — so a leaned balloon still visibly points at its actual speaker rather
+than at whatever happens to be under the box's centre.
+
+**Floaters are a new file, `ui/floaters.js`, not a mode of `callout.js`.** A balloon replaces
+per side and holds for a fixed life; a floater stacks (several can be over the same target at
+once) and rises continuously over its own life via `screen.js`'s new `textScaled` for a crit's
+double size — different enough lifecycles that sharing one file would have meant branching
+most of it. Anchored on the *target*, not the attacker, which is the one place this doubles as
+a correction: the ally's own damage has to land on the Pokémon fighting, `simulation.follower()`,
+never on the trainer standing behind it the way the ally's *balloon* deliberately does.
+
+**Cost.** `src/ui/floaters.test.js` and `src/ui/callout.test.js` pin the drawing geometry (the
+fake-painter discipline `plates.test.js` already established) — stacking, rising, the crit
+scale, the tail's position, the two-tone text. `tests/flows/balloons-and-damage.spec.js` proves
+a real fight actually reaches both with the right content. What it does **not** cover: a miss or
+an immune hit. This is *not* because the roster is uniformly 100% accurate — it is not
+(`mudshot` 95, `rollout`/`wrap` 90, the powder moves 75, `hypnosis` 60, `sing`/`supersonic` 55,
+all real learnset entries in the meadow/forest band) — but because no move this slice checked
+for a *guaranteed* live repro exists: which move `battle.choose()`'s expected-damage ranking
+actually picks depends on the live matchup's types and levels, so a flow test would have to pin
+a specific pair of species and moves and accept a real (if small) chance of the RNG rolling a
+hit anyway, or spend a turn budget hunting for a miss that might not come in time. That branch
+of the listener is checked by reading `floaters.test.js`'s direct push of
+`{text:'MISS'}`/`{text:'IMMUNE'}` and by inspection of the (short, mechanical) mapping in
+`ui/index.js`, not by a live repro — a deterministic one is future work, not a closed question.

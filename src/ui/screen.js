@@ -221,6 +221,35 @@ export function makeScreen({ root, view, log }) {
       }
       return cx - TRACKING;
     },
+    /**
+     * `text()` at an integer multiple of its normal size — a damage number's own crit
+     * emphasis (`ui/floaters.js`), and the only place this project draws text bigger than the
+     * font's authored 8px cell. `scale` has to be a whole number: the atlas is nearest-filtered
+     * and every glyph is already on the internal-pixel grid, so a fractional scale would
+     * resample a texel across a fraction of a pixel — precisely the defect `pixelsPerUnit`
+     * being 16/32/64 and nothing else exists to prevent everywhere else in this project
+     * (DECISIONS #60).
+     * @returns {number} the x the next glyph would start at
+     */
+    textScaled(x, y, str, colour, scale = 2, { shadow = null, max = Infinity } = {}) {
+      const k = Math.max(1, Math.round(scale));
+      if (k === 1) return g.text(x, y, str, colour, { shadow, max });
+      const s = max === Infinity ? String(str ?? '') : ellipsize(str, max);
+      if (shadow) g.textScaled(x + k, y + k, s, shadow, k, { max });
+      const sheet = tinted(colour);
+      let cx = Math.round(x);
+      const top = Math.round(y);
+      const limit = cx + max * k + 2;
+      for (const ch of s) {
+        const cell = atlas.cells.get(ch);
+        if (ch === ' ') { cx += (glyph(ch).w + TRACKING) * k; continue; }
+        const cw = cell ? cell.w : glyph(ch).w;
+        if (cx + cw * k > limit) break;
+        if (cell) g2.drawImage(sheet, cell.x, 0, cell.w, HEIGHT, cx, top, cell.w * k, HEIGHT * k);
+        cx += (cw + TRACKING) * k;
+      }
+      return cx - TRACKING * k;
+    },
     textRight(x, y, str, colour, opts) {
       const w = measureText(str);
       return g.text(x - w, y, str, colour, opts);
