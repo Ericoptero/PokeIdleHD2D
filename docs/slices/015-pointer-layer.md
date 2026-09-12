@@ -1,6 +1,6 @@
 # 015 — A pointer layer: drag, drop, wheel-scroll, and a clip primitive
 
-Status: proposed          Branch / commit: hud/window-system / …
+Status: done          Branch / commit: hud/window-system / …
 
 ## Why
 
@@ -93,6 +93,27 @@ scrim-closes-everything fix, which is visible today in every existing panel.
   routed through the new `scroll` field on `g.hit`) so all six panels gain wheel-scroll with no
   change to their own call sites — verified each call site passes only `{items, rowH, top,
   selected, onPick, draw, tag, dark}`, none of which collides with an added optional `onScroll`.
+  **Correction found during implementation (reality wins over this inspection):** `dex.js`
+  imports `list`/`well` from `common.js` (`src/ui/panels/dex.js:12`) and re-exports them
+  (`:206`), but it does **not** call `list()` for its own paging — its `draw()` hand-rolls an
+  inline list with its own `top` clamp and its own per-row `g.hit(rect, …, dex-${r.key})` calls
+  (confirmed: no `list(g` call site anywhere in the file). Only five call sites actually route
+  through `list()` — `travel.js`, `shop.js`, `boxes.js`, `party.js` (imported as `listWidget`),
+  and `automation.js` (twice) — and `dex.js`'s own scroll gap is **not** closed by this slice
+  (out of scope: `dex.js` is not in "Files / modules affected" and stays untouched). None of the
+  five call sites needed an `onScroll` field added after all: none of them reads `list()`'s
+  returned `top` back into a stable, wheel-reachable place either (`shop.js`, `boxes.js` and
+  `travel.js` recompute their own `top` fresh from keyboard state every frame and discard the
+  return value; only `party.js`/`automation.js` already captured it, for keyboard scrolling).
+  So the wheel offset lives inside `list()` itself — a module-scope `Map` keyed by each call's
+  own `tag`, reconciled against the caller-supplied `top` on every call and discarded the
+  moment that caller-supplied value changes (DECISIONS #84) — which is what makes "no change to
+  call sites" true for all five rather than requiring `onScroll` after all.
+  Also: this section's claim that `travel.js`'s `rows()` pattern is "cited in ARCHITECTURE's
+  testing section" does not hold up — `grep -n 'rows()' ARCHITECTURE.md` finds nothing; the
+  function exists (confirmed) but ARCHITECTURE does not name it. The flow spec this slice adds
+  does not need it either way: it reads `screen.regions()` (already documented, §5.12) rather
+  than adding a bespoke accessor to any panel.
 - `src/ui/selftest.js` (full, 266 lines) — Node-only, imports `ui/panels/common.js` (`fit`,
   `margin`) and `ui/theme.js` but not `ui/screen.js` (`makeScreen` needs `document`). The new
   pure logic this slice adds (a gesture reducer, a scroll-offset clamp) must live in functions
@@ -171,10 +192,27 @@ Edited: `src/ui/screen.js` (pointer listeners for drag/drop/wheel, `g.hit` overl
    `pointerdown` at the close-cross box → `openPanel()` is `null`. Reopen, then a `pointerdown`
    well outside the window box (still inside the buffer) → `openPanel()` is `null`. Every
    step-until is bounded with a message per CLAUDE.md's testing rule.
+   **As implemented:** `pointer()`'s `type` is the real DOM event name (`'pointerdown'`/
+   `'pointerup'`/`'wheel'`), not the shorthand `'down'` this bullet sketched — `screen.js`'s
+   listeners are registered by those exact names and `pointer()` dispatches a real
+   `PointerEvent`/`WheelEvent` of that type, so the helper's own argument names them literally.
+   The probe point is found from `screen.regions()`'s own `window-body` box (not a hand-picked
+   coordinate), and `boot()`'s frame loop is frozen (`__HOOKS__.pause()`, its own contract) so
+   each assertion forces one `ui._frame(0)` to make a state change actually repaint before the
+   next region read — both are implementation detail this bullet did not need to specify.
 5. Same spec: open `shop` (has a `list()`), wheel-scroll over the list's box, assert the panel's
    exposed cursor/top moved by asserting on which rows are drawn — reuse the existing pattern of
    exposing a non-contract read method for testing without pixels (`src/ui/panels/travel.js`'s
    `rows()`, cited in ARCHITECTURE's testing section) rather than reading pixels.
+   **As implemented, and why not `shop`:** the Inspected section's correction above applies here
+   too — `shop.js`'s shelf only registers a per-row hit region for an *unlocked* item, and a
+   fresh seed 1337 save leaves most of a shop's catalogue locked, so the very rows a scroll
+   would bring into view carry no tag to read back (a flaky, save-progress-dependent test).
+   The spec instead opens `boxes` and reads `box-<n>` tags off `screen.regions()` directly
+   (`collection`'s 32 boxes are never individually disabled and always outnumber a visible
+   page) rather than adding a bespoke `rows()`/`top()` accessor to a panel not listed in "Files
+   / modules affected" — `screen.regions()` is already the documented, no-pixels mechanism
+   (ARCHITECTURE §5.12) and needed no new panel-side surface to prove the wheel path.
 6. Regression check: every existing `tests/flows/*.spec.js` and `src/ui/selftest.js` still passes
    unmodified in behaviour (only additive checks were appended) — run by the tester independently.
 
@@ -214,4 +252,111 @@ this slice only builds the mechanism and proves it with a unit test, not a shipp
 
 ## Result
 
-Filled in when done.
+**Starting point (`npm run gate:fast`, before any edit):**
+
+```
+  lint       ok       2.4s
+  typecheck  ok       1.0s
+  seams      ok       1.5s
+  unit       ok       0.8s
+  build      skipped
+  coldboot   skipped
+  boot       skipped
+  flows      skipped
+  parity     skipped
+  regress    skipped
+  total               5.6s
+✓ gate: every stage passed
+```
+Green — 40 vitest passing, 1 expected-fail (unrelated), seams clean. Built on top of this.
+
+**Reality checks made before editing (see the Inspected section's own corrections, added in
+this commit rather than carried forward wrong):**
+- `dex.js` imports `list`/`well` from `common.js` and re-exports them, but does **not** call
+  `list()` for its own paging (it hand-rolls an inline one with its own `top`/hit-region code).
+  Only five call sites — `travel.js`, `shop.js`, `boxes.js`, `party.js` (as `listWidget`),
+  `automation.js` (×2) — actually route through `list()`. `dex.js`'s scroll gap is unchanged by
+  this slice (not in "Files / modules affected").
+- `list()`'s per-row hit region is only registered for an unlocked item
+  (`if (opts.onPick && !item.disabled)`), which the acceptance criteria's own worked example
+  (`shop`, "assert on which rows are drawn") runs into at a fresh seed 1337 save: most of a
+  shop's catalogue is still locked, so a scrolled-in row often carries no tag to read back. The
+  flow spec uses `boxes` instead (32 boxes, `DEFAULT_BOXES`, never individually disabled).
+- ARCHITECTURE.md does not actually name `travel.js`'s `rows()` anywhere (`grep -n 'rows()'
+  ARCHITECTURE.md` → nothing) — the function exists, but the citation in this slice's own
+  Inspected section does not hold up. The flow spec reads `screen.regions()` instead (already
+  documented, §5.12), needing no new panel-side accessor.
+
+**What was built, against the acceptance criteria:**
+1. `src/ui/gesture.js` — pure `startDrag/move/drop/cancel` reducer + `clampScroll`, no DOM, no
+   `Math.random()`. `src/ui/gesture.test.js` — golden-literal tests for the exact sequence named
+   (`startDrag → move → move → drop`), the no-target-cancels-to-null case, the
+   cancel-regardless-of-motion case, and the three `clampScroll` cases (negative offset,
+   beyond-max offset, `contentSize <= viewSize`). All pass (`npx vitest run
+   src/ui/gesture.test.js` — 8/8).
+2. `src/ui/selftest.js` gained a Node-only block importing `gesture.js` directly and asserting
+   the same literal values — proves no browser dependency, mirroring `battle.js`'s precedent.
+   `node src/ui/selftest.js` — all checks pass (previously-existing checks unmodified).
+3. `src/ui/screen.js`: `g.hit(box, {on, drag, drop, scroll, swallow}, tag)` overload (backward
+   compatible with every existing `g.hit(box, fn, tag)` call site — none were touched);
+   `pointerup`/`pointercancel`/`wheel` listeners added (`pointerdown`/`pointermove` extended);
+   `g.clip(x, y, w, h, draw)`; `screen.drag()` getter; `screen.regions()` now also reports
+   `swallow`/`drag`/`drop`/`scroll` booleans per region.
+4. `src/ui/panels/common.js`: `windowFrame()` registers `g.hit(box, {swallow:true},
+   'window-body')` right after `panel()` draws the paper — the scrim-ordering fix. `menu.js`
+   and `offline.js` get the identical fix at their own hand-rolled scrim call sites. `list()`
+   gained a wheel path via a module-scope `Map` (`tag` → remembered delta) reconciled against
+   the caller's own `top` every call, discarded the instant that `top` changes — zero call-site
+   edits to any of the five real callers. `scrollArea(g, box, opts)` — the same mechanism for
+   non-uniform content, built and exported, not yet wired into a panel (out of scope).
+5. `src/ui/index.js` draws the drag ghost last, reading `screen.drag()`; inert today (nothing
+   yet registers a `drag` region), so it changes no pixel in the shipped game (confirmed by
+   `regress`, see below).
+6. `tests/flows/harness.js` gained `pointer(page, {type, x, y, deltaX, deltaY})`, dispatching a
+   real `PointerEvent`/`WheelEvent` at buffer coordinates via the `#ui-screen` canvas's own
+   `getBoundingClientRect()`.
+7. `tests/flows/hud-windows.spec.js` (new, 2 tests): (a) opens `party`, clicks the header's
+   plain paper (stays open), clicks the close cross (closes), reopens, clicks well outside the
+   window on the scrim (closes) — reading probe points from `screen.regions()` itself, not
+   hand-picked coordinates. (b) opens `boxes`, reads `box-<n>` tags off `screen.regions()`,
+   dispatches a real wheel event over the `box-scroll` region, and asserts the minimum visible
+   index increased. Both pass; `boot()`'s frozen frame loop is pumped with `ui._frame(0)`
+   (already exposed) after every state change so `regions()` reflects a fresh paint.
+
+**Manual spot-check** (`npm run dev`-equivalent: a temporary `vite --port 5185`,
+`node tools/shots/shoot.js --showcase ui --mode party|shop --tod 11`): both panels render
+exactly as before — screenshots inspected, no layout shift, no stray drag-ghost artefact, the
+`mart` shelf's 20 rows still fit with no scrollbar at this buffer size (consistent with the
+Poké Mart's own item count).
+
+**Docs corrected in this commit:** `ARCHITECTURE.md` §5.12 (`screen.regions()`'s shape, the new
+`g.hit`/`g.clip`/`screen.drag()` surface, `list()`/`scrollArea()`'s wheel path).
+`docs/DECISIONS.md` — new entry #84 (revises #77(a) forward, per the archive's own convention;
+#77's text is unedited). This slice's own Inspected section, corrected in three places (above).
+
+**Final `npm run gate` (GATE_PORT=5183, full run):**
+
+```
+========================================================================
+  lint       ok       4.5s
+  typecheck  ok       0.6s
+  seams      ok       2.7s
+  unit       ok       1.2s
+  build      ok       5.1s
+  coldboot   ok       4.6s
+  boot       ok       122.9s
+  flows      ok       48.8s
+  parity     ok       33.3s
+  regress    ok       63.1s
+  total               286.9s
+✓ gate: every stage passed
+```
+- `unit`: 48 tests passed (40 pre-existing + 8 new in `gesture.test.js`), 1 expected fail
+  (pre-existing, unrelated).
+- `boot`: 24/24 entry points (18 showcases, 6 scenes) still draw a real frame.
+- `flows`: 22/22, including the 2 new `hud-windows.spec.js` tests; every pre-existing spec
+  passes unmodified (regression check, acceptance criterion 6).
+- `parity`: 7/7 viewports, sprite grid identical, walk-stability check unchanged.
+- `regress`: **0 improved, 0 regressed, 0 moved, across 18 frames** — exactly what was
+  predicted ("the fix is purely to hit-region ordering, not to drawing"); no
+  `regress.js --accept` needed, no frame named as moved.

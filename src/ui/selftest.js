@@ -26,6 +26,10 @@ import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
+// `gesture.js` touches no DOM by construction (it is the pointer layer's pure half, pulled out
+// for exactly this reason — slice 015), so its reducer and its scroll clamp run here the same
+// way `panels/battle.js`'s transcript formatter already does.
+import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag, clampScroll } from './gesture.js';
 // `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
 // function this file may call — the same discipline that lets `evolution.js` be tested here.
 import { lineFor, STATUS_NAME } from './panels/battle.js';
@@ -260,6 +264,40 @@ const check = (name, ok, detail = '') => {
   }
   // The two tracks are the alternation: they must disagree, or nothing is swapping.
   check('the two sprite tracks are not the same animation', tracks.old !== tracks.neu);
+}
+
+// --- the pointer layer's pure half (slice 015) -------------------------------
+// Proves `gesture.js` has no browser dependency — the same guarantee `battle.js`'s and
+// `evolution.js`'s pure exports already have, checked here rather than only in a browser test
+// so a DOM-shaped regression (an accidental `document.` reference) fails under plain Node too.
+{
+  const s1 = startDrag('mon-3', 'party-row', 10, 20);
+  check('startDrag returns the picked-up state',
+    JSON.stringify(s1) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 10, y: 20 }),
+    JSON.stringify(s1));
+
+  const s2 = moveDrag(s1, 5, -3);
+  check('move() adds the delta, not an absolute position',
+    JSON.stringify(s2) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
+    JSON.stringify(s2));
+
+  const s3 = dropDrag(s2, { id: 'box-slot-9' });
+  check('drop() over a target ends the gesture with phase "drop"',
+    JSON.stringify(s3) === JSON.stringify({ phase: 'drop', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
+    JSON.stringify(s3));
+
+  check('drop() with no target cancels back to null', dropDrag(s2, null) === null);
+  check('cancel() discards the gesture regardless of accumulated motion',
+    cancelDrag(moveDrag(s1, 9999, -9999)) === null);
+  check('move()/drop() pass a null state through unchanged',
+    moveDrag(null, 1, 1) === null && dropDrag(null, { id: 'x' }) === null);
+
+  check('clampScroll: a negative offset clamps to 0', clampScroll(-40, 300, 100) === 0);
+  check('clampScroll: an offset beyond contentSize - viewSize clamps to that max',
+    clampScroll(1000, 300, 100) === 200, String(clampScroll(1000, 300, 100)));
+  check('clampScroll: contentSize <= viewSize always clamps to 0',
+    clampScroll(50, 100, 100) === 0 && clampScroll(50, 80, 100) === 0);
+  check('clampScroll: an in-range offset passes through unchanged', clampScroll(120, 300, 100) === 120);
 }
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nui: all checks pass');

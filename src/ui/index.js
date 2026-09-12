@@ -415,6 +415,17 @@ export default {
       callouts.draw(g, project);
       toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
       if (state.debug) drawDebug(g);
+      // The drag ghost, last of all: whatever is held follows the pointer over the top of
+      // every panel, every toast, the debug overlay — everything this frame just drew. A held
+      // drag is `screen.drag()` (`gesture.js`'s state, kept alive across the `paint()` that
+      // just reset every hit region), not anything this module owns.
+      const drag = screen.drag();
+      if (drag) {
+        const label = String(drag.payload);
+        const w = g.measure(label) + 10;
+        g.fill(drag.x + 8, drag.y - 6, w, 11, 'rgba(20,18,26,0.85)');
+        g.text(drag.x + 13, drag.y - 5, label, C.wallHi);
+      }
     }
 
     // ------------------------------------------------------------------ frame

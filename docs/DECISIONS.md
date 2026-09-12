@@ -829,3 +829,67 @@ health outside a fainted party's own two safety nets. `docs/STATUS.json`'s
 calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounter travel now costs
 a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
 (`remainingCooldownMs`'s return value is available for one); out of scope here.
+
+---
+
+### 84 — 2026-09-12 — A pointer layer: the state that survives a repaint, and the plain paper that swallowed nothing
+
+**Revises #77(a) forward, without editing its text.** #77 rejected drag for the automation
+panel's own reordering on the mechanism, not the taste: "there is no pointer capture, no drag
+state, and nothing that survives a repaint mid-gesture… building that for lists that ship at
+most nine rows… would be a subsystem in service of a flourish." That objection was about the
+*mechanism* not existing, and it no longer does not exist — `src/ui/gesture.js` is a pure
+reducer (`startDrag`/`move`/`drop`/`cancel`, plus the scroll-offset clamp `clampScroll`), and
+`src/ui/screen.js` keeps its output (`dragState`) in a closure variable that outlives the
+`regions = []` reset every `paint()` does, keyed on **what was picked up** — `{tag, payload}` —
+never on the rectangle a region was drawn in, which is meaningless the instant the next frame
+moves it. #77(a)'s own conclusion for the automation panel specifically (`^`/`v` buttons, not
+drag) is untouched — a nine-row list still does not need this — but the reason it gave for
+never building the mechanism at all is gone.
+
+**Two bugs, one gap.** `windowFrame` (`src/ui/panels/common.js`) registered a full-buffer
+`scrim` hit region tagged `onClose` *before* drawing the panel's own paper and its content, and
+`screen.js`'s `pick()` returns the **last** registered region containing the point — so the
+moment any later widget (a row, a button, the close cross) registered its own region over part
+of that paper, that widget's region won there and the scrim won everywhere else, including
+over inert paper with nothing drawn on it. That read as "click anywhere on the popup closes
+it, except where there happens to be a control" — the first reported bug. The fix is a second
+region, `{swallow: true}` tagged `window-body`, registered over the panel's own box right after
+`panel()` draws it and before any content: every later widget still wins over it by the same
+"last one wins" rule, and the gap in between now swallows a pointerdown instead of falling
+through. `menu.js` and `offline.js` hand-roll the same scrim pattern independently of
+`windowFrame` and get the identical fix at their own call sites. `battle.js` and `dialogue.js`
+register no scrim at all and are untouched.
+
+**The second bug — no view in `src/` could scroll a mouse wheel — is fixed by extending
+`list()`, not by inventing a second list widget.** Four of `list()`'s six call sites
+(`shop.js`, `boxes.js`, `travel.js`) never read its returned `{rows, top}` back into their own
+state, and a fifth, `dex.js`, imports `list`/`well` from `common.js` but does not actually call
+`list()` for its own paging (it hand-rolls an inline one) — a correction to this slice's own
+Inspected section, which had claimed all six call sites route through `list()`. So a wheel
+delta cannot live in any of these panels' own closures; it lives in `list()` itself, in a
+module-scope `Map` keyed by each call's own `tag`, reconciled against the caller-supplied `top`
+every call: the moment a caller's own `top` changes from what it was when the memory was
+recorded (a keyboard nav, a fresh selection, a fresh `open()`), the memory is discarded rather
+than fought, which is what keeps this from clobbering the keyboard-driven scrolling every one
+of these panels already had. `scrollArea(g, box, opts)` is the same primitive (`g.clip` plus
+the same reconciliation) for content that is not a uniform row list — the truncated panes named
+in this slice's own brief (`boxes.js`'s detail column, `shop.js`'s multiplier list,
+`automation.js`'s settings column) — built here and left unwired; wiring it in is out of scope.
+
+**`screen.regions()` reports a control's mode now, not just that it exists.** `swallow`, `drag`,
+`drop` and `scroll` booleans ride alongside the existing `tag`/`box`, so a flow test can assert
+a region exists in one of these modes without executing it — used exactly that way in
+`tests/flows/hud-windows.spec.js` to find the `window-body` swallow region and the `box-scroll`
+region it drives a real `PointerEvent`/`WheelEvent` at (`tests/flows/harness.js`'s new
+`pointer()`). That spec's own wheel test could not use `shop.js`'s shelf as named in this
+slice's own acceptance criteria: `list()`'s per-row hit region is only registered for an
+*unlocked* item, and a fresh seed 1337 save leaves most of a shop's catalogue locked, so the
+rows a scroll would bring into view carry no tag to read back. `collection`'s 32 boxes
+(`DEFAULT_BOXES`) are never individually disabled and always outnumber a 640×360 buffer's
+visible rows, so the flow test scrolls the boxes panel instead.
+
+**What this does not build.** Movable or resizable windows (016), UI scale, save-slice
+persistence for either, and drag-to-reorder anywhere (a unit test proves the reducer; nothing
+in `src/ui/panels/` yet calls `drag`/`drop` on a real `g.hit()`). Reordering an automation's
+rules is still `^`/`v` buttons, unchanged by this slice, per #77(a)'s own untouched conclusion.

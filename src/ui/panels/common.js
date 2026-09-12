@@ -6,8 +6,44 @@
  */
 
 import { C, panel, header, well, row, button } from '../theme.js';
+import { clampScroll } from '../gesture.js';
 
 export const MARGIN = 10;
+
+/**
+ * A wheel-driven scroll offset survives here, keyed by the widget's own `tag` — not by
+ * `list()`'s or `scrollArea()`'s caller-owned `top`/`ruleTop`/etc. closure variable, which
+ * `screen.js`'s wheel handler has no way to reach. Four of the six panels that call `list()`
+ * never read its returned `top` back into their own state (`shop.js`, `boxes.js`,
+ * `travel.js`, and `dex.js` does not call `list()` at all — see the correction in slice 015's
+ * Inspected section), so this is the only place a wheel delta can live.
+ *
+ * A tag's memory is discarded, not applied, the moment the caller's own `top` changes from
+ * what it was when the memory was recorded — a keyboard nav, a fresh selection or a fresh
+ * `open()` always wins over a stale wheel position, which is what keeps this from fighting the
+ * existing keyboard-driven scrolling every one of these panels already has.
+ */
+const scrollMemory = new Map();
+
+/** The effective top for `tag`, reconciling the caller's own `top` with any wheel memory. */
+function reconciledTop(tag, callerTop, contentSize, viewSize) {
+  const mem = scrollMemory.get(tag);
+  const delta = mem && mem.callerTop === callerTop ? mem.delta : 0;
+  return clampScroll(callerTop + delta, contentSize, viewSize);
+}
+
+/** Registers the wheel target for `tag` over `box`, moving by `step` units per wheel notch. */
+function registerScroll(g, box, tag, callerTop, contentSize, viewSize, step) {
+  g.hit(box, {
+    scroll: (deltaY) => {
+      const mem = scrollMemory.get(tag);
+      const delta = mem && mem.callerTop === callerTop ? mem.delta : 0;
+      const dir = deltaY > 0 ? 1 : -1;
+      const nextTop = clampScroll(callerTop + delta + dir * step, contentSize, viewSize);
+      scrollMemory.set(tag, { callerTop, delta: nextTop - callerTop });
+    },
+  }, `${tag}-scroll`);
+}
 
 /**
  * The gutter between a window and the edge of the buffer. It is a *fraction* of the buffer
@@ -51,6 +87,13 @@ export function windowFrame(g, opts) {
   if (opts.onClose) g.hit({ x: 0, y: 0, w: g.width, h: g.height }, opts.onClose, 'scrim');
 
   panel(g, box, { paper: C.wallBase });
+  // The window's own paper swallows a pointerdown so it stops here instead of falling through
+  // to the full-buffer scrim registered above: every widget the caller draws inside `box`
+  // afterward (a row, a button, the close cross below) registers its own hit region strictly
+  // later and so wins over this one, by the same "last one wins" rule the scrim itself relies
+  // on — but the plain paper in between them had nothing registered on it at all, which was
+  // the bug (DECISIONS #84).
+  g.hit(box, { swallow: true }, 'window-body');
   const inner = header(g, box, opts.title, {
     bar: opts.bar ?? C.roofBase, edge: opts.edge ?? C.roofDeep, light: opts.light ?? C.roofLight,
   });
@@ -100,19 +143,29 @@ export function section(g, box, title, opts = {}) {
  * A scrolling list. Draws only the visible window of `items`, registers a hit region per
  * row, and paints a scrollbar when there is more than fits.
  *
+ * The mouse wheel, over this list's own box, moves that window by whole rows — registered as
+ * a `scroll` region over the whole box, *before* the per-row regions below so an ordinary
+ * click still finds whichever row is on top of it (`screen.js`'s `pick()` is "last one wins";
+ * this region carries no `on`, so it never wins a click, only a wheel event, which `screen.js`
+ * looks for by the `scroll` field itself, not by z-order).
+ *
  * @param {object} g
  * @param {{x,y,w,h}} box
- * @param {object} opts `{ items, rowH, top, selected, onPick, draw(g, item, rect, state) }`
+ * @param {object} opts `{ items, rowH, top, selected, onPick, draw(g, item, rect, state), tag, dark }`
  * @returns {{rows:number, top:number}}
  */
 export function list(g, box, opts) {
   const rowH = opts.rowH ?? 12;
   const rows = Math.max(1, Math.floor(box.h / rowH));
   const total = opts.items.length;
+  const tag = opts.tag ?? 'row';
+  const callerTop = opts.top ?? 0;
+  const top = reconciledTop(tag, callerTop, total, rows);
   const maxTop = Math.max(0, total - rows);
-  const top = Math.max(0, Math.min(maxTop, opts.top ?? 0));
   const hasBar = total > rows;
   const listW = hasBar ? box.w - 4 : box.w;
+
+  registerScroll(g, box, tag, callerTop, total, rows, 3);
 
   for (let i = 0; i < rows && top + i < total; i++) {
     const item = opts.items[top + i];
@@ -121,7 +174,7 @@ export function list(g, box, opts) {
     const ink = row(g, rect, { selected, disabled: item.disabled, dark: !!opts.dark });
     opts.draw(g, item, rect, { selected, ink, index: top + i });
     if (opts.onPick && !item.disabled) {
-      g.hit(rect, () => opts.onPick(top + i, item), `${opts.tag ?? 'row'}-${top + i}`);
+      g.hit(rect, () => opts.onPick(top + i, item), `${tag}-${top + i}`);
     }
   }
 
@@ -134,6 +187,46 @@ export function list(g, box, opts) {
     g.fill(bx, ty, 3, 1, opts.dark ? C.deepDim : C.stoneLight);
   }
   return { rows, top };
+}
+
+/**
+ * A scrolling window over content that is not a uniform row list — a wrapped paragraph, a
+ * detail pane, anything currently truncated at a hard `y` budget rather than reachable
+ * (`boxes.js`, `shop.js`'s multiplier column and `automation.js`'s settings column all still
+ * do this; wiring them onto this widget is out of this slice's scope, per its own "Out of
+ * scope" section — this builds the primitive, unused as yet).
+ *
+ * Unlike `list()`, the caller draws whatever it wants at whatever `y` it wants (`opts.draw`
+ * receives the scrolled `top`, in pixels, to subtract from its own layout), clipped to `box`
+ * with `g.clip` so content that overflows is cut at the edge instead of bleeding into
+ * whatever is drawn after it — never simply left off the bottom the way a hard budget does.
+ *
+ * @param {object} g
+ * @param {{x,y,w,h}} box
+ * @param {object} opts `{ contentH, top, draw(g, box, top), tag }`
+ * @returns {{top:number}}
+ */
+export function scrollArea(g, box, opts) {
+  const contentH = Math.max(0, opts.contentH ?? 0);
+  const tag = opts.tag ?? 'scrollArea';
+  const callerTop = opts.top ?? 0;
+  const top = reconciledTop(tag, callerTop, contentH, box.h);
+  const hasBar = contentH > box.h;
+  const barW = hasBar ? 4 : 0;
+
+  registerScroll(g, box, tag, callerTop, contentH, box.h, 24);
+  g.clip(box.x, box.y, box.w - barW, box.h, () => opts.draw(g, { ...box, w: box.w - barW }, top));
+
+  if (hasBar) {
+    const bx = box.x + box.w - 3;
+    const thumbH = Math.max(6, Math.round(box.h * box.h / contentH));
+    const maxTop = Math.max(0, contentH - box.h);
+    const ty = box.y + Math.round((box.h - thumbH) * (maxTop ? top / maxTop : 0));
+    g.fill(bx, box.y, 3, box.h, C.wallDeep);
+    g.fill(bx, ty, 3, thumbH, C.stoneBase);
+    g.fill(bx, ty, 3, 1, C.stoneLight);
+  }
+  return { top };
 }
 
 /** A labelled key/value line — the workhorse of every detail pane. */

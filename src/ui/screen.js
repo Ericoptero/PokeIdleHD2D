@@ -18,6 +18,7 @@
  */
 
 import { HEIGHT, TRACKING, glyph, ellipsize, characters } from './font.js';
+import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag } from './gesture.js';
 
 /** Ink colour of the atlas before it is tinted. */
 const ATLAS_INK = '#ffffff';
@@ -115,9 +116,23 @@ export function makeScreen({ root, view, log }) {
   }
 
   // --- hit regions -----------------------------------------------------------
-  /** @type {{x:number,y:number,w:number,h:number,on:Function,tag:string}[]} */
+  /**
+   * @type {{x:number,y:number,w:number,h:number,on:Function|undefined,tag:string,
+   *   drag:{payload:*}|undefined, drop:{accepts:Function,on:Function}|undefined,
+   *   scroll:Function|undefined, swallow:boolean}[]}
+   */
   let regions = [];
   let hovered = null;
+  /**
+   * The gesture that survives the `regions = []` reset every `paint()` does (DECISIONS #84):
+   * keyed on what was picked up (a tag and a payload), never on a rectangle, because a
+   * rectangle drawn this frame is meaningless the instant the next one moves it.
+   * @type {import('./gesture.js').DragState|null}
+   */
+  let dragState = null;
+  /** The last point a pointermove saw, so the next one can compute a delta rather than a
+   *  new absolute position — `move()` only ever takes a delta (`gesture.js`). */
+  let lastPoint = null;
 
   /**
    * Takes the renderer's own internal buffer size rather than recomputing it, so the UI grid
@@ -158,8 +173,23 @@ export function makeScreen({ root, view, log }) {
     };
   };
   const inside = (r, p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h;
+  /** Last registered wins, matching paint order — see the comment on `hit()` below. */
   const pick = (p) => {
     for (let i = regions.length - 1; i >= 0; i--) if (inside(regions[i], p)) return regions[i];
+    return null;
+  };
+  /**
+   * Finds the region a `wheel` or a drop should act on by the field it carries
+   * (`'scroll'`/`'drop'`), not by z-order: a `list()`'s scroll target covers its whole box and
+   * is registered *before* its own rows so an ordinary click still finds a row first via
+   * `pick()`, but a wheel event has to find the scroll target regardless of what is drawn on
+   * top of it. `test`, when given, additionally filters (used for `drop.accepts(payload)`).
+   */
+  const pickBy = (p, key, test) => {
+    for (let i = regions.length - 1; i >= 0; i--) {
+      const r = regions[i];
+      if (r[key] && inside(r, p) && (!test || test(r))) return r;
+    }
     return null;
   };
 
@@ -176,17 +206,63 @@ export function makeScreen({ root, view, log }) {
     const r = pick(p);
     if (!r) return;
     ev.preventDefault();
-    try { r.on(r, p); } catch (err) { log?.warn?.('ui: a panel handler threw', err); }
+    if (r.drag) {
+      // Picked up, not clicked: the state that survives is `{tag, payload}` (`gesture.js`),
+      // never the rectangle `r` — `r` does not outlive this frame's `paint()`.
+      dragState = startDrag(r.drag.payload, r.tag, p.x, p.y);
+    } else if (r.swallow) {
+      // Consumes the pointerdown without calling anything — the window-body catcher: it sits
+      // over the panel's own paper so a click there stops here rather than falling through to
+      // the full-buffer scrim registered under it (DECISIONS #84).
+    } else if (typeof r.on === 'function') {
+      try { r.on(r, p); } catch (err) { log?.warn?.('ui: a panel handler threw', err); }
+    }
     dirty = true;
   }, true);
   on(window, 'pointermove', (ev) => {
     const p = toUi(ev);
     if (!p) return;
+    if (dragState) {
+      const dx = lastPoint ? p.x - lastPoint.x : 0;
+      const dy = lastPoint ? p.y - lastPoint.y : 0;
+      dragState = moveDrag(dragState, dx, dy);
+      dirty = true;
+    }
+    lastPoint = p;
     const r = pick(p);
     const tag = r?.tag ?? null;
     if (tag !== hovered) { hovered = tag; dirty = true; }
-    document.documentElement.style.cursor = r ? 'pointer' : '';
+    document.documentElement.style.cursor = dragState ? 'grabbing' : (r && (r.on || r.drag) ? 'pointer' : '');
   });
+  // No drag survives the pointer leaving the window without a matching up/cancel: dropping
+  // outside the buffer, or the OS taking the gesture away (an alt-tab, a touch that left the
+  // screen), must not leave `dragState` picked up forever.
+  on(window, 'pointerup', (ev) => {
+    if (!dragState) return;
+    const state = dragState;
+    const p = toUi(ev) ?? lastPoint;
+    const target = p ? pickBy(p, 'drop', (r) => r.drop.accepts?.(state.payload)) : null;
+    if (target) {
+      try { target.drop.on(state.payload, p); } catch (err) { log?.warn?.('ui: a drop handler threw', err); }
+    }
+    dragState = dropDrag(state, target);
+    dragState = null; // the gesture is over either way — dropped or cancelled, nothing survives it
+    dirty = true;
+  });
+  on(window, 'pointercancel', () => {
+    if (!dragState) return;
+    dragState = cancelDrag(dragState);
+    dirty = true;
+  });
+  on(window, 'wheel', (ev) => {
+    const p = toUi(ev);
+    if (!p) return;
+    const r = pickBy(p, 'scroll');
+    if (!r) return;
+    ev.preventDefault();
+    try { r.scroll(ev.deltaY, ev.deltaX); } catch (err) { log?.warn?.('ui: a scroll handler threw', err); }
+    dirty = true;
+  }, { passive: false });
 
   // ---------------------------------------------------------------- painter
   const g = {
@@ -239,8 +315,42 @@ export function makeScreen({ root, view, log }) {
       g2.fillStyle = `rgba(8,7,12,${alpha})`;
       g2.fillRect(x, y, w, h);
     },
-    /** Registers a clickable region. Later registrations win, matching paint order. */
-    hit(box, on2, tag = '') { regions.push({ ...box, on: on2, tag }); return box; },
+    /**
+     * Registers a region. Later registrations win, matching paint order (whatever is drawn
+     * later sits visually on top, so a `pick()` walks the list backwards).
+     *
+     * The second argument is either a bare function — `on(region, point)`, the original and
+     * still the common shape — or an options object: `{on, drag, drop, scroll, swallow}`.
+     *  - `on(region, point)` — a plain click, as before.
+     *  - `drag: {payload}` — picks this region up into a held gesture on `pointerdown`
+     *    instead of calling `on` (the two are mutually exclusive on one region).
+     *  - `drop: {accepts(payload), on(payload, point)}` — receives a held drag released over
+     *    it, if `accepts` says yes.
+     *  - `scroll(deltaY, deltaX)` — receives wheel deltas while the pointer is over it.
+     *  - `swallow: true` — consumes a `pointerdown` without calling anything (the window-body
+     *    catcher: a click on a panel's own paper does nothing rather than falling through to
+     *    whatever is registered under it).
+     */
+    hit(box, on2, tag = '') {
+      if (typeof on2 === 'function') regions.push({ ...box, on: on2, tag });
+      else {
+        const o = on2 ?? {};
+        regions.push({ ...box, on: o.on, drag: o.drag, drop: o.drop, scroll: o.scroll, swallow: !!o.swallow, tag });
+      }
+      return box;
+    },
+    /**
+     * Clips `draw()` to a rectangle: the one primitive `src/` had none of before this slice
+     * (`grep -rn 'ctx\.save\|\.clip(' src/` found nothing). `save`/`restore` are paired here
+     * so a caller can never forget the `restore` half and leave every later draw call clipped.
+     */
+    clip(x, y, w, h, draw) {
+      g2.save();
+      g2.beginPath();
+      g2.rect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+      g2.clip();
+      try { draw(); } finally { g2.restore(); }
+    },
     hovered: () => hovered,
     image,
   };
@@ -277,11 +387,19 @@ export function makeScreen({ root, view, log }) {
      *
      * A diagnostic surface, like `bus.spy()`: it is what lets a capture assert that a control is
      * actually *reachable* rather than merely drawn. A button painted under another panel, or
-     * off the buffer, looks identical in a screenshot to one that works (DECISIONS #77).
+     * off the buffer, looks identical in a screenshot to one that works (DECISIONS #77). Also
+     * reports `swallow`/`drag`/`drop`/`scroll`, so a test can assert a control exists in one of
+     * these new modes without executing it (DECISIONS #84).
      */
-    regions: () => regions.map((r) => ({ tag: r.tag, box: { x: r.x, y: r.y, w: r.w, h: r.h } })),
+    regions: () => regions.map((r) => ({
+      tag: r.tag, box: { x: r.x, y: r.y, w: r.w, h: r.h },
+      swallow: !!r.swallow, drag: !!r.drag, drop: !!r.drop, scroll: !!r.scroll,
+    })),
     get dirty() { return dirty; },
     imagesSettled,
+    /** The held drag, if any: `{tag, payload, x, y}` in UI buffer pixels — read by `index.js`
+     *  to draw the drag's ghost, last, over everything else `draw()` just painted. */
+    drag: () => dragState,
     /** Clears, resets the hit list, and hands the painter to `draw`. */
     paint(draw) {
       g2.clearRect(0, 0, W, H);
@@ -291,6 +409,7 @@ export function makeScreen({ root, view, log }) {
     },
     dispose() {
       for (const off of listeners) off();
+      dragState = null;
       canvas.remove();
     },
   };
