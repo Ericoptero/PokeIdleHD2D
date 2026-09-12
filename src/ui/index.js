@@ -21,6 +21,7 @@ import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeToasts } from './toasts.js';
 import { makeCallouts } from './callout.js';
+import { makePlates } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
@@ -69,6 +70,7 @@ export default {
     const toasts = makeToasts({ frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
     const callouts = makeCallouts();
+    const plates = makePlates(ctx);
 
     /**
      * A world point on the HUD canvas, in internal pixels.
@@ -100,6 +102,8 @@ export default {
       clockBox: null,
       stripBox: null,
       partyBox: null,
+      /** This frame's nameplates, gathered once in `lateFrame` and painted by `draw`. */
+      plates: [],
     };
 
     const app = {
@@ -404,13 +408,35 @@ export default {
         }
         input.drawPad(g);
       }
-      if (state.panel) state.panel.draw(g, app);
+      const panelBox = state.panel ? state.panel.draw(g, app) : null;
       // The away card is the one moment the wallet is the *subject*: it is telling the player
       // what they earned. Round 1 dimmed the wallet under the card's own scrim at exactly
       // that moment, so it is repainted on top of it here.
       if (state.panel?.id === 'offline') hud.drawWallet(g, s);
       // A menu opens over the bottom-right corner the toasts stack in; they step aside.
       const toastRight = state.panel?.id === 'menu' ? g.width - 150 : g.width - 6;
+      // Plates first, callouts over them: a name/level/HP plate names who is standing there,
+      // a speech balloon is what that creature just did — the balloon reads as the newer,
+      // louder thing precisely because it is drawn on top.
+      //
+      // Suppressed entirely under a `full`/`hidesHud` panel, exactly like `bars` above — but
+      // `bars` alone is not the right test here. `travel` and `offline` are neither `full` nor
+      // `hidesHud` (the wallet stays up over them on purpose, `panels/offline.js`'s own
+      // comment), yet both scrim the *whole* screen themselves (`windowFrame`'s `g.scrim`, or
+      // `offline.js`'s own call to it) — a plate drawn after that scrim would float over a
+      // dimmed background like a lit sign in a blackout, anywhere on screen, not only over the
+      // panel's own box. `battle` and `menu` are the only two panels that draw no scrim at all
+      // (a docked card and a column that says outright "the city stays readable behind it"),
+      // so they are the only two a plate may still show around — clipped to the box each
+      // panel's own `draw()` just handed back, the same discipline `partyBox`/`stripBox` use.
+      const platesShow = !minimal && bars && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
+      if (platesShow) {
+        const plateFloor = Math.min(
+          state.partyBox ? state.partyBox.y : g.height,
+          state.stripBox ? state.stripBox.y : g.height,
+        );
+        plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: panelBox ?? null });
+      }
       // Under the toasts and over the world: a callout belongs to a creature, not to the HUD.
       callouts.draw(g, project);
       toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
@@ -445,6 +471,25 @@ export default {
           screen.markDirty();
         }
       }
+    }
+
+    /**
+     * The paint, moved out of `frame` and run after the camera rig updates
+     * (`core/registry.js`'s `lateFrame`, `src/main.js`'s frame loop) — the same reason
+     * `pokemon/field.js` poses its sprites there rather than in `frame`: a plate projected
+     * against last frame's camera trails a moving sprite by exactly one frame of motion, a
+     * different sub-pixel offset every time, which reads as the plate swimming (DECISIONS #18
+     * for the sprite side of the same bug).
+     *
+     * A plate follows a sprite that moves every rendered frame, not merely every sim tick, so
+     * `screen.dirty`'s tick-driven model does not fit it — this marks the screen dirty
+     * whenever there is a plate to draw, which is most of the time a scene has anyone standing
+     * in it. Measured against the render budget (§7) rather than assumed: `npm run gate`'s
+     * `boot`/`coldboot`/`regress` stages all read `fps`/`p95` off exactly this cost.
+     */
+    function lateFrame() {
+      state.plates = minimal ? [] : plates.read();
+      if (state.plates.length) screen.markDirty();
       if (screen.dirty) screen.paint(draw);
     }
 
@@ -502,6 +547,7 @@ export default {
       /** A world point on the HUD canvas, in internal pixels. Exact under the ortho camera. */
       project,
       _frame: frame,
+      _lateFrame: lateFrame,
       _draw: draw,
       _state: state,
       _minimal: minimal,
@@ -529,6 +575,8 @@ export default {
   tick() { live?._tick?.(); },
 
   frame(dt) { live?._frame(dt); },
+
+  lateFrame() { live?._lateFrame(); },
 
   dispose() { live?.dispose?.(); },
 

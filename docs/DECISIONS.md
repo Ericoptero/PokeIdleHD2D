@@ -869,3 +869,57 @@ the moment of contact, wild and lead standing on their own cells — and the two
 touches (`encounter/12`, `encounter/vfx/12`, `encounter/vfx/21`) were re-accepted in this commit;
 only the two `vfx/*` rows moved outside tolerance (`p99`, from the wild's breathing phase no
 longer offsetting by the deleted `T.APPEAR`), looked at frame by frame, both correct.
+
+### 85 — 2026-09-12 — Nameplates read the world; nothing new was published to give them one
+
+MMORPG-style plates — name, level, HP — over the trainer, the party's lead and every wild in a
+hunt, name-only over everything else, was asked for as new UI. It shipped as almost entirely a
+**read**, not a new contract: `ui/plates.js` gathers what it draws from APIs every one of those
+modules already published — `simulation.lineup()`, `hunts.slots()`, `encounter.active()`/
+`scene()`, `pokemon.lead()` — the same pull discipline `hud.js` and `panels/battle.js` already
+use (a quarantined module costs this file a category of plate, never a crash). The one live-HP
+computation a plate needs mid-duel is copied from `panels/battle.js`'s own `read()` rather than
+re-derived, because that file already solved "read the live fight, not the party record" for the
+exact same reason (DECISIONS #72: HP writes back to an instance only when a duel ends).
+
+**Two small widenings, both additive.** `simulation.npcs()` gained `x,y,z` (posed exactly as the
+renderer would, `poseWalker` at `sub: 0` — not a fresh formula, the one `renderPose` already
+uses) plus `species`/`shiny`/`trainer`/`display`, and `spawnNpc(spec)` gained an optional
+`display` — a human label for the three city person-NPCs and Nurse Joy, none of which a slug
+title-cases into anything a player should read. Nothing else moved: no new `plates()` method on
+`simulation`, `hunts` or `encounter` — the data was already there, or one field short of it.
+
+**`hpInk` moved from `panels/battle.js` to `theme.js`.** A plate's bar and the battle card's own
+bar have to agree, and the alternative was a second copy drifting the moment one of them tuned a
+threshold.
+
+**Composition, not perf, is why a plate is capped, clamped and sometimes dropped.** A wide hunt
+framing can put most of a lap's nine slots on screen; a plate for every one of them crowded into
+the same few rows near the horizon and read as a smear, not nine labels — measured on
+`?scene=hunt-meadow`, screenshot, looked at, twice: first with no cutoff (`docs/progress`
+equivalent: `shots/out/plates-hunt.png`), then again once `MAX_PLATE_TILES` (14, Chebyshev) and
+the party-bar/button-strip/battle-card clamps were in and one collision pair (`Bunnelby`,
+`Cottonee`, standing one tile apart) still printed as one smeared label. The fix for *that* is
+the rule the collision pass follows: a plate pushed against the floor with nowhere left to go is
+**skipped**, never snapped back onto the plate it was trying to clear — the first cut did the
+snap and produced exactly the two-names-stitched-together bug a screenshot caught immediately.
+
+**Painted in `lateFrame`, and this marks the screen dirty far more than `ui` used to.** A plate
+tracks a sprite that can move every *rendered* frame, and painting it against the previous
+frame's camera (the `frame` hook ran before `rig.update()`) trailed a moving sprite by one frame
+of motion — the same bug `pokemon/field.js`'s own `lateFrame` placement exists to avoid. The
+honest cost is that `screen.dirty`'s tick-driven model, built to save a redraw while nothing was
+happening, no longer saves much of anything while any plate is on screen — which is most of a
+hunt or a city.
+
+**Measured against the actual frame-timing budget, not against `regress`.** The first draft of
+this entry cited `regress`'s `p99`/`over200Pct` moving on `boot/12` as the evidence — those are
+pixel-*brightness* histogram statistics (`tools/shots/shoot.js`'s `sceneStats`), not timing, and
+a reviewer caught the mix-up. Worse, `regress`'s own matrix (`tools/shots/regress.js`) shoots a
+module's own showcase for every row but `boot/12`, and a showcase is exactly where plates are
+suppressed (`minimal`, above) — so it structurally cannot see this cost at all. The number that
+actually matters is `fps`/`p95ms` (`tools/shots/shoot.js`'s own `fps.mean`/`fps.p95ms`, budgeted
+in `checkBudgets` at ≥50 / ≤20ms) against a **real scene**, plates on: `hunt-meadow`, `hunt-forest`,
+`hunt-cave`, `hunt-coast` and `demo-city` all measured 60 fps mean, 16.7–16.8 ms p95 — comfortably
+inside budget, and `npm run gate`'s own `boot` stage (which shoots every real scene, not the
+showcases) is what would fail first if that ever stopped being true.

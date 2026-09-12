@@ -1,24 +1,24 @@
 {
   "updated": "2026-09-12",
-  "commit": "f5109b1",
+  "commit": "3664366",
   "seed": 1337,
-  "now": "A hunt encounter is field-first now (DECISIONS #84): the wild that fights is the same body that was walking the map, at the level and on the cell it was already occupying — no leaves, no \"!\" balloon, no \"A wild X appeared!\" toast. `hunts.takeSlot` hands the live NPC over instead of deleting it; `encounter` retires it only once its own actor stands where the NPC was. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
+  "now": "A hunt is field-first (DECISIONS #84) and every trainer, Pokémon and wild carries a nameplate (DECISIONS #85): name+level+HP for the trainer, the party's lead and every wild in a hunt (wandering or the one being fought, with live duel HP); name-only for every other NPC. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
   "gate": {
     "at": "2026-09-12",
-    "result": "every stage passed (294 s)",
+    "result": "every stage passed (260 s)",
     "seconds": {
-      "lint": 2.5,
-      "typecheck": 0.5,
+      "lint": 2.6,
+      "typecheck": 0.4,
       "seams": 1.5,
-      "unit": 0.8,
-      "build": 3.7,
-      "coldboot": 4.0,
-      "boot": 98.5,
-      "flows": 46.1,
-      "parity": 47.8,
-      "regress": 88.7
+      "unit": 0.9,
+      "build": 3.5,
+      "coldboot": 3.7,
+      "boot": 95.4,
+      "flows": 48.4,
+      "parity": 36.0,
+      "regress": 67.4
     },
-    "baseline": "docs/baseline.json — 1280x720, 18 regress rows, accepted this commit (encounter/vfx/12, encounter/vfx/21 moved — DECISIONS #84); 0 moved on the final run"
+    "baseline": "docs/baseline.json — 1280x720, 18 regress rows, accepted on the previous commit (encounter/vfx/12, encounter/vfx/21 — DECISIONS #84); 2 improved (boot/12, both directions preferred), 0 regressed on this commit"
   },
   "open": [
     {

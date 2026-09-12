@@ -280,6 +280,21 @@ export function button(g, box, { active = false, disabled = false, danger = fals
   return (active || danger) ? C.white : (disabled ? C.stoneShadow : C.ink);
 }
 
+/**
+ * The HP ramp — one colour pair per band, shared by the battle card and the world's own
+ * nameplates (`plates.js`) so a Pokémon's bar reads the same wherever it is drawn.
+ *
+ * The mainline goes green → yellow → red and **this palette has no green** (this set is
+ * deliberately warm and desaturated). Rather than smuggle a foreign hue in for one widget, the
+ * ramp runs mart blue → lamp amber → Center red: three steps at the same thresholds the games
+ * use (1/2 and 1/5), so the *shape* of the cue survives even though the hue does not.
+ */
+export function hpInk(frac) {
+  if (frac <= 0.2) return { fill: C.roofBase, light: C.roofLight };
+  if (frac <= 0.5) return { fill: C.glowBase, light: C.glowLight };
+  return { fill: C.martBase, light: C.martLight };
+}
+
 /** A horizontal meter. `t` is 0..1. */
 export function meter(g, box, t, { fill = C.glowBase, back = C.wallDeep, light = C.glowLight } = {}) {
   const { x, y, w, h } = box;

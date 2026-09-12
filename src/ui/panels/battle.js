@@ -29,7 +29,7 @@
  * to be thrown at that species.
  */
 
-import { C, panel, well, meter } from '../theme.js';
+import { C, panel, well, meter, hpInk } from '../theme.js';
 import { action } from './common.js';
 import { titleCase, fmt } from '../format.js';
 import { ellipsize } from '../font.js';
@@ -38,20 +38,6 @@ const isLive = (api) => !!api && api.__missing === undefined;
 
 /** The card's own width. Clamped to the buffer, which is 426 px wide at 720p. */
 const WIDTH = 176;
-
-/**
- * The HP ramp.
- *
- * The mainline goes green → yellow → red and **this palette has no green** (`ui/theme.js` is
- * a deliberately warm, desaturated set). Rather than smuggle a foreign hue in for one widget,
- * the ramp runs mart blue → lamp amber → Center red: three steps at the same thresholds the
- * games use (1/2 and 1/5), so the *shape* of the cue survives even though the hue does not.
- */
-function hpInk(frac) {
-  if (frac <= 0.2) return { fill: C.roofBase, light: C.roofLight };
-  if (frac <= 0.5) return { fill: C.glowBase, light: C.glowLight };
-  return { fill: C.martBase, light: C.martLight };
-}
 
 export const STATUS_NAME = {
   brn: 'BRN', psn: 'PSN', tox: 'TOX', par: 'PAR', slp: 'SLP', frz: 'FRZ',
@@ -423,6 +409,9 @@ export function makeBattle(app) {
           g.text(x, y + 15, `Z ${ballName(id)}    R run`, C.stoneShadow, { max: barW });
         }
       }
+      // Handed back so `ui` can keep a plate from drawing on top of the card — the same
+      // discipline as `partyBox`/`stripBox` (`ui/index.js`).
+      return box;
     },
   };
 }

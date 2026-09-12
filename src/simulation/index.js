@@ -515,7 +515,7 @@ export default {
         const npc = {
           id: nextNpcId++,
           line: l,
-          spec: { trainer: spec.trainer, species: spec.species, shiny: spec.shiny, name: spec.name },
+          spec: { trainer: spec.trainer, species: spec.species, shiny: spec.shiny, name: spec.name, display: spec.display ?? null },
           who: spec.trainer ?? null,
           /** Blocks the party's step. Wildlife opts in; the city's NPCs do not (§5.4). */
           solid: !!spec.solid,
@@ -535,9 +535,26 @@ export default {
         restage();
         return { id: npc.id, cx: spec.cx ?? 0, cz: spec.cz ?? 0, dir };
       },
+      /**
+       * Every NPC, posed exactly as the renderer would (`poseWalker` at `sub: 0`) rather than
+       * the raw cell — `x,y,z` are what `ui`'s nameplates (§5.12) anchor to, and a plate a
+       * whole tile off its sprite because this read used the discrete cell instead of the
+       * walker's own interpolated pose would be a visible, silly bug.
+       *
+       * `species`/`shiny`/`trainer`/`display` are the identity a caller needs to label the
+       * NPC without reaching into its spec directly — `display` is the human label a spawner
+       * chose (`spawnNpc`'s `display` option), for the NPCs a bare slug or a species id would
+       * not read as (a city local, Nurse Joy); `null` when there is none to give.
+       */
       npcs: () => npcs.map((n) => {
         const c = n.line.cellOf(0);
-        return { id: n.id, cx: c.cx, cz: c.cz, dir: n.line.pose(0, 0).dir, moving: n.line.moving, name: n.spec.name ?? null };
+        const { p, patch } = poseWalker(n.line, 0, 0, { kind: n.spec.trainer ? 'trainer' : 'pokemon' });
+        return {
+          id: n.id, cx: c.cx, cz: c.cz, dir: p.dir, x: p.x, y: patch.y, z: p.z,
+          moving: n.line.moving, name: n.spec.name ?? null,
+          species: n.spec.species?.name ?? (typeof n.spec.species === 'string' ? n.spec.species : null),
+          shiny: !!n.spec.shiny, trainer: n.spec.trainer ?? null, display: n.spec.display ?? null,
+        };
       }),
       removeNpc(id) {
         const i = npcs.findIndex((n) => n.id === id);

@@ -224,7 +224,7 @@ export default {
             }
           }
           const npc = sim.spawnNpc({
-            name: 'pokecenter/nurse', trainer: 'heroine',
+            name: 'pokecenter/nurse', trainer: 'heroine', display: 'Nurse Joy',
             cx: NURSE.cx, cz: NURSE.cz, dir: NURSE.dir, solid: true,
           });
           nurseId = npc?.id ?? null;

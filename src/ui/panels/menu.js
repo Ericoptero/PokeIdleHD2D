@@ -81,6 +81,10 @@ export function makeMenu(app) {
         if (on) g.text(r.x + 3, r.y + 3, '▸', C.glowLight);
         g.hit(r, () => { cursor = i; choose(item.id); }, `menu-${item.id}`);
       });
+      // Handed back for the same reason `battle.js`'s card does: `ui` keeps a nameplate off
+      // it. This panel draws no scrim — "the city stays readable behind it" is the point — so
+      // its own box is the only thing plates need to be told to clear.
+      return box;
     },
   };
 }

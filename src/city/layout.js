@@ -443,9 +443,9 @@ export const NPCS = [
   // cast was posed that way and the town had no face in it. The trainer still faces north
   // because `cameraLookAhead` is 1.6 and turning the player re-frames every preset the
   // layout was measured against (DECISIONS #26c); the NPCs carry the front instead.
-  { name: 'centre-queue', trainer: 'heroine', cx: 26, cz: 41, dir: 0 },
-  { name: 'mart-doorman', trainer: 'hero', cx: 37, cz: 41, dir: 0 },
-  { name: 'shopper', trainer: 'heroine', cx: 38, cz: 45, dir: 1, route: 'w6 e6' },
+  { name: 'centre-queue', trainer: 'heroine', display: 'Visitor', cx: 26, cz: 41, dir: 0 },
+  { name: 'mart-doorman', trainer: 'hero', display: 'Doorman', cx: 37, cz: 41, dir: 0 },
+  { name: 'shopper', trainer: 'heroine', display: 'Shopper', cx: 38, cz: 45, dir: 1, route: 'w6 e6' },
 
   // --- Pokemon --------------------------------------------------------------
   { name: 'audino', species: 'audino', cx: 24, cz: 41, dir: 3 },
