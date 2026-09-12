@@ -26,12 +26,22 @@ import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
+// `gesture.js` touches no DOM by construction (it is the pointer layer's pure half, pulled out
+// for exactly this reason — slice 015), so its reducer and its scroll clamp run here the same
+// way `panels/battle.js`'s transcript formatter already does.
+import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag, clampScroll } from './gesture.js';
+// `window.js` is the same split applied to a window's geometry (slice 016): pure clamp math,
+// no DOM, so it runs here the same way `gesture.js`'s reducer does.
+import { MIN_SIZE, minSizeFor, clampMove, clampResize } from './window.js';
 // `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
 // function this file may call — the same discipline that lets `evolution.js` be tested here.
 import { lineFor, STATUS_NAME } from './panels/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
+// `panels/inventory.js` touches the DOM only inside `draw`, same as `battle.js` above; its
+// category labels are pure data.
+import { CATEGORY_LABEL } from './panels/inventory.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -88,6 +98,31 @@ const check = (name, ok, detail = '') => {
     battleMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
   check('the battle card has a line for every event kind it lists',
     EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
+
+  /**
+   * The inventory panel's own strings (slice 018) — the category labels it draws as filter
+   * tabs, and one real `desc` per category (`economy/items.js`, copied verbatim as a literal
+   * rather than imported: seam rule 2 forbids importing a sibling module's non-`index.js`
+   * file, the same reason the battle events above are hand-written rather than pulled from
+   * `battle/moves.js`). `CATEGORY_LABEL` is imported for real, so a label added or renamed in
+   * `panels/inventory.js` is covered here without a second copy to keep in sync.
+   */
+  const ITEM_DESC_SAMPLE = [
+    'The standard capsule. 1× catch rate.', // ball: pokeball
+    'Restores 20 HP. ₽10 per point.', // medicine: potion
+    '3,000 EXP. ₽0.27 per point.', // candy: expcandy_xs
+    'Evolves the Fire Stone family. 40 shards at the Shard Stall.', // evolution: firestone
+    '+50% encounter rate for 10 minutes.', // lure: lure
+    '+50% money from every source, forever. One only.', // held: amuletcoin
+    'Sell-only loot.', // treasure: nugget
+  ];
+  const invText = [...Object.values(CATEGORY_LABEL), 'ALL', 'BAG', 'STASH', 'ITEMS', 'DETAIL',
+    'Category', 'Held', 'Sells for', 'Stack worth', 'LOCK (never auto-sold)',
+    'UNLOCK (auto-sell allowed)', 'nothing in the bag', 'nothing in the stash',
+    'nothing selected', ...ITEM_DESC_SAMPLE].join('');
+  const invMissing = [...new Set([...invText])].filter((ch) => ch !== ' ' && !has(ch));
+  check('every string the inventory panel draws has a glyph', invMissing.length === 0,
+    invMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
 
   const ragged = [];
   const tall = [];
@@ -183,8 +218,20 @@ const check = (name, ok, detail = '') => {
   // 756x492. The last two are the ones that used to be missing: a 2560x1080 ultrawide is only
   // 270 tall, and a 390 px phone in portrait is 390 wide — both narrower in one axis than any
   // panel this module authors, which is the whole point of the clamp.
-  const buffers = [[640, 360], [534, 300], [756, 492], [640, 270], [390, 844]];
-  const authored = [[560, 288], [540, 278], [502, 264], [424, 250]];
+  //
+  // The five `/2` entries are what `screen.js`'s own `resize()` actually produces from each of
+  // the buffers above once `?uiScale=2` (slice 016, DECISIONS #85) halves the UI canvas's own
+  // backing store — real produced sizes, not invented ones, matching this array's existing
+  // discipline (each halves cleanly; `screen.js` floors regardless).
+  const buffers = [
+    [640, 360], [534, 300], [756, 492], [640, 270], [390, 844],
+    [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
+  ];
+  // Every `...fit(g, w, h)` call site across `panels/*.js` — `automation.js`'s 600x300 was
+  // missing here before this slice (a pre-existing gap this check's own purpose, "every
+  // authored panel size", was silently not living up to); `inventory.js`'s 480x264 (slice
+  // 018) is added for the same reason a new authored size always belongs in this list.
+  const authored = [[560, 288], [540, 278], [502, 264], [424, 250], [600, 300], [480, 264]];
   const bad = [];
   for (const [W, H] of buffers) {
     const g = { width: W, height: H };
@@ -260,6 +307,67 @@ const check = (name, ok, detail = '') => {
   }
   // The two tracks are the alternation: they must disagree, or nothing is swapping.
   check('the two sprite tracks are not the same animation', tracks.old !== tracks.neu);
+}
+
+// --- the pointer layer's pure half (slice 015) -------------------------------
+// Proves `gesture.js` has no browser dependency — the same guarantee `battle.js`'s and
+// `evolution.js`'s pure exports already have, checked here rather than only in a browser test
+// so a DOM-shaped regression (an accidental `document.` reference) fails under plain Node too.
+{
+  const s1 = startDrag('mon-3', 'party-row', 10, 20);
+  check('startDrag returns the picked-up state',
+    JSON.stringify(s1) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 10, y: 20 }),
+    JSON.stringify(s1));
+
+  const s2 = moveDrag(s1, 5, -3);
+  check('move() adds the delta, not an absolute position',
+    JSON.stringify(s2) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
+    JSON.stringify(s2));
+
+  const s3 = dropDrag(s2, { id: 'box-slot-9' });
+  check('drop() over a target ends the gesture with phase "drop"',
+    JSON.stringify(s3) === JSON.stringify({ phase: 'drop', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
+    JSON.stringify(s3));
+
+  check('drop() with no target cancels back to null', dropDrag(s2, null) === null);
+  check('cancel() discards the gesture regardless of accumulated motion',
+    cancelDrag(moveDrag(s1, 9999, -9999)) === null);
+  check('move()/drop() pass a null state through unchanged',
+    moveDrag(null, 1, 1) === null && dropDrag(null, { id: 'x' }) === null);
+
+  check('clampScroll: a negative offset clamps to 0', clampScroll(-40, 300, 100) === 0);
+  check('clampScroll: an offset beyond contentSize - viewSize clamps to that max',
+    clampScroll(1000, 300, 100) === 200, String(clampScroll(1000, 300, 100)));
+  check('clampScroll: contentSize <= viewSize always clamps to 0',
+    clampScroll(50, 100, 100) === 0 && clampScroll(50, 80, 100) === 0);
+  check('clampScroll: an in-range offset passes through unchanged', clampScroll(120, 300, 100) === 120);
+}
+
+// --- a window's geometry (slice 016) -----------------------------------------
+// `window.test.js` (vitest) already has the full golden set; this is the same invariant run
+// under plain Node, the way `window.test.js`'s own precedent (`gesture.js`'s reducer) already
+// is here too — so a DOM-shaped regression in `window.js` fails a Node run, not only vitest.
+{
+  const buf = { width: 640, height: 360 };
+  check('minSizeFor falls back to MIN_SIZE for a panel with no override',
+    minSizeFor('shop').w === MIN_SIZE.w && minSizeFor('shop').h === MIN_SIZE.h);
+
+  const negX = clampMove({ x: -50, y: 100, w: 200, h: 150 }, buf, 10);
+  check('clampMove: a window dragged so x would go negative clamps to the margin',
+    negX.x === 10 && negX.y === 100, JSON.stringify(negX));
+
+  const pastRight = clampMove({ x: 600, y: 100, w: 200, h: 150 }, buf, 10);
+  check('clampMove: dragged past the right edge clamps so x + w never exceeds buffer.width - margin',
+    pastRight.x + pastRight.w === buf.width - 10, JSON.stringify(pastRight));
+
+  const tooSmall = clampResize({ x: 20, y: 20, w: 10, h: 10 }, buf, 10, MIN_SIZE);
+  check('clampResize: resized below the declared minimum clamps to that minimum',
+    tooSmall.w === MIN_SIZE.w && tooSmall.h === MIN_SIZE.h, JSON.stringify(tooSmall));
+
+  const tooBig = clampResize({ x: 10, y: 10, w: 5000, h: 5000 }, buf, 10, MIN_SIZE);
+  check('clampResize: resized past the buffer clamps to fit',
+    tooBig.x + tooBig.w === buf.width - 10 && tooBig.y + tooBig.h === buf.height - 10 - 2,
+    JSON.stringify(tooBig));
 }
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nui: all checks pass');

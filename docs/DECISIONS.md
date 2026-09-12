@@ -829,3 +829,167 @@ health outside a fainted party's own two safety nets. `docs/STATUS.json`'s
 calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounter travel now costs
 a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
 (`remainingCooldownMs`'s return value is available for one); out of scope here.
+
+---
+
+### 84 — 2026-09-12 — A pointer layer: the state that survives a repaint, and the plain paper that swallowed nothing
+
+**Revises #77(a) forward, without editing its text.** #77 rejected drag for the automation
+panel's own reordering on the mechanism, not the taste: "there is no pointer capture, no drag
+state, and nothing that survives a repaint mid-gesture… building that for lists that ship at
+most nine rows… would be a subsystem in service of a flourish." That objection was about the
+*mechanism* not existing, and it no longer does not exist — `src/ui/gesture.js` is a pure
+reducer (`startDrag`/`move`/`drop`/`cancel`, plus the scroll-offset clamp `clampScroll`), and
+`src/ui/screen.js` keeps its output (`dragState`) in a closure variable that outlives the
+`regions = []` reset every `paint()` does, keyed on **what was picked up** — `{tag, payload}` —
+never on the rectangle a region was drawn in, which is meaningless the instant the next frame
+moves it. #77(a)'s own conclusion for the automation panel specifically (`^`/`v` buttons, not
+drag) is untouched — a nine-row list still does not need this — but the reason it gave for
+never building the mechanism at all is gone.
+
+**Two bugs, one gap.** `windowFrame` (`src/ui/panels/common.js`) registered a full-buffer
+`scrim` hit region tagged `onClose` *before* drawing the panel's own paper and its content, and
+`screen.js`'s `pick()` returns the **last** registered region containing the point — so the
+moment any later widget (a row, a button, the close cross) registered its own region over part
+of that paper, that widget's region won there and the scrim won everywhere else, including
+over inert paper with nothing drawn on it. That read as "click anywhere on the popup closes
+it, except where there happens to be a control" — the first reported bug. The fix is a second
+region, `{swallow: true}` tagged `window-body`, registered over the panel's own box right after
+`panel()` draws it and before any content: every later widget still wins over it by the same
+"last one wins" rule, and the gap in between now swallows a pointerdown instead of falling
+through. `menu.js` and `offline.js` hand-roll the same scrim pattern independently of
+`windowFrame` and get the identical fix at their own call sites. `battle.js` and `dialogue.js`
+register no scrim at all and are untouched.
+
+**The second bug — no view in `src/` could scroll a mouse wheel — is fixed by extending
+`list()`, not by inventing a second list widget.** Four of `list()`'s six call sites
+(`shop.js`, `boxes.js`, `travel.js`) never read its returned `{rows, top}` back into their own
+state, and a fifth, `dex.js`, imports `list`/`well` from `common.js` but does not actually call
+`list()` for its own paging (it hand-rolls an inline one) — a correction to this slice's own
+Inspected section, which had claimed all six call sites route through `list()`. So a wheel
+delta cannot live in any of these panels' own closures; it lives in `list()` itself, in a
+module-scope `Map` keyed by each call's own `tag`, reconciled against the caller-supplied `top`
+every call: the moment a caller's own `top` changes from what it was when the memory was
+recorded (a keyboard nav, a fresh selection, a fresh `open()`), the memory is discarded rather
+than fought, which is what keeps this from clobbering the keyboard-driven scrolling every one
+of these panels already had. `scrollArea(g, box, opts)` is the same primitive (`g.clip` plus
+the same reconciliation) for content that is not a uniform row list — the truncated panes named
+in this slice's own brief (`boxes.js`'s detail column, `shop.js`'s multiplier list,
+`automation.js`'s settings column) — built here and left unwired; wiring it in is out of scope.
+
+**`screen.regions()` reports a control's mode now, not just that it exists.** `swallow`, `drag`,
+`drop` and `scroll` booleans ride alongside the existing `tag`/`box`, so a flow test can assert
+a region exists in one of these modes without executing it — used exactly that way in
+`tests/flows/hud-windows.spec.js` to find the `window-body` swallow region and the `box-scroll`
+region it drives a real `PointerEvent`/`WheelEvent` at (`tests/flows/harness.js`'s new
+`pointer()`). That spec's own wheel test could not use `shop.js`'s shelf as named in this
+slice's own acceptance criteria: `list()`'s per-row hit region is only registered for an
+*unlocked* item, and a fresh seed 1337 save leaves most of a shop's catalogue locked, so the
+rows a scroll would bring into view carry no tag to read back. `collection`'s 32 boxes
+(`DEFAULT_BOXES`) are never individually disabled and always outnumber a 640×360 buffer's
+visible rows, so the flow test scrolls the boxes panel instead.
+
+**What this does not build.** Movable or resizable windows (016), UI scale, save-slice
+persistence for either, and drag-to-reorder anywhere (a unit test proves the reducer; nothing
+in `src/ui/panels/` yet calls `drag`/`drop` on a real `g.hit()`). Reordering an automation's
+rules is still `^`/`v` buttons, unchanged by this slice, per #77(a)'s own untouched conclusion.
+
+---
+
+### 85 — 2026-09-12 — `full` stops hiding the HUD; a window remembers where you put it
+
+**Two things `full: true` meant, collapsed into one flag.** Before this slice, opening any of
+the five `full` panels (`shop`, `boxes`, `dex`, `automation`, `party`) both sized the window
+generously by default *and* stood the wallet, the clock, the party bar and the button strip
+down — `src/ui/index.js`'s `draw()` read `const bars = !full && !state.panel?.hidesHud`. That
+second effect was never asked for; it fell out of one flag doing two jobs, and it is the actual
+bug slice 017 (the party bar) needs fixed to be visible with any panel open. `full` now means
+only "sized generously by default" — a hint `windowFrame`/`window.js` consume for the window's
+first-ever size — and `bars` is `!state.panel?.hidesHud` alone. `hidesHud` (only `dialogue`)
+is unchanged: a message box is still the one thing that stands the bottom bars down, because it
+occupies the same strip of screen they do.
+
+**A window is a `windowId`, a title-bar `drag` region and a corner `drag` region, on exactly
+015's primitives.** `windowFrame` (`panels/common.js`) now requires `opts.windowId` — every one
+of its six callers (`shop`, `boxes`, `dex`, `automation`, `party`, `travel`) passes its own
+panel id — and registers two `g.hit(box, {drag: {payload}}, tag)` regions: the title bar
+(`'window-drag'`, payload `{kind:'window', id}`) and an 8×8 bottom-right grip (`'window-resize'`,
+payload `{kind:'resize', id}`), both drawn/registered so the close cross and the footer strip
+still win the few pixels each one would otherwise overlap ("last one wins", DECISIONS #84). The
+region's own diagnostic `tag` (what `screen.regions()` reports, and what a flow test greps for)
+and the payload's `kind` (what `reconcileDrag` actually branches on) are deliberately two
+different strings — conflating them was the first bug found writing this slice's own flow test,
+because `dragState.tag` is `g.hit()`'s third argument, not the payload.
+
+**The split this slice keeps, following `gesture.js`/`screen.js`'s own precedent exactly.**
+`src/ui/window.js` is pure geometry — `clampMove`, `clampResize` (each keeps one corner fixed:
+a title-bar drag never touches size, a corner-grip resize never touches the opposite corner),
+`defaultBox`, `minSizeFor` — importable and golden-tested under plain Node
+(`window.test.js`, `selftest.js`), exactly `gesture.js`'s own shape. The *state* — a
+`windowGeometry` Map of every panel's remembered box, and a `windowDrag` Map reconciling the
+live gesture against it — lives in `panels/common.js`, next to `scrollMemory`, which already
+solved the identical problem one type down (a wheel delta against a caller-owned `top`). Only a
+window a player has actually dragged or resized earns an entry; every other panel keeps opening
+at `fit()`'s authored default, centred, which is what a save with no `ui` slice at all already
+did.
+
+**The anchor is "first observed in a paint", not "at the `pointerdown`" — a real, small gap.**
+`windowFrame` only runs inside a paint, and a paint only happens when something is dirty. A
+live, running game marks the screen dirty synchronously in `screen.js`'s own `pointerdown`
+handler, so the gap is at most one `requestAnimationFrame` tick — imperceptible against real
+mouse movement. `tests/flows/hud-windows.spec.js`'s `boot()` freezes the frame loop entirely, so
+its own drag helper has to force that first paint by hand before moving further, or it measures
+zero movement — the failure mode this slice's own tester round found first, before the fix
+described above (`reconcileDrag` keying off the payload's `kind`, not the drag's own `tag`) was
+even in place, in a run where nothing moved at all.
+
+**`uiScale` is a `config` key, not a save-slice field.** `core/config.js`'s `DEFAULTS` gets
+`uiScale: 1`, making `?uiScale=2` a session override for free (CLAUDE.md: every `DEFAULTS` key
+is a URL param) and the menu's own toggle a `config.set({uiScale: 2}); config.persist();` call —
+`environment/index.js`'s own two-step pattern, not a new one. `screen.js`'s `resize()` divides
+the renderer's own internal buffer size by it (clamped to `{1, 2}`) before sizing the UI canvas
+alone: the world's canvas and its pixel grid (DECISIONS #60) are a separate layer, untouched.
+Window geometry, by contrast, **is** a save-slice field (`ui.saveState()` → `{ v: 1, windows }`)
+because it is per-panel state that only makes sense restored alongside the rest of a save, not
+a session-wide preference — self-registered with `offline.store`, `travel`'s own pattern
+(`src/ui` inits after `offline` in the real boot order), at `order: 55`.
+
+---
+
+### 86 — 2026-09-12 — Keeping the bars visible only works if a window is kept off them too
+
+Revises #85. Its review round (reviewer + tester, parallel, per `CLAUDE.md`) found #85's fix
+half-finished: the wallet/clock/party-bar/strip stayed *computed* with a `full` panel open, but
+nothing stopped that panel's own opaque window from being *drawn over them* — at `uiScale: 1`
+every one of the five panels' authored sizes happened to leave enough margin that this went
+unnoticed, but at `uiScale: 2` (real repro, both 1280×720 and 1920×1080) a `full` panel's window
+covers nearly the whole halved buffer, painting straight over the bars #85 was supposed to leave
+up. Separately: #85's own claim that `full` is "a hint `windowFrame`/`window.js` consume for the
+window's first-ever size" was never true — nothing reads `panel.full` anywhere; it is inert data,
+kept only as a record of which five panels used to stand the HUD down and for `battle.js`'s own
+contrasting `full: false` comment. Per this file's own convention, #85's text is not edited.
+
+**`app.hudReserved()` and `window.js`'s `clampToSafeArea` close the gap.** `index.js` already
+computes the wallet/clock/party-bar/strip boxes every frame it draws them; `hudReserved()`
+reduces those four to `{top, bottom}` — the pixels already spoken for at each edge, `{0,0}`
+when `hidesHud` — and every `windowFrame` caller passes it through as `opts.reserved`.
+`clampToSafeArea(box, buffer, margin, reserved, min)` is applied to a window's box **twice**:
+once to `base` before it ever reaches `reconcileDrag`, and once more to the final, gesture-
+reconciled result. The first application is not redundant — the first draft of this fix applied
+it only at the end, so a live drag's own anchor (`reconcileDrag`'s `mem.base`, captured from the
+*pre*-safe-area value) started from a box the player had never actually seen on screen, and a
+resize the tester drove by exactly −14px only moved −4px: the ten-pixel gap between what was
+displayed and what the drag math started from. Both flow tests this slice's own review pass
+added (`tests/flows/hud-windows.spec.js`) caught it before it shipped.
+
+**Avoiding the bars wins over honouring a window's own minimum size.** `clampToSafeArea` shrinks
+`h` below `MIN_SIZE` when the safe area itself is smaller than that, rather than floor at `min`
+and let the window overlap a band anyway — measured directly against the game's own real
+internal buffer (640×360, the size `targetInternalWidth: 640` produces regardless of the
+physical viewport tried, from 1280×720 up to 2560×1440): reserving the wallet/clock at the top
+and the party bar/strip at the bottom leaves `party`'s own 250px-tall authored window exactly
+240px of safe vertical room, zero px of it spare. A cramped window is still there, and a player
+can drag it bigger the moment there is room (which `full`'s own now-larger default, if `full`
+is ever wired to something again, would give it); a window painted over the money or the party
+never was fixable by the player at all. `min` only wins in the one case nothing can do better
+in — the reserved bands leave no safe space whatsoever.

@@ -77,7 +77,10 @@ export function makeShop(app) {
 
   return {
     id: 'shop',
-    /** A full-frame window: `index.js` stands the HUD down while one is open. */
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     open() { ensureShop(); cursor = 0; top = 0; },
     close() {},
@@ -106,6 +109,7 @@ export function makeShop(app) {
       const shop = all.find((s) => s.id === shopId) ?? null;
       const deal = isLive(e) && typeof e.deal === 'function' ? e.deal() : null;
       const win = windowFrame(g, {
+        windowId: 'shop', reserved: app.hudReserved(),
         title: 'SHOP', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑↓ choose    ←→ shop    Z buy    X close',
         onClose: () => app.close(), ...fit(g, 540, 278),
@@ -253,9 +257,12 @@ export function makeShop(app) {
         }
 
         // --- what you already hold ------------------------------------------
-        // The bag has no screen of its own yet, and this column was a third empty under
-        // five stat lines (round-1 issue 11). The same pane that quotes a price now says
-        // what the player is already carrying, which is the question a price provokes.
+        // This column was a third empty under five stat lines (round-1 issue 11). The same
+        // pane that quotes a price now says what the player is already carrying, which is
+        // the question a price provokes. The richer view — every held item, filterable,
+        // with the sell-lock — is `inventory.js` (slice 018); this stays a five-item glance
+        // read off the raw `inventory()` map, on purpose: rewiring this corner onto
+        // `bag()`'s own rows is out of that slice's scope.
         const by = detail.y + detail.h - 30;
         const bagTop = y + 5;
         const bagRoom = Math.floor((by - 14 - bagTop - 10) / 9);

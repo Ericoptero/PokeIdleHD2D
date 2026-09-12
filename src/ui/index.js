@@ -32,9 +32,12 @@ import { makeBattle } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
 import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
+import { makeInventory } from './panels/inventory.js';
+import { makeTrainer } from './panels/trainer.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
+import { setActiveDrag, serializeWindows, restoreWindows } from './panels/common.js';
 
 /**
  * The registry hands out a null-object Proxy for a missing or quarantined module, and it
@@ -44,6 +47,11 @@ import { C, panel, applyLight } from './theme.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 let live = null;
+
+/** Save slice version — window geometry only (§10). `uiScale` is a `config` key, not a save
+ *  field: it is URL-overridable per session like every other `DEFAULTS` entry, and a save slice
+ *  would fight that (DECISIONS #85). */
+const SAVE_VERSION = 1;
 
 export default {
   id: 'ui',
@@ -64,7 +72,7 @@ export default {
     // In another module's showcase this module is a passenger: wallet, clock, toasts.
     const minimal = !!config.showcase && config.showcase !== 'ui';
 
-    const screen = makeScreen({ root, view: ctx.three?.view, log });
+    const screen = makeScreen({ root, view: ctx.three?.view, log, config });
     const hud = makeHud(ctx);
     const toasts = makeToasts({ frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
@@ -100,6 +108,8 @@ export default {
       clockBox: null,
       stripBox: null,
       partyBox: null,
+      /** Set by `draw` each frame; the only consumer today is `hudReserved()` below. */
+      walletBox: null,
     };
 
     const app = {
@@ -137,6 +147,30 @@ export default {
       stripBox: () => state.stripBox,
       /** Where the party bar landed. It moves when the touch pad is out, so it is measured. */
       partyBox: () => state.partyBox,
+      /**
+       * How many pixels at the top and bottom of the buffer are already spoken for by the
+       * wallet/clock (top) and the party bar/button strip (bottom) *this frame* — every
+       * `windowFrame` call passes this straight through so a window can never open, default,
+       * or be dragged/resized on top of them (the bug slice 016's own review caught: at
+       * `uiScale: 2` a `full` panel's authored size covers nearly the whole halved buffer,
+       * including the bars it was supposed to leave visible).
+       *
+       * Measured from the boxes `draw()` already computed this frame, not from a hard-coded
+       * constant — `bars` being false (`hidesHud`) reads back as `{top:0, bottom:0}`, and a
+       * future, taller party bar (slice 017) is reserved for correctly with no change here.
+       */
+      hudReserved() {
+        const top = Math.max(
+          state.walletBox ? state.walletBox.y + state.walletBox.h : 0,
+          state.clockBox ? state.clockBox.y + state.clockBox.h : 0,
+        );
+        const bottomEdge = Math.min(
+          state.partyBox ? state.partyBox.y : Infinity,
+          state.stripBox ? state.stripBox.y : Infinity,
+        );
+        const bottom = Number.isFinite(bottomEdge) ? Math.max(0, screen.height - bottomEdge) : 0;
+        return { top: top ? top + 2 : 0, bottom: bottom ? bottom + 2 : 0 };
+      },
       toggleDebug() {
         state.debug = !state.debug;
         config.set({ debug: state.debug });
@@ -154,6 +188,8 @@ export default {
       dex: makeDex(app),
       automation: makeAutomation(app),
       party: makeParty(app),
+      inventory: makeInventory(app),
+      trainer: makeTrainer(app),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
     };
@@ -283,8 +319,10 @@ export default {
         // Travel goes first so it sits leftmost; the four data panels keep their order.
         ...(isLive(ctx.get('travel')) ? [{ id: 'travel', label: 'TRAVEL', key: 'T' }] : []),
         { id: 'party', label: 'PARTY', key: 'P' },
+        { id: 'trainer', label: 'TRAINER', key: 'R' },
         { id: 'shop', label: 'SHOP', key: 'B' },
         { id: 'boxes', label: 'BOX', key: 'C' },
+        { id: 'inventory', label: 'BAG', key: 'I' },
         { id: 'dex', label: 'DEX', key: '4' },
         // Only when there is an `automation` to configure: a chip that opens an empty window is
         // worse than no chip, and the strip is already the widest thing on the bottom bar.
@@ -347,24 +385,27 @@ export default {
       // (theme.js `applyLight`), so the wallet, the panels and the toasts share the world's
       // light instead of sitting on top of it at one fixed brightness.
       if (applyLight(s.tod)) screen.clearTints();
-      // A full-frame panel replaces the HUD rather than sitting on top of it: the wallet is
-      // repeated inside the shop, and a party bar half-hidden behind a window is clutter.
-      const full = !!state.panel?.full;
-      // A message box keeps the wallet and the clock but stands the bottom bars down: it
-      // occupies the same strip of screen they do, and in the mainline a message is the
-      // only thing on that strip.
-      const bars = !full && !state.panel?.hidesHud;
+      // `full` used to also stand the whole HUD down while the panel was open, which is what
+      // made opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the
+      // clock and the party bar along with it (DECISIONS #85). It is inert data now — nothing
+      // reads `panel.full` any more, kept on the descriptor only as a note of which panels
+      // used to behave this way; `hudReserved()` (below) is what actually keeps a window from
+      // covering the bars it no longer stands down. A message box is the one thing that still
+      // stands the bottom bars down — it occupies the same strip of screen they do, and in
+      // the mainline a message is the only thing on that strip.
+      const bars = !state.panel?.hidesHud;
       state.clockBox = null;
       state.stripBox = null;
       state.partyBox = null;
-      if (!full) {
-        hud.drawWallet(g, s);
+      state.walletBox = null;
+      if (bars) {
+        state.walletBox = hud.drawWallet(g, s);
         state.clockBox = hud.drawClock(g, s);
       }
       if (!minimal && bars) {
         // The touch pad owns the bottom-left corner when it is up, so the party bar sits
         // above it rather than under it.
-        const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4 });
+        const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4, app });
         state.partyBox = partyBox;
         const stripBox = drawStrip(g);
         state.stripBox = stripBox;
@@ -404,6 +445,10 @@ export default {
         }
         input.drawPad(g);
       }
+      // The one moment `panels/common.js`'s `windowFrame` — called from deep inside whichever
+      // panel draws next — can see the live gesture `screen.js` is holding, without every one
+      // of its six call sites threading `screen.drag()` through `opts` by hand (slice 016).
+      setActiveDrag(screen.drag());
       if (state.panel) state.panel.draw(g, app);
       // The away card is the one moment the wallet is the *subject*: it is telling the player
       // what they earned. Round 1 dimmed the wallet under the card's own scrim at exactly
@@ -415,6 +460,21 @@ export default {
       callouts.draw(g, project);
       toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
       if (state.debug) drawDebug(g);
+      // The drag ghost, last of all: whatever is held follows the pointer over the top of
+      // every panel, every toast, the debug overlay — everything this frame just drew. A held
+      // drag is `screen.drag()` (`gesture.js`'s state, kept alive across the `paint()` that
+      // just reset every hit region), not anything this module owns.
+      // A window's own move/resize drag (slice 016) carries an *object* payload
+      // (`{kind, id}`) and needs no floating tag — the window itself is already following the
+      // pointer, drawn above, in real time. The tag is only for a payload meant to be read as
+      // a label, which today means a plain string; `typeof` is the whole test.
+      const drag = screen.drag();
+      if (drag && typeof drag.payload === 'string') {
+        const label = drag.payload;
+        const w = g.measure(label) + 10;
+        g.fill(drag.x + 8, drag.y - 6, w, 11, 'rgba(20,18,26,0.85)');
+        g.text(drag.x + 13, drag.y - 5, label, C.wallHi);
+      }
     }
 
     // ------------------------------------------------------------------ frame
@@ -431,11 +491,16 @@ export default {
         const prev = state.hud;
         // The party is compared on everything the bar draws, not on the lead's name: a
         // level-up or a second Pokemon of the same species would otherwise leave the HUD
-        // stale until something unrelated dirtied it.
-        const party = (p) => JSON.stringify(p.party.map((m) => [m.name, m.level, m.shiny]));
+        // stale until something unrelated dirtied it. `hp`/`maxHp`/`status` (slice 017) are in
+        // this list for the same reason — a bar that only redrew on name/level/shiny would
+        // hold a fainted member's HP bar full until an unrelated event dirtied the screen.
+        const party = (p) => JSON.stringify(p.party.map((m) => [m.instanceId, m.name, m.level, m.shiny, m.hp, m.maxHp, m.status]));
         if (next.tod !== prev.tod
           || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
           || party(next) !== party(prev)
+          // The marked slot (slice 017): mid-fight this swaps the instant `nextAlly` sends a
+          // new member in, on the same 0.2s poll everything else in this snapshot uses.
+          || next.activeId !== prev.activeId
           // The badge is drawn from `trainer`, so a level-up has to dirty the screen on its
           // own account: nothing else in this comparison moves when a battle is won.
           || next.trainer?.level !== prev.trainer?.level
@@ -494,6 +559,15 @@ export default {
       snapshot: () => ({ ...state.hud, panel: state.panel?.id ?? null, toasts: toasts.count() }),
       /** Screen geometry, so a caller can reason about the UI grid. */
       metrics: () => ({ width: screen.width, height: screen.height, drawCalls: 0 }),
+      /**
+       * Every window a player has actually dragged or resized (§10, DECISIONS #85) — a panel
+       * never touched has no entry and keeps opening at its authored default. `restore()`
+       * pushes `loadState`'s own value straight into `panels/common.js`'s module-scope Map;
+       * there is no per-window validation beyond `restoreWindows`'s own numeric-field check,
+       * because a bad entry only ever mis-clamps a window on its next open, never crashes one.
+       */
+      saveState: () => ({ v: SAVE_VERSION, windows: serializeWindows() }),
+      loadState(value) { restoreWindows(value?.windows); screen.markDirty(); },
       input,
       _screen: screen,
       _toasts: toasts,
@@ -514,6 +588,28 @@ export default {
         live = null;
       },
     };
+
+    /**
+     * Hands the save seam to `offline` directly, the same self-registration `travel` uses and
+     * for the identical reason: `offline` discovers its native providers once, during its own
+     * `init`, and `ui` inits after it in the real boot order (`… simulation, idle, offline,
+     * travel, ui` — slice 014's derived order) — so the ordinary discovery pass never sees it.
+     * `order: 55`: after `travel`'s self-registered 45 and the default 50 every adapter and
+     * every other native slice takes, since window geometry depends on nothing else restoring
+     * first and nothing else depends on it (DECISIONS #85).
+     */
+    const offline = ctx.get('offline');
+    if (isLive(offline) && typeof offline.store?.register === 'function') {
+      offline.store.register('ui', {
+        capture: () => live.saveState(),
+        restore: (v) => live.loadState(v),
+        source: 'native',
+        order: 55,
+      });
+      const saved = offline.store.get?.('ui');
+      if (saved !== undefined) live.loadState(saved);
+    }
+
     return live;
   },
 

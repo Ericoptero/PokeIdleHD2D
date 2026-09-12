@@ -90,6 +90,21 @@ export const DEFAULTS = {
    */
   cameraSnap: true,
 
+  // --- ui ---------------------------------------------------------------------
+  /**
+   * The HUD's own pixel scale — a second, independent knob from `pixelsPerUnit`/`pixelScale`
+   * above, which size the *world*. `screen.js` divides the renderer's own internal buffer size
+   * by this before sizing the UI canvas, so at `2` every panel, every glyph and every icon
+   * covers twice the screen pixels for the same buffer pixel — readability for a bigger
+   * monitor or a player who wants larger text — with no change to a tile or a sprite, because
+   * the two canvases are separate layers (`screen.js`'s own top-of-file comment) and nothing
+   * about the world's pixel grid (DECISIONS #60) is touched.
+   *
+   * **1 or 2, and nothing else** — not the `pixelsPerUnit` ladder, a different ladder for a
+   * different surface. `screen.js` clamps anything else down to the nearer of the two.
+   */
+  uiScale: 1,
+
   // --- post -----------------------------------------------------------------
   /**
    * Whether the film grain re-rolls every frame.

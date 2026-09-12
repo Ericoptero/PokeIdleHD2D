@@ -280,6 +280,22 @@ export function button(g, box, { active = false, disabled = false, danger = fals
   return (active || danger) ? C.white : (disabled ? C.stoneShadow : C.ink);
 }
 
+/**
+ * The HP ramp, shared by the battle card and the party bar (moved here for slice 017 rather
+ * than duplicated a second time — `panels/battle.js` was its only caller and now imports it
+ * from here).
+ *
+ * The mainline goes green → yellow → red and **this palette has no green** (this file is a
+ * deliberately warm, desaturated set). Rather than smuggle a foreign hue in for one widget,
+ * the ramp runs mart blue → lamp amber → Center red: three steps at the same thresholds the
+ * games use (1/2 and 1/5), so the *shape* of the cue survives even though the hue does not.
+ */
+export function hpRamp(frac) {
+  if (frac <= 0.2) return { fill: C.roofBase, light: C.roofLight };
+  if (frac <= 0.5) return { fill: C.glowBase, light: C.glowLight };
+  return { fill: C.martBase, light: C.martLight };
+}
+
 /** A horizontal meter. `t` is 0..1. */
 export function meter(g, box, t, { fill = C.glowBase, back = C.wallDeep, light = C.glowLight } = {}) {
   const { x, y, w, h } = box;
@@ -304,6 +320,113 @@ export function pokeball(g, x, y, { red = C.ballRed, white = C.ballWhite, band =
     '.#####.',
   ];
   const map = { '#': band, R: red, W: white, B: band };
+  for (let j = 0; j < rows.length; j++) {
+    for (let i = 0; i < rows[j].length; i++) {
+      const c = map[rows[j][i]];
+      if (c) g.fill(x + i, y + j, 1, 1, c);
+    }
+  }
+}
+
+/**
+ * One placeholder mark per item category, 7×7, in `pokeball()`'s own hand-authored bitmap
+ * style — no image load, because no item icon asset exists anywhere in the repository
+ * (`src/ui/panels/inventory.js`'s own inspection: `find assets public -iname '*item*' …`
+ * turns up nothing but screenshot evidence). Explicitly not final art — `docs/STATUS.json`
+ * carries an `open` entry for real icons.
+ *
+ * Filled with `def.tier` tinted off this file's own dark-recess ramp (`deepDeep`…`deepLight`,
+ * the four-step *background* progression, not the `deepInk`/`deepDim`/`deepFaint` ink group —
+ * those are reserved for text on the recess and would make a tier-3 item's mark the same
+ * colour as the well it sits in) and outlined in `deepInk`, which stays legible against
+ * `C.deepBase` at every hour (`applyLight`'s own EMISSIVE set never dims the recess or its
+ * ink, so the outline reads the same at noon and at midnight).
+ */
+const TIER_TINT = [C.deepDeep, C.deepShade, C.deepBase, C.deepLight];
+
+const ITEM_MARKS = {
+  // a Poké Ball, plainer than `pokeball()` above: one tint, not two, since the tint here
+  // carries the item's tier rather than the ball's own colour scheme.
+  ball: [
+    '.#####.',
+    '#XXXXX#',
+    '#XXXXX#',
+    '#XX#XX#',
+    '#XXXXX#',
+    '#XXXXX#',
+    '.#####.',
+  ],
+  // a cross — the oldest medical mark there is
+  medicine: [
+    '..###..',
+    '..#X#..',
+    '#######',
+    '#XXXXX#',
+    '#######',
+    '..#X#..',
+    '..###..',
+  ],
+  // a diamond — the shape EXP candy and evolution stones already share on a shop shelf
+  candy: [
+    '...#...',
+    '..#X#..',
+    '.#XXX#.',
+    '#XXXXX#',
+    '.#XXX#.',
+    '..#X#..',
+    '...#...',
+  ],
+  // a four-point sparkle — a stone catching the light
+  evolution: [
+    '#.....#',
+    '.#...#.',
+    '..#X#..',
+    '...X...',
+    '..#X#..',
+    '.#...#.',
+    '#.....#',
+  ],
+  // a bobber, point down into the water it lures from
+  lure: [
+    '...#...',
+    '..#X#..',
+    '.#XXX#.',
+    '#XXXXX#',
+    '#XXXXX#',
+    '#XXXXX#',
+    '#######',
+  ],
+  // a ring — the held charms and the amulet are all worn, not thrown or drunk
+  held: [
+    '.#####.',
+    '#X...X#',
+    '#X...X#',
+    '#X...X#',
+    '#X...X#',
+    '#X...X#',
+    '.#####.',
+  ],
+  // a cut gem, point down — the treasure that only ever gets sold
+  treasure: [
+    '#######',
+    '#XXXXX#',
+    '#XXXXX#',
+    '#XXXXX#',
+    '.#XXX#.',
+    '..#X#..',
+    '...#...',
+  ],
+};
+
+/**
+ * Draws category `category`'s placeholder mark at `x, y`, tinted for `tier` (1..5, clamped).
+ * Falls back to the `held` silhouette for a category this table does not carry (`key`, the one
+ * typedef entry with no populated item — DECISIONS-free, just `ITEMS` having nothing in it).
+ */
+export function itemMark(g, x, y, category, tier = 1, { ink = C.deepInk } = {}) {
+  const rows = ITEM_MARKS[category] ?? ITEM_MARKS.held;
+  const fill = TIER_TINT[Math.max(0, Math.min(TIER_TINT.length - 1, Math.floor(tier) - 1))];
+  const map = { '#': ink, X: fill };
   for (let j = 0; j < rows.length; j++) {
     for (let i = 0; i < rows[j].length; i++) {
       const c = map[rows[j][i]];

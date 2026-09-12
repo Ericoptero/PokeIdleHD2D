@@ -66,6 +66,10 @@ export function makeOfflineCard(app) {
       g.scrim(0, 0, g.width, g.height, 0.55);
       g.hit({ x: 0, y: 0, w: g.width, h: g.height }, () => app.close(), 'scrim');
       panel(g, box, { paper: C.wallBase });
+      // Swallows a pointerdown on the card's own paper so it stops here rather than falling
+      // through to the scrim above it — the CONTINUE button below registers its own hit region
+      // strictly later and so still wins over this one (DECISIONS #84).
+      g.hit(box, { swallow: true }, 'window-body');
       const inner = header(g, box, 'WHILE YOU WERE AWAY', {
         bar: C.martBase, edge: C.martDeep, light: C.martLight,
       });

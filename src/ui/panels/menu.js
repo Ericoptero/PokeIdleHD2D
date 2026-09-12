@@ -10,6 +10,7 @@ import { pokeball } from '../theme.js';
 const ITEMS = [
   { id: 'travel', label: 'TRAVEL', blurb: 'the city and four hunts' },
   { id: 'party', label: 'PARTY', blurb: 'who leads, and the bench' },
+  { id: 'trainer', label: 'TRAINER', blurb: 'level, buffs, upgrades and the dex' },
   { id: 'shop', label: 'SHOP', blurb: 'four shops and the deal' },
   { id: 'boxes', label: 'BOXES', blurb: '960 slots, ten orders' },
   { id: 'dex', label: 'DEX', blurb: 'by generation and type' },
@@ -55,6 +56,10 @@ export function makeMenu(app) {
       const box = { x: g.width - w - 6, y: Math.max(floorY, bottom - h), w, h };
       g.hit({ x: 0, y: 0, w: g.width, h: g.height }, () => app.close(), 'scrim');
       panel(g, box, { paper: C.wallBase });
+      // Swallows a pointerdown on the column's own paper so it stops here rather than falling
+      // through to the scrim above it — every row registers its own hit region strictly later,
+      // in the `forEach` below, and so still wins over this one (DECISIONS #84).
+      g.hit(box, { swallow: true }, 'window-body');
 
       // The header is the Poké Ball mark rather than a word: it is the game's own bullet.
       g.fill(box.x + 1, box.y + 1, box.w - 2, 12, C.roofBase);

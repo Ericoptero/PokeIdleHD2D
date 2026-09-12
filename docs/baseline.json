@@ -160,15 +160,15 @@
    "fps": 60,
    "drawCalls": 221,
    "consoleErrors": 0,
-   "mean": 89.61,
-   "p50": 84,
-   "p95": 177,
+   "mean": 93.37,
+   "p50": 88,
+   "p95": 215,
    "p99": 234,
    "max": 255,
-   "belowL8Pct": 2.376,
+   "belowL8Pct": 2.349,
    "pureBlackPct": 0.132,
-   "over200Pct": 3.661,
-   "saturation": 0.5584
+   "over200Pct": 5.332,
+   "saturation": 0.5503
   },
   "environment/12": {
    "fps": 60,
@@ -202,15 +202,15 @@
    "fps": 60,
    "drawCalls": 57,
    "consoleErrors": 0,
-   "mean": 108.43,
+   "mean": 108.41,
    "p50": 114,
    "p95": 234,
    "p99": 234,
    "max": 255,
    "belowL8Pct": 0.296,
    "pureBlackPct": 0.003,
-   "over200Pct": 7.788,
-   "saturation": 0.6357
+   "over200Pct": 7.787,
+   "saturation": 0.6365
   },
   "encounter/vfx/12": {
    "fps": 60,

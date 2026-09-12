@@ -27,6 +27,7 @@ import * as ANIM from './evolve-anim.js';
 // a hand-copied list of ids would be the one thing that cannot prove it.
 import economyModule from '../economy/index.js';
 import battleModule from '../battle/index.js';
+import pokemonModule from './index.js';
 import { makeRng } from '../core/rng.js';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -53,6 +54,28 @@ const lookup = (k) => byName.get(String(k ?? '').toLowerCase()) ?? null;
 globalThis.fetch = async (url) => {
   const name = String(url).split('/').pop();
   return { ok: true, json: async () => gen(name) };
+};
+
+/**
+ * The minimum `document` `pokemon/index.js`'s own `init()` needs to construct at all —
+ * section 10 below boots the REAL module (not `instance.js` alone) to sweep `reorder()`.
+ * `SpriteField`'s constructor (`field.js`'s `makeBlobTexture`) builds the contact-shadow
+ * texture unconditionally, even though nothing in this sweep ever spawns a sprite; three.js's
+ * `CanvasTexture` never inspects the canvas beyond holding the reference, so a plain object
+ * answering the three calls `makeBlobTexture` makes is the whole of what is needed.
+ */
+globalThis.document = {
+  createElement(tag) {
+    if (tag !== 'canvas') throw new Error(`stub document: unexpected element <${tag}>`);
+    return {
+      width: 0, height: 0,
+      getContext: () => ({
+        fillStyle: null,
+        createRadialGradient: () => ({ addColorStop() {} }),
+        fillRect() {},
+      }),
+    };
+  },
 };
 const economy = await economyModule.init({
   bus: { emit() {}, on: () => () => {} },
@@ -296,6 +319,74 @@ for (const s of table) {
   if (!(inst.maxHp > 0) || !(inst.hp === inst.maxHp) || inst.moves.length < 1 || inst.moves.length > 4) invalidBody++;
 }
 eq('35. all 1253 species mint a valid level-50 body', invalidBody, 0);
+
+// --- 10. reorder(from, to): golden values, then an invariant sweep over many seeds ----------
+// Boots the REAL `pokemon/index.js` (not a hand-rolled reducer against `instance.js` alone),
+// against a stub `ctx` narrow enough to construct it — the same discipline `battle`/`economy`
+// above follow. A fresh boot per seed, because `party` lives in `init`'s own closure.
+async function bootPartyOf(seed, names) {
+  const emitted = [];
+  const ctx = {
+    bus: { emit: (type, payload) => { if (type === 'party:leadChanged') emitted.push(payload); }, on: () => () => {} },
+    config: { cameraPitch: 45, seed },
+    log: { info() {}, warn() {}, error() {} },
+    rng: makeRng(seed, 'root/pokemon-reorder-sweep'),
+    get: (id) => (id === 'battle' ? battle : id === 'economy' ? economy : undefined),
+    three: { scene: { add() {} } },
+  };
+  const pk = await pokemonModule.init(ctx);
+  names.forEach((species, i) => pk.addToParty(pk.createInstance({ species, level: 5, seed: i })));
+  emitted.length = 0; // the first `addToParty` (party was empty) emits too; only reorder's own count here
+  return { pk, emitted };
+}
+
+const SPECIES_POOL = ['oshawott', 'snivy', 'tepig', 'pikachu', 'charmander', 'squirtle', 'bulbasaur', 'eevee'];
+
+// Golden: the exact case the vitest unit test pins too (DECISIONS #35 — a literal, not a
+// second live call), kept here as well so the property this whole module runs under Node has
+// its own concrete witness, independent of vitest ever running.
+{
+  const { pk, emitted } = await bootPartyOf(90210, ['oshawott', 'snivy', 'tepig', 'pikachu']);
+  const before = pk.party().map((p) => p.instanceId);
+  pk.reorder(2, 0);
+  eq('36. reorder(2,0) moves the third member to the front',
+    pk.party().map((p) => p.instanceId).join(','), [before[2], before[0], before[1], before[3]].join(','));
+  eq('37. …and emits party:leadChanged naming it', emitted[0]?.instanceId, before[2]);
+}
+
+// The sweep: many seeds, many random moves each, checked against two invariants that have
+// nothing to do with any one move's arithmetic — the shape CLAUDE.md's own testing section
+// asks selftest.js for ("golden values from seed 1337, invariants swept over many runs").
+let permutationBroke = 0;
+let leadEventMismatch = 0;
+const SEEDS = 40;
+for (let seed = 0; seed < SEEDS; seed++) {
+  const sizeRng = makeRng(1337 + seed, 'root/pokemon-reorder-sweep-setup');
+  const size = sizeRng.int(2, 6);
+  const names = Array.from({ length: size }, () => sizeRng.pick(SPECIES_POOL));
+  const { pk, emitted } = await bootPartyOf(1337 + seed, names);
+  const originalSet = pk.party().map((p) => p.instanceId).slice().sort();
+
+  const moveRng = makeRng(2000 + seed, 'root/pokemon-reorder-sweep-moves');
+  for (let move = 0; move < 20; move++) {
+    const before = pk.party()[0]?.instanceId ?? null;
+    const from = moveRng.int(0, size - 1);
+    const to = moveRng.int(0, size - 1);
+    const seenBefore = emitted.length;
+    pk.reorder(from, to);
+    const after = pk.party()[0]?.instanceId ?? null;
+    const fired = emitted.length > seenBefore;
+    if (fired !== (after !== before)) leadEventMismatch++;
+  }
+
+  const nowSet = pk.party().map((p) => p.instanceId).slice().sort();
+  const same = nowSet.length === originalSet.length && nowSet.every((id, i) => id === originalSet[i]);
+  if (!same) permutationBroke++;
+}
+eq('38. reorder() sweep: the party stays a permutation of itself, over 40 seeds x 20 moves',
+  permutationBroke, 0);
+eq('39. reorder() sweep: party:leadChanged fires if and only if slot 0 actually moved',
+  leadEventMismatch, 0);
 
 const failed = results.filter((r) => !r.ok);
 for (const r of results) console.log(`${r.ok ? '✓' : '✗'} ${r.name}${r.ok || !r.detail ? '' : ` — ${r.detail}`}`);

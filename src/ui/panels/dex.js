@@ -9,7 +9,7 @@
  * disagree.
  */
 
-import { C, windowFrame, section, list, tabs, well, fit } from './common.js';
+import { C, windowFrame, section, list, tabs, well, fit, reconciledTop, registerScroll } from './common.js';
 import { meter, pokeball } from '../theme.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -31,6 +31,10 @@ export function makeDex(app) {
 
   return {
     id: 'dex',
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     open() { top = 0; cursor = 0; },
     close() {},
@@ -50,6 +54,7 @@ export function makeDex(app) {
       const records = isLive(c) && typeof c.records === 'function' ? (c.records() ?? []) : [];
 
       const win = windowFrame(g, {
+        windowId: 'dex', reserved: app.hudReserved(),
         title: 'POKéDEX', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: '↑↓ scroll    ←→ generation / type    X close',
         onClose: () => app.close(), ...fit(g, 560, 288),
@@ -151,12 +156,23 @@ export function makeDex(app) {
       top = Math.max(0, Math.min(maxTop, top));
       cursor = Math.max(0, Math.min(entries.length - 1, cursor));
 
-      for (let i = 0; i < capacity && top + i < entries.length; i++) {
-        const r = entries[top + i];
+      // `top` above is the keyboard-driven position this panel owns in its own closure — a
+      // cursor move always wins over a stale wheel offset, per `common.js`'s own rule. A wheel
+      // notch instead lives in `registerScroll`'s shared memory, keyed by this tag, and is
+      // reconciled onto `top` only for *this frame's* rendering — this panel is one of the ones
+      // that predates `list()`'s wheel support (its multi-column grid does not fit `list()`'s
+      // one-row-per-item layout), and slice 015 left it out (docs/slices/015-pointer-layer.md);
+      // this closes that gap with the same primitive rather than inventing a second one.
+      const scrollTag = 'dex-national';
+      const renderTop = reconciledTop(scrollTag, top, entries.length, capacity);
+      registerScroll(g, listBox, scrollTag, top, entries.length, capacity, cols);
+
+      for (let i = 0; i < capacity && renderTop + i < entries.length; i++) {
+        const r = entries[renderTop + i];
         const cx = listBox.x + Math.floor(i / perCol) * colW;
         const cy = listBox.y + (i % perCol) * rowH;
         const rect = { x: cx, y: cy, w: colW - 2, h: rowH };
-        const on = top + i === cursor;
+        const on = renderTop + i === cursor;
         if (on) {
           g.fill(rect.x, rect.y, rect.w, rect.h, C.martBase);
           g.fill(rect.x, rect.y, rect.w, 1, C.martLight);
@@ -167,14 +183,14 @@ export function makeDex(app) {
         g.text(rect.x + 30, rect.y + 2, r.caught > 0 || r.seen > 0 ? r.display : '------', ink, { max: colW - 54 });
         if (r.shinyCaught > 0) g.text(rect.x + rect.w - 8, rect.y + 2, '★', C.glowLight);
         else if (r.owned > 0) g.textRight(rect.x + rect.w - 4, rect.y + 2, `×${r.owned}`, on ? C.glassHi : C.deepDim);
-        g.hit(rect, () => { cursor = top + i; }, `dex-${r.key}`);
+        g.hit(rect, () => { cursor = renderTop + i; }, `dex-${r.key}`);
       }
 
       if (entries.length > capacity) {
         const bx = listBox.x + listBox.w - 3;
         g.fill(bx, listBox.y, 3, listBox.h, C.deepDeep);
         const thumb = Math.max(6, Math.round(listBox.h * capacity / entries.length));
-        const ty = listBox.y + Math.round((listBox.h - thumb) * (maxTop ? top / maxTop : 0));
+        const ty = listBox.y + Math.round((listBox.h - thumb) * (maxTop ? renderTop / maxTop : 0));
         g.fill(bx, ty, 3, thumb, C.deepLight);
       }
     },
