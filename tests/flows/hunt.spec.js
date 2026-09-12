@@ -69,5 +69,12 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   expect(await call(page, 'ui', 'openPanel'), 'the battle card closed after the encounter').not.toBe('battle');
   const after = (await events(page)).filter((e) => e.type === 'player:enteredTile' && e.at > ended.hit.at);
   expect(after.length, 'the party is walking again').toBeGreaterThan(0);
+
+  // 5. No cutscene caption. The wild was already on the map; nothing announced its arrival
+  // (DECISIONS #84 — see tests/flows/field-encounter.spec.js for the handover itself).
+  const allEvents = await events(page);
+  const toasts = allEvents.filter((e) => e.type === 'ui:toast').map((e) => String(e.payload?.text ?? ''));
+  expect(toasts.filter((t) => /appeared/i.test(t)), 'no "a wild X appeared" banner anywhere in the flow').toEqual([]);
+
   expect(errors, 'no console error during the whole flow').toEqual([]);
 });

@@ -3,14 +3,14 @@
  *
  * A still frame cannot show a roll, and a log nobody reads is not a feature. So this scene
  * does two things at once: it puts the **capture** on screen as a picture — the lead in the
- * grass, the wild Pokemon risen out of it, the ball in the air, the click — and it prints
+ * grass, the wild standing on its own cell, the ball in the air, the click — and it prints
  * the **numbers behind that exact frame** beside it, including the two independent re-rolls
  * that prove the encounter is reproducible.
  *
  * Modes (`?showcase=encounter&mode=…`):
  *
  *   walk      the lead standing in the grass with nothing rolled yet — the trigger cell
- *   reveal    the wild has just risen; the panel shows what was rolled and what it is worth
+ *   meet      the party has walked up to the wild; the panel shows what was rolled and what it is worth
  *   throw     the ball at the top of its arc  (the default: it is the one unambiguous frame)
  *   shake     on the ground, wobbling, outcome not yet shown
  *   caught    the click and its sparkles
@@ -764,10 +764,10 @@ function say(ctx, mode, staged, enc) {
   const name = (e?.display ?? e?.species ?? 'Pokemon').toUpperCase();
   const ballName = last?.ballName ?? 'BALL';
   const line = {
-    // No wild on screen yet, and that is the point of the beat.
-    approach: 'The tall grass rustled!',
-    reveal: `A wild ${name} appeared!`,
-    shiny: `A wild ${name} appeared! It is shining…`,
+    // The two animals have just met. No arrival to announce: the creature was already here.
+    approach: `${name} is in the way!`,
+    meet: `${name} stands its ground!`,
+    shiny: `${name} stands its ground! It is shining…`,
     // The mainline prints the trainer's own line at the throw, not the odds.
     throw: `Go! ${ballName.toUpperCase()}!`,
     // What the games put on screen while the ball wobbles: nothing but the wait.
@@ -809,9 +809,9 @@ const STOP = {
    * `?showcase=encounter&mode=vfx-contact&vfxType=fire` overrides the element, so all eighteen
    * are reachable from a URL without eighteen modes.
    */
-  'vfx-contact': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.25 } },
-  'vfx-projectile': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.45 } },
-  'vfx-field': { stage: 'appear', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'field', phase: 0.5 } },
+  'vfx-contact': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.25 } },
+  'vfx-projectile': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.45 } },
+  'vfx-field': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'field', phase: 0.5 } },
 
   // **k = 3, i.e. two thirds of the distance every other mode frames at.** `mode=walk` has no
   // ball and no wild in it: its whole claim is that the lead is standing on a cell tagged
@@ -822,22 +822,21 @@ const STOP = {
   // pixel for integer k (DECISIONS #29).
   walk: { throw: false, ppu: PPU.normal },
   /**
-   * **The grass, before anything is in it.** The first of the five beats the brief names,
-   * and the one that did not exist: round 2's appear drew the wild from step 0, so there was
-   * no frame in which something was happening and nothing had happened yet.
-   *
-   * 0.3 of `T.APPEAR` is inside `T.RUSTLE` (0.4) by a clear margin, so this mode is the
-   * disturbance alone — no Pokemon, no ball, no bubble — with the lead standing in it.
+   * **The moment of contact.** The party has walked off its circuit to the creature's cell and
+   * the two are looking at each other, nothing thrown and nothing struck yet — the first frame
+   * of `T.OPEN`, which is all that is left of what used to be a twenty-step reveal.
    */
-  approach: { stage: 'appear', at: 0.3, throw: false, ppu: PPU.normal },
+  approach: { stage: 'meet', at: 0.05, throw: false, ppu: PPU.normal },
   /**
-   * **The top of the burst.** `T.RUSTLE` of the beat is grass alone and the wild comes out
-   * over the remaining 0.6, so the apex of its hop is at `0.4 + 0.5·0.6 = 0.7` of the beat —
-   * the full half-unit lift, the stretch at its tallest, the "!" bubble popped, and the
-   * grass still open underneath it. Round 1 froze at 0.85 (24 screen px of lift, reading as
-   * a Pokemon *sitting* in grass); round 2's 0.5 is now inside the rustle window.
+   * **The fight, about to start.** The end of `T.OPEN`: both animals on their own cells, the
+   * wild breathing in place, the first exchange one step away.
+   *
+   * This mode was `reveal` and it was the apex of a hop out of the grass. There is no hop
+   * (DECISIONS #84) — a wild is met, not revealed — so the mode is renamed rather than
+   * repointed, because a stop called `reveal` that photographs a standing animal is a name
+   * that lies. It is still the module's default mode, and still the `encounter/12` regress row.
    */
-  reveal: { stage: 'appear', at: 0.7, throw: false, ppu: PPU.normal },
+  meet: { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal },
   // **Past the apex, not on it.** The trainer, the lead and the wild are all on one row and
   // the camera's yaw is fixed looking north, so screen-x *is* world-x and the lead stands
   // exactly halfway between thrower and target: a parabola frozen at its apex therefore puts
@@ -849,9 +848,9 @@ const STOP = {
   shake: { stage: 'shake', at: 0.45, throw: true, ppu: PPU.normal },
   caught: { stage: 'result', at: 0.34, throw: true, want: 'caught', ppu: PPU.normal },
   escaped: { stage: 'result', at: 0.3, throw: true, want: 'escaped', ppu: PPU.normal },
-  shiny: { stage: 'appear', at: 0.7, throw: false, want: 'shiny', ppu: PPU.normal },
+  shiny: { stage: 'meet', at: 0.9, throw: false, want: 'shiny', ppu: PPU.normal },
   /** The spawn table and the ball shelf's head, which the picture modes no longer carry. */
-  table: { stage: 'appear', at: 0.7, throw: false, ppu: PPU.normal },
+  table: { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal },
   // `night` does NOT force the clock. The harness applies `--tod` *after* `showcase()`
   // returns (`shoot.js` calls `__HOOKS__.setTimeOfDay` on the way to the shutter), so a mode
   // that set 21:30 for itself got a nocturnal spawn table printed over a midday picture —
@@ -863,27 +862,27 @@ const STOP = {
   // Marill at 30 % HP already clears `a >= 255`. `want: 'hard'` scans for a low capture rate.
   // A *varied* target, not merely a hard one: see `findIndex`'s `variety` scan. Round 1
   // asked for a low capture rate and got thirteen rows of `x1.00`.
-  balls: { stage: 'appear', at: 0.5, throw: false, ppu: PPU.normal, want: 'variety' },
+  balls: { stage: 'meet', at: 0.5, throw: false, ppu: PPU.normal, want: 'variety' },
 };
 
 export async function showcaseEncounter(mode, ctx) {
   /**
-   * **The default is the reveal**, and that is this round's answer to the whole-game critic.
+   * **The default is the meeting**, and that is this round's answer to the whole-game critic.
    *
    * `?showcase=encounter` with no mode is the URL an outside critic shoots, and it is the one
    * that produced `docs/progress/_whole/enc-default.png` and the verdict "there is no
    * encounter on screen at all — the catch resolving entirely inside a developer readout".
    * The default was `throw`, on the argument that a ball in the air is "the one unambiguous
-   * frame". It is unambiguous about a *ball*; the wild in it is passive, un-marked and the
-   * same size as three party members standing in the same grass, so the frame's subject was
-   * whichever sprite the reader guessed at.
+   * frame". It is unambiguous about a *ball*; the wild in it is passive and the same size as
+   * three party members standing in the same grass, so the frame's subject was whichever
+   * sprite the reader guessed at.
    *
-   * The reveal is the frame that says an encounter is happening: the wild is the only thing
-   * in the air, it is the only thing wearing the "!", the grass it came out of is still open
-   * under it, and the box at the bottom names it. `throw` is one URL away and is still the
-   * frame the ball's own critique is judged on.
+   * It was then `reveal` — the apex of a hop out of the grass, with a "!" over the wild's
+   * head. Both are gone (DECISIONS #84): the wild is met, not revealed. What makes the subject
+   * legible instead is the plate over its head and the box at the bottom that names it.
+   * `throw` is one URL away and is still the frame the ball's own critique is judged on.
    */
-  const key = STOP[mode] ? mode : 'reveal';
+  const key = STOP[mode] ? mode : 'meet';
   const stop = STOP[key];
   const enc = ctx.get('encounter');
   const sim = ctx.get('simulation');
@@ -987,23 +986,22 @@ export async function showcaseEncounter(mode, ctx) {
     // grass — which is exactly the failure this await exists to stop.
     await enc.ready();
     /**
-     * The reveal plays out first **only for a mode that then throws**, and the guard is not
-     * cosmetic: it is the bug that made `mode=reveal` a picture of a Pokemon sitting in grass.
+     * The opening beat plays out first **only for a mode that then throws**, and the guard is
+     * not cosmetic: it is the bug that made two stops inside the same beat one frame.
      *
      * `advanceToStage` computes an absolute target step and advances by `max(0, target -
-     * step)` — it cannot rewind. Rolling to `('appear', 1)` first therefore parks the scene at
-     * the END of the appear beat, and every later call for a step *inside* that beat advances
-     * by zero. Round 2 asked for `('appear', 0.5)` and got step 14 of 14; the panel printed
+     * step)` — it cannot rewind. Rolling to `('meet', 1)` first therefore parks the scene at
+     * the END of the opening beat, and every later call for a step *inside* it advances by
+     * zero. Round 2 asked for `('appear', 0.5)` and got step 14 of 14; the panel printed
      * `appear @ step 14` in `f02-reveal-morning.png` and nobody read it against the mode's own
-     * stop. So the two beats that live inside the reveal — `approach` and `reveal` itself —
-     * were the same frame, frozen after the hop had already come back down.
+     * stop. So `approach` and the default stop were the same picture.
      *
      * A throwing mode still needs the pre-roll: `attempt()` only *queues* the throw (see
-     * `marks()` in index.js), and a throw queued before the reveal has played is what keeps
+     * `marks()` in index.js), and a throw queued before the fight has played is what keeps
      * `automation`'s synchronous ball from skipping the animation in the real game.
      */
     if (stop.throw) {
-      enc.advanceToStage('appear', 1);
+      enc.advanceToStage('meet', 1);
       enc.attempt(ball);
     }
     enc.advanceToStage(stop.stage, stop.at);
@@ -1032,7 +1030,7 @@ export async function showcaseEncounter(mode, ctx) {
     `${l?.shiny ? ' SHINY' : ''}, ball ${l?.ball ?? ball}, odds ${l?.odds != null ? pct(l.odds) : 'n/a'}, ` +
     `roll ${l?.roll?.toFixed(6) ?? 'n/a'}, outcome ${l?.outcome ?? 'pending'}; ` +
     `stage ${enc.scene()?.stage ?? 'none'} @ ${enc.scene()?.step ?? 0}; ` +
-    `bubble ${enc.alerting?.() ? 'up' : 'down'}; message box ${spoke ? 'up' : 'down'}; ` +
+    `message box ${spoke ? 'up' : 'down'}; ` +
     `lead at ${lead.cx},${lead.cz} on [${standing.join(',') || 'plain'}]; ${lampCount} lamps`);
 
   // A staged scene whose lead is not actually in the grass is not proving what it claims.

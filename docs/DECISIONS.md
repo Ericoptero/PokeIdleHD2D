@@ -829,3 +829,43 @@ health outside a fainted party's own two safety nets. `docs/STATUS.json`'s
 calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounter travel now costs
 a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
 (`remainingCooldownMs`'s return value is available for one); out of scope here.
+
+### 84 — 2026-09-12 — The wild is met, not revealed: no burst, no bubble, no banner
+
+The user asked for a Tibia-style hunt: the wild Pokémon already walks the map, the party walks
+up to it, and the fight happens where the two are standing — not a cutscene that pops one out of
+the grass with a ring of leaves, a "!" balloon and an `A wild X appeared!` toast. That entire
+vocabulary (`T.APPEAR`/`T.RUSTLE`, `ball.js`'s `LEAF_*`/`ALERT_*` meshes, `alertPhase`, the toast
+in `begin()`) is deleted rather than shortened — a reveal that is merely faster is still a reveal.
+
+**The handover, not a second spawn.** `hunts.spawnNpc` already made the wild a wandering NPC
+(`tether: {radius:1}, solid:true`) and `hunts.index.js`'s own `player:enteredTile` listener
+already walks the party off the circuit to stand next to it. What changed is `takeSlot(k)`: it
+used to delete that NPC and hand `encounter` only its species/shiny/anchor cell, so `encounter`
+spawned a **second**, brand-new sprite that burst out of the grass — the cutscene was, literally,
+one Pokémon vanishing and a different one appearing in its place. `takeSlot` now returns the
+live `npcId` and the creature's **current** cell (read off `simulation.npcs()`, not the slot's
+authored anchor — a tether drifts ±1 tile, and the fight has to happen where the body actually
+is). `encounter` spawns its own actor on that same cell and retires the map NPC only once its own
+actor is drawn, so there is never a frame with neither.
+
+**The level moved to the slot.** A plate over a wandering creature's head (the next slice) has to
+show the level it will actually fight at, and until now that level was rolled fresh at the
+moment of engagement (`rollIndex`, seeded by the encounter index). It is now rolled once, when
+the creature spawns onto its slot, from its own stream (`hunts/level/<biome>/<k>/<gen>`) against
+`encounter.band()` — a sibling stream, so no species, shiny or IV roll anywhere else moves
+(ARCHITECTURE §2.5). `engage()` takes species, level and cell from the slot and everything else
+(shiny, IVs, catch rate) from the index, as before.
+
+**What replaces the "!" and the toast is nothing, on purpose.** The plate the next slice adds and
+that plate's HP bar are what says "this is an encounter, and it is waiting on you" — a banner
+announcing an arrival is describing something that, in this flow, never happens. `shimmer()` (the
+shiny's ring) is kept: it is identity, not a transition, and a green Azurill is still unreadable
+in green grass without it.
+
+**Showcase renamed, not repointed.** `?showcase=encounter`'s default mode was `reveal`, staged at
+the apex of the hop with the bubble popped. There is no apex any more, so the mode is `meet` —
+the moment of contact, wild and lead standing on their own cells — and the two regress rows this
+touches (`encounter/12`, `encounter/vfx/12`, `encounter/vfx/21`) were re-accepted in this commit;
+only the two `vfx/*` rows moved outside tolerance (`p99`, from the wild's breathing phase no
+longer offsetting by the deleted `T.APPEAR`), looked at frame by frame, both correct.

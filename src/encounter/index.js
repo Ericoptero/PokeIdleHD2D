@@ -94,17 +94,18 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * of `tick()` calls.
  */
 const T = {
-  APPEAR: 20,      // the grass moves, then the wild comes out of it and settles
   /**
-   * How much of `APPEAR` is the **grass alone**, as a fraction.
+   * The breath before the first blow, in sim steps.
    *
-   * The brief for this round is that a player should see the beat rather than read it: "the
-   * grass reacts, the wild Pokemon appears". Those are two pictures, and the first one only
-   * exists if there is a window in which the disturbance is on screen and the Pokemon is not.
-   * Eight of the twenty steps, so `mode=approach` (frozen at 0.3 of the beat) is unambiguously
-   * inside it and `mode=reveal` (0.62) is unambiguously past it.
+   * **There is no reveal any more** (DECISIONS #84). The creature was already walking the map,
+   * the party walked up to it, and the fight starts where it is standing — so what used to be
+   * `APPEAR` (20 steps of leaves, a hop, a scale pop and a "!" balloon) is half a second in
+   * which two animals are looking at each other. It is not zero, because the plate over the
+   * wild's head and the first move's balloon have to be legible before the screen fills with
+   * an effect, and it is not longer, because a hunt that stops for a second per creature stops
+   * feeling like a hunt.
    */
-  RUSTLE: 0.4,
+  OPEN: 10,
   /**
    * The duel's own beats, in sim steps. `TURN` is overridden by `config.turnSteps`.
    *
@@ -395,23 +396,27 @@ export default {
       return Number.isFinite(a?.h) ? a.h * 0.58 : 1.62;
     }
 
-    /**
-     * The bubble's own 0..1, spanning the moment the wild pops to the end of the throw window.
-     *
-     * One phase across both stages, not one per stage: the balloon pops once and then holds,
-     * and a phase that restarted at the stage boundary would pop it a second time in the
-     * middle of the beat a player is deciding in.
-     */
-    function alertPhase(s, step) {
-      const pop = T.APPEAR * T.RUSTLE;
-      const span = Math.max(1, T.APPEAR + T.READY - pop);
-      return Math.min(1, Math.max(0, (step - pop) / span));
-    }
-
     function clearWild() {
       const pokemon = ctx.get('pokemon');
       if (scene?.wildActor && isLive(pokemon)) pokemon.sprites.remove(scene.wildActor);
       if (scene) scene.wildActor = 0;
+    }
+
+    /**
+     * Takes the map's own creature out of the walker's cast. Idempotent.
+     *
+     * Called twice on purpose: once from `scene.ready`, the moment this module's actor stands
+     * where the NPC was standing, and again from `endScene()` — because an encounter can be
+     * cancelled or travelled out of before that promise ever resolves, and a wild that stayed
+     * in the cast would still be `solid` on a cell the slot has already scheduled a refill for.
+     */
+    function retireNpc() {
+      if (!scene?.npcId) return false;
+      const sim = ctx.get('simulation');
+      const id = scene.npcId;
+      scene.npcId = 0;
+      if (isLive(sim) && typeof sim.removeNpc === 'function') return sim.removeNpc(id);
+      return false;
     }
 
     /**
@@ -559,55 +564,15 @@ export default {
       const at = s.at;
       const step = s.step;
 
-      // 1. the grass moves, and then the wild comes out of it
+      // 1. **the fight, from step 0.** There is no reveal to wait out.
       //
-      // Two beats inside one, and the split is the whole point. Round 2's appear had the
-      // Pokemon on screen from step 0 and merely rising, which in the frozen frame a critic
-      // actually looks at is a Pokemon standing in grass — the reveal that the whole-game
-      // critic could not find. `T.RUSTLE` of the beat is the grass alone: the wild is not
-      // drawn at all, only the disturbance is, so the frame before the reveal is a *cause*.
-      // Then it bursts out over the rest of the beat, and `mode=approach` freezes in the
-      // first half while `mode=reveal` freezes in the second.
-      if (step <= T.APPEAR) {
-        const k = step / T.APPEAR;
-        const out = k <= T.RUSTLE ? 0 : (k - T.RUSTLE) / (1 - T.RUSTLE);
-        const hop = Math.sin(out * Math.PI) * 0.5;
-        /**
-         * It grows as it comes out — **in two discrete steps, on thirds**, and the
-         * quantisation is the whole point rather than a simplification of a nicer curve.
-         *
-         * The first cut ran a continuous squash-and-stretch (`0.62 + 0.38·min(1, out/0.55) +
-         * 0.20·sin(out·pi)`), which freezes `mode=reveal` at about 1.10. That is critic issue
-         * [12] moved from the ball onto the headline sprite: at the framing every picture mode
-         * now uses one sprite texel is exactly three internal pixels, and 1.10 of that is 3.3,
-         * so texels come out three internal pixels wide in some runs and four in others.
-         * Measured on the same species in the same cell, one frame with the ramp and one
-         * without — histogram of horizontal texel-edge spacings across the whole sprite:
-         *
-         *   scale 1     (mode=escaped)  gap 9 px x408, gap 12 px x223   48.9 % on whole texels
-         *   scale ~1.10 (mode=reveal)   gap 9 px x246, gap 12 px x441   27.1 % on whole texels
-         *
-         * A scale that is a multiple of 1/3 keeps every texel a whole number of internal
-         * pixels, so the pop goes 2/3 -> 1 and nothing in between. Two sizes read as a pop
-         * *better* than a ramp does at twenty steps a second — it is what the era's own
-         * sprites do — and the frame `mode=reveal` freezes on is the settled 1, on the grid,
-         * the same size as every other Pokemon in the picture. The burst is carried by the
-         * hop, the leaves and the bubble, which cost the grid nothing.
-         *
-         * `pokemon.sprites.set` takes `scale` and re-derives the quad from it (field.js:207).
-         */
-        moveWild(out <= 0
-          ? { visible: false }
-          : { y: at.y + hop, visible: true, scale: out < 0.34 ? 2 / 3 : 1 });
-        // A shiny announces itself, the way the mainline does — and it is the only thing
-        // that makes one legible: a shiny Azurill is green in green grass. Everything else
-        // gets the grass parting under it, which is what makes a 24-pixel hop read as a
-        // *reveal* in a still frame rather than as a Pokemon sitting in a field.
-        if (s.shiny && out > 0) sprite.shimmer(at, step); else sprite.rustle(at, k);
-        if (out > 0) sprite.alert(at, alertPhase(s, step), at.y + hop + s.headLift);
-        s.stage = 'appear';
-      } else if (!Number.isFinite(s.fightEndsAt)) {
-        // 1b. **the fight, one turn every `T.TURN` steps.**
+      // The creature was walking this map and the party walked up to it, so the first thing
+      // this loop ever draws is two animals standing on their own cells (DECISIONS #84). What
+      // used to be here — `T.RUSTLE` of leaves with the wild undrawn, then a hop and a scale
+      // pop out of the grass — is gone, and with it the one reason the first exchange could
+      // not start until step 44.
+      if (!Number.isFinite(s.fightEndsAt)) {
+        // one turn every `T.TURN` steps.
         //
         // This is the beat the whole of DECISIONS #72 is about. `begin()` used to resolve the
         // battle before the wild had finished coming out of the grass, and the card that
@@ -617,7 +582,7 @@ export default {
         if (step >= s.nextTurnAt) s.nextTurnAt = step + stepDuel(step);
         // The wild squares up: a slow breath in place, so a fight reads as two creatures and
         // not as two stills. The phase is the sim step, so a frozen frame is reproducible.
-        moveWild({ y: at.y + Math.abs(Math.sin((step - T.APPEAR) / 9)) * 0.12, visible: true, scale: 1 });
+        moveWild({ y: at.y + Math.abs(Math.sin(step / 9)) * 0.12, visible: true, scale: 1 });
         if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
         /**
          * **The blow, drawn between the two creatures that are standing there.**
@@ -658,9 +623,8 @@ export default {
         } else {
           moveWild({ y: at.y, visible: true, scale: 1 });
           if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
-          // The bubble stays up for the whole beat in which a ball may be thrown, because
-          // that is exactly what it means: this is an encounter, and it is waiting on you.
-          sprite.alert(at, alertPhase(s, step), at.y + s.headLift);
+          // **No "!" balloon.** What says "you may throw now" is the beaten wild's own plate,
+          // whose bar is on the floor, and the battle card's throw prompt (DECISIONS #84).
           s.stage = 'ready';
         }
       } else if (step < m.land) {
@@ -725,6 +689,7 @@ export default {
     }
 
     function endScene() {
+      retireNpc();
       clearWild();
       sprite.hide();
       strikeVfx.hide();
@@ -767,9 +732,9 @@ export default {
     /**
      * The most sim steps one `advance()` call may run.
      *
-     * The whole animation is `APPEAR + READY + THROW + SUCK + 5*SHAKE + RESULT + LINGER`, well
-     * under two hundred; a thousand is room for any future beat and still a number a wedged
-     * page cannot hide behind.
+     * The whole animation is `OPEN + n*TURN + VICTORY + READY + THROW + SUCK + 5*SHAKE + RESULT
+     * + LINGER`, well under two hundred for any fight this game's level curve produces; a
+     * thousand is room for a long duel and still a number a wedged page cannot hide behind.
      */
     const MAX_ADVANCE = 1000;
 
@@ -815,13 +780,15 @@ export default {
     /**
      * Starts the fight with whatever is standing on a slot.
      *
-     * `hunts.takeSlot` hands the creature over **and takes its sprite off the map**, so the
-     * wild that walks out is the one that was standing there rather than a second copy beside
-     * it — and the slot is then scheduled to refill, which is what makes it a respawn point.
+     * `hunts.takeSlot` hands the creature over **without taking its sprite off the map**: the
+     * body standing there becomes the body that fights, and this module retires it only once
+     * its own actor is drawn on the same cell (DECISIONS #84). The slot is then scheduled to
+     * refill, which is what makes it a respawn point.
      *
-     * The level, the shiny roll and the IVs still come from `rollAt(index)`: the slot decides
-     * *which species* and *where*, and the index space decides everything else, so a hunt
-     * replayed offline meets the same creature it met live (DECISIONS #35(a)).
+     * The **species, the level and the cell** are the slot's — they are what a plate over the
+     * creature's head was already advertising before anybody touched it. The shiny roll and the
+     * IVs still come from `rollAt(index)`, so a hunt replayed offline meets the same creature
+     * it met live (DECISIONS #35(a)).
      */
     function engage(slot) {
       const hunts = ctx.get('hunts');
@@ -830,17 +797,25 @@ export default {
       const index = encounters++;
       const enc = rollIndex(index);
       if (!enc) return null;
-      // The species is the slot's; everything else is the index's.
+      // **The species and the level are the slot's; everything else is the index's.** The level
+      // moved across in DECISIONS #84: it is a property of the creature that walked onto the
+      // slot, printed over its head before anybody touched it, so rolling a different one at
+      // the moment of contact would make that plate a lie.
       const species = taken.species;
       const merged = {
         ...enc,
         species: species.name,
         display: species.display ?? species.name,
         sheet: species,
+        level: Number.isFinite(taken.level) ? taken.level : enc.level,
         shiny: enc.shiny || !!taken.shiny,
         catchRate: authoredCatchRate(species.name) ?? catchRateFor(species.bst) ?? enc.catchRate,
         slot: slot.k,
-        slotCell: { cx: slot.cx, cz: slot.cz, dir: slot.dir ?? 0 },
+        // Where the creature **is**, not where the slot was authored: it drifts a tile around
+        // its tether, and the fight happens on the cell it is standing on.
+        slotCell: { cx: taken.cx, cz: taken.cz, dir: taken.dir ?? slot.dir ?? 0 },
+        // The body to inherit, retired once this module's own actor replaces it.
+        npcId: Number.isFinite(taken.npcId) ? taken.npcId : 0,
       };
       /**
        * **Auto-Lead is asked here, before the duel opens**, because that is the only moment the
@@ -1099,11 +1074,20 @@ export default {
       const sim = ctx.get('simulation');
       const trainer = isLive(sim) ? sim.player?.() : null;
       scene = {
-        step: 0, stage: 'appear', at, wildActor: 0, coverY: coverHeightAt(at.cx, at.cz),
+        step: 0, stage: 'meet', at, wildActor: 0, coverY: coverHeightAt(at.cx, at.cz),
+        /**
+         * The map NPC this fight inherited, still standing on `at` — `0` for an encounter with
+         * no slot behind it.
+         *
+         * It is **not** retired here. `hunts.takeSlot` hands the body over rather than deleting
+         * it (DECISIONS #84) and this module removes it only once `showWild` has landed its own
+         * actor on the same cell, so the creature never blinks out and back in.
+         */
+        npcId: Number.isFinite(enc.npcId) ? enc.npcId : 0,
         // The duel's clock. `nextTurnAt` is when the next exchange steps; `fightEndsAt` stays
         // `Infinity` until somebody faints, which is what `marks()` reads to know whether the
         // throw window has opened yet.
-        nextTurnAt: T.APPEAR + T.TURN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
+        nextTurnAt: T.OPEN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
         from: {
           x: (trainer?.cx ?? at.cx) + 0.5,
           y: at.y + 1.1,
@@ -1117,8 +1101,18 @@ export default {
       // The sprite sheet may not be in the atlas yet, so the actor arrives a microtask (or
       // a fetch) later. The promise is kept so a showcase can await it before it freezes the
       // timeline — a scene frozen before the wild exists is a screenshot of empty grass.
+      // `if (scene)`: a `cancel()` racing this promise (a travel out mid-fetch) already leaves
+      // whatever `showWild` spawns unclaimed — pre-existing, not touched here; a leaked actor
+      // costs a sprite slot, not correctness, and STATUS `cancel-races-spawn-actor` names it.
       scene.ready = showWild(active, at).then((id) => {
         if (scene) { scene.wildActor = id; scene.headLift = headLiftOf(id); }
+        // The handover, in this order and not the other one: the map's creature leaves the
+        // walker's cast only now that this module's actor is drawn on the cell it was standing
+        // on. Unconditional even when `showWild` failed (it answers 0 at `warn`) or `scene` is
+        // already gone: a wild left in the cast would be refilled over 26 s later and stand
+        // inside its own replacement, and a failed spawn is a wild with no visible body either
+        // way — the pre-existing gap `showWild` already had, not a new one.
+        retireNpc();
         return id;
       });
 
@@ -1136,25 +1130,10 @@ export default {
         slot: Number.isFinite(active.slot) ? active.slot : null,
       });
 
-      /**
-       * The line the games print, in the live game only.
-       *
-       * A toast and never `ui.say()`: the message box waits for a keypress before it closes
-       * (ui/panels/dialogue.js `advance`), and an idle game that opens one every time the
-       * lead walks through grass would stack a modal in front of a player who is not there.
-       * A toast says the same sentence and stands itself down.
-       *
-       * `!config.showcase` because a toast fades on a wall-clock timer, and the one thing a
-       * screenshot may not contain is something that is a different colour every capture
-       * (DECISIONS #14). Another module's showcase gets the bubble and the animation, which
-       * are both functions of the sim step, and none of the text.
-       */
-      if (!config.showcase) {
-        bus.emit('ui:toast', {
-          text: `A wild ${active.display ?? active.species}${active.shiny ? ' ★' : ''} appeared!`,
-          kind: active.shiny ? 'good' : 'info',
-        });
-      }
+      // **No "A wild X appeared!" line.** It was the caption on a cutscene that no longer
+      // happens: the creature was on the map, the party walked to it, and a banner announcing
+      // an arrival would be describing something the player just watched not happen. What names
+      // it now is the plate over its head (DECISIONS #84).
       return active;
     }
 
@@ -1217,7 +1196,7 @@ export default {
         scene.shakes = shakes;
         scene.caught = caught;
         // Queued, not jumped to: `marks()` will not honour it before the reveal is over.
-        scene.throwAt = Math.max(scene.step, T.APPEAR + T.READY);
+        scene.throwAt = Math.max(scene.step, T.OPEN + T.READY);
       }
 
       if (caught) {
@@ -1503,6 +1482,10 @@ export default {
         turns: scene.turnsSeen, fighting: !Number.isFinite(scene.fightEndsAt),
         // Where the wild is standing, so `ui` can hang a callout over it without reaching in.
         at: { cx: scene.at.cx, cz: scene.at.cz, y: scene.at.y },
+        // How far above its feet its head is, **measured off the actor** rather than guessed
+        // (`headLiftOf`): `ui` hangs a plate and a balloon off this and must not re-derive a
+        // sprite's world height from a texel count of its own.
+        headLift: scene.headLift,
       } : null),
       /**
        * Stages one strike at an exact phase and holds it — the showcase tool for the VFX.
@@ -1544,7 +1527,6 @@ export default {
        * JSON log, not from reading the source: the showcase prints it into `ctx.log.info`,
        * which the harness captures alongside the PNG.
        */
-      alerting: () => !!sprite.alerting?.(),
       /**
        * Re-fits the airborne ball to the camera. Driven by the module's `frame` hook; see
        * `ball.js` `refit()` for why it cannot be done once at placement time.
@@ -1626,6 +1608,13 @@ export default {
        * for the stage instead makes every mode's freeze point correct whatever the seed
        * rolled — the first cut of `mode=caught` froze at a hardcoded 78 and caught the third
        * wobble instead of the click.
+       *
+       * `'ready'` targets `scene.fightEndsAt + f * T.READY` and not a fixed offset from the
+       * scene's start, because a duel's length is not fixed (DECISIONS #72 — a revive or a
+       * bench swap can run it well past its first turn) — a constant baseline here was already
+       * wrong before this file had a `'meet'` stage, it simply had nothing exercising it to say
+       * so: no `STOP` mode and no test calls `advanceToStage('ready', …)` today, and the
+       * `Number.isFinite(target)` guard below is what would have caught a mistake here.
        */
       advanceToStage(stage, frac = 0.5) {
         if (!scene) return null;
@@ -1633,8 +1622,8 @@ export default {
         const f = Math.max(0, Math.min(1, frac));
         const shakeSpan = Math.max(0, scene.shakes) * T.SHAKE;
         const target = Math.round(
-          stage === 'appear' ? f * T.APPEAR
-            : stage === 'ready' ? T.APPEAR + f * T.READY
+          stage === 'meet' ? f * T.OPEN
+            : stage === 'ready' ? scene.fightEndsAt + f * T.READY
               : stage === 'throw' ? m.throwAt + f * T.THROW
                 : stage === 'capture' ? m.land + f * T.SUCK
                   : stage === 'shake' ? m.suck + f * shakeSpan
