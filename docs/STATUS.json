@@ -2,21 +2,21 @@
   "updated": "2026-09-11",
   "commit": "d9ae3cd",
   "seed": 1337,
-  "now": "The harness is in place — ten gate stages (lint, typecheck, seams, unit, build, coldboot, boot, flows, parity, regress), all green in ~212 s on this branch, with the docs rewritten from the code — and the economy loop it exposed is not: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand, so the automations shipped in #76/#77 are unreachable in play.",
+  "now": "A hunt produces battles again. A party with no conscious member was a closed loop — `slotNear` refuses one, so no encounter starts, so no resolve runs, so `wipe()` (the only caller of `reviveAll`) is unreachable — and `wipe()` itself latched above its own revive, so the second wipe in a streak paid nothing and healed nobody and the save was silent and battle-free from then on. Fixed four ways over (DECISIONS #81): every wipe revives, a lap of the circuit revives, the city heals, and a save's hp is sanitised so a non-number cannot become the NaN none of those three can leave. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
   "gate": {
     "at": "2026-09-11",
-    "result": "every stage passed (212 s; one earlier run of the same tree failed boot at 50 s before any per-case capture — see boot-probe-no-retry)",
+    "result": "every stage passed (187 s)",
     "seconds": {
-      "lint": 2.3,
-      "typecheck": 0.6,
+      "lint": 2.1,
+      "typecheck": 0.4,
       "seams": 1.4,
       "unit": 0.6,
-      "build": 3.6,
-      "coldboot": 4.7,
-      "boot": 88.8,
-      "flows": 8.8,
-      "parity": 36.6,
-      "regress": 64.9
+      "build": 3.5,
+      "coldboot": 4.1,
+      "boot": 75.2,
+      "flows": 12.4,
+      "parity": 31.0,
+      "regress": 56.5
     },
     "baseline": "docs/baseline.json — 1280x720, 17 regress rows, last accepted 39883bb; 0 moved on this branch"
   },
@@ -91,7 +91,7 @@
     {
       "id": "travel-mid-encounter-silent",
       "module": "travel",
-      "what": "Travelling mid-encounter calls encounter.cancel() with no prompt (travel/index.js:132) — a silent loss of a fight the player was in.",
+      "what": "Travelling mid-encounter calls encounter.cancel() with no prompt (travel/index.js:132) — a silent loss of a fight the player was in. cancel() also resolves nothing, so a party that fainted in that fight is written to the save unconscious; since slice 012 the city heals on arrival, so it is a lost fight rather than a dead save (DECISIONS #81). The prompt is still owed.",
       "repro": "read travel/index.js:130-134"
     },
     {
@@ -117,6 +117,12 @@
       "module": "tools",
       "what": "tools/shots/boot.js:56-65 discovers the matrix with one ?showcase=travel probe and exits 1 if that single shot fails; shoot() retries only navigation errors, not a __READY__ timeout, and the probe is the first request a freshly started vite serves (7.5–15 s cold compile, DECISIONS #71). Seen once on 2026-09-11: boot FAILED at 50 s with no per-case JSON written, green on the next two runs of the same tree. Intermittent.",
       "repro": "run `npm run gate` from a cold vite repeatedly; a boot failure with no shots/out/boot/*.json newer than the run is this"
+    },
+    {
+      "id": "idle-exp-lost-on-fainted-party",
+      "module": "idle",
+      "what": "A backgrounded tab credits its experience to idle.totals() and to the away card whether or not the party can receive it. idle/index.js:283 hands gains.exp to pokemon.grantPartyExp, which filters `party.filter((p) => p.hp > 0)` (pokemon/index.js:281), so a party with nothing conscious in it banks nothing — while totals.exp, the digest and the toast all report the full amount. Measured at seed 1337 in hunt-meadow with the party at 0 hp: setHidden(true), advanceWallMs(3600000), pump() gave totals.exp 66739.25 over 57 encounters and party exp unchanged at [135,135,135]; the same hour on a healthy party granted it (exp [66873,66873,66873]). Money stayed 0 in both, so ARCHITECTURE §0's money rule is not involved. Related to closed-tab-exp-discarded, which is the offline half of the same asymmetry.",
+      "repro": "boot /?seed=1337&timeFrozen=1, travel.go('hunt-meadow'), `for (const m of __CTX__.get('pokemon').party()) __CTX__.get('pokemon').damage(m.instanceId, m.maxHp)`, then `const i=__CTX__.get('idle'); i.debug.setHidden(true); i.debug.advanceWallMs(3600e3); await i.debug.pump({}); i.debug.setHidden(false); i.totals().exp` against `__CTX__.get('pokemon').party().map(p=>p.exp)`"
     }
   ],
   "modules": {
@@ -172,7 +178,9 @@
     },
     "idle": {
       "selftest": true,
-      "openIssues": []
+      "openIssues": [
+        "idle-exp-lost-on-fainted-party"
+      ]
     },
     "offline": {
       "selftest": true,

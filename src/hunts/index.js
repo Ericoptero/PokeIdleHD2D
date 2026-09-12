@@ -200,7 +200,21 @@ export default {
       const frac = Math.max(0, Math.min(1, Number(ctx.config.lapHealFraction ?? 0.34)));
       for (const m of pokemon.party()) {
         if (!m || m.hp >= m.maxHp) continue;
-        pokemon.heal?.(m.instanceId, { hp: Math.max(1, Math.round(m.maxHp * frac)), status: false });
+        // `revive` because the header above is otherwise a promise this loop does not keep:
+        // the guard at `pokemon/instance.js` heal() is `if (inst.hp <= 0 && !revive) return`, so
+        // the one case the rest exists for — "a wiped party walks its circuit forever meeting
+        // nothing" — was the one case it silently declined (DECISIONS #81, amending #67).
+        //
+        // `status` clears on the revive branch and only there. A faint does not cure anything:
+        // `battle/engine.js` never nulls `status` on a KO and `encounter`'s writeBack copies the
+        // combatant's back onto the instance, so a member that fainted poisoned would otherwise
+        // come back at 34 % still poisoned and take residual chip on turn one of the next fight —
+        // straight back towards the wipe this rest exists to prevent. Every other revive in the
+        // game clears it (`INST.revive`, `pokemon.reviveAll`); a plain top-up still does not.
+        const raise = m.hp <= 0;
+        pokemon.heal?.(m.instanceId, {
+          hp: Math.max(1, Math.round(m.maxHp * frac)), status: raise, revive: raise,
+        });
       }
       bus.emit('hunt:lap', { biome: currentId, length: loop.cells.length });
     });

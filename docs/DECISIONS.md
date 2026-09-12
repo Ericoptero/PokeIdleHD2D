@@ -687,3 +687,67 @@ so it agreed with the broken code by luck, which is how this survived in the fir
 
 **Measured in a forest hunt:** two mid-fight swaps, both to Tepig, against a Grass table — where
 party order would have sent Oshawott.
+
+### 81 — 2026-09-11 — A wipe always revives, and the lobby is the Pokémon Center
+
+`encounter`'s `wipe()` opened with `if (faintedWarned) return;` above the toll, the `reviveAll()`
+and the `party:wiped` emit, and `faintedWarned` was cleared in exactly one place — a `resolve()`
+that found somebody still standing. So the second wipe with no surviving encounter between it and
+the first did nothing at all: no toll, no revive, no event, no toast.
+
+That is not a cosmetic miss, because a party with no conscious member is a closed loop.
+`slotNear` refuses one (`src/encounter/index.js`), so no encounter can start; `wipe()` runs only
+from `resolve()`, so no resolve can happen; and `reviveAll()` had exactly one caller, inside
+`wipe()`. The party then walked its circuit past living wildlife forever, in silence, and
+`offline` wrote that state to the save on `pagehide`. Measured on a real page: wipe #1 charged
+₽9,984 and revived; wipe #2 charged nothing, emitted nothing and left the party at 0/21 0/19 0/22
+with `firstConscious()` null, and it never recovered.
+
+Three changes, deliberately overlapping, because one net that a future refactor can cut is how
+this happened in the first place:
+
+- **The latch guards the nag, not the recovery.** Every wipe pays and revives. The renamed
+  `faintedNagged` now only stops `slotNear` repeating itself once per step.
+- **A lap of the circuit revives.** `hunts`' lap rest called `pokemon.heal` without `revive`, and
+  the guard at `src/pokemon/instance.js:236` is `if (inst.hp <= 0 && !revive) return inst.hp;` —
+  so the one case whose header the rest was written for ("a wiped party walks its circuit forever
+  meeting nothing") was the one case it declined. `:237` is `inst.hp + hp` clamped to the maximum —
+  the adding branch — which lands on exactly the lap fraction here only because the member is at 0.
+  The revive branch also clears status, and only that branch: a faint cures nothing (the engine
+  never nulls `status` on a KO and writeBack copies it back), so a member revived by a lap would
+  otherwise return poisoned and take residual chip on turn one. This amends #67, which described
+  the lap rest as topping up "everyone's" HP when it could not touch a fainted member at all.
+- **`city.enter()` heals.** `travel` already teleports a wiped party to the `pokecenter-door`
+  marker and the wipe toast already claims they paid at the Centre; nothing healed them there.
+  Free and unconditional, because a heal a broke player cannot afford rebuilds the same trap one
+  level up. It mints nothing, so "money is earned by selling" (§0) is untouched — the rule
+  constrains income, and this is a service with no price rather than a payment either way. What it
+  does cost is the pull of Potions and Revives as purchases; that is the trade #81 accepts. `instance.js` had already
+  written the seam down — its header named the Pokemon Center as the caller `revive: true` exists
+  for, and that caller did not exist. The same header is corrected here, because this commit adds
+  the second and third: it now names all three and says what each one clears.
+
+And the refusal says so out loud now: a fainted party walking past a slot logs `warn` once and
+toasts once. `warn`, never `error`, because a handled path may not spend the zero-error budget
+every capture is measured against (#15). The nag is the tripwire that says if the state is ever
+reached anyway.
+
+An adversary pass found the fourth loop the three nets did **not** cover, and it is closed here
+too. `instance.js` `deserialize` clamped hp with `Math.floor(slice.hp ?? maxHp)`, which looks like
+a sanitiser and is not: `??` catches only `null`/`undefined`, `Math.floor('x')` is `NaN`, and
+`Math.max`/`Math.min` pass `NaN` through. A member at `hp = NaN` is neither conscious (`hp > 0`
+false) nor hurt (`hp < maxHp` false) — the one combination all three nets decline, measured in a
+browser as a full lap and a round trip to the city with the party still `[NaN, NaN, NaN]`. A save
+is a file a player can edit, so every number out of one is a claim: `level`, `exp` and `hp` are now
+each read through a finite check, and a non-number reads as absent. Pinned by
+`src/pokemon/instance-save.test.js`.
+
+The same pass could not break the rest: the four flow cases hold at seeds 1, 42, 99 and 20260911
+(16/16, and the seeds do move the world — first species and loop length both change); fourteen
+`?break=` quarantines heal with zero console errors, and the redundancy pays for itself there —
+`?break=encounter` costs the lap net and the city still heals, `?break=city` and `?break=hunts`
+each lose one and the other covers; twelve showcases leave `pokeidle.save` byte-identical.
+
+Rejected: making `encounter.cancel()` run the wipe. `cancel()`'s caller is `travel.go()` behind
+its `busy` flag, and `party:wiped` sends `travel` straight back into `go()` — the re-entrancy the
+header at `wipe()` already exists to avoid. The city heal makes that path recoverable without it.
