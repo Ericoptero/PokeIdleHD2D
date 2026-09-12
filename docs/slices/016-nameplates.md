@@ -99,7 +99,7 @@ NPC. `npm run shot -- --scene pokecenter --tod 12 --out shots/out/z.png` — "Nu
 
 ## Docs to touch
 ARCHITECTURE §5.4 (`npcs()`'s widened shape, `spawnNpc`'s `display`), §5.12 (`plates.js`, the
-`lateFrame` hook, `hunts` joins the undeclared list), DECISIONS #85.
+`lateFrame` hook, `hunts` joins the undeclared list), DECISIONS #88.
 
 ## Out of scope
 Speech balloons with a tail and type-coloured golpe text (018) — this slice's own screenshot
@@ -133,7 +133,7 @@ round, plus one documentation error:
   both now handing their own box back the same way — and suppressing plates entirely under
   every other panel, matching how the party bar and button strip already behave. `menu.js`
   gained the same `return box` `battle.js`'s card already had.
-- **A wrong metric cited as evidence.** DECISIONS #85 first pointed at `regress`'s `p99`/
+- **A wrong metric cited as evidence.** DECISIONS #88 first pointed at `regress`'s `p99`/
   `over200Pct` (pixel-*brightness* histogram stats) moving on `boot/12` as proof the `lateFrame`
   dirty-marking cost was "measured, not assumed." Neither metric is a timing number, and
   `regress`'s own matrix shoots a showcase for every other row — exactly where plates are

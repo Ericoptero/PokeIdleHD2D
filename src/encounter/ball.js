@@ -67,7 +67,7 @@ const BALL_ART = [
  * The **"!" bubble is gone**, and so is the grass that used to part under it.
  *
  * Both were the vocabulary of a reveal: 16 px of balloon that said *something is happening
- * here, to that one*, and nine leaves that said *it came out of there*. DECISIONS #84 removed
+ * here, to that one*, and nine leaves that said *it came out of there*. DECISIONS #87 removed
  * the thing they were describing — the creature was already walking the map and the party
  * walked up to it, so there is no arrival to caption. What names the wild now is the plate over
  * its head, and what says "you may throw" is that plate's empty HP bar.
@@ -148,7 +148,7 @@ export const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', 
 /** Draws one 16x16 grid into a canvas at 1 texel per pixel. */
 /**
  * Pixel art to a canvas — one grid, one palette swap, one nearest-filtered texture (#78). Once
- * shared with `encounter/strikes.js`'s own move effects too; that file is gone (DECISIONS #88,
+ * shared with `encounter/strikes.js`'s own move effects too; that file is gone (DECISIONS #91,
  * a deliberate shader rewrite for that system only), so this is the ball's own helper again.
  */
 export function paint(art, palette, size) {
@@ -525,7 +525,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     /**
      * Re-apply the airborne pixel-grid scale against the camera as it is *now*.
      *
-     * Called once per rendered frame from the module's `lateFrame` hook (DECISIONS #88 — moved
+     * Called once per rendered frame from the module's `lateFrame` hook (DECISIONS #91 — moved
      * from `frame` so this runs after the camera rig has actually updated). It is a no-op unless the
      * ball is in the air, and it reads nothing but the camera — so a frozen scene stays
      * deterministic (the camera spring converges to the same place from the same URL) while a

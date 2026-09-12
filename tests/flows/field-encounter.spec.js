@@ -1,5 +1,5 @@
 /**
- * The Tibia-style meeting (DECISIONS #84): the creature that fights is the same body that was
+ * The Tibia-style meeting (DECISIONS #87): the creature that fights is the same body that was
  * walking the map, at the level its plate was advertising, on the cell it is actually standing
  * on — not the slot's authored anchor, which a tether lets it drift a tile away from — and
  * nothing announces its arrival, because it did not arrive.
@@ -14,7 +14,7 @@
  * `tether: { radius: 1 }`) — so the ground truth for "where it actually was" has to come from
  * `simulation.npcs()`, sampled for the slot's own `npcId` while it is still walking. Comparing
  * against the anchor instead would pass identically whether `encounter` used the live cell or
- * reverted to teleporting onto the anchor, which is exactly the regression DECISIONS #84 fixed
+ * reverted to teleporting onto the anchor, which is exactly the regression DECISIONS #87 fixed
  * — so this file also asserts, across the encounters it watches, that at least one of them
  * actually drifted off its anchor, or the live-position check above would be proving nothing.
  *
@@ -132,7 +132,7 @@ test('the wild fights on the cell it was actually standing on, at the level it w
 
   // 3. Not a vacuous check: at least one watched encounter actually drifted off the slot's
   // authored anchor, or step 2 above would pass identically whether `encounter` used the live
-  // cell or reverted to DECISIONS #84's bug (a teleport onto the anchor).
+  // cell or reverted to DECISIONS #87's bug (a teleport onto the anchor).
   const drifted = seen.filter((s2) => s2.at.cx !== s2.anchor.cx || s2.at.cz !== s2.anchor.cz);
   expect(drifted.length, `at least one of ${seen.length} watched encounters drifted off its slot's anchor — ${JSON.stringify(seen)}`).toBeGreaterThan(0);
 

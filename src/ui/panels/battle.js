@@ -29,7 +29,7 @@
  * to be thrown at that species.
  */
 
-import { C, panel, well, meter, hpInk } from '../theme.js';
+import { C, panel, well, meter, hpRamp } from '../theme.js';
 import { action } from './common.js';
 import { titleCase, fmt } from '../format.js';
 import { ellipsize } from '../font.js';
@@ -309,7 +309,7 @@ export function makeBattle(app) {
         g.textRight(right, y, `Lv ${who.level}`, C.shadowInk);
         y += 9;
         const frac = who.maxHp > 0 ? who.hp / who.maxHp : 0;
-        meter(g, { x, y, w: barW - 30, h: 5 }, frac, { ...hpInk(frac), back: C.wallDeep });
+        meter(g, { x, y, w: barW - 30, h: 5 }, frac, { ...hpRamp(frac), back: C.wallDeep });
         g.textRight(right, y - 1, `${who.hp}/${who.maxHp}`, frac <= 0.2 ? C.roofShadow : C.shadowInk);
         y += 8;
         if (who.status) {

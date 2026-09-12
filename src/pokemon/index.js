@@ -236,6 +236,28 @@ export default {
         return true;
       },
       swap(i, j) { if (party[i] && party[j]) [party[i], party[j]] = [party[j], party[i]]; },
+      /**
+       * Moves the member at `from` to `to`, everyone between sliding to fill the gap — a
+       * splice-remove then a splice-insert, the same idiom `setLead` already uses for the one
+       * case of `to === 0`. Out-of-range indices (including `from === to`) are a no-op,
+       * mirroring `setLead`'s and `swap`'s own guard style above.
+       *
+       * **Emits `party:leadChanged` iff the move changes who is at slot 0** — checked by
+       * comparing `party[0]` before and after, never inferred from `from`/`to` themselves,
+       * because a move that does not mention slot 0 can still evict it (moving slot 1 to the
+       * end shifts slot 2 into slot 0). `simulation` (rebuilds the walking sprite), `ui`
+       * (dirties the frame) and `idle` all key their own repaint/rebuild off this one event —
+       * `swap`, one line up, emits nothing and is the bug this method does not repeat.
+       */
+      reorder(from, to) {
+        if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+        if (from < 0 || from >= party.length || to < 0 || to >= party.length || from === to) return;
+        const before = party[0]?.instanceId ?? null;
+        const [p] = party.splice(from, 1);
+        party.splice(to, 0, p);
+        const after = party[0]?.instanceId ?? null;
+        if (after !== before) ctx.bus.emit('party:leadChanged', { instanceId: after, species: party[0].species.name });
+      },
 
       createInstance({ species, level = 5, shiny = false, seed = 0, ivs = null }) {
         const s = typeof species === 'object' ? species : lookup(species);

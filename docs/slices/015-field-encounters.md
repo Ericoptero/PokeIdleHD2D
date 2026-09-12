@@ -79,7 +79,7 @@ in the grass facing the lead, no leaves, no bubble. And `?scene=hunt-meadow&seed
 
 ## Docs to touch
 ARCHITECTURE §5.6 (stages, showcase modes, `alerting` gone, `scene()` gains `headLift`), §5.14
-(`takeSlot`'s shape, `slots()` gains `level`), §4 (the appear toast row), DECISIONS #84, STATUS.
+(`takeSlot`'s shape, `slots()` gains `level`), §4 (the appear toast row), DECISIONS #87, STATUS.
 
 ## Out of scope
 Nameplates (016), action pacing (017), balloons and damage numbers (018), the VFX rebuild (019).
@@ -105,7 +105,7 @@ real issues, none of them in the game logic:
 - **The flow test's own position check was non-discriminating.** It compared the fight's cell
   against `hunts.slots()`'s `cx,cz`, which is the slot's *authored* anchor and never moves —
   so the assertion would have passed identically whether `engage()` used the creature's live,
-  drifted cell or reverted to DECISIONS #84's bug (a teleport onto the anchor). Rewritten to
+  drifted cell or reverted to DECISIONS #87's bug (a teleport onto the anchor). Rewritten to
   read the creature's live position from `simulation.npcs()` instead, watch two consecutive
   encounters, and assert that at least one of them actually drifted off its anchor — proving the
   live-position check is evidence of something rather than a tautology.

@@ -16,7 +16,7 @@
  *      `ctx.three.scene`, the one seam a flow is allowed to reach into three.js through
  *      (ARCHITECTURE §8 — flows read bus events and module state, and a mesh's own `.visible`
  *      is state, not a pixel).
- *   2. **The `frame`→`lateFrame` rename (DECISIONS #88) is a real rename, not a duplicate.**
+ *   2. **The `frame`→`lateFrame` rename (DECISIONS #91) is a real rename, not a duplicate.**
  *      `src/main.js`'s frame loop runs unconditionally off `requestAnimationFrame` regardless
  *      of `__HOOKS__.pause()` (`tests/flows/plates.spec.js`'s own header notes this: `step()`
  *      only drives `registry.tick`, never `frame`/`lateFrame`) — so if the rename had left a
@@ -81,7 +81,7 @@ test('a real strike in a real fight puts all three named VFX meshes in the scene
   expect(errors, 'zero console errors while a real strike drove the VFX system').toEqual([]);
 });
 
-test('the encounter module answers to `lateFrame`, not `frame`, at the registry (DECISIONS #88)', async ({ page }) => {
+test('the encounter module answers to `lateFrame`, not `frame`, at the registry (DECISIONS #91)', async ({ page }) => {
   await installEventLog(page);
   const errors = await boot(page, { scene: 'hunt-meadow' });
   expect(errors).toEqual([]);

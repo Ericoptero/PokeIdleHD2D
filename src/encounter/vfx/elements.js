@@ -1,7 +1,7 @@
 /**
  * elements.js — the personality of a strike, decoupled from its colour.
  *
- * `battle.typeColour(type)` (DECISIONS #87) gives the eighteen types their `core`/`edge`/`ink`
+ * `battle.typeColour(type)` (DECISIONS #90) gives the eighteen types their `core`/`edge`/`ink`
  * — that is *what colour* a type is. This file is *how it moves*: without it, fire, water and
  * psychic would read as three recolourings of the same star, which is exactly the defect
  * DECISIONS #79 recorded in the system this replaces (291 contact moves sharing one sprite).

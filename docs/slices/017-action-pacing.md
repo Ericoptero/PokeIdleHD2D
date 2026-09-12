@@ -75,7 +75,7 @@ in): a two-strike turn's strikes landed 18 ticks apart, each carrying its own `t
 
 ## Docs to touch
 ARCHITECTURE §2.6 (`actionSteps` replaces `turnSteps`), §5.6 (the stepping description, the
-`battle:strike` payload gains `type`/`shape`), DECISIONS #86, STATUS (`turnsteps-dead` closed).
+`battle:strike` payload gains `type`/`shape`), DECISIONS #89, STATUS (`turnsteps-dead` closed).
 
 ## Out of scope
 The VFX themselves (019) and the balloon/damage-number redesign (018) — this slice only changes

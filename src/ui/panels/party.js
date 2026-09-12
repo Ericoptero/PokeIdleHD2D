@@ -204,9 +204,27 @@ export function makeParty(app) {
 
   return {
     id: 'party',
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
-    /** `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3). */
-    open(opts) { cursor = 0; view = opts?.view === 'moves' ? 'moves' : 'stats'; moveCursor = 0; moveTop = 0; },
+    /** Not part of the panel contract `ui/index.js` drives — `travel.js`'s `rows()` precedent
+     *  for exposing internal state a test needs and nothing else reads (`state.panel.cursor()`
+     *  off `ui`'s own `_state`, which is already exposed for exactly this). */
+    cursor: () => cursor,
+    /**
+     * `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3).
+     * `select: i` (slice 017) opens with slot `i` already highlighted — the party bar's own
+     * click, `ui.open('party', { select: i })` — and falls back to today's default of slot 0
+     * when no `select` is given, so every existing caller (the keyboard shortcut, the menu)
+     * is unaffected.
+     */
+    open(opts) {
+      cursor = Number.isInteger(opts?.select) ? opts.select : 0;
+      view = opts?.view === 'moves' ? 'moves' : 'stats';
+      moveCursor = 0; moveTop = 0;
+    },
     close() {},
 
     key(ev) {
@@ -234,6 +252,7 @@ export function makeParty(app) {
       const list = members();
       cursor = Math.max(0, Math.min(list.length - 1, cursor));
       const win = windowFrame(g, {
+        windowId: 'party', reserved: app.hudReserved(),
         title: 'PARTY', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: view === 'moves'
           ? '↑↓ choose    Z pin / unpin    M back to stats    X close'

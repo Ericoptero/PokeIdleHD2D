@@ -1,5 +1,5 @@
 /**
- * One action at a time (DECISIONS #86): a turn where both sides act must not put their two
+ * One action at a time (DECISIONS #89): a turn where both sides act must not put their two
  * `battle:strike` events in the same tick, or anywhere near it — that was the bug ("attacks at
  * the same time") the brief is about, and `event.at` in the bus log is an **array index**
  * (`harness.js`'s `installEventLog`), not a sim tick, so proving a real gap needs the sim tick

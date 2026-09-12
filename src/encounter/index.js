@@ -98,7 +98,7 @@ const T = {
   /**
    * The breath before the first blow, in sim steps.
    *
-   * **There is no reveal any more** (DECISIONS #84). The creature was already walking the map,
+   * **There is no reveal any more** (DECISIONS #87). The creature was already walking the map,
    * the party walked up to it, and the fight starts where it is standing — so what used to be
    * `APPEAR` (20 steps of leaves, a hop, a scale pop and a "!" balloon) is half a second in
    * which two animals are looking at each other. It is not zero, because the plate over the
@@ -109,7 +109,7 @@ const T = {
   OPEN: 10,
   /**
    * The duel's own beats, in sim steps. How long the engine is asked to hold **one action's**
-   * beat for is `config.actionSteps` (DECISIONS #86), read in `init` as `ACTION_STEPS` — not
+   * beat for is `config.actionSteps` (DECISIONS #89), read in `init` as `ACTION_STEPS` — not
    * a literal here, because it is the one beat a player might reasonably want to tune from a
    * URL, and this table is built before `init` has a `config` to read.
    *
@@ -167,7 +167,7 @@ export default {
   init(ctx) {
     const { bus, config, log } = ctx;
     const seed = config.seed;
-    /** One action's beat, in sim steps (DECISIONS #86). Read once; a mid-fight config change
+    /** One action's beat, in sim steps (DECISIONS #89). Read once; a mid-fight config change
      *  finishes the fight it started in, which is the harness's own `?actionSteps=` contract. */
     const ACTION_STEPS = Math.max(1, Math.round(config.actionSteps ?? 18));
 
@@ -459,7 +459,7 @@ export default {
      * and clears whatever the previous strike armed, so a beat with nothing to show is a beat
      * that shows nothing rather than a stale effect still finishing.
      *
-     * `type`/`shape` ride along on the emitted event (DECISIONS #86) — the element and the
+     * `type`/`shape` ride along on the emitted event (DECISIONS #89) — the element and the
      * delivery shape the move resolves to — so `ui` can colour a balloon by type (slice 018)
      * without importing `encounter`'s own tables, which the module boundary forbids.
      */
@@ -470,7 +470,7 @@ export default {
         ? {
           at: step, shape: shapeOf(moveRec), type: moveRec?.t ?? 'normal', toWild: strike.target === 'b',
           // Threaded through so `play.js` can add a super-effective hit's second ring and a
-          // crit's white flash (DECISIONS #88) without `ui`'s own copy of the same fields.
+          // crit's white flash (DECISIONS #91) without `ui`'s own copy of the same fields.
           crit: !!strike.crit, effectiveness: strike.effectiveness ?? 1,
         }
         : null;
@@ -495,7 +495,7 @@ export default {
      * One sim step of the live duel — at most one `run.step()` per turn, and at most one
      * `battle:strike` per tick, drained off a plan rather than fired in a block.
      *
-     * **The sequencing this exists for** (DECISIONS #86): `run.step()` resolves a whole turn —
+     * **The sequencing this exists for** (DECISIONS #89): `run.step()` resolves a whole turn —
      * both sides, in the engine's own priority/speed order — synchronously, in one call, the
      * instant it is asked. Emitting straight out of that call's result is what put both sides'
      * `battle:strike` in the same tick, which is the "attacks at the same time" bug the brief
@@ -611,18 +611,18 @@ export default {
       // 1. **the fight, from step 0.** There is no reveal to wait out.
       //
       // The creature was walking this map and the party walked up to it, so the first thing
-      // this loop ever draws is two animals standing on their own cells (DECISIONS #84). What
+      // this loop ever draws is two animals standing on their own cells (DECISIONS #87). What
       // used to be here — `T.RUSTLE` of leaves with the wild undrawn, then a hop and a scale
       // pop out of the grass — is gone, and with it the one reason the first exchange could
       // not start until step 44.
       if (!Number.isFinite(s.fightEndsAt)) {
-        // one strike drained per due beat, `ACTION_STEPS` apart (DECISIONS #86).
+        // one strike drained per due beat, `ACTION_STEPS` apart (DECISIONS #89).
         //
         // This is the beat the whole of DECISIONS #72 is about. `begin()` used to resolve the
         // battle before the wild had finished coming out of the grass, and the card that
         // followed was a readout of something already over. Now the stepper is driven from
         // here, one exchange at a time, and every blow it produces goes out on the bus as a
-        // `battle:strike`, one per beat and never two in the same tick (DECISIONS #86), so the
+        // `battle:strike`, one per beat and never two in the same tick (DECISIONS #89), so the
         // VFX, the callout and the card all read one seam.
         tickDuel(step);
         // The wild squares up: a slow breath in place, so a fight reads as two creatures and
@@ -670,7 +670,7 @@ export default {
           moveWild({ y: at.y, visible: true, scale: 1 });
           if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
           // **No "!" balloon.** What says "you may throw now" is the beaten wild's own plate,
-          // whose bar is on the floor, and the battle card's throw prompt (DECISIONS #84).
+          // whose bar is on the floor, and the battle card's throw prompt (DECISIONS #87).
           s.stage = 'ready';
         }
       } else if (step < m.land) {
@@ -828,7 +828,7 @@ export default {
      *
      * `hunts.takeSlot` hands the creature over **without taking its sprite off the map**: the
      * body standing there becomes the body that fights, and this module retires it only once
-     * its own actor is drawn on the same cell (DECISIONS #84). The slot is then scheduled to
+     * its own actor is drawn on the same cell (DECISIONS #87). The slot is then scheduled to
      * refill, which is what makes it a respawn point.
      *
      * The **species, the level and the cell** are the slot's — they are what a plate over the
@@ -844,7 +844,7 @@ export default {
       const enc = rollIndex(index);
       if (!enc) return null;
       // **The species and the level are the slot's; everything else is the index's.** The level
-      // moved across in DECISIONS #84: it is a property of the creature that walked onto the
+      // moved across in DECISIONS #87: it is a property of the creature that walked onto the
       // slot, printed over its head before anybody touched it, so rolling a different one at
       // the moment of contact would make that plate a lie.
       const species = taken.species;
@@ -1126,14 +1126,14 @@ export default {
          * no slot behind it.
          *
          * It is **not** retired here. `hunts.takeSlot` hands the body over rather than deleting
-         * it (DECISIONS #84) and this module removes it only once `showWild` has landed its own
+         * it (DECISIONS #87) and this module removes it only once `showWild` has landed its own
          * actor on the same cell, so the creature never blinks out and back in.
          */
         npcId: Number.isFinite(enc.npcId) ? enc.npcId : 0,
         // The duel's clock. `nextTurnAt` is when the next turn may be drawn from the
         // engine; `fightEndsAt` stays `Infinity` until somebody faints, which is what `marks()`
         // reads to know whether the throw window has opened yet. `turnPlan` is the current
-        // turn's strikes timed out by `planBeats` (DECISIONS #86) — `null` between turns, and
+        // turn's strikes timed out by `planBeats` (DECISIONS #89) — `null` between turns, and
         // while it holds entries `tickDuel` drains one per due tick rather than asking the
         // engine for a new turn.
         nextTurnAt: T.OPEN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
@@ -1183,7 +1183,7 @@ export default {
       // **No "A wild X appeared!" line.** It was the caption on a cutscene that no longer
       // happens: the creature was on the map, the party walked to it, and a banner announcing
       // an arrival would be describing something the player just watched not happen. What names
-      // it now is the plate over its head (DECISIONS #84).
+      // it now is the plate over its head (DECISIONS #87).
       return active;
     }
 
@@ -1579,7 +1579,7 @@ export default {
       /**
        * Re-fits the airborne ball to the camera. Driven by the module's `lateFrame` hook; see
        * `ball.js` `refit()` for why it cannot be done once at placement time. `strikeVfx` has
-       * no equivalent method any more (DECISIONS #88): its meshes billboard by construction,
+       * no equivalent method any more (DECISIONS #91): its meshes billboard by construction,
        * adding their local offset in view space rather than copying a camera quaternion, so
        * there is nothing here left for a per-frame call to do.
        */
@@ -1801,7 +1801,7 @@ export default {
   },
 
   /**
-   * `lateFrame`, not `frame` (DECISIONS #88): the ball's sprite billboard reads the camera to
+   * `lateFrame`, not `frame` (DECISIONS #91): the ball's sprite billboard reads the camera to
    * face it, and the camera does not move until `rig.update()` has run between `frame` and
    * `lateFrame` (`src/main.js`) — `pokemon/index.js`'s own sprites move here for the same
    * reason. Deliberately not an animation hook either way — the moment is driven by `tick` on

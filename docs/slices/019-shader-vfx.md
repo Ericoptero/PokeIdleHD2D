@@ -32,15 +32,15 @@ bug, not a milestone", echoed in `strikes.js`'s own header as "Never a coloured 
   is a stricter, simpler version of the same freeze guarantee: there is no clock to gate at all.
 - `src/encounter/index.js` — the three call sites (`:634-647` live tick, `:1541-1558`
   `stageStrike`, `:1800-1802` the `frame` hook calling `refit()`) and `emitStrike`/`scene.vfx`
-  (`:462-484`, DECISIONS #86/#87): `scene.vfx` currently carries only `{at, shape, type,
+  (`:462-484`, DECISIONS #89/#90): `scene.vfx` currently carries only `{at, shape, type,
   toWild}` — no `crit`/`effectiveness` — so the plan's "super-effective adds a second ring,
   crit adds a white flash" needs two more fields threaded through here and into `play()`.
-- `src/battle/types.js` — `typeColour(type)` → `{core, edge, ink}` (DECISIONS #87), now the
-  read for `core`/`edge` too: DECISIONS #87 already flagged `strikes.js`'s copy as "unmoved...
+- `src/battle/types.js` — `typeColour(type)` → `{core, edge, ink}` (DECISIONS #90), now the
+  read for `core`/`edge` too: DECISIONS #90 already flagged `strikes.js`'s copy as "unmoved...
   that file is rewritten wholesale in the next slice", so this is that move.
 - `src/encounter/selftest.js:30,437-462` — the checks importing `ELEMENT`/`elementOf`/`shapeOf`
   from `strikes.js` (eighteen looks, core-brighter-than-edge, shape-by-category, fallback);
-  superseded by `battle/selftest.js` #61-66 for the colour half (DECISIONS #87) — this slice
+  superseded by `battle/selftest.js` #61-66 for the colour half (DECISIONS #90) — this slice
   removes the dead half here and keeps only what is genuinely new: shape resolution now lives
   in `vfx/elements.js`, and gets the "profile resolves for every type" / "beats cover [0,1] with
   no gap" / "particle count ≤ the field's own size" checks the plan asks for.
@@ -71,7 +71,7 @@ Result), `tests/flows/vfx-real-fight.spec.js` (likewise). Changed: `src/encounte
 `src/encounter/selftest.js` (drop the dead `strikes.js` checks, add the new
 profile/beat/particle-count ones), `src/encounter/showcase.js` (the three `vfx-*` staged
 phases), `tools/shots/regress.js` (two new matrix rows), `docs/baseline.json`, `ARCHITECTURE.md`
-(§5.6, §9), `docs/DECISIONS.md` (#88, the named exception), `docs/STATUS.json` (a new,
+(§5.6, §9), `docs/DECISIONS.md` (#91, the named exception), `docs/STATUS.json` (a new,
 unrelated, pre-existing bug found along the way — see Result).
 
 ## Expected behaviour
@@ -153,7 +153,7 @@ round to at the old bloom threshold) — each opened and looked at, not just mea
 
 ## Docs to touch
 ARCHITECTURE §5.6 (hooks list: `frame`→`lateFrame`; the VFX paragraph rewritten for the new
-files), §9 (the named pixel-art exception), DECISIONS #88 (the exception itself, dated, with the
+files), §9 (the named pixel-art exception), DECISIONS #91 (the exception itself, dated, with the
 user's own request as the citation), `docs/STATUS.json`.
 
 ## Out of scope
@@ -181,7 +181,7 @@ parallel to the bow's own sweep — the two offsets stacked instead of cancellin
 tracing it. Caught by staging a solid-magenta test fill and finding it exactly the size and
 shape of a nearby terrain prop it should have been much smaller than. Fixed by computing the
 curve's own on-screen tangent (sampling a second point a hair further along and projecting that
-too) and offsetting perpendicular to *that*, not to a fixed axis — DECISIONS #88. A second,
+too) and offsetting perpendicular to *that*, not to a fixed axis — DECISIONS #91. A second,
 smaller issue in `ground.js`: the ring's fragment shader judged distance in the raw `[-1,1]` UV
 square rather than world units, so a `uRadius` of `0.5` did not mean what it said; fixed by
 baking the plane's own half-width into the shader.

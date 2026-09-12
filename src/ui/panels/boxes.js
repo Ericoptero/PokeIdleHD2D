@@ -52,6 +52,10 @@ export function makeBoxes(app) {
 
   return {
     id: 'boxes',
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     open(opts = {}) {
       confirmRelease = false;
@@ -83,6 +87,7 @@ export function makeBoxes(app) {
       const entry = box ? (box[slot] ?? null) : null;
 
       const win = windowFrame(g, {
+        windowId: 'boxes', reserved: app.hudReserved(),
         title: 'STORAGE', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑←↓→ move    [ ] change box    X close',
         footerRight: stats

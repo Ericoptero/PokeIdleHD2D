@@ -5,7 +5,7 @@
  * coin — its own header calls the draw order a contract) and already returns both sides'
  * events in that order. What this file adds is purely a *timeline*: one beat per strike,
  * strictly after the one before it, so `encounter` can drain a turn's strikes one at a time
- * instead of emitting all of them in the same tick (DECISIONS #86).
+ * instead of emitting all of them in the same tick (DECISIONS #89).
  *
  * Pure — a function of the strikes and the beat lengths, nothing else. `selftest.js` pins it
  * without a browser.

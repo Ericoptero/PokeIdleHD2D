@@ -11,7 +11,7 @@
  * frame, with nothing to repeat. `ground.js`'s ring lies flat and never billboarded even in
  * the old system. `encounter/index.js`'s own `refit()` still exists, for `ball.js`'s sprite.
  *
- * Colour comes from `battle.typeColour(type)` (DECISIONS #87) — `core`/`edge`, read live and
+ * Colour comes from `battle.typeColour(type)` (DECISIONS #90) — `core`/`edge`, read live and
  * `isLive`-guarded exactly like `emitStrike` already reads `battle` for the same strike, with
  * a neutral fallback for the moment `battle` itself is quarantined. Movement personality comes
  * from `elements.js`'s `profileFor(type)`. Neither file needs to know about the other.

@@ -127,10 +127,10 @@ export default {
      *
      * `encounter` engages a slot by index and this module hands the creature over **without**
      * taking its sprite off the map — the wild that fights is the one that was standing there,
-     * the same body, and `encounter` retires it only once its own actor is in place (#84).
+     * the same body, and `encounter` retires it only once its own actor is in place (#87).
      *
      * `level` is rolled here, when the creature walks onto the slot, and not at engagement:
-     * a plate over its head has to say the level it will actually fight at (#84).
+     * a plate over its head has to say the level it will actually fight at (#87).
      * @type {Map<number, {npcId:number, species:object, shiny:boolean, level:number, cx:number, cz:number, dir:number}>}
      */
     const occupancy = new Map();
@@ -174,7 +174,7 @@ export default {
      * species from the slot and the level from the encounter index, which was invisible while
      * the only thing a level did was decide a fight — but a plate over a wandering creature's
      * head advertises it, and a number that changed the moment you touched it would be a lie
-     * (DECISIONS #84).
+     * (DECISIONS #87).
      *
      * Its own sibling stream (`hunts/level/…`) rather than a draw appended to the slot's
      * respawn stream: sibling streams cannot perturb each other (ARCHITECTURE §2.5), so every
@@ -899,7 +899,7 @@ export default {
        * is the one that was standing there. It used to be the *identity* that carried over and
        * not the body — this method deleted the NPC and `encounter` spawned a second sprite that
        * burst out of the grass over twenty sim steps. There is no burst any more (DECISIONS
-       * #84), so deleting the body here would leave one or two frames of empty grass: the
+       * #87), so deleting the body here would leave one or two frames of empty grass: the
        * caller retires `npcId` itself, the moment its own actor is in place.
        *
        * `cx,cz` is where the creature **is**, not the cell the slot was authored on: it drifts

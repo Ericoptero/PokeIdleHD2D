@@ -1,5 +1,5 @@
 /**
- * `callout.js`'s two-tone text and its tail (DECISIONS #87) — the same fake-painter discipline
+ * `callout.js`'s two-tone text and its tail (DECISIONS #90) — the same fake-painter discipline
  * `plates.test.js` and `floaters.test.js` already use.
  */
 import { describe, it, expect } from 'vitest';

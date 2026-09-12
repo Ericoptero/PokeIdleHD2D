@@ -16,7 +16,7 @@ import { C } from './theme.js';
 export const FLOATER_STEPS = 24;
 /** How far it drifts upward over its life, in internal pixels. */
 const RISE_PX = 14;
-/** A critical hit's number is drawn this many times normal size (DECISIONS #87). */
+/** A critical hit's number is drawn this many times normal size (DECISIONS #90). */
 const CRIT_SCALE = 2;
 
 export function makeFloaters() {

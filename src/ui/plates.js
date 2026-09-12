@@ -16,7 +16,7 @@
  * scenery with nothing to fight, so it gets a name and nothing else.
  */
 
-import { C, meter, hpInk } from './theme.js';
+import { C, meter, hpRamp } from './theme.js';
 import { titleCase } from './format.js';
 import { HEIGHT } from './font.js';
 
@@ -25,7 +25,7 @@ const isLive = (api) => !!api && api.__missing === undefined;
 /**
  * How high above a Pokémon's feet its plate floats, in world units. Exported: `ui/index.js`
  * reuses it to anchor a balloon *above* the plate rather than guessing a second constant for
- * the same head (DECISIONS #87).
+ * the same head (DECISIONS #90).
  *
  * A measured constant, not a computed one — sprite frames vary in texel size per species
  * (ARCHITECTURE §5.5), so no single constant is exact for all of them; 3.1 clears the tallest
@@ -124,7 +124,7 @@ export function makePlates(ctx) {
 
   /**
    * The wild currently being fought, if any — not gated on `hunts.current()`. Engaging a slot
-   * hands the creature to `encounter` (DECISIONS #84), which retires the map NPC the moment
+   * hands the creature to `encounter` (DECISIONS #87), which retires the map NPC the moment
    * its own actor exists, so a slot mid-fight is simply not in `hunts.slots()`'s occupied list
    * any more; this reads `encounter.scene()`/`active()` instead, with the live duel HP
    * `panels/battle.js` already reads. Checked independently of the wandering slots above so a
@@ -282,7 +282,7 @@ export function makePlates(ctx) {
 
         if (p.bar) {
           const frac = p.bar.maxHp > 0 ? p.bar.hp / p.bar.maxHp : 0;
-          meter(g, { x, y: y + HEIGHT + ROW_GAP, w, h: BAR_H }, frac, hpInk(frac));
+          meter(g, { x, y: y + HEIGHT + ROW_GAP, w, h: BAR_H }, frac, hpRamp(frac));
         }
       }
     },

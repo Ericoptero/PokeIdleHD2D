@@ -811,7 +811,7 @@ const STOP = {
    */
   // Phases land inside each shape's own **impact** beat (`vfx/elements.js` BEATS) — the
   // moment the burst/ring/trail is at its fullest — not the earlier, quieter charge/deliver
-  // beats a fixed screenshot would otherwise catch mid-fade-in (DECISIONS #88 corrects this
+  // beats a fixed screenshot would otherwise catch mid-fade-in (DECISIONS #91 corrects this
   // from the previous system's own 0.25/0.45/0.5, tuned for a hard-edged painted quad rather
   // than a shader whose brightness genuinely ramps through its beat).
   'vfx-contact': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.58 } },
@@ -837,7 +837,7 @@ const STOP = {
    * wild breathing in place, the first exchange one step away.
    *
    * This mode was `reveal` and it was the apex of a hop out of the grass. There is no hop
-   * (DECISIONS #84) — a wild is met, not revealed — so the mode is renamed rather than
+   * (DECISIONS #87) — a wild is met, not revealed — so the mode is renamed rather than
    * repointed, because a stop called `reveal` that photographs a standing animal is a name
    * that lies. It is still the module's default mode, and still the `encounter/12` regress row.
    */
@@ -883,7 +883,7 @@ export async function showcaseEncounter(mode, ctx) {
    * sprite the reader guessed at.
    *
    * It was then `reveal` — the apex of a hop out of the grass, with a "!" over the wild's
-   * head. Both are gone (DECISIONS #84): the wild is met, not revealed. What makes the subject
+   * head. Both are gone (DECISIONS #87): the wild is met, not revealed. What makes the subject
    * legible instead is the plate over its head and the box at the bottom that names it.
    * `throw` is one URL away and is still the frame the ball's own critique is judged on.
    */

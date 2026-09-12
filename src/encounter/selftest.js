@@ -435,8 +435,8 @@ export function runSelfTest({ species = null } = {}) {
   // --- 22 every move has a look, and it is derived -------------------------------
   //
   // 721 moves, twenty-one authored pieces: eighteen elemental palettes (`battle.typeColour`,
-  // DECISIONS #87) crossed with three delivery shapes, each shape a four-beat timeline
-  // (`vfx/elements.js`, DECISIONS #88). What is worth pinning here — the colour half moved to
+  // DECISIONS #90) crossed with three delivery shapes, each shape a four-beat timeline
+  // (`vfx/elements.js`, DECISIONS #91). What is worth pinning here — the colour half moved to
   // `battle/selftest.js` #61-66 when `battle/types.js` became the one canonical table — is
   // that the shape/beat/profile crossing is total: a move added to `moves.json` tomorrow, or a
   // type this table has never seen, must not fall through to nothing.
@@ -503,7 +503,7 @@ export function runSelfTest({ species = null } = {}) {
       THROWS_PER_FAINT * 7 >= 7, 'a common is seven won fights');
   }
 
-  // --- 24 planBeats: the timeline never lets two actions land in the same tick (DECISIONS #86) ---
+  // --- 24 planBeats: the timeline never lets two actions land in the same tick (DECISIONS #89) ---
   {
     const BEATS = { actionSteps: 18, itemSteps: 16, reviveSteps: 100 };
     const strike = (patch) => ({ turn: 1, attacker: 'a', move: 'tackle', cause: null, use: null, ...patch });

@@ -261,7 +261,7 @@ check('60. a runaway between is capped rather than obeyed',
   }).betweenCapped === true);
 
 // --- 61-64 TYPE_INK: the one colour table a balloon, a floater and a strike's own effect ----
-// all read (DECISIONS #87). `core`/`edge` are strikes.js's own values, unchanged; `ink` is
+// all read (DECISIONS #90). `core`/`edge` are strikes.js's own values, unchanged; `ink` is
 // derived from `edge` and has to actually clear the contrast floor it was derived to hit, not
 // merely look plausible.
 {

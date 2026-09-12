@@ -88,7 +88,7 @@ uses), and `Oddish: Absorb!` with `Absorb!` in a visible grass-green distinct fr
 ordinary ink, a small tail connecting the balloon to Oddish.
 
 ## Docs to touch
-ARCHITECTURE §5.12 (balloons/floaters paragraph), §5.17 (`typeColour`), DECISIONS #87.
+ARCHITECTURE §5.12 (balloons/floaters paragraph), §5.17 (`typeColour`), DECISIONS #90.
 
 ## Out of scope
 The VFX rebuild (019) — `encounter/strikes.js`'s own palette is untouched, on purpose (see
@@ -111,7 +111,7 @@ the two new flow tests added: 29/29 flows, same regress result). `node src/battl
 67/67. `npx vitest run` green including the 19 new pure cases (`floaters.test.js` ×11,
 `callout.test.js` ×8).
 
-Two real bugs found and fixed during implementation, both logged in DECISIONS #87: the tail was
+Two real bugs found and fixed during implementation, both logged in DECISIONS #90: the tail was
 first drawn before the panel's own drop-shadow and got overwritten by it; the floater's spawn
 lift matched the plate's own, so a damage number rendered directly across the target's HP bar
 until `BALLOON_CLEARANCE` was added to its lift too.
@@ -120,13 +120,13 @@ until `BALLOON_CLEARANCE` was added to its lift too.
 1. ARCHITECTURE §5.17 claimed a floater's *crit tint* reads `typeColour` — it does not; a
    floater's colour is by effectiveness only (`C.roofShadow`/`C.shadowInk`/`C.ink`), never by
    type. Corrected.
-2. DECISIONS #87 claimed `dex.js` already read the canonical `TYPE_INK` table — it had not been
+2. DECISIONS #90 claimed `dex.js` already read the canonical `TYPE_INK` table — it had not been
    touched. Since `dex.js` is a live, reachable panel (`Digit4`), not a showcase surface, this
    was a real miss rather than a defensible scope cut: fixed for real, not just in the doc —
    `dex.js`'s own `TYPE_COLOUR` copy (a fourth independent table) is deleted, its type-completion
    bar now reads `battle.typeColour(t).edge` through the same undeclared `isLive`-guarded access
    `ui/index.js` already uses for `battle`.
-3. Both DECISIONS #87 and this slice's own "Out of scope" claimed every move the meadow/forest
+3. Both DECISIONS #90 and this slice's own "Out of scope" claimed every move the meadow/forest
    roster can throw is 100% accurate — false on its face (`mudshot` 95, `rollout`/`wrap` 90, the
    powder moves 75, `hypnosis` 60, `sing`/`supersonic` 55 are all real learnset entries in this
    band). The conclusion (no live miss/immune flow test) still holds, but for the real reason:
