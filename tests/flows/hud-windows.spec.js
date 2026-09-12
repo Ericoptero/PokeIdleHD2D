@@ -14,9 +14,18 @@
  * with `ui._frame(0)` (already exposed for exactly this — `index.js`'s own `_frame`/`_draw`)
  * rather than resuming the real rAF loop, which would make the exact moment a paint landed a
  * race against wall-clock time.
+ *
+ * Slice 016 (movable/resizable/scalable windows) extends this same file rather than starting
+ * a new one, for the reason its own slice doc names: these are the same `g.hit(box, {drag,
+ * swallow}, tag)` primitives 015 built, used for the first time. `windowGeometry`'s own save
+ * round-trip needs a real `page.reload()`, which none of the tests above do — `offline.persist`
+ * is called explicitly first (the `pokecenter-cooldown-reload.spec.js` pattern) rather than
+ * relying on `pagehide` to fire in time, so the write is deterministic and not a race.
  */
 import { test, expect } from '@playwright/test';
-import { boot, call, pointer } from './harness.js';
+import {
+  boot, call, pointer, prop,
+} from './harness.js';
 
 /** The hit regions of the last paint, boxes and all — the same shape `g.hit()` builds. */
 const regions = (page) => page.evaluate(() => window.__CTX__.get('ui')._screen.regions());
@@ -32,6 +41,61 @@ async function click(page, point) {
   await pointer(page, { type: 'pointerdown', ...point });
   await pointer(page, { type: 'pointerup', ...point });
 }
+
+/**
+ * Picks a drag up at `from` and moves it to `to`, without releasing — so a caller can inspect
+ * the *live*, still-held position before deciding whether to drop or cancel.
+ *
+ * Two things a real, running game gets for free that this paused harness has to do by hand:
+ *
+ *  - `screen.js`'s own `lastPoint` (module state, not part of the held gesture `gesture.js`
+ *    returns) is `null` until the first `pointermove` this page has ever seen, and every delta
+ *    after that is computed against whatever `lastPoint` last was — so the extra `pointermove`
+ *    at `from` itself pins it there before the move that matters, or that move would compute
+ *    its delta against `null` (`dx = lastPoint ? … : 0`) and silently move nothing.
+ *  - `windowFrame`'s own reconciliation (`panels/common.js`'s `reconcileDrag`) anchors itself
+ *    to wherever the drag's pointer *first appears in a paint* — which in an unpaused game is
+ *    within one `requestAnimationFrame` tick of the `pointerdown` (`dirty` is set synchronously
+ *    in the handler), imperceptibly close to the true click point. This harness's frame loop is
+ *    paused (`boot()`), so without a paint in between, the very first paint of the whole drag
+ *    would be the one after it has *already* moved all the way to `to`, anchoring there instead
+ *    and measuring zero movement — the same "force a paint" discipline this file's own
+ *    docstring already names for reading back freshly-registered regions.
+ */
+async function dragStart(page, from, to) {
+  await pointer(page, { type: 'pointerdown', ...from });
+  await pointer(page, { type: 'pointermove', ...from });
+  await paintNow(page);
+  await pointer(page, { type: 'pointermove', ...to });
+}
+
+/**
+ * Releases a drag started with `dragStart`, at the point it was last moved to.
+ *
+ * Paints once *before* the release: `windowFrame`'s reconciliation (`reconcileDrag`) only
+ * updates its own record of the live, still-held box on a paint while the drag is active, and
+ * only *that* value is what gets committed into `windowGeometry` the moment the drag is no
+ * longer held — a `pointerup` with no paint in between it and the last `pointermove` would
+ * commit whatever the box was at the *previous* paint (possibly the pre-drag position, if nothing
+ * painted after the last move), the same "one live paint" requirement `dragStart`'s own comment
+ * names for the other end of the gesture. Paints once more after, so the commit itself — and
+ * the drag clearing to `null` — is what the very next `regions()` read sees.
+ */
+async function dragEnd(page, at) {
+  await paintNow(page);
+  await pointer(page, { type: 'pointerup', ...at });
+  await paintNow(page);
+}
+
+/** The bars `index.js`'s `draw()` decides to show or hide each frame — read straight off
+ *  `ui`'s own `_state` rather than through `snapshot()`, which does not carry them. */
+const hudBars = (page) => page.evaluate(() => {
+  const s = window.__CTX__.get('ui')._state;
+  return {
+    panel: s.panel?.id ?? null,
+    partyBox: s.partyBox, clockBox: s.clockBox, stripBox: s.stripBox,
+  };
+});
 
 test('a panel\'s own paper does nothing; the close cross and the outer scrim still close it', async ({ page }) => {
   const errors = await boot(page);
@@ -147,4 +211,154 @@ test('the mouse wheel also scrolls the dex\'s multi-column national list', async
   expect(after, 'the wheel must move the visible window, not just repaint the same rows').not.toEqual(before);
 
   expect(errors, 'no console error wheel-scrolling the dex').toEqual([]);
+});
+
+test('dragging a window\'s title bar moves it, live, and the moved position survives a reload', async ({ page }) => {
+  const errors = await boot(page);
+
+  expect(await call(page, 'ui', 'open', 'party')).toBe(true);
+  await paintNow(page);
+
+  let regs = await regions(page);
+  const before = regs.find((r) => r.tag === 'window-body');
+  const dragRegion = regs.find((r) => r.tag === 'window-drag');
+  expect(before, `no "window-body" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
+  expect(dragRegion, `no "window-drag" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
+  expect(dragRegion.drag, 'the title bar region must carry drag:true').toBe(true);
+
+  const from = centre(dragRegion);
+  const dx = 18;
+  const dy = 11;
+  const to = { x: from.x + dx, y: from.y + dy };
+
+  await dragStart(page, from, to);
+  await paintNow(page);
+  regs = await regions(page);
+  const mid = regs.find((r) => r.tag === 'window-body');
+  expect(mid.box.x, 'the window must already have moved while the drag is still held')
+    .toBe(before.box.x + dx);
+  expect(mid.box.y).toBe(before.box.y + dy);
+  expect(mid.box.w, 'a move must not touch the size').toBe(before.box.w);
+  expect(mid.box.h).toBe(before.box.h);
+
+  await dragEnd(page, to);
+  regs = await regions(page);
+  const after = regs.find((r) => r.tag === 'window-body');
+  expect(after.box, 'releasing must not change the position the drag already committed to')
+    .toEqual(mid.box);
+
+  // Persisted for real (the `pokecenter-cooldown-reload.spec.js` pattern), not left to a
+  // `pagehide` racing the navigation below.
+  await call(page, 'offline', 'persist', 'flow');
+  const keys = await prop(page, 'offline', 'keys');
+  const raw = await page.evaluate((k) => localStorage.getItem(k), keys.save);
+  const doc = JSON.parse(raw);
+  expect(doc.slices?.ui?.windows?.party, 'the saved document must carry party\'s moved geometry')
+    .toEqual(after.box);
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__READY__ === true, null, { timeout: 45_000, polling: 100 });
+  expect(await page.evaluate(() => window.__FATAL__ ?? null)).toBeNull();
+  await page.evaluate(() => window.__HOOKS__.pause());
+
+  expect(await call(page, 'ui', 'open', 'party')).toBe(true);
+  await paintNow(page);
+  regs = await regions(page);
+  const reopened = regs.find((r) => r.tag === 'window-body');
+  expect(reopened, 'no "window-body" region after reload').toBeTruthy();
+  expect(reopened.box, 'the reopened window must be at the moved position, not the authored default')
+    .toEqual(after.box);
+
+  expect(errors, 'no console error dragging, persisting or reloading a window').toEqual([]);
+});
+
+test('dragging a window\'s resize grip resizes it, clamped to its minimum, and the size survives a reload', async ({ page }) => {
+  const errors = await boot(page);
+
+  expect(await call(page, 'ui', 'open', 'party')).toBe(true);
+  await paintNow(page);
+
+  let regs = await regions(page);
+  const before = regs.find((r) => r.tag === 'window-body');
+  const grip = regs.find((r) => r.tag === 'window-resize');
+  expect(before, `no "window-body" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
+  expect(grip, `no "window-resize" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
+  expect(grip.drag, 'the resize grip region must carry drag:true').toBe(true);
+
+  // Shrinking rather than growing: growing risks the buffer's own clamp kicking in on a small
+  // gate viewport and turning this into a test of `clampResize`'s ceiling instead of the plain
+  // arithmetic path — that ceiling already has its own golden cases in `window.test.js`.
+  const from = centre(grip);
+  const dx = -26;
+  const dy = -14;
+  const to = { x: from.x + dx, y: from.y + dy };
+
+  await dragStart(page, from, to);
+  await dragEnd(page, to);
+
+  regs = await regions(page);
+  const after = regs.find((r) => r.tag === 'window-body');
+  expect(after.box.w, 'the width must shrink by exactly the pointer delta').toBe(before.box.w + dx);
+  expect(after.box.h, 'the height must shrink by exactly the pointer delta').toBe(before.box.h + dy);
+  expect(after.box.x, 'a resize from the bottom-right grip must not move the top-left corner')
+    .toBe(before.box.x);
+  expect(after.box.y).toBe(before.box.y);
+
+  await call(page, 'offline', 'persist', 'flow');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__READY__ === true, null, { timeout: 45_000, polling: 100 });
+  expect(await page.evaluate(() => window.__FATAL__ ?? null)).toBeNull();
+  await page.evaluate(() => window.__HOOKS__.pause());
+
+  expect(await call(page, 'ui', 'open', 'party')).toBe(true);
+  await paintNow(page);
+  regs = await regions(page);
+  const reopened = regs.find((r) => r.tag === 'window-body');
+  expect(reopened, 'no "window-body" region after reload').toBeTruthy();
+  expect(reopened.box, 'the reopened window must be at the resized size, not the authored default')
+    .toEqual(after.box);
+
+  expect(errors, 'no console error resizing, persisting or reloading a window').toEqual([]);
+});
+
+test('?uiScale=2 halves the UI buffer; the world\'s own render buffer is untouched', async ({ page }) => {
+  await boot(page);
+  const base = await call(page, 'ui', 'metrics');
+  expect(base.width, 'a real UI buffer must exist before this comparison means anything')
+    .toBeGreaterThan(0);
+  expect(base.height).toBeGreaterThan(0);
+
+  // A fresh boot, not a live `config.set` — `uiScale` is a `DEFAULTS` key (CLAUDE.md: every
+  // one is a URL param) and this is the plainest way to drive it exactly like a player would.
+  const errors = await boot(page, { uiScale: '2' });
+  const scaled = await call(page, 'ui', 'metrics');
+  expect(scaled.width).toBe(Math.floor(base.width / 2));
+  expect(scaled.height).toBe(Math.floor(base.height / 2));
+
+  const worldSize = await page.evaluate(() => window.__CTX__.three.view.internalSize);
+  expect(worldSize[0], 'uiScale must not touch the world\'s own internal buffer').toBe(base.width);
+  expect(worldSize[1]).toBe(base.height);
+
+  expect(errors, 'no console error booting at uiScale=2').toEqual([]);
+});
+
+test('opening a `full` panel (shop) keeps the wallet, the clock and the party bar up behind it', async ({ page }) => {
+  const errors = await boot(page);
+
+  const before = await hudBars(page);
+  expect(before.partyBox, 'the party bar must already be up before any panel opens — otherwise the assertion below is vacuous')
+    .toBeTruthy();
+  expect(before.clockBox, 'the clock must already be up before any panel opens').toBeTruthy();
+
+  expect(await call(page, 'ui', 'open', 'shop')).toBe(true);
+  await paintNow(page);
+
+  const opened = await hudBars(page);
+  expect(opened.panel).toBe('shop');
+  expect(opened.partyBox, 'shop is a `full` panel; the party bar must stay up behind it (DECISIONS #85)')
+    .toBeTruthy();
+  expect(opened.clockBox, 'shop is a `full` panel; the clock must stay up behind it').toBeTruthy();
+  expect(opened.stripBox, 'the button strip must stay up behind a `full` panel too').toBeTruthy();
+
+  expect(errors, 'no console error opening a full panel').toEqual([]);
 });

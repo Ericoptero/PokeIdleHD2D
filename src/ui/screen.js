@@ -1,6 +1,7 @@
 /**
- * The UI surface: one 2-D canvas whose backing store is **exactly the renderer's internal
- * buffer** (640×360 at 1080p), stretched over the viewport with `image-rendering: pixelated`.
+ * The UI surface: one 2-D canvas whose backing store is **the renderer's internal buffer**
+ * (640×360 at 1080p) — divided by `config.uiScale` (1 or 2, slice 016) when that HUD-only
+ * knob is not its default — stretched over the viewport with `image-rendering: pixelated`.
  *
  * Why not DOM, which is what the seed did and what §5.12 assumes: the game is drawn into a
  * low-resolution buffer and upscaled with NEAREST so geometry and sprites share one pixel
@@ -9,8 +10,10 @@
  * as a debug overlay, not as the game's own menu. Taking the size from
  * `ctx.three.view.internalSize` rather than recomputing it from `pixelScale` means the UI
  * inherits the scene's own rounding, including the non-integer upscale at 1600×900
- * (533 → 1600 is ×3.002): the two surfaces are stretched by the same factor, so a panel edge
- * lands on a tile edge.
+ * (533 → 1600 is ×3.002): at `uiScale: 1` the two surfaces are stretched by the same factor,
+ * so a panel edge lands on a tile edge; at `2` the UI surface is stretched by that same factor
+ * again, so a panel edge lands on every other tile edge instead — still crisp (`imageSmoothingEnabled`
+ * stays off), just a coarser HUD grid than the world's, which is the whole point of the knob.
  *
  * It costs **zero draw calls**: this is a 2-D canvas composited by the browser, not geometry
  * handed to WebGL, and `renderer.info.render.calls` — the number §7 budgets — never sees it.
@@ -52,7 +55,7 @@ function buildAtlas(chars) {
   return { canvas, cells };
 }
 
-export function makeScreen({ root, view, log }) {
+export function makeScreen({ root, view, log, config }) {
   const canvas = document.createElement('canvas');
   canvas.id = 'ui-screen';
   canvas.style.cssText = 'position:absolute;left:0;top:0;' +
@@ -141,8 +144,17 @@ export function makeScreen({ root, view, log }) {
    */
   function resize() {
     const size = view?.internalSize;
-    const iw = Number(size?.[0]) >= 2 ? Math.floor(size[0]) : 640;
-    const ih = Number(size?.[1]) >= 2 ? Math.floor(size[1]) : 360;
+    const rawW = Number(size?.[0]) >= 2 ? Math.floor(size[0]) : 640;
+    const rawH = Number(size?.[1]) >= 2 ? Math.floor(size[1]) : 360;
+    // `uiScale` (`core/config.js` `DEFAULTS`) is a second, independent pixel scale for this
+    // canvas alone — clamped to {1, 2} here rather than trusted from `config`, since a config
+    // key can be anything a URL param sets it to. At 2 the UI buffer is half the size, so
+    // every glyph and every panel covers twice the screen pixels once it is stretched back
+    // over the same `displayRect` below; the world's own canvas and its pixel grid (DECISIONS
+    // #60) are untouched — this is a different canvas, sized only here.
+    const scale = Number(config?.uiScale) >= 2 ? 2 : 1;
+    const iw = Math.max(1, Math.floor(rawW / scale));
+    const ih = Math.max(1, Math.floor(rawH / scale));
     // The scene's canvas is an integer multiple of the internal buffer and letterboxed
     // inside the viewport (`core/render.js`), so this one has to sit on exactly the same
     // rect. Stretching it over the whole viewport instead would put the HUD on a different

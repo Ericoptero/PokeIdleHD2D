@@ -107,6 +107,8 @@ export function makeAutomation(app) {
 
   return {
     id: 'automation',
+    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
+     *  see DECISIONS #85. */
     full: true,
     has: () => isLive(app.ctx.get('automation')),
     open() { top = 0; ruleTop = 0; },
@@ -142,6 +144,7 @@ export function makeAutomation(app) {
       const def = all[selected] ?? null;
 
       const win = windowFrame(g, {
+        windowId: 'automation',
         title: 'AUTOMATION', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑↓ pick    ←→ rules / settings    Z unlock or toggle    X close',
         footerRight: 'every list is FIRST MATCH WINS',

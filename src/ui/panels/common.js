@@ -7,6 +7,9 @@
 
 import { C, panel, header, well, row, button } from '../theme.js';
 import { clampScroll } from '../gesture.js';
+import {
+  minSizeFor, defaultBox, clampMove, clampResize, applyMove, applyResize,
+} from '../window.js';
 
 export const MARGIN = 10;
 
@@ -52,6 +55,109 @@ export function registerScroll(g, box, tag, callerTop, contentSize, viewSize, st
 }
 
 /**
+ * A window's remembered position and size, keyed by its own `windowId` — the same shape as
+ * `scrollMemory` above, and for the same reason: `windowFrame` is called fresh from inside
+ * each panel's own closure every frame, so the one thing that has to survive a repaint is a
+ * module-scope `Map`, not a caller-owned variable. Populated lazily, only once a window is
+ * actually dragged or resized (slice 016) — a panel nobody has touched keeps recomputing
+ * `defaultBox()` centred at its own authored size against whatever the buffer currently is,
+ * which is what lets a browser resized between sessions still open a sane first window.
+ * @type {Map<string, {x:number,y:number,w:number,h:number}>}
+ */
+const windowGeometry = new Map();
+
+/**
+ * The live gesture `windowFrame`'s drag/resize regions are reconciled against, keyed by
+ * `${windowId}:move` or `${windowId}:resize`. Ephemeral — never persisted, never read outside
+ * a live drag — the anchor (the window's own box and the pointer's position, both the instant
+ * the gesture was first observed *in a paint*) it stores here is exactly what `reconciledTop`
+ * stores for a wheel notch, one type up: a live delta reconciled against a stable base until
+ * the gesture ends, at which point the result is written into `windowGeometry` and this entry
+ * is dropped.
+ *
+ * "First observed in a paint" rather than "at the `pointerdown`" is a small, deliberate gap:
+ * this module only ever runs inside `draw()`, called from a paint, and a paint only happens
+ * when something is dirty — so any pointer travel between the actual `pointerdown` and the
+ * next paint is not measured (`screen.js`'s pointerdown handler does mark the screen dirty
+ * synchronously, so on a live, running game this is at most one `requestAnimationFrame` tick,
+ * imperceptible against real mouse movement). A test with the frame loop paused
+ * (`tests/flows/hud-windows.spec.js`'s `boot()`) has to force that first paint itself before
+ * moving further, or it measures zero.
+ * @type {Map<string, {px:number, py:number, base:object, live:object}>}
+ */
+const windowDrag = new Map();
+
+/**
+ * `screen.js`'s held gesture (`gesture.js`'s `DragState`), or `null` — set once per frame by
+ * `index.js`'s own `draw()`, *before* the current panel's `draw()` runs, because `windowFrame`
+ * is called from deep inside that panel's own closure and has no other way to reach it without
+ * every one of its six call sites threading `screen.drag()` through `opts` by hand.
+ * @type {import('../gesture.js').DragState|null}
+ */
+let activeDrag = null;
+/** Called once per frame by `index.js`. Not exported for a panel to call — nothing outside
+ *  `index.js`'s own `draw()` knows what the live gesture actually is. */
+export function setActiveDrag(drag) { activeDrag = drag; }
+
+/**
+ * Reconciles one window's `kind` ('move' or 'resize') against the live gesture, exactly the
+ * way `registerScroll`'s callback reconciles a wheel notch against `reconciledTop`'s memory:
+ * while the matching drag is held, the return value tracks the pointer continuously off a
+ * fixed anchor (never off the previous frame's own output, which would drift); the instant it
+ * is no longer held, whatever was last computed is written back into `windowGeometry` as the
+ * new persisted geometry and the anchor is forgotten.
+ */
+function reconcileDrag(id, kind, base, buffer, m, min) {
+  const key = `${id}:${kind}`;
+  // `activeDrag.tag` is the region's own diagnostic tag (`'window-drag'`/`'window-resize'`,
+  // read by `screen.regions()` and by `tests/flows/hud-windows.spec.js`) — the *payload*'s own
+  // `kind` is what says which gesture this is, exactly the shape `windowFrame` registers below.
+  const payloadKind = kind === 'move' ? 'window' : 'resize';
+  const active = !!activeDrag && activeDrag.payload?.kind === payloadKind && activeDrag.payload?.id === id;
+  let mem = windowDrag.get(key);
+  if (active) {
+    if (!mem) mem = { px: activeDrag.x, py: activeDrag.y, base, live: base };
+    const dx = activeDrag.x - mem.px;
+    const dy = activeDrag.y - mem.py;
+    const live = kind === 'move'
+      ? clampMove(applyMove(mem.base, dx, dy), buffer, m)
+      : clampResize(applyResize(mem.base, dx, dy), buffer, m, min);
+    mem.live = live;
+    windowDrag.set(key, mem);
+    return live;
+  }
+  if (mem) {
+    windowDrag.delete(key);
+    windowGeometry.set(id, mem.live);
+    return mem.live;
+  }
+  return base;
+}
+
+/**
+ * Every window's geometry, JSON-safe — the `ui` save slice's own payload
+ * (`index.js`'s `saveState`). Only ids a player has actually dragged or resized appear; a
+ * panel never touched keeps opening at its authored default (`defaultBox`), which is exactly
+ * what a save with no `ui` slice at all already did before this slice.
+ */
+export function serializeWindows() {
+  return Object.fromEntries(windowGeometry);
+}
+
+/** The inverse of `serializeWindows()` — `index.js`'s `loadState`. Malformed entries (not the
+ *  four numeric fields) are skipped rather than crashing the restore of every other window. */
+export function restoreWindows(value) {
+  windowGeometry.clear();
+  if (!value || typeof value !== 'object') return;
+  for (const [id, box] of Object.entries(value)) {
+    if (!box || typeof box !== 'object') continue;
+    const { x, y, w, h } = box;
+    if (![x, y, w, h].every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
+    windowGeometry.set(id, { x, y, w, h });
+  }
+}
+
+/**
  * The gutter between a window and the edge of the buffer. It is a *fraction* of the buffer
  * rather than a constant, because the buffer is not one size: 640x360 at 1080p, 533x299 at
  * 1600x900 and 426x239 at 720p (`screen.js` takes the renderer's own internal size). A
@@ -76,18 +182,54 @@ export function fit(g, w, h) {
   };
 }
 
+/** The resize grip's own side, in UI buffer pixels — the bottom-right corner of every window. */
+const GRIP = 8;
+
+/**
+ * Three short diagonal dashes stepping into the corner — the standard resize affordance, drawn
+ * in the same stone the scrollbar thumb already uses (`list()`, above) rather than a plain box:
+ * a magenta placeholder is a bug and a blank square reads as an unfinished corner, not as a
+ * control.
+ */
+function drawGrip(g, box) {
+  const cx = box.x + box.w - 2;
+  const cy = box.y + box.h - 2;
+  for (let i = 0; i < 3; i++) {
+    const o = i * 3;
+    g.fill(cx - o, cy - o, 1, 1, C.stoneLight);
+    g.fill(cx - o - 1, cy - o - 1, 1, 1, C.stoneShadow);
+  }
+}
+
 /**
  * The window. Returns the content rect inside the header and above the footer.
+ *
+ * `windowId` is required (slice 016): it is the key `windowGeometry`/`serializeWindows`
+ * remembers this window's position and size under, so two panels must never pass the same
+ * one. Every existing call site passes its own panel `id` (`'party'`, `'shop'`, …).
  * @param {object} g painter
- * @param {{title:string, bar?:string, edge?:string, light?:string, footer?:string, onClose?:Function, w?:number, h?:number}} opts
+ * @param {{windowId:string, title:string, bar?:string, edge?:string, light?:string, footer?:string, footerRight?:string, onClose?:Function, w?:number, h?:number}} opts
  */
 export function windowFrame(g, opts) {
   const m = margin(g);
+  const id = opts.windowId;
+  const buffer = { width: g.width, height: g.height };
+  const min = minSizeFor(id);
+
   // Clamped here as well as by the caller: a panel that forgets `fit()` still cannot draw
-  // itself off the screen, which is the whole of issue 1.
-  const w = Math.min(opts.w ?? g.width - m * 2, g.width - m * 2);
-  const h = Math.min(opts.h ?? g.height - m * 2 - 2, g.height - m * 2 - 2);
-  const box = { x: Math.round((g.width - w) / 2), y: Math.round((g.height - h) / 2) - 1, w, h };
+  // itself off the screen, which is the whole of issue 1. This is now only the *authored*
+  // default's clamp — the window's actual, remembered geometry is clamped again below,
+  // against whatever the buffer is *this* frame, which is what lets a save opened on a
+  // smaller screen than it was last dragged/resized on still land inside it.
+  const fitW = Math.min(opts.w ?? g.width - m * 2, g.width - m * 2);
+  const fitH = Math.min(opts.h ?? g.height - m * 2 - 2, g.height - m * 2 - 2);
+
+  let base = windowGeometry.get(id) ?? defaultBox(fitW, fitH, buffer, m);
+  base = clampResize(base, buffer, m, min);
+  base = clampMove(base, buffer, m);
+
+  let box = reconcileDrag(id, 'move', base, buffer, m, min);
+  box = reconcileDrag(id, 'resize', box, buffer, m, min);
 
   g.scrim(0, 0, g.width, g.height, 0.5);
   if (opts.onClose) g.hit({ x: 0, y: 0, w: g.width, h: g.height }, opts.onClose, 'scrim');
@@ -104,6 +246,15 @@ export function windowFrame(g, opts) {
     bar: opts.bar ?? C.roofBase, edge: opts.edge ?? C.roofDeep, light: opts.light ?? C.roofLight,
   });
 
+  // The title bar itself, a drag region (slice 016): picked up on `pointerdown` instead of
+  // calling anything (`screen.js`'s `r.drag` branch), so a plain click that never moves does
+  // nothing — which is the point, a window does not open or close from its own title bar.
+  // Registered *before* the close cross below, so "last one wins" still gives the cross the
+  // few pixels of overlap in the top-right corner.
+  g.hit({ x: box.x + 1, y: box.y + 1, w: box.w - 2, h: 13 }, {
+    drag: { payload: { kind: 'window', id } },
+  }, 'window-drag');
+
   // close cross, top right of the header
   const x0 = box.x + box.w - 14;
   g.text(x0, box.y + 3, '✗', C.wallHi, { shadow: opts.edge ?? C.roofDeep });
@@ -118,14 +269,24 @@ export function windowFrame(g, opts) {
     // The footer is a hint, not a headline: when the window is narrow the right-hand
     // summary is dropped before the key legend is allowed to overprint it.
     const rw = opts.footerRight ? g.measure(opts.footerRight) : 0;
-    const room = box.w - 10 - (rw ? rw + 8 : 0);
+    const room = box.w - 10 - (rw ? rw + 8 : 0) - GRIP - 2;
     if (g.measure(opts.footer) <= room || !rw) {
-      g.text(box.x + 5, fy + 2, opts.footer, C.shadowInk, { max: box.w - 10 });
-      if (rw) g.textRight(box.x + box.w - 5, fy + 2, opts.footerRight, C.shadowInk);
+      g.text(box.x + 5, fy + 2, opts.footer, C.shadowInk, { max: box.w - 10 - GRIP - 2 });
+      if (rw) g.textRight(box.x + box.w - 5 - GRIP - 2, fy + 2, opts.footerRight, C.shadowInk);
     } else {
-      g.text(box.x + 5, fy + 2, opts.footer, C.shadowInk, { max: box.w - 10 });
+      g.text(box.x + 5, fy + 2, opts.footer, C.shadowInk, { max: box.w - 10 - GRIP - 2 });
     }
   }
+
+  // The resize grip, bottom-right — drawn and registered last so it wins the corner over the
+  // footer strip it sits inside (every one of this module's six windows passes a `footer`, so
+  // that strip is always reserved and a panel's own content, laid out against the rect this
+  // function returns, never reaches into it).
+  drawGrip(g, box);
+  g.hit({ x: box.x + box.w - GRIP, y: box.y + box.h - GRIP, w: GRIP, h: GRIP }, {
+    drag: { payload: { kind: 'resize', id } },
+  }, 'window-resize');
+
   return { x: inner.x + 3, y: inner.y + 3, w: inner.w - 6, h: inner.h - 6 - footH, box };
 }
 

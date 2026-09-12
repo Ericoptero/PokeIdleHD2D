@@ -52,6 +52,8 @@ export function makeBoxes(app) {
 
   return {
     id: 'boxes',
+    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
+     *  see DECISIONS #85. */
     full: true,
     open(opts = {}) {
       confirmRelease = false;
@@ -83,6 +85,7 @@ export function makeBoxes(app) {
       const entry = box ? (box[slot] ?? null) : null;
 
       const win = windowFrame(g, {
+        windowId: 'boxes',
         title: 'STORAGE', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑←↓→ move    [ ] change box    X close',
         footerRight: stats

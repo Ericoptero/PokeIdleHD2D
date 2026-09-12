@@ -77,7 +77,9 @@ export function makeShop(app) {
 
   return {
     id: 'shop',
-    /** A full-frame window: `index.js` stands the HUD down while one is open. */
+    /** `full` is a sizing hint only (a bigger default `windowFrame` size) — since slice 016 it
+     *  no longer stands the HUD down; the wallet, the clock and the party bar stay up behind
+     *  it, same as every other panel here except `dialogue`'s `hidesHud` (DECISIONS #85). */
     full: true,
     open() { ensureShop(); cursor = 0; top = 0; },
     close() {},
@@ -106,6 +108,7 @@ export function makeShop(app) {
       const shop = all.find((s) => s.id === shopId) ?? null;
       const deal = isLive(e) && typeof e.deal === 'function' ? e.deal() : null;
       const win = windowFrame(g, {
+        windowId: 'shop',
         title: 'SHOP', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑↓ choose    ←→ shop    Z buy    X close',
         onClose: () => app.close(), ...fit(g, 540, 278),

@@ -893,3 +893,63 @@ visible rows, so the flow test scrolls the boxes panel instead.
 persistence for either, and drag-to-reorder anywhere (a unit test proves the reducer; nothing
 in `src/ui/panels/` yet calls `drag`/`drop` on a real `g.hit()`). Reordering an automation's
 rules is still `^`/`v` buttons, unchanged by this slice, per #77(a)'s own untouched conclusion.
+
+---
+
+### 85 — 2026-09-12 — `full` stops hiding the HUD; a window remembers where you put it
+
+**Two things `full: true` meant, collapsed into one flag.** Before this slice, opening any of
+the five `full` panels (`shop`, `boxes`, `dex`, `automation`, `party`) both sized the window
+generously by default *and* stood the wallet, the clock, the party bar and the button strip
+down — `src/ui/index.js`'s `draw()` read `const bars = !full && !state.panel?.hidesHud`. That
+second effect was never asked for; it fell out of one flag doing two jobs, and it is the actual
+bug slice 017 (the party bar) needs fixed to be visible with any panel open. `full` now means
+only "sized generously by default" — a hint `windowFrame`/`window.js` consume for the window's
+first-ever size — and `bars` is `!state.panel?.hidesHud` alone. `hidesHud` (only `dialogue`)
+is unchanged: a message box is still the one thing that stands the bottom bars down, because it
+occupies the same strip of screen they do.
+
+**A window is a `windowId`, a title-bar `drag` region and a corner `drag` region, on exactly
+015's primitives.** `windowFrame` (`panels/common.js`) now requires `opts.windowId` — every one
+of its six callers (`shop`, `boxes`, `dex`, `automation`, `party`, `travel`) passes its own
+panel id — and registers two `g.hit(box, {drag: {payload}}, tag)` regions: the title bar
+(`'window-drag'`, payload `{kind:'window', id}`) and an 8×8 bottom-right grip (`'window-resize'`,
+payload `{kind:'resize', id}`), both drawn/registered so the close cross and the footer strip
+still win the few pixels each one would otherwise overlap ("last one wins", DECISIONS #84). The
+region's own diagnostic `tag` (what `screen.regions()` reports, and what a flow test greps for)
+and the payload's `kind` (what `reconcileDrag` actually branches on) are deliberately two
+different strings — conflating them was the first bug found writing this slice's own flow test,
+because `dragState.tag` is `g.hit()`'s third argument, not the payload.
+
+**The split this slice keeps, following `gesture.js`/`screen.js`'s own precedent exactly.**
+`src/ui/window.js` is pure geometry — `clampMove`, `clampResize` (each keeps one corner fixed:
+a title-bar drag never touches size, a corner-grip resize never touches the opposite corner),
+`defaultBox`, `minSizeFor` — importable and golden-tested under plain Node
+(`window.test.js`, `selftest.js`), exactly `gesture.js`'s own shape. The *state* — a
+`windowGeometry` Map of every panel's remembered box, and a `windowDrag` Map reconciling the
+live gesture against it — lives in `panels/common.js`, next to `scrollMemory`, which already
+solved the identical problem one type down (a wheel delta against a caller-owned `top`). Only a
+window a player has actually dragged or resized earns an entry; every other panel keeps opening
+at `fit()`'s authored default, centred, which is what a save with no `ui` slice at all already
+did.
+
+**The anchor is "first observed in a paint", not "at the `pointerdown`" — a real, small gap.**
+`windowFrame` only runs inside a paint, and a paint only happens when something is dirty. A
+live, running game marks the screen dirty synchronously in `screen.js`'s own `pointerdown`
+handler, so the gap is at most one `requestAnimationFrame` tick — imperceptible against real
+mouse movement. `tests/flows/hud-windows.spec.js`'s `boot()` freezes the frame loop entirely, so
+its own drag helper has to force that first paint by hand before moving further, or it measures
+zero movement — the failure mode this slice's own tester round found first, before the fix
+described above (`reconcileDrag` keying off the payload's `kind`, not the drag's own `tag`) was
+even in place, in a run where nothing moved at all.
+
+**`uiScale` is a `config` key, not a save-slice field.** `core/config.js`'s `DEFAULTS` gets
+`uiScale: 1`, making `?uiScale=2` a session override for free (CLAUDE.md: every `DEFAULTS` key
+is a URL param) and the menu's own toggle a `config.set({uiScale: 2}); config.persist();` call —
+`environment/index.js`'s own two-step pattern, not a new one. `screen.js`'s `resize()` divides
+the renderer's own internal buffer size by it (clamped to `{1, 2}`) before sizing the UI canvas
+alone: the world's canvas and its pixel grid (DECISIONS #60) are a separate layer, untouched.
+Window geometry, by contrast, **is** a save-slice field (`ui.saveState()` → `{ v: 1, windows }`)
+because it is per-panel state that only makes sense restored alongside the rest of a save, not
+a session-wide preference — self-registered with `offline.store`, `travel`'s own pattern
+(`src/ui` inits after `offline` in the real boot order), at `order: 55`.

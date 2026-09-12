@@ -1,6 +1,6 @@
 # 016 — Windows a player can move, resize and scale, and that survive a reload
 
-Status: proposed          Branch / commit: hud/window-system / …
+Status: done          Branch / commit: hud/window-system / (pending commit)
 
 ## Why
 
@@ -105,6 +105,70 @@ still stands the bottom bars down.
   runs at: `[320, 180]` (half of `[640,360]`), `[267, 150]` (half of `[534,300]`), matching the
   existing pattern of testing real produced sizes, not invented ones.
 
+### Corrections found re-reading the code before implementing (reality wins)
+
+- **This section's own list above was written as if `buffers` had two entries.** By the time
+  this slice was implemented, `src/ui/selftest.js:190` already carried five —
+  `[640,360], [534,300], [756,492], [640,270], [390,844]` — not the two `[640,360]`/`[534,300]`
+  this section's own prose names. Implemented as halving all five (`[320,180], [267,150],
+  [378,246], [320,135], [195,422]`), not only the two named here, since that is what "the
+  existing pattern of testing real produced sizes, not invented ones" actually requires once
+  the array itself has moved on.
+- **`src/ui/panels/shop.js:78-80` and `party.js:205-207` (plus `boxes.js:55`, `dex.js:34`,
+  `automation.js:110`) — only `shop.js` actually carries the `/** A full-frame window: … */`
+  comment.** `boxes.js`, `dex.js`, `automation.js` and `party.js` have a bare `full: true` with
+  no comment above it at all (confirmed by `grep -n -B4 "full: true"` on each). There was no
+  stale sentence to correct on four of the five; a short comment recording the corrected
+  meaning was added to all five anyway, for the same reason acceptance criterion 7 asks for
+  one on every panel — so the next person to read `full: true` in any of them does not have to
+  rediscover what it means from `index.js`.
+- **015's own pseudocode for the drag region, quoted in this slice's own Why/Inspected
+  sections, does not match `gesture.js`/`screen.js` as 015 actually shipped them.** `g.hit`'s
+  `drag` option is a plain `{payload}` object (read as `r.drag.payload` in `screen.js`'s
+  `pointerdown` handler), never a function — `drag: () => ({kind:'window', id})` as this
+  slice's own Inspected section wrote it would register a *function* as the payload, and
+  `startDrag` would hand that function to `dragState.payload` verbatim, never calling it.
+  Implemented as `drag: { payload: { kind: 'window', id } }`. Also: `swallow: true` alongside
+  `drag` (as this slice's own quoted snippet has it) is dead — `screen.js`'s `pointerdown`
+  handler branches `if (r.drag) {…} else if (r.swallow) {…}`, so a region carrying both never
+  reaches the `swallow` branch. Neither drag region sets it.
+- **The drag payload's `kind` and the region's own diagnostic `tag` are two different strings,
+  and conflating them was a real bug caught by this slice's own flow test before a fix landed**
+  (not a pre-existing drift, a mistake made *while implementing* this slice, recorded here
+  because it directly contradicts what a first reading of `screen.js` suggests): `dragState.tag`
+  is `g.hit()`'s third argument (`'window-drag'`/`'window-resize'`, the same string
+  `screen.regions()` reports), not the payload's `kind` (`'window'`/`'resize'`). The first
+  version of `reconcileDrag` compared `activeDrag.tag` against `'window'`/`'resize'` and never
+  matched, so no window ever moved in the flow test until this was corrected to compare
+  `activeDrag.payload.kind` instead.
+- **`docs/baseline.json` has 18 regress rows, not 17** as this slice's own Inspected section
+  and (until this commit) `docs/STATUS.json`'s `gate.baseline` both said — `pokecenter/12` was
+  added since whichever count 17 was taken from. Still zero of the 18 open a panel (re-grepped
+  to confirm), so the substance of this slice's claim — the chrome change is not expected to
+  move the baseline — still holds; only the count was stale. `docs/STATUS.json` is corrected in
+  this commit.
+- **`makeScreen({ root, view, log })` (`src/ui/screen.js`) took no `config`.** `uiScale` lives
+  on `config`, so `index.js`'s call site now passes it through (`makeScreen({ root, view, log,
+  config })`) and `resize()` reads `config?.uiScale`.
+- **"a pure geometry store: clamp, default size, bring-to-front, min size per panel id"**
+  (Files/modules affected, below) is not quite what got built, on inspecting how many windows
+  can ever be visible at once: `ui/index.js`'s `open(id, opts)` always replaces `state.panel`
+  (closing whatever was open first), so **at most one panel is ever drawn in a frame** — there
+  is nothing for a second window to be brought in front of. `src/ui/window.js` is pure geometry
+  *math* only (`clampMove`, `clampResize`, `defaultBox`, `minSizeFor`) with no bring-to-front
+  function; the *store* (a `Map`, plus the live-drag reconciliation) lives in `panels/common.js`
+  next to `scrollMemory`, not in `window.js` — closer to `gesture.js`/`screen.js`'s own pure/
+  stateful split than to a single "store" module.
+- **Acceptance criterion 5's screenshot half is out of step with CLAUDE.md's own testing
+  rule.** "a captured screenshot's HUD glyph height … is double" would require pixel-decoding
+  inside `tests/flows/hud-windows.spec.js`, and CLAUDE.md's Testing section is explicit that a
+  flow test asserts "on bus events and module state — never pixels". Implemented instead as a
+  flow test on module state alone (`ui.metrics()`'s `width`/`height` exactly halved, and
+  `ctx.three.view.internalSize` unchanged) — the part of the criterion CLAUDE.md's rule allows
+  a flow test to prove — with the pixel half left to `npm run shot`, per this slice's own
+  "Verification in the real application" section, which is the correct venue per CLAUDE.md
+  ("For anything visual, take the screenshot and look at it").
+
 ## Files / modules affected
 
 New: `src/ui/window.js` (pure geometry store: clamp, default size, bring-to-front, min size per
@@ -120,6 +184,13 @@ self-registration; drag-ghost/resize-ghost already draws last per 015's ordering
 comment corrected on each), `src/ui/selftest.js` (new buffer cases + window-store clamp checks),
 `ARCHITECTURE.md` §5.12 (`ui`'s save slice, `full`'s corrected meaning), §10 (new save-slice row),
 `docs/DECISIONS.md` (new entry).
+
+Also touched, not named above: **`src/ui/panels/travel.js`** — one line (`windowId: 'travel'`).
+`windowFrame`'s new `windowId` parameter is required on *every* call site, and `travel.js` is a
+sixth caller this section's own list of five `full` panels does not include (`travel` is not
+`full`) but that still goes through the same `windowFrame`. **`docs/STATUS.json`** — its `gate`
+block and its stale "`ui` has `snapshot()` without `restore()`" sentence (now false: `ui` is a
+save-slice provider) needed correcting once `ui` actually became one.
 
 ## Expected behaviour
 
@@ -203,4 +274,109 @@ resizable/scalable/persistent; it does not add any new panel.
 
 ## Result
 
-Filled in when done.
+**Starting point** — `npm run gate:fast` before touching anything:
+
+```
+  lint       ok       3.1s
+  typecheck  ok       0.9s
+  seams      ok       2.0s
+  unit       ok       1.4s
+  build      skipped
+  coldboot   skipped
+  boot       skipped
+  flows      skipped
+  parity     skipped
+  regress    skipped
+  total               7.4s
+✓ gate: every stage passed
+```
+(unit: 10 test files, 48 passed | 1 expected fail, matching the existing `it.fails`/`STATUS:`
+pin — untouched by this slice.)
+
+**What changed, against the "Inspected" section above** (reality differed from this slice's own
+premises in five places; corrections are inline in that section, not just here):
+- `windowFrame`'s new drag payload is `{payload: {kind, id}}`, a plain object — not the
+  function this slice's own Inspected section quoted (`drag: () => ({...})`), which `screen.js`
+  never calls.
+- The drag payload's `kind` (`'window'`/`'resize'`) and the region's own diagnostic `tag`
+  (`'window-drag'`/`'window-resize'`) are different strings; `reconcileDrag` has to key off the
+  former. Comparing against the latter (my own first draft) meant no window ever moved —
+  caught by this slice's own flow test, not assumed away.
+- `selftest.js`'s `buffers` array already had five entries, not the two this slice's own
+  Inspected section named; all five got halved, not just two.
+- Only `shop.js` carried the stale `full` comment; `boxes.js`/`dex.js`/`automation.js`/
+  `party.js` had none. A corrected one-line comment was added to all five anyway.
+- `docs/baseline.json` has 18 regress rows, not 17 (also corrected in `docs/STATUS.json`).
+
+**Tests written first, and watched fail for the reason predicted:**
+- `src/ui/window.test.js` (13 golden cases) — written against `window.js` as a new file, so
+  there was no "before" to watch red in the usual sense; the four acceptance-criterion-1 cases
+  (negative-x clamp, past-right-edge clamp, below-minimum resize clamp, past-buffer resize
+  clamp) are checked against **literal** expected numbers (DECISIONS #35), not a second call to
+  the same function.
+- `tests/flows/hud-windows.spec.js`'s two new drag tests failed twice for real reasons before
+  passing: first, "no window ever moves" (the `tag`-vs-`kind` bug above, wrong in the
+  implementation, not the test); second, "the window jumps straight to the end position with
+  no live tracking" (the test's own `dragStart`/`dragEnd` helpers not forcing an intermediate
+  paint, documented at length in both files once understood as a real, small, timing-dependent
+  gap in a paint-driven UI, not a test artifact to shrug off).
+
+**Acceptance criteria** (numbered as in this slice):
+1. `window.test.js` — 13/13 pass, golden literals. ✓
+2. `selftest.js`'s extended `buffers` (10 entries: the original 5 plus each halved) still pass
+   `fit()`'s clamp assertion unmodified — `node src/ui/selftest.js` shows
+   `✓ fit() clamps every authored panel size into every buffer size — 4 panels x 10 buffers`.
+   New golden `clampMove`/`clampResize` checks added alongside (mirroring `window.test.js`
+   under plain Node, the way `gesture.js`'s reducer already is). ✓
+3. & 4. `tests/flows/hud-windows.spec.js`: drag-move and drag-resize, each asserting the live
+   (still-held) box, the committed box after release, a raw read of
+   `localStorage['pokeidle.save']` carrying the exact geometry, and a real `page.reload()`
+   reopening the window at that geometry. ✓
+5. Buffer-halving is a flow test on module state (`ui.metrics()` exactly halved,
+   `ctx.three.view.internalSize` untouched) — not a pixel-decoding assertion inside
+   `tests/flows/`, which would contradict CLAUDE.md's flow-test rule ("never pixels"); see the
+   Inspected-section correction above. The pixel half is `npm run shot` (below). ✓ (module-state
+   half only, by design)
+6. Flow test: opening `shop` (`full: true`) leaves `partyBox`/`clockBox`/`stripBox` all
+   non-null, read off `ui`'s own `_state`. ✓
+7. All five panels' `full: true` carries a corrected (or newly added) comment — reviewer to
+   confirm by reading the diff, per this criterion's own text. Diff: `src/ui/panels/{shop,
+   boxes,dex,automation,party}.js`.
+
+**Verification in the real application:** `npm run shot -- --base http://127.0.0.1:<port> --out
+shots/out/party-window.png --showcase ui --mode party --tod 11` (a standalone `vite` was
+started for this, `--base` pointed at it, since the gate's own dev server had already been torn
+down) — confirms visually: the wallet, clock, party bar and button strip all stay up behind the
+`full` `PARTY` window (the `bars` fix); the resize grip (three diagonal stone-coloured dashes)
+sits inside the footer strip in the bottom-right corner, legible at 4× crop, not a placeholder
+box. Zero console errors on the capture.
+
+**Final `npm run gate`** (full tree, after every edit including the docs):
+
+```
+  lint       ok       2.5s
+  typecheck  ok       0.5s
+  seams      ok       1.6s
+  unit       ok       0.8s
+  build      ok       3.6s
+  coldboot   ok       4.0s
+  boot       ok       88.9s
+  flows      ok       58.1s
+  parity     ok       36.0s
+  regress    ok       73.4s
+  total               269.5s
+✓ gate: every stage passed
+```
+`regress`: **0 improved, 0 regressed, 0 moved, across 18 frames** — the window-chrome change
+(title-bar drag region, resize grip) does not move the existing baseline, confirming this
+slice's own prediction rather than requiring a `--accept` (no baseline row opens a panel).
+`flows`: all 27 Playwright specs pass, including the 4 new/extended cases in
+`hud-windows.spec.js` (2 pre-existing + drag-move, drag-resize, uiScale, full-panel-keeps-HUD —
+7 tests total in that file now). `boot`: 24/24 entry points draw a real frame. `parity`: all
+checks pass (sprite pixel-parity across 7 viewports, walk-stability). No regress frame moved, so
+nothing was re-accepted.
+
+**Docs corrected in this commit, beyond this slice's own "Docs to touch" list:**
+`docs/STATUS.json`'s `gate` block (stale numbers from 2026-09-11, and the "17 regress rows"
+baseline count, corrected to 18) and its dangling `ui` "has `snapshot()` without `restore()`"
+sentence in `ARCHITECTURE.md` §10 (now a provider, order 55).

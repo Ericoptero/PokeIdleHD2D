@@ -31,6 +31,8 @@ export function makeDex(app) {
 
   return {
     id: 'dex',
+    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
+     *  see DECISIONS #85. */
     full: true,
     open() { top = 0; cursor = 0; },
     close() {},
@@ -50,6 +52,7 @@ export function makeDex(app) {
       const records = isLive(c) && typeof c.records === 'function' ? (c.records() ?? []) : [];
 
       const win = windowFrame(g, {
+        windowId: 'dex',
         title: 'POKéDEX', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: '↑↓ scroll    ←→ generation / type    X close',
         onClose: () => app.close(), ...fit(g, 560, 288),

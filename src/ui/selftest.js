@@ -30,6 +30,9 @@ import { fit, margin } from './panels/common.js';
 // for exactly this reason — slice 015), so its reducer and its scroll clamp run here the same
 // way `panels/battle.js`'s transcript formatter already does.
 import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag, clampScroll } from './gesture.js';
+// `window.js` is the same split applied to a window's geometry (slice 016): pure clamp math,
+// no DOM, so it runs here the same way `gesture.js`'s reducer does.
+import { MIN_SIZE, minSizeFor, clampMove, clampResize } from './window.js';
 // `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
 // function this file may call — the same discipline that lets `evolution.js` be tested here.
 import { lineFor, STATUS_NAME } from './panels/battle.js';
@@ -187,7 +190,15 @@ const check = (name, ok, detail = '') => {
   // 756x492. The last two are the ones that used to be missing: a 2560x1080 ultrawide is only
   // 270 tall, and a 390 px phone in portrait is 390 wide — both narrower in one axis than any
   // panel this module authors, which is the whole point of the clamp.
-  const buffers = [[640, 360], [534, 300], [756, 492], [640, 270], [390, 844]];
+  //
+  // The five `/2` entries are what `screen.js`'s own `resize()` actually produces from each of
+  // the buffers above once `?uiScale=2` (slice 016, DECISIONS #85) halves the UI canvas's own
+  // backing store — real produced sizes, not invented ones, matching this array's existing
+  // discipline (each halves cleanly; `screen.js` floors regardless).
+  const buffers = [
+    [640, 360], [534, 300], [756, 492], [640, 270], [390, 844],
+    [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
+  ];
   const authored = [[560, 288], [540, 278], [502, 264], [424, 250]];
   const bad = [];
   for (const [W, H] of buffers) {
@@ -298,6 +309,33 @@ const check = (name, ok, detail = '') => {
   check('clampScroll: contentSize <= viewSize always clamps to 0',
     clampScroll(50, 100, 100) === 0 && clampScroll(50, 80, 100) === 0);
   check('clampScroll: an in-range offset passes through unchanged', clampScroll(120, 300, 100) === 120);
+}
+
+// --- a window's geometry (slice 016) -----------------------------------------
+// `window.test.js` (vitest) already has the full golden set; this is the same invariant run
+// under plain Node, the way `window.test.js`'s own precedent (`gesture.js`'s reducer) already
+// is here too — so a DOM-shaped regression in `window.js` fails a Node run, not only vitest.
+{
+  const buf = { width: 640, height: 360 };
+  check('minSizeFor falls back to MIN_SIZE for a panel with no override',
+    minSizeFor('shop').w === MIN_SIZE.w && minSizeFor('shop').h === MIN_SIZE.h);
+
+  const negX = clampMove({ x: -50, y: 100, w: 200, h: 150 }, buf, 10);
+  check('clampMove: a window dragged so x would go negative clamps to the margin',
+    negX.x === 10 && negX.y === 100, JSON.stringify(negX));
+
+  const pastRight = clampMove({ x: 600, y: 100, w: 200, h: 150 }, buf, 10);
+  check('clampMove: dragged past the right edge clamps so x + w never exceeds buffer.width - margin',
+    pastRight.x + pastRight.w === buf.width - 10, JSON.stringify(pastRight));
+
+  const tooSmall = clampResize({ x: 20, y: 20, w: 10, h: 10 }, buf, 10, MIN_SIZE);
+  check('clampResize: resized below the declared minimum clamps to that minimum',
+    tooSmall.w === MIN_SIZE.w && tooSmall.h === MIN_SIZE.h, JSON.stringify(tooSmall));
+
+  const tooBig = clampResize({ x: 10, y: 10, w: 5000, h: 5000 }, buf, 10, MIN_SIZE);
+  check('clampResize: resized past the buffer clamps to fit',
+    tooBig.x + tooBig.w === buf.width - 10 && tooBig.y + tooBig.h === buf.height - 10 - 2,
+    JSON.stringify(tooBig));
 }
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nui: all checks pass');

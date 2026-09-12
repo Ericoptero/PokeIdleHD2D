@@ -35,6 +35,7 @@ import { makeParty } from './panels/party.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
+import { setActiveDrag, serializeWindows, restoreWindows } from './panels/common.js';
 
 /**
  * The registry hands out a null-object Proxy for a missing or quarantined module, and it
@@ -44,6 +45,11 @@ import { C, panel, applyLight } from './theme.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 let live = null;
+
+/** Save slice version — window geometry only (§10). `uiScale` is a `config` key, not a save
+ *  field: it is URL-overridable per session like every other `DEFAULTS` entry, and a save slice
+ *  would fight that (DECISIONS #85). */
+const SAVE_VERSION = 1;
 
 export default {
   id: 'ui',
@@ -64,7 +70,7 @@ export default {
     // In another module's showcase this module is a passenger: wallet, clock, toasts.
     const minimal = !!config.showcase && config.showcase !== 'ui';
 
-    const screen = makeScreen({ root, view: ctx.three?.view, log });
+    const screen = makeScreen({ root, view: ctx.three?.view, log, config });
     const hud = makeHud(ctx);
     const toasts = makeToasts({ frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
@@ -347,17 +353,17 @@ export default {
       // (theme.js `applyLight`), so the wallet, the panels and the toasts share the world's
       // light instead of sitting on top of it at one fixed brightness.
       if (applyLight(s.tod)) screen.clearTints();
-      // A full-frame panel replaces the HUD rather than sitting on top of it: the wallet is
-      // repeated inside the shop, and a party bar half-hidden behind a window is clutter.
-      const full = !!state.panel?.full;
-      // A message box keeps the wallet and the clock but stands the bottom bars down: it
-      // occupies the same strip of screen they do, and in the mainline a message is the
-      // only thing on that strip.
-      const bars = !full && !state.panel?.hidesHud;
+      // `full` (a per-panel sizing hint only, since slice 016 — see `windowFrame`/`window.js`)
+      // used to also stand the whole HUD down while the panel was open, which is what made
+      // opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the clock
+      // and the party bar along with it (DECISIONS #85). A message box is the one thing that
+      // still stands the bottom bars down — it occupies the same strip of screen they do, and
+      // in the mainline a message is the only thing on that strip.
+      const bars = !state.panel?.hidesHud;
       state.clockBox = null;
       state.stripBox = null;
       state.partyBox = null;
-      if (!full) {
+      if (bars) {
         hud.drawWallet(g, s);
         state.clockBox = hud.drawClock(g, s);
       }
@@ -404,6 +410,10 @@ export default {
         }
         input.drawPad(g);
       }
+      // The one moment `panels/common.js`'s `windowFrame` — called from deep inside whichever
+      // panel draws next — can see the live gesture `screen.js` is holding, without every one
+      // of its six call sites threading `screen.drag()` through `opts` by hand (slice 016).
+      setActiveDrag(screen.drag());
       if (state.panel) state.panel.draw(g, app);
       // The away card is the one moment the wallet is the *subject*: it is telling the player
       // what they earned. Round 1 dimmed the wallet under the card's own scrim at exactly
@@ -419,9 +429,13 @@ export default {
       // every panel, every toast, the debug overlay — everything this frame just drew. A held
       // drag is `screen.drag()` (`gesture.js`'s state, kept alive across the `paint()` that
       // just reset every hit region), not anything this module owns.
+      // A window's own move/resize drag (slice 016) carries an *object* payload
+      // (`{kind, id}`) and needs no floating tag — the window itself is already following the
+      // pointer, drawn above, in real time. The tag is only for a payload meant to be read as
+      // a label, which today means a plain string; `typeof` is the whole test.
       const drag = screen.drag();
-      if (drag) {
-        const label = String(drag.payload);
+      if (drag && typeof drag.payload === 'string') {
+        const label = drag.payload;
         const w = g.measure(label) + 10;
         g.fill(drag.x + 8, drag.y - 6, w, 11, 'rgba(20,18,26,0.85)');
         g.text(drag.x + 13, drag.y - 5, label, C.wallHi);
@@ -505,6 +519,15 @@ export default {
       snapshot: () => ({ ...state.hud, panel: state.panel?.id ?? null, toasts: toasts.count() }),
       /** Screen geometry, so a caller can reason about the UI grid. */
       metrics: () => ({ width: screen.width, height: screen.height, drawCalls: 0 }),
+      /**
+       * Every window a player has actually dragged or resized (§10, DECISIONS #85) — a panel
+       * never touched has no entry and keeps opening at its authored default. `restore()`
+       * pushes `loadState`'s own value straight into `panels/common.js`'s module-scope Map;
+       * there is no per-window validation beyond `restoreWindows`'s own numeric-field check,
+       * because a bad entry only ever mis-clamps a window on its next open, never crashes one.
+       */
+      saveState: () => ({ v: SAVE_VERSION, windows: serializeWindows() }),
+      loadState(value) { restoreWindows(value?.windows); screen.markDirty(); },
       input,
       _screen: screen,
       _toasts: toasts,
@@ -525,6 +548,28 @@ export default {
         live = null;
       },
     };
+
+    /**
+     * Hands the save seam to `offline` directly, the same self-registration `travel` uses and
+     * for the identical reason: `offline` discovers its native providers once, during its own
+     * `init`, and `ui` inits after it in the real boot order (`… simulation, idle, offline,
+     * travel, ui` — slice 014's derived order) — so the ordinary discovery pass never sees it.
+     * `order: 55`: after `travel`'s self-registered 45 and the default 50 every adapter and
+     * every other native slice takes, since window geometry depends on nothing else restoring
+     * first and nothing else depends on it (DECISIONS #85).
+     */
+    const offline = ctx.get('offline');
+    if (isLive(offline) && typeof offline.store?.register === 'function') {
+      offline.store.register('ui', {
+        capture: () => live.saveState(),
+        restore: (v) => live.loadState(v),
+        source: 'native',
+        order: 55,
+      });
+      const saved = offline.store.get?.('ui');
+      if (saved !== undefined) live.loadState(saved);
+    }
+
     return live;
   },
 

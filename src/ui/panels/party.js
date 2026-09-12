@@ -204,6 +204,8 @@ export function makeParty(app) {
 
   return {
     id: 'party',
+    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
+     *  see DECISIONS #85. */
     full: true,
     /** `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3). */
     open(opts) { cursor = 0; view = opts?.view === 'moves' ? 'moves' : 'stats'; moveCursor = 0; moveTop = 0; },
@@ -234,6 +236,7 @@ export function makeParty(app) {
       const list = members();
       cursor = Math.max(0, Math.min(list.length - 1, cursor));
       const win = windowFrame(g, {
+        windowId: 'party',
         title: 'PARTY', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: view === 'moves'
           ? '↑↓ choose    Z pin / unpin    M back to stats    X close'
