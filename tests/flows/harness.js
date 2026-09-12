@@ -75,8 +75,13 @@ export async function stepUntil(page, type, { chunk = 20, maxTicks = 3000, after
   }
 }
 
-/** Presses a key the way a player would: a real KeyboardEvent through `ui/input.js`. */
-export const key = (page, code) => page.evaluate((c) => window.__HOOKS__.key(c), code);
+/**
+ * Presses (or releases, `down: false`) a key the way a player would: a real KeyboardEvent
+ * through `ui/input.js`. `down` defaults `true` so every existing single-arg call site keeps
+ * dispatching `keydown` exactly as before.
+ */
+export const key = (page, code, down = true) =>
+  page.evaluate(({ c, d }) => window.__HOOKS__.key(c, d), { c: code, d: down });
 
 /** Calls a module's API method through the ctx the page exposes. */
 export const call = (page, id, method, ...args) =>

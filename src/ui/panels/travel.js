@@ -24,11 +24,17 @@ export function makeTravel(app) {
 
   const travel = () => app.ctx.get('travel');
 
+  /** Also handed back on the returned panel object, purely so `travel.test.js` can assert
+   *  the `hidden` filter without a canvas — `draw()` is the only other consumer and it
+   *  needs one. Not part of the panel contract `ui/index.js` drives. */
   function rows() {
     const t = travel();
     if (!isLive(t) || typeof t.destinations !== 'function') return [];
     const here = t.current()?.id ?? null;
-    return t.destinations().map((d) => ({
+    // `hidden` is door-only entry (§5.16) — the Pokemon Center is reached by walking through
+    // it in the city, never by picking it here. `travel.go()` still accepts the id; only the
+    // row is gone.
+    return t.destinations().filter((d) => !d.hidden).map((d) => ({
       id: d.id,
       label: d.name,
       kind: d.kind,
@@ -69,6 +75,8 @@ export function makeTravel(app) {
 
   return {
     id: 'travel',
+    /** Not part of the panel contract `ui/input.js` drives — see the comment on `rows()`. */
+    rows,
 
     open() {
       const items = rows();

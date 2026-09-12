@@ -751,3 +751,35 @@ each lose one and the other covers; twelve showcases leave `pokeidle.save` byte-
 Rejected: making `encounter.cancel()` run the wipe. `cancel()`'s caller is `travel.go()` behind
 its `busy` flag, and `party:wiped` sends `travel` straight back into `go()` — the re-entrancy the
 header at `wipe()` already exists to avoid. The city heal makes that path recoverable without it.
+
+### 82 — 2026-09-11 — A room's side walls are collision, not composition, under this camera
+
+Building the Pokemon Center's interior (slice 013) needed to know why `city`'s own buildings
+never show a visible east or west wall either — the same question a future room would ask
+again the first time its own side walls came back invisible or paper-thin. It is arithmetic,
+not an asset problem, and it does not go away by picking a different model.
+
+`core/render.js`'s camera offset is `(0, sin(pitch) * d, cos(pitch) * d)` — zero in `x` — so
+the camera always sits directly above and behind whatever it is focused on in `x`, with real
+lateral distance only from a wall that itself runs east-west (the *north* wall, whose face
+points along `z`, toward the camera's own large `z` offset). A wall running north-south (an
+east or west wall) only ever gets the small angle a room's own half-width provides against
+roughly 30 units of camera height and depth combined: for the 13-cell-wide Pokemon Center
+room, `cos` of that angle is under 0.2, so even a correctly-facing, unculled panel resolves
+to a sliver a few pixels wide. `pt-house-indoor`'s `house_wall_side` family is a single
+`THREE.FrontSide` plane per piece, so getting the facing wrong makes it fully invisible
+(back-face culled) and getting it right only makes it a thin line — proved by placing the
+same model at both `rot:0` and `rot:2`, and at the middle of the room instead of the wall
+column, and finding no visible difference in any of the four screenshots.
+`docs/progress/city/critic/n12-pokecenter.png` shows the same thing on the authored building
+next door: the roof and the front wall (with its windows and awning) read; there is no visible
+east or west wall on that building either, and nothing in `city` has ever added one.
+
+**A side wall in a room built for this fixed camera is collision, not composition.** The
+room's read has to come from its north (far) wall, its floor plan, and whatever stands inside
+it — a counter, a bench, a rug — the way `city`'s hedges and fences already stand in for a
+site boundary no flat wall panel could show from this angle either. A future slice should not
+spend time trying to make an east- or west-facing wall panel read as solid geometry from this
+camera; short of geometry with its own silhouette visible from above (a roofline, a raised
+sill, a row of props along the edge), it structurally cannot. `src/pokecenter/map.js`'s
+`sideWall()` cites this entry.

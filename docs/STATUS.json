@@ -189,6 +189,10 @@
         "catchup-biome-always-meadow"
       ]
     },
+    "pokecenter": {
+      "selftest": true,
+      "openIssues": []
+    },
     "pokemon": {
       "selftest": true,
       "openIssues": []

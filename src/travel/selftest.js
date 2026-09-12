@@ -47,6 +47,10 @@ function makeWorld({ trainerLevel = 1, config = {}, economy = true, enterThrows 
       enter: async () => { entered.push('demo-city') },
       formation: () => ({ lead: 'trainer' }),
     },
+    pokecenter: {
+      enter: async () => { entered.push('pokecenter') },
+      formation: () => ({ lead: 'trainer' }),
+    },
     hunts: {
       list: () => BIOMES.map((b) => ({ ...b })),
       enter: async (id) => {
@@ -77,7 +81,10 @@ function makeWorld({ trainerLevel = 1, config = {}, economy = true, enterThrows 
   const { api } = makeWorld({ trainerLevel: 1 });
   const ids = api.destinations().map((d) => d.id);
   eq('1. the lobby is always first', ids[0], 'demo-city');
-  eq('2. every biome hunts declares becomes a destination', ids.length, 1 + BIOMES.length);
+  eq('2. every biome hunts declares becomes a destination, plus the Center', ids.length, 2 + BIOMES.length);
+  check('2b. the Pokemon Center is one of them', ids.includes('pokecenter'));
+  const pc = api.destinations().find((d) => d.id === 'pokecenter');
+  check('2c. …carrying hidden:true — door-only entry (§5.16)', pc?.hidden === true);
   const locked = api.destinations().filter((d) => d.locked).map((d) => d.id);
   eq('3. a biome above the trainer\'s level is drawn locked', locked.join(','),
     'hunt-forest,hunt-coast,hunt-cave');
@@ -115,6 +122,15 @@ function makeWorld({ trainerLevel = 1, config = {}, economy = true, enterThrows 
 {
   const { api } = makeWorld();
   eq('13. go() refuses an id that is not a destination', await api.go('atlantis'), false);
+}
+
+{
+  // `hidden` hides a row from `ui/panels/travel.js` (`travel.test.js`), not a destination
+  // from `go()` — the door listener in `src/pokecenter/index.js` calls `travel.go('pokecenter')`
+  // directly and it has to work despite never appearing in the panel.
+  const { api, entered } = makeWorld({ trainerLevel: 1 });
+  eq('13b. go() reaches a hidden destination', await api.go('pokecenter'), true);
+  eq('13c. …and really builds it', entered.join(','), 'pokecenter');
 }
 
 {

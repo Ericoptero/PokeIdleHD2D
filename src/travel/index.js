@@ -29,8 +29,13 @@ const SAVE_VERSION = 1;
 export default {
   id: 'travel',
   needs: ['terrain'],
-  /** The showcase travels for real, so it needs both scenes and the walker that stages them. */
-  showcaseNeeds: ['tiles', 'terrain', 'environment', 'pokemon', 'simulation', 'city', 'hunts'],
+  /** The showcase travels for real, so it needs every scene and the walker that stages them.
+   *  `pokecenter` is in here for the same reason `city` and `hunts` are, not because the
+   *  showcase visits it: `?showcase=travel` is also the probe `tools/shots/boot.js` uses to
+   *  enumerate `destinations()`, and a destination whose owner is not live is skipped by
+   *  `destinations()` itself (`isLive` above) — leaving it out here would make the boot
+   *  matrix silently stop covering `?scene=pokecenter`. */
+  showcaseNeeds: ['tiles', 'terrain', 'environment', 'pokemon', 'simulation', 'city', 'hunts', 'pokecenter'],
 
   init(ctx) {
     const { bus, config, log } = ctx;
@@ -43,6 +48,7 @@ export default {
 
     const cityApi = () => ctx.get('city');
     const huntsApi = () => ctx.get('hunts');
+    const pokecenterApi = () => ctx.get('pokecenter');
 
     /**
      * Every place the player can stand, city first.
@@ -71,6 +77,21 @@ export default {
         out.push({
           id: 'demo-city', name: 'Lumen City', kind: 'Town', module: 'city', arg: null,
           formation: typeof city.formation === 'function' ? city.formation() : null,
+        });
+      }
+      // Between the lobby and the hunts, not after them: `hunts.list()` can be long, and a
+      // door-only destination sitting off the end of a scroll a critic never reaches is as
+      // good as one that does not exist for anyone reading `destinations()` output by eye.
+      const pc = pokecenterApi();
+      if (isLive(pc) && typeof pc.enter === 'function') {
+        out.push({
+          id: 'pokecenter', name: 'Pokemon Center', kind: 'Building', module: 'pokecenter', arg: null,
+          formation: typeof pc.formation === 'function' ? pc.formation() : null,
+          // Door-only entry (the user's own answer, recorded in slice 013): `ui/panels/
+          // travel.js` filters this out, so the T panel still shows exactly the city plus
+          // every hunt. `travel.go('pokecenter')` still works — `hidden` hides a row, not a
+          // destination — which is what `pokecenter`'s own door listener relies on.
+          hidden: true,
         });
       }
       const hunts = huntsApi();
