@@ -182,15 +182,22 @@ export const DEFAULTS = {
   slotEngageTiles: 1,
 
   /**
-   * How many fixed sim steps one exchange of a visible battle takes.
+   * How many fixed sim steps one **action** takes — one side's blow, its balloon, its effect.
    *
-   * A turn is both sides acting, so 24 steps is 1.2 s of wind-up, travel, impact and recovery
-   * for the pair — slow enough to read a move name and an effectiveness line, fast enough that
-   * an eight-turn fight is under twenty seconds and a lap still meets nine slots. It is counted
-   * in **sim steps and not seconds** because the screenshot harness freezes the clock, and a
-   * beat measured in wall time cannot be stopped on an exact frame (DECISIONS #14, #72).
+   * Replaces `turnSteps` (DECISIONS #86): a turn used to be staged as one 24-step block for
+   * *both* sides together, which is exactly the "attacks at the same time" the brief asks
+   * against — one `battle:strike` fired for each side in the same tick, so their balloons and
+   * their effects always landed on top of each other. Now each strike a turn produces gets its
+   * own beat, drained one at a time in speed/priority order (`battle/engine.js`'s own draw
+   * order — this file changes nothing about who acts first), so a turn where both sides act
+   * takes `2 * actionSteps`. 18 steps is 0.9 s — long enough to read one balloon and let one
+   * effect finish before the next starts (`T.STRIKE`, `encounter/index.js`, is always shorter
+   * than this), short enough that an eight-turn fight is still under it running twice as many
+   * beats. Counted in **sim steps and not seconds** because the screenshot harness freezes the
+   * clock, and a beat measured in wall time cannot be stopped on an exact frame (DECISIONS #14,
+   * #72).
    */
-  turnSteps: 24,
+  actionSteps: 18,
   /**
    * The opening purse, `FIELD_START_MONEY` in the brief.
    *

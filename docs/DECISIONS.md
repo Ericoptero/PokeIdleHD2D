@@ -923,3 +923,51 @@ in `checkBudgets` at ≥50 / ≤20ms) against a **real scene**, plates on: `hunt
 `hunt-cave`, `hunt-coast` and `demo-city` all measured 60 fps mean, 16.7–16.8 ms p95 — comfortably
 inside budget, and `npm run gate`'s own `boot` stage (which shoots every real scene, not the
 showcases) is what would fail first if that ever stopped being true.
+
+### 86 — 2026-09-12 — A turn's strikes are drained one beat at a time, never emitted as a block
+
+The brief asks that a trainer's Pokémon and the wild never attack at the same time, with a real
+delay between actions. They already didn't decide at the same time — `battle/engine.js`'s
+`turn()` has always resolved priority, then speed, then a coin, and returned both sides' events
+in that order — but `encounter`'s own stepping put both sides' `battle:strike` in the **same
+tick**: `stepDuel` called `run.step()` once every `T.TURN` (24 sim steps) and looped over every
+strike the whole turn produced, emitting all of them before the loop returned. Two blows in one
+tick is two balloons popping together and one visual effect overwriting the other before it had
+finished, which is exactly the "attacks at the same time" the brief names.
+
+**`src/encounter/beats.js`'s `planBeats(strikes, beats)` turns the engine's ordered output into
+a timeline**, not a reordering — it does not touch who acts first, only when each of the
+engine's own outputs is allowed to reach the bus. One `config.actionSteps` (18, replacing the
+unread `turnSteps`) apart for an ordinary strike, `T.ITEM`/`reviveSteps()` for an item or a
+revive — the same beats a turn already held for, just now assigned to the strike that earns
+them instead of summed into one number for the whole turn. Pure and index-free like every other
+roll in this module, and pinned in `encounter/selftest.js` #24 against literals, not a second
+call to itself (DECISIONS #35).
+
+**`encounter/index.js`'s `tickDuel` replaces `stepDuel`.** It asks the engine for a new turn
+only once the previous one's plan is fully drained (`scene.turnPlan === null`), and drains at
+most the beats that are due on the current tick — in practice one, since two beats landing on
+the same tick would need `actionSteps` to be smaller than a single sim step. `emitStrike` is the
+per-strike body the old per-turn loop used to run for every strike at once: it arms `scene.vfx`
+**only** for a strike that carries a move (a residual tick, an item or a swap gets no effect,
+and explicitly clears whatever the previous strike armed rather than letting it linger into a
+beat with nothing to show), and it is where `battle:strike` gains two fields it never had:
+`type` and `shape` — the move's element and delivery shape, read once here via `battle.move(id)`
+and handed to `ui` on the event, because a balloon that colours itself by type (the next slice)
+may not import `encounter`'s own element table across the module boundary.
+
+**One consequence, taken deliberately: a turn where both sides act now takes `2 ×
+actionSteps` (36 steps) instead of the old fixed 24.** A fight is slower to watch by about a
+half, in exchange for every blow actually being legible on its own. Nothing about the *fold*
+(the `idle`/`offline` path through `encounter.pure()` → `battle.resolve()`) changes — it never
+read `T` or `ACTION_STEPS` in the first place, and stays exactly as fast as it always was, which
+is the whole point of DECISIONS #72's "presentation, never a rule" for every beat in this file.
+
+**Cost.** `tests/flows/action-pacing.spec.js` proves the property end to end — two strikes of
+the same turn land at least an `actionSteps`-sized gap of real sim ticks apart, measured by
+stepping in small counted chunks rather than trusting the bus log's own array index (which is
+not a tick count, and a first draft of this test trusted it and passed for the wrong reason: a
+broken de-duplication re-recorded the same already-seen strike on every later poll, which
+happened to produce a small, wrong, but plausible-looking gap). `hunt.spec.js`'s existing tick
+budgets did not need raising — the common case (one side already fainted, or a one-strike turn)
+is unaffected, and the slower two-strike case still lands well inside the existing ceilings.

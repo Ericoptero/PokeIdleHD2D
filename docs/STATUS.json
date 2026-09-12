@@ -1,24 +1,24 @@
 {
   "updated": "2026-09-12",
-  "commit": "3664366",
+  "commit": "6aefb5e",
   "seed": 1337,
-  "now": "A hunt is field-first (DECISIONS #84) and every trainer, Pokémon and wild carries a nameplate (DECISIONS #85): name+level+HP for the trainer, the party's lead and every wild in a hunt (wandering or the one being fought, with live duel HP); name-only for every other NPC. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
+  "now": "A hunt is field-first (DECISIONS #84) with nameplates everywhere (DECISIONS #85), and a turn's strikes now drain one beat at a time — config.actionSteps (18) apart, never two in the same tick (DECISIONS #86) — so the trainer's Pokémon and the wild never attack together. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
   "gate": {
     "at": "2026-09-12",
-    "result": "every stage passed (260 s)",
+    "result": "every stage passed (303 s)",
     "seconds": {
-      "lint": 2.6,
-      "typecheck": 0.4,
+      "lint": 2.5,
+      "typecheck": 0.5,
       "seams": 1.5,
       "unit": 0.9,
-      "build": 3.5,
-      "coldboot": 3.7,
-      "boot": 95.4,
-      "flows": 48.4,
-      "parity": 36.0,
-      "regress": 67.4
+      "build": 3.6,
+      "coldboot": 4.0,
+      "boot": 93.7,
+      "flows": 80.9,
+      "parity": 36.4,
+      "regress": 78.8
     },
-    "baseline": "docs/baseline.json — 1280x720, 18 regress rows, accepted on the previous commit (encounter/vfx/12, encounter/vfx/21 — DECISIONS #84); 2 improved (boot/12, both directions preferred), 0 regressed on this commit"
+    "baseline": "docs/baseline.json — 1280x720, 18 regress rows; 2 improved (boot/12, both directions preferred, unrelated to this slice), 0 regressed on this commit"
   },
   "open": [
     {
@@ -51,12 +51,6 @@
       "module": "offline",
       "what": "The closed-tab catch-up always simulates the meadow: offline.decide() runs at init before any scene exists, terrain.handle() is null, and idle falls to own.biome ?? DEFAULT_BIOME (idle/index.js:107); own.biome is set only by idle.setBiome(), which has no callers, and is not in idle's save snapshot. The saved scene is never consulted.",
       "repro": "grep -rn 'setBiome' src | grep -v 'selftest\\|showcase'  # only the definition"
-    },
-    {
-      "id": "turnsteps-dead",
-      "module": "encounter",
-      "what": "config.turnSteps (core/config.js:193) is read by nothing; the visible fight steps every T.TURN = 24 sim steps, a literal (encounter/index.js:116), and the comment at :109 claiming an override is false. Three documents repeated the claim.",
-      "repro": "grep -rn 'turnSteps' src | grep -v core/config.js  # one comment, no reader"
     },
     {
       "id": "watched-win-mints-money",
@@ -173,7 +167,6 @@
       "selftest": true,
       "openIssues": [
         "shiny-charm-id-mismatch",
-        "turnsteps-dead",
         "watched-win-mints-money",
         "selftest-in-bundle",
         "cancel-races-spawn-actor"

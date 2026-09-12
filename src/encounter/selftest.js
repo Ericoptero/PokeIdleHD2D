@@ -28,6 +28,7 @@ import {
 } from './drops.js';
 import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
 import { ELEMENT, elementOf, shapeOf } from './strikes.js';
+import { planBeats } from './beats.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
   streamFor, catchRateFor, levelBand, rollAt, catchRoll,
@@ -475,6 +476,34 @@ export function runSelfTest({ species = null } = {}) {
     // grind in the game at a stroke.
     check('the pity ladder still measures victories, not a full bag',
       THROWS_PER_FAINT * 7 >= 7, 'a common is seven won fights');
+  }
+
+  // --- 24 planBeats: the timeline never lets two actions land in the same tick (DECISIONS #86) ---
+  {
+    const BEATS = { actionSteps: 18, itemSteps: 16, reviveSteps: 100 };
+    const strike = (patch) => ({ turn: 1, attacker: 'a', move: 'tackle', cause: null, use: null, ...patch });
+
+    const three = planBeats([strike({ attacker: 'a' }), strike({ attacker: 'b' }), strike({ attacker: 'a' })], BEATS);
+    check('one beat per strike', three.length === 3, `${three.length}`);
+    check('the order the engine produced is kept, not reordered',
+      three.map((b) => b.strike.attacker).join('') === 'aba', three.map((b) => b.strike.attacker).join(''));
+    check('every beat starts strictly after the one before it — never two in the same tick',
+      three.every((b, i) => i === 0 || b.at > three[i - 1].at), three.map((b) => b.at).join(','));
+    check('an ordinary strike is one ACTION_STEPS apart from the next',
+      three[1].at - three[0].at === BEATS.actionSteps, `${three[1].at - three[0].at}`);
+
+    const withItem = planBeats([strike({}), strike({ cause: 'item', use: 'potion', move: null }), strike({})], BEATS);
+    check('an item strike holds itemSteps, not actionSteps',
+      withItem[2].at - withItem[1].at === BEATS.itemSteps, `${withItem[2].at - withItem[1].at}`);
+
+    const withRevive = planBeats([strike({ cause: 'item', use: 'revive', move: null }), strike({})], BEATS);
+    check('a revive holds reviveSteps, which can be longer than any other beat',
+      withRevive[1].at - withRevive[0].at === BEATS.reviveSteps, `${withRevive[1].at - withRevive[0].at}`);
+
+    check('an empty turn plans to nothing', planBeats([], BEATS).length === 0, '0');
+    check('planBeats does not mutate its input',
+      (() => { const s2 = [strike({})]; const copy = JSON.stringify(s2); planBeats(s2, BEATS); return JSON.stringify(s2) === copy; })(),
+      'unchanged');
   }
 
   return out;

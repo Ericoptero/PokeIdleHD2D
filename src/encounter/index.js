@@ -46,6 +46,7 @@
 
 import { makeBallSprite } from './ball.js';
 import { makeStrikeVfx, shapeOf } from './strikes.js';
+import { planBeats } from './beats.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
   catchRateFor, levelBand, rollAt, catchRoll,
@@ -107,16 +108,18 @@ const T = {
    */
   OPEN: 10,
   /**
-   * The duel's own beats, in sim steps. `TURN` is overridden by `config.turnSteps`.
+   * The duel's own beats, in sim steps. How long the engine is asked to hold **one action's**
+   * beat for is `config.actionSteps` (DECISIONS #86), read in `init` as `ACTION_STEPS` — not
+   * a literal here, because it is the one beat a player might reasonably want to tune from a
+   * URL, and this table is built before `init` has a `config` to read.
    *
    * A fight is no longer a number computed before the animation starts (DECISIONS #72): the
-   * scene steps `battle.stepper` one turn at a time and these are how long each beat holds.
-   * `VICTORY` is the pause on the last blow before the throw window opens, which is what makes
-   * the faint read as an ending rather than as a cut.
+   * scene drains `battle.stepper`'s turns one strike at a time and these are how long each
+   * beat holds. `VICTORY` is the pause on the last blow before the throw window opens, which is
+   * what makes the faint read as an ending rather than as a cut.
    */
-  TURN: 24,
   ITEM: 16,        // a potion or an ether, mid-duel
-  STRIKE: 10,      // how long one blow's effect plays
+  STRIKE: 10,      // how long one blow's effect plays — always shorter than ACTION_STEPS
   VICTORY: 12,
   READY: 8,        // a beat, during which a player (or `automation`) may throw
   /**
@@ -164,6 +167,9 @@ export default {
   init(ctx) {
     const { bus, config, log } = ctx;
     const seed = config.seed;
+    /** One action's beat, in sim steps (DECISIONS #86). Read once; a mid-fight config change
+     *  finishes the fight it started in, which is the harness's own `?actionSteps=` contract. */
+    const ACTION_STEPS = Math.max(1, Math.round(config.actionSteps ?? 18));
 
     // --- the tables ---------------------------------------------------------
     // Checked once, out loud. A typo in a species name is invisible at runtime — the
@@ -444,71 +450,104 @@ export default {
       return { throwAt, leaveAt, land, suck, shakeEnd, resultEnd, end: resultEnd + T.LINGER };
     }
 
-    /**
-     * One exchange of the live duel, and the beats it is worth.
-     *
-     * Returns how many sim steps to hold before the next turn — `T.TURN` for an ordinary
-     * exchange, plus `T.ITEM` for each item used and `config.reviveSeconds` for a revival, which
-     * is the brief's "using a revival item pauses the duel temporarily". **Those beats are
-     * presentation and nothing else**: in a fold there is no wall clock and a revive costs the
-     * item alone, which is what keeps a replayed fight the same fight as the watched one.
-     *
-     * Every blow goes out as `battle:strike` (§4). It is emitted here and never from `idle` or
-     * `offline`, for the same reason the HP writeback is off in a replay: a battle nobody was
-     * watching must not flood the bus spy that a screenshot's JSON records.
-     */
-    function stepDuel(step) {
-      const s = scene;
-      const enc = active;
-      if (!s || !enc?.duel?.engine) { if (s) endFight(step); return T.TURN; }
-      const { run } = enc.duel;
-      if (run.over) { endFight(step); return T.TURN; }
-
-      const out = run.step();
-      const bt = ctx.get('battle');
-      const names = { a: enc.duel.ally.display ?? enc.duel.ally.species, b: enc.display ?? enc.species };
-      const strikes = (isLive(bt) && typeof bt.strikesOf === 'function')
-        ? bt.strikesOf(out.events, names) : [];
-
-      enc.battle.turns = run.state.turn;
-      enc.battle.transcript.push(...out.events);
-      s.strikes = strikes;
-      s.turnsSeen++;
-
-      let hold = T.TURN;
-      // The blow this exchange is drawn around. One per turn: two effects in 1.2 s is a mess,
-      // and the one that lands is the one that decided the turn.
-      const shown = strikes.find((x) => x.move && !x.miss) ?? strikes.find((x) => x.move) ?? null;
-      if (shown) {
-        const bt2 = isLive(bt) && typeof bt.move === 'function' ? bt.move(shown.move) : null;
-        s.vfx = {
-          at: step, shape: shapeOf(bt2), type: bt2?.t ?? 'normal',
-          toWild: shown.target === 'b',
-        };
-      }
-      for (const strike of strikes) {
-        if (strike.cause === 'item') hold += strike.use === 'revive' ? reviveSteps() : T.ITEM;
-        if (config.showcase) continue;
-        bus.emit('battle:strike', {
-          index: enc.index, turn: strike.turn,
-          attacker: strike.attacker, attackerSpecies: strike.attackerSpecies,
-          target: strike.target, targetSpecies: strike.targetSpecies,
-          move: strike.move, name: strike.name, struggle: strike.struggle,
-          damage: strike.damage, hits: strike.hits, effectiveness: strike.effectiveness,
-          crit: strike.crit, miss: strike.miss, immune: strike.immune,
-          targetHp: strike.targetHp, targetMaxHp: strike.targetMaxHp,
-          status: strike.status, fainted: strike.fainted, cause: strike.cause,
-          // What was used, when the strike is an item rather than a blow.
-          item: strike.item ?? null, use: strike.use ?? null,
-        });
-      }
-
-      if (run.over) endFight(step + hold);
-      return hold;
-    }
-
     /** `config.reviveSeconds` in sim steps. Zero seconds is an instant revive, for the harness. */
     const reviveSteps = () => Math.max(0, Math.round((config.reviveSeconds ?? 5) * 20));
+
+    /**
+     * Emits one strike's `battle:strike` and arms its VFX — never two strikes in the same
+     * tick. A strike with no `move` (a residual tick, an item, a swap) gets no visual effect
+     * and clears whatever the previous strike armed, so a beat with nothing to show is a beat
+     * that shows nothing rather than a stale effect still finishing.
+     *
+     * `type`/`shape` ride along on the emitted event (DECISIONS #86) — the element and the
+     * delivery shape the move resolves to — so `ui` can colour a balloon by type (slice 018)
+     * without importing `encounter`'s own tables, which the module boundary forbids.
+     */
+    function emitStrike(strike, step) {
+      const bt = ctx.get('battle');
+      const moveRec = strike.move && isLive(bt) && typeof bt.move === 'function' ? bt.move(strike.move) : null;
+      scene.vfx = strike.move
+        ? { at: step, shape: shapeOf(moveRec), type: moveRec?.t ?? 'normal', toWild: strike.target === 'b' }
+        : null;
+      if (config.showcase) return;
+      bus.emit('battle:strike', {
+        index: active.index, turn: strike.turn,
+        attacker: strike.attacker, attackerSpecies: strike.attackerSpecies,
+        target: strike.target, targetSpecies: strike.targetSpecies,
+        move: strike.move, name: strike.name, struggle: strike.struggle,
+        damage: strike.damage, hits: strike.hits, effectiveness: strike.effectiveness,
+        crit: strike.crit, miss: strike.miss, immune: strike.immune,
+        targetHp: strike.targetHp, targetMaxHp: strike.targetMaxHp,
+        status: strike.status, fainted: strike.fainted, cause: strike.cause,
+        // What was used, when the strike is an item rather than a blow.
+        item: strike.item ?? null, use: strike.use ?? null,
+        // The element and the shape a balloon/VFX would use — null for a strike with no move.
+        type: moveRec?.t ?? null, shape: strike.move ? shapeOf(moveRec) : null,
+      });
+    }
+
+    /**
+     * One sim step of the live duel — at most one `run.step()` per turn, and at most one
+     * `battle:strike` per tick, drained off a plan rather than fired in a block.
+     *
+     * **The sequencing this exists for** (DECISIONS #86): `run.step()` resolves a whole turn —
+     * both sides, in the engine's own priority/speed order — synchronously, in one call, the
+     * instant it is asked. Emitting straight out of that call's result is what put both sides'
+     * `battle:strike` in the same tick, which is the "attacks at the same time" bug the brief
+     * is about: two balloons popping together, one effect overwriting the other. `planBeats`
+     * turns the same ordered `strikes[]` into a timeline — `ACTION_STEPS` apart, an item or a
+     * revive holding longer — and this drains exactly one due entry per call. The engine's own
+     * order is never touched; only when each of its outputs is allowed to reach the bus moves.
+     */
+    function tickDuel(step) {
+      const s = scene;
+      const enc = active;
+      if (!s) return;
+
+      if (!s.turnPlan) {
+        if (step < s.nextTurnAt) return;
+        if (!enc?.duel?.engine) { endFight(step); return; }
+        const { run } = enc.duel;
+        if (run.over) { endFight(step); return; }
+
+        const out = run.step();
+        const bt = ctx.get('battle');
+        const names = { a: enc.duel.ally.display ?? enc.duel.ally.species, b: enc.display ?? enc.species };
+        const strikes = (isLive(bt) && typeof bt.strikesOf === 'function')
+          ? bt.strikesOf(out.events, names) : [];
+
+        enc.battle.turns = run.state.turn;
+        enc.battle.transcript.push(...out.events);
+        s.strikes = strikes;
+        s.turnsSeen++;
+
+        s.turnPlan = planBeats(strikes, { actionSteps: ACTION_STEPS, itemSteps: T.ITEM, reviveSteps: reviveSteps() });
+        s.turnPlanAt = step;
+        s.turnCursor = 0;
+        s.turnOver = run.over;
+        // A turn that produced no strikes at all (both sides already fainted and swapped, say)
+        // has nothing to drain — settle it on the same tick rather than stall on an empty plan.
+        if (!s.turnPlan.length) {
+          s.turnPlan = null;
+          s.nextTurnAt = step + 1;
+          if (s.turnOver) endFight(step);
+          return;
+        }
+      }
+
+      while (s.turnCursor < s.turnPlan.length && step >= s.turnPlanAt + s.turnPlan[s.turnCursor].at) {
+        emitStrike(s.turnPlan[s.turnCursor].strike, step);
+        s.turnCursor++;
+      }
+
+      if (s.turnCursor >= s.turnPlan.length) {
+        const over = s.turnOver;
+        s.turnPlan = null;
+        s.turnCursor = 0;
+        s.nextTurnAt = step;
+        if (over) endFight(step);
+      }
+    }
 
     /**
      * The fight is over: settle it, pay what it cost, and open the throw window.
@@ -572,14 +611,15 @@ export default {
       // pop out of the grass — is gone, and with it the one reason the first exchange could
       // not start until step 44.
       if (!Number.isFinite(s.fightEndsAt)) {
-        // one turn every `T.TURN` steps.
+        // one strike drained per due beat, `ACTION_STEPS` apart (DECISIONS #86).
         //
         // This is the beat the whole of DECISIONS #72 is about. `begin()` used to resolve the
         // battle before the wild had finished coming out of the grass, and the card that
         // followed was a readout of something already over. Now the stepper is driven from
         // here, one exchange at a time, and every blow it produces goes out on the bus as a
-        // `battle:strike` so the VFX, the callout and the card all read one seam.
-        if (step >= s.nextTurnAt) s.nextTurnAt = step + stepDuel(step);
+        // `battle:strike`, one per beat and never two in the same tick (DECISIONS #86), so the
+        // VFX, the callout and the card all read one seam.
+        tickDuel(step);
         // The wild squares up: a slow breath in place, so a fight reads as two creatures and
         // not as two stills. The phase is the sim step, so a frozen frame is reproducible.
         moveWild({ y: at.y + Math.abs(Math.sin(step / 9)) * 0.12, visible: true, scale: 1 });
@@ -912,7 +952,7 @@ export default {
          * member that fainted mid-duel was replaced by whoever happened to be next in line,
          * which on a bad matchup is how a party loses three Pokemon to one wild.
          *
-         * It is asked here rather than in `stepDuel` because `nextAlly` is handed to
+         * It is asked here rather than in `tickDuel` because `nextAlly` is handed to
          * `battle.stepper` and the stepper is drained by `idle` and `offline` too — so the
          * closed-tab replay swaps by the same rule as the watched fight, which is the whole of
          * §5.7's one-implementation claim applied to a decision instead of to a turn.
@@ -1084,10 +1124,14 @@ export default {
          * actor on the same cell, so the creature never blinks out and back in.
          */
         npcId: Number.isFinite(enc.npcId) ? enc.npcId : 0,
-        // The duel's clock. `nextTurnAt` is when the next exchange steps; `fightEndsAt` stays
-        // `Infinity` until somebody faints, which is what `marks()` reads to know whether the
-        // throw window has opened yet.
+        // The duel's clock. `nextTurnAt` is when the next turn may be drawn from the
+        // engine; `fightEndsAt` stays `Infinity` until somebody faints, which is what `marks()`
+        // reads to know whether the throw window has opened yet. `turnPlan` is the current
+        // turn's strikes timed out by `planBeats` (DECISIONS #86) — `null` between turns, and
+        // while it holds entries `tickDuel` drains one per due tick rather than asking the
+        // engine for a new turn.
         nextTurnAt: T.OPEN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
+        turnPlan: null, turnPlanAt: 0, turnCursor: 0, turnOver: false,
         from: {
           x: (trainer?.cx ?? at.cx) + 0.5,
           y: at.y + 1.1,
