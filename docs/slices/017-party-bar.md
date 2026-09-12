@@ -25,11 +25,20 @@ elsewhere.
 
 "Who is active" is genuinely two different facts depending on context, and the codebase already
 resolved which one wins when: `src/ui/panels/battle.js:130-170` (quoted below) reads the live duel's
-`state.a` while a fight is in progress (`active.battle.win === null`) and falls back to
-`pokemon.lead()` otherwise, because HP/PP is only written back to the `pokemon` instance when the
+`state.a` for as long as `active.duel?.engine` exists at all — **not** gated on `battle.win`, a
+correction to this slice's own first draft, below — and falls back to `pokemon.lead()` only once
+no duel object exists, because HP/PP is only written back to the `pokemon` instance when the
 fight ends (DECISIONS #72). This slice's party bar applies the identical rule rather than inventing
 a third source of truth — it is a second reader of a decision the battle card already made, not a
-new one.
+new one. **Correction, found by this slice's own review pass, after this section was first
+written:** the implementation's first draft gated the party bar's own read on
+`active.battle.win === null` (mid-fight only) — narrower than the rule just described — so for
+several real seconds after a fight that included a mid-fight swap (the encounter object stays
+alive while the player decides whether to throw a ball, per `encounter/index.js`'s own comment),
+the battle card kept correctly showing the finisher while the party bar reverted to the original,
+possibly-fainted lead. Fixed in `src/ui/hud.js` to drop the `win` gate and match `battle.js`
+exactly; neither this slice's own flow test nor the independent tester's caught it, since both
+asserted only the strictly-mid-fight (`win === null`) window — the reviewer found it live.
 
 ## Inspected before writing this slice
 
@@ -270,4 +279,51 @@ can still evict it — e.g. moving slot 1 to the end shifts slot 2 into slot 0).
 **Process note**: the implementer that built this slice was interrupted mid-verification by a
 model rate limit (its work was otherwise complete and uncommitted). The orchestrating session
 verified the diff line-by-line, re-ran every unit/selftest/flow check independently, ran the
-full gate, accepted the regress baseline, and is committing this slice on its behalf.
+full gate, accepted the regress baseline, and committed this slice on its behalf (`456818e`).
+
+**Post-review fix** (reviewer + tester ran in parallel per `CLAUDE.md`, both independently found
+the same real bug — the reviewer by re-deriving `battle.js`'s own rule and reproducing the
+divergence live, the tester by writing an independent flow test for the identical scenario):
+
+`src/ui/hud.js`'s `activeId` computation added a gate `panels/battle.js`'s own rule does not
+have — `active?.battle?.win === null &&` — narrower than "for as long as a duel object exists at
+all." The consequence: for the several real seconds between a fight resolving
+(`active.battle.win` flips from `null`) and `encounter.resolve()` running `pokemon.setLead()` for
+a swapped-in finisher (the player's own "should I throw a ball" window, `encounter/index.js`'s
+own comment), the party bar reverted to the **original, possibly-fainted lead** while the battle
+card correctly kept showing the finisher — the exact two-sources-of-truth split this slice was
+built to prevent, in the one window neither this slice's own flow test nor the independent
+tester's first draft checked (both asserted only the strictly-mid-fight, `win === null` window).
+
+Fixed by dropping the `win` gate in `src/ui/hud.js`, matching `battle.js`'s condition exactly
+(`active.duel?.engine` alone). A new case in `tests/flows/party-bar.spec.js` (extending the
+mid-fight-swap test) steps past fight resolution and asserts the bar keeps marking the finisher
+through the post-resolution window; the tester independently wrote and ran the identical scenario
+in an isolated worktree pinned to the pre-fix commit, confirmed it failed there for the stated
+reason, and confirmed it passes against the fix. This slice's own "Why"/"Inspected" sections are
+corrected in the same commit — the original characterization of `battle.js`'s rule as gated on
+`win === null` was itself wrong, not just the code that copied it.
+
+`npm run gate:fast` clean after the fix (a stray lint failure — an unused test-callback
+parameter — fixed in the same pass). Full gate re-run **twice** (`GATE_PORT=5461`, then
+`GATE_PORT=5481`) — the first run's `boot` stage failed transiently under load from an unrelated
+concurrent session's own dev server/browser processes on the same machine (`boot` alone, and the
+full gate re-run afterward, both passed clean — matching `docs/STATUS.json`'s already-documented
+`boot-probe-no-retry` flakiness, not a regression from this fix):
+
+```
+  lint       ok       4.8s
+  typecheck  ok       0.6s
+  seams      ok       2.3s
+  unit       ok       1.2s
+  build      ok       4.5s
+  coldboot   ok       4.6s
+  boot       ok       143.6s
+  flows      ok       92.3s
+  parity     ok       54.3s
+  regress    ok       100.3s
+  total               408.7s
+✓ gate: every stage passed
+```
+`regress`: 0 improved, 0 regressed, 0 moved — the accepted baseline from the original commit
+still holds; this fix touched only `activeId`'s logic, not the bar's drawing.

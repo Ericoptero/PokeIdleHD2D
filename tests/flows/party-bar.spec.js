@@ -198,5 +198,29 @@ test('the marked slot follows a mid-fight ally swap, not the party\'s own order'
   expect(snap.activeId, 'the bar marks the live combatant, not party()[0]').toBe(swap.activeId);
   expect(snap.activeId).not.toBe(originalLeadId);
 
-  expect(errors, 'no console error forcing a mid-fight ally swap').toEqual([]);
+  // The window after a fight resolves but before `encounter.resolve()` runs `pokemon.setLead`
+  // for the swapped-in finisher (`encounter/index.js`'s own comment: the player gets several
+  // seconds to decide whether to throw a ball) — the exact gap a first draft of this slice got
+  // wrong: it gated the party bar's own read on `win === null`, so for this whole window the
+  // bar reverted to the original, fainted lead while `panels/battle.js`'s card kept correctly
+  // showing the finisher (`battle.js:125-127` reads `duel.run.state.a` for as long as
+  // `duel.engine` exists, `win` included — no such gate). Found live by this slice's review
+  // pass, not by any test; this is that test.
+  const resolved = await stepUntilTrue(page, (_fromId) => {
+    const enc = window.__CTX__.get('encounter');
+    const active = enc?.active?.();
+    if (!active?.battle || active.battle.win === null) return null; // still mid-fight
+    const a = active.duel?.run?.state?.a;
+    return a ? { activeId: a.instanceId, win: active.battle.win } : null;
+  }, swap.activeId, { chunk: 5, maxTicks: 6000 });
+
+  expect(resolved.win, 'the fight must actually be over for this to test the post-resolution window').not.toBeNull();
+  await paintNow(page, 0.25);
+  const afterResolve = await call(page, 'ui', 'snapshot');
+  expect(afterResolve.activeId,
+    'the bar must keep marking the finisher through the post-resolution window, not revert to the stale lead')
+    .toBe(resolved.activeId);
+  expect(afterResolve.activeId).not.toBe(originalLeadId);
+
+  expect(errors, 'no console error through a mid-fight ally swap and its resolution').toEqual([]);
 });

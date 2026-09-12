@@ -67,19 +67,28 @@ export function makeHud(ctx) {
     }
 
     /**
-     * Who the party bar marks: mid-fight, the live combatant `panels/battle.js`'s own `read()`
-     * already reads (`st.a`, DECISIONS #72 — HP/PP is only written back to `pokemon` when the
-     * fight ends, so `pokemon.party()` is stale for exactly the member being hit); otherwise
-     * `party[0]`, the lead. A second reader of the decision the battle card already made, not
-     * a new source of truth. The marked slot's own hp/maxHp/status are overwritten with the
-     * live combatant's, for the same reason: showing the party record's stale HP under a
+     * Who the party bar marks: the live combatant `panels/battle.js`'s own `read()` already
+     * reads (`st.a`, DECISIONS #72 — HP/PP is only written back to `pokemon` when the fight
+     * ends, so `pokemon.party()` is stale for exactly the member being hit) for as long as a
+     * duel object exists at all; otherwise `party[0]`, the lead. A second reader of the
+     * decision the battle card already made, not a new source of truth — which means copying
+     * its *whole* rule, not narrowing it: `battle.js:125-127` keeps reading `duel.run.state.a`
+     * for as long as `active.duel?.engine` exists, `win` included — a fight is `resolve()`d,
+     * and `pokemon.setLead()` for a swapped-in finisher, a separate and later step (`encounter/
+     * index.js`'s own comment: the player gets several seconds to decide whether to throw).
+     * A first draft gated this on `win === null` (mid-fight only) and, for those few seconds
+     * after every fight a mid-fight swap happened in, the party bar reverted to the original
+     * (possibly fainted) lead while the battle card still correctly showed the finisher — found
+     * by this slice's own review pass, live, not by either test suite (both only asserted the
+     * strictly-mid-fight window). The marked slot's own hp/maxHp/status are overwritten with
+     * the live combatant's, for the same reason: showing the party record's stale HP under a
      * transcript that says otherwise is the bug this rule exists to avoid.
      */
     let activeId = party[0]?.instanceId ?? null;
     const encounter = ctx.get('encounter');
     if (isLive(encounter) && typeof encounter.active === 'function') {
       const active = encounter.active();
-      const side = active?.battle?.win === null && active.duel?.engine ? active.duel.run?.state?.a : null;
+      const side = active?.duel?.engine ? active.duel.run?.state?.a : null;
       if (side?.instanceId != null) {
         activeId = side.instanceId;
         const i = party.findIndex((m) => m.instanceId === side.instanceId);
