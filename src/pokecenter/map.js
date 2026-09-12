@@ -75,6 +75,9 @@ export async function buildPokecenterMap(draft, ctx) {
   // `tiles.find({category:'interior'})` would silently miss.
   const table = pick(tiles, slug, { subcategory: 'table' }, log, 'the counter');
   if (table) draft.place(table, COUNTER.cx, COUNTER.cz, {});
+  // The `player:interact` trigger: facing any of the counter's 3 cells from the south opens
+  // the same dialogue with Nurse Joy (`index.js`'s listener just checks for this tag).
+  for (let i = 0; i < COUNTER.w; i++) draft.addTag(COUNTER.cx + i, COUNTER.cz, 'counter');
 
   // --- the walls ----------------------------------------------------------------
   // Three sides only — see layout.js's header for why the south side is collision without

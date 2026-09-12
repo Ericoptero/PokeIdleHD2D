@@ -783,3 +783,49 @@ spend time trying to make an east- or west-facing wall panel read as solid geome
 camera; short of geometry with its own silhouette visible from above (a roofline, a raised
 sill, a row of props along the edge), it structurally cannot. `src/pokecenter/map.js`'s
 `sideWall()` cites this entry.
+
+### 83 — 2026-09-11 — Nurse Joy is the cure now, gated on a minute and a generic interact key
+
+**Revises #81's third net.** #81 gave `city.enter()` an unconditional, free heal on every
+arrival — deliberately redundant with the wipe's own `reviveAll()` and the hunt lap's rest, so
+a party with no conscious member was never a closed loop. That net is deleted here, replaced
+by a manual cure inside the Pokemon Center: facing the counter (3 cells tagged `'counter'`,
+`src/pokecenter/map.js`) and pressing a new generic key opens a dialogue with Nurse Joy, who
+heals the whole party — HP, status **and PP**, once every `HEAL_COOLDOWN_MS` (60 real seconds,
+`src/pokecenter/heal.js`) — free. Nets #1 (`encounter.wipe()`) and #2 (the hunt lap) are
+untouched; a wiped party still arrives already healed, just inside the room now
+(`src/travel/index.js`'s `party:wiped` listener repoints from the outside door marker to
+`pokecenter` itself), and that path never arms the cooldown.
+
+**PP is restored for the first time anywhere in the game.** Every other recovery path —
+`pokemon.reviveAll()` (the wipe), the hunt lap's partial heal — calls `instance.js`'s `heal()`,
+which never touches `moves[].pp`; `restorePp()` existed only for Auto-Ether. The manual cure
+calls both `reviveAll()` (the `revive: true` allowlist's existing caller #1, reused, not
+duplicated — `pokemon/instance.js:230-266`) and `restorePp(instanceId, { moveId, amount: 'full'
+})` on every party member's every move slot. This is the actual functional difference between
+visiting Nurse Joy and every other recovery in the game, and it is why a Potion, a Revive and
+an Ether all still have a job: none of the free nets fills a PP bar.
+
+**`player:interact` is generic, not `pokecenter:heal`.** The key (`Z`/`Space`, `ui/input.js`)
+emits the faced cell's tags — `{ cx, cz, dir, facing: {cx, cz}, tags }`, read through
+`terrain.tagsAt()` the same way `simulation`'s own `player:enteredTile` is built — regardless
+of which scene is loaded or what, if anything, is standing there. `pokecenter`'s listener is
+the only one that exists yet and it just checks `tags.includes('counter')`; a future NPC
+anywhere else in the game (a shopkeeper, a sign, a second counter) reacts to the same event
+without a second key being invented for it.
+
+**Why:** the alternative — keeping the free lobby heal alongside a Nurse Joy that also heals —
+was rejected because it makes the counter interaction pointless (the player is already healed
+by the time they could walk to it) and keeps Potions/Revives exactly as useless as #81 made
+them, which is what this slice exists to undo. A `pokecenter:heal` event scoped to this one
+counter was rejected in favour of the generic `player:interact`: the counter is not special,
+the tag on it is, and the next tagged cell in the next room should not need a new key added to
+`ui/input.js` to be reachable.
+
+**Cost:** a player who never walks to the Center and never fights past a wipe has no free
+recovery at all now — Potions, Revives and a trip to the counter are the only ways back to full
+health outside a fainted party's own two safety nets. `docs/STATUS.json`'s
+`travel-mid-encounter-silent` entry is reworded (not closed): the underlying gap — `travel.go()`
+calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounter travel now costs
+a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
+(`remainingCooldownMs`'s return value is available for one); out of scope here.

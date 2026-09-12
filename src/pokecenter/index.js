@@ -6,17 +6,22 @@
  * §5.4) rather than a special-cased key: walking onto a tagged cell **is** the interaction,
  * the same way a hunt's tall grass is (`encounter/index.js`).
  *
- * It is assembled from three files, split the way `city` splits its four:
+ * It is assembled from four files, split the way `city` splits its four:
  *
- *   `layout.js`  where everything is — one set of numbers, two consumers
+ *   `layout.js`  where everything is — one set of numbers, every other file here reads it
  *   `map.js`     the base tileset half (`pt-house-indoor`): floor, walls, the counter
  *   `dress.js`   the window and the benches (their own tilesets, so their own instanced
  *                worlds) plus the one practical light
+ *   `heal.js`    the cure's cooldown arithmetic — pure, no `ctx` (DECISIONS #35)
  *
- * **No healing here.** `city.enter()` still cures the party on arrival, exactly as it does
- * today (DECISIONS #81) — this room adds nowhere for that logic to move to yet. A follow-up
- * slice gates the cure behind Nurse Joy and a cooldown and removes the free lobby heal; until
- * it lands, walking in and out of this room changes nothing about the party's HP.
+ * **Nurse Joy is the cure.** Facing the counter (its 3 cells carry the `counter` tag, added
+ * by `map.js`) and pressing the generic `player:interact` key (`ui/input.js`, `Z`/`Space`)
+ * opens a dialogue with her: off cooldown, the whole party is healed — HP, status **and PP**,
+ * the actual difference from every other recovery in the game — once every `HEAL_COOLDOWN_MS`
+ * real seconds (`heal.js`), free. `city.enter()` no longer heals anything (DECISIONS #83,
+ * revising #81's third net); a party wipe still arrives already healed (`encounter.wipe()`'s
+ * own `pokemon.reviveAll()`, unchanged), just in this room now instead of on the pavement, and
+ * that path never touches the cooldown.
  *
  * **Not on the travel panel.** `travel.destinations()` carries it with `hidden: true`
  * (§5.16) so `ui/panels/travel.js` never lists it — the door is the only way in, on purpose
@@ -25,8 +30,9 @@
 
 import { buildPokecenterMap } from './map.js';
 import { dressPokecenter } from './dress.js';
+import { remainingCooldownMs } from './heal.js';
 import {
-  ROOM_W, ROOM_H, TILESET, SPAWN, EXIT_TAG, RETURN_DIR, FORMATION, PRESETS,
+  ROOM_W, ROOM_H, TILESET, SPAWN, NURSE, EXIT_TAG, RETURN_DIR, FORMATION, PRESETS,
 } from './layout.js';
 
 /** The registry hands out a null-object proxy for a dead module; `__missing` is the tell. */
@@ -35,6 +41,9 @@ const isLive = (api) => !!api && api.__missing === undefined;
 /** The terrain map id, and `travel`'s destination id — the two are the same string, the way
  *  `hunts` registers `hunt-<id>` under the id `hunts.list()` uses for it. */
 const MAP_ID = 'pokecenter';
+
+/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+const SAVE_VERSION = 1;
 
 export default {
   id: 'pokecenter',
@@ -49,12 +58,64 @@ export default {
 
     /** @type {{dispose:() => void, stats:object}|null} */
     let dressing = null;
+    /** Nurse Joy's `simulation` npc id, so re-entering the room does not spawn a second copy. */
+    let nurseId = null;
+    /** `ctx.clock.wallMs()` of the last successful cure, or `null` — "never healed" (§ heal.js). */
+    let lastHealMs = null;
 
     /** The room takes itself down when its map is unloaded — see `city/index.js`'s twin. */
     bus.on('world:unloaded', ({ mapId }) => {
       if (mapId !== MAP_ID) return;
       dressing?.dispose();
       dressing = null;
+      const sim = ctx.get('simulation');
+      if (nurseId != null && isLive(sim) && typeof sim.removeNpc === 'function') sim.removeNpc(nurseId);
+      nurseId = null;
+    });
+
+    /**
+     * The cure. `player:interact` (`ui/input.js`) carries the faced cell's tags, read the same
+     * way `simulation`'s own `announce()` builds `player:enteredTile`'s payload — so this only
+     * has to check for `'counter'`, and any future NPC anywhere else in the game gets the same
+     * key for free rather than a Center-specific one.
+     *
+     * **Unconditional once off cooldown** — no "is anyone even hurt" check, unlike the deleted
+     * `city.enter()` heal (real Nurse Joy does not check first either). `pokemon.reviveAll()`
+     * is the `revive: true` allowlist's caller #1 (`pokemon/instance.js:230-266`), reused here,
+     * not duplicated; restoring every move slot's PP on top of it is the actual functional
+     * difference between this cure and every other recovery path in the game (the wipe, the
+     * hunt lap) — neither of those touches PP.
+     */
+    bus.on('player:interact', ({ tags }) => {
+      if (ctx.config.showcase) return;          // a showcase stages a frame; it never heals
+      if (!Array.isArray(tags) || !tags.includes('counter')) return;
+      const nav = ctx.get('travel');
+      if (!isLive(nav) || typeof nav.current !== 'function' || nav.current()?.id !== MAP_ID) return;
+
+      const ui = ctx.get('ui');
+      if (!isLive(ui) || typeof ui.say !== 'function') return;
+
+      const remaining = remainingCooldownMs(lastHealMs, ctx.clock.wallMs());
+      if (remaining > 0) {
+        ui.say(['We need a moment to get your Pokémon ready — please come back shortly.'],
+          { speaker: 'Nurse Joy' });
+        return;
+      }
+
+      // Gated on `pokemon` actually being reachable: a stamp and a "you're all healed" line
+      // with nothing behind either would be Nurse Joy lying to a player under `?break=pokemon`.
+      const pokemon = ctx.get('pokemon');
+      if (!isLive(pokemon) || typeof pokemon.reviveAll !== 'function') return;
+      pokemon.reviveAll();
+      const party = typeof pokemon.party === 'function' ? pokemon.party() : [];
+      if (typeof pokemon.restorePp === 'function') {
+        for (const m of party) {
+          for (const slot of m?.moves ?? []) pokemon.restorePp(m.instanceId, { moveId: slot.id, amount: 'full' });
+        }
+      }
+      lastHealMs = ctx.clock.wallMs();
+      ui.say(['We\'ve restored your Pokémon to full health!', 'We hope to see you again!'],
+        { speaker: 'Nurse Joy' });
     });
 
     /**
@@ -147,6 +208,28 @@ export default {
         }
         ctx.three.rig.setFocus(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
 
+        // Nurse Joy, after `dressPokecenter()` resolves — mirroring `city.enter()`'s own
+        // `cast = await populateCity(ctx)` timing. `world:unloaded` above already reset
+        // `nurseId` to null (it fired from inside `terrain.load()`, before this line), so this
+        // never spawns a second copy of her on re-entry.
+        if (isLive(sim) && typeof sim.spawnNpc === 'function') {
+          const pokemonApi = ctx.get('pokemon');
+          // One atlas build before the spawn, the way `city/npcs.js` batches its own cast —
+          // a fresh atlas build mid-spawn is wasteful for a single NPC too.
+          if (isLive(pokemonApi) && pokemonApi.sprites && typeof pokemonApi.sprites.prepare === 'function') {
+            try {
+              await pokemonApi.sprites.prepare([{ trainer: 'heroine' }]);
+            } catch (err) {
+              log.warn('pokecenter: preparing Nurse Joy’s sprite sheet failed', err);
+            }
+          }
+          const npc = sim.spawnNpc({
+            name: 'pokecenter/nurse', trainer: 'heroine',
+            cx: NURSE.cx, cz: NURSE.cz, dir: NURSE.dir, solid: true,
+          });
+          nurseId = npc?.id ?? null;
+        }
+
         return handle;
       },
 
@@ -174,6 +257,28 @@ export default {
       /** What the room is made of, for the debug overlay and the screenshot log. */
       stats: () => ({ ...(dressing?.stats ?? {}) }),
 
+      // --- the save seam (§5) -------------------------------------------------
+      // Discovered automatically by `offline.init()`'s `discoverProviders` — `pokecenter`
+      // inits before `offline` in the registry's Kahn order, so a plain native
+      // `saveState`/`loadState` pair needs no self-registration (unlike `travel`, which inits
+      // after `offline`). Only the cooldown is saved: nothing else in the room has state of
+      // its own (the map is rebuilt from its seed, and Nurse Joy is a fixed NPC).
+      saveState: () => ({ v: SAVE_VERSION, lastHealMs }),
+      loadState(value) {
+        if (!value || typeof value !== 'object') return false;
+        // Tolerates an older slice, refuses a newer one — the same seam every sibling at this
+        // save order implements (`travel`, `battle`, `collection`, `encounter`); this module
+        // is not one of the two named exceptions in ARCHITECTURE §5 (`economy`, `idle`).
+        if (Number(value.v) > SAVE_VERSION) {
+          log.warn(`pokecenter: save slice v${value.v} is newer than v${SAVE_VERSION} — not loaded`);
+          return false;
+        }
+        // A non-finite/missing `lastHealMs` (a fresh save, or a hand-edited one) reads as
+        // "never healed" — matches `remainingCooldownMs(null, t) === 0` (`heal.js`).
+        lastHealMs = Number.isFinite(value.lastHealMs) ? value.lastHealMs : null;
+        return true;
+      },
+
       dispose() {
         dressing?.dispose();
         dressing = null;
@@ -186,8 +291,8 @@ export default {
     const pc = ctx.get('pokecenter');
     await pc.enter();
     if (mode && mode !== 'default') pc.preset(mode);
-    // No cast to stage: the room has nobody in it yet (Nurse Joy is a follow-up slice), and
-    // the trainer never moves on its own (`FORMATION.autopilot:'none'`), so the frame is
-    // already the same for the same URL every time — nothing to freeze.
+    // No cast to stage: Nurse Joy has no route (`spawnNpc`'s default is `STILL`, `simulation/
+    // index.js`), and the trainer never moves on its own (`FORMATION.autopilot:'none'`), so
+    // the frame is already the same for the same URL every time — nothing to freeze.
   },
 };

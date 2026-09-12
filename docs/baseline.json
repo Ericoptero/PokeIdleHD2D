@@ -244,15 +244,15 @@
    "fps": 60,
    "drawCalls": 45,
    "consoleErrors": 0,
-   "mean": 50.17,
+   "mean": 51.44,
    "p50": 7,
-   "p95": 145,
-   "p99": 168,
-   "max": 245,
+   "p95": 148,
+   "p99": 200,
+   "max": 240,
    "belowL8Pct": 54.778,
    "pureBlackPct": 0,
-   "over200Pct": 0.25,
-   "saturation": 0.4946
+   "over200Pct": 0.969,
+   "saturation": 0.4909
   }
  }
 }

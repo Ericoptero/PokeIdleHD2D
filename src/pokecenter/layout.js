@@ -64,6 +64,15 @@ export const RETURN_DIR = SOUTH;
 export const WINDOW = { cx: 5, cz: 0, w: 3 };
 export const COUNTER = { cx: 5, cz: 2, w: 3 };
 
+/**
+ * Where Nurse Joy stands: centred on the counter's 3-cell span, one cell north of it (the
+ * plain walkable floor between the counter and the north wall — `map.js` fills the whole
+ * room before placing anything on top of it, and nothing else claims this cell), facing
+ * `SOUTH` toward a player approaching from the door. Distinct from both `SPAWN` and `EXIT`
+ * (`selftest.js` checks this).
+ */
+export const NURSE = { cx: COUNTER.cx + 1, cz: COUNTER.cz - 1, dir: SOUTH };
+
 /** `bw2-adastra`'s `bench_e`/`bench_w` (DECISIONS #6 tags: `bench, seat`), flanking the open
  *  floor between the door and the counter. */
 export const BENCHES = [

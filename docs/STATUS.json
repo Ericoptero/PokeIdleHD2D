@@ -91,8 +91,8 @@
     {
       "id": "travel-mid-encounter-silent",
       "module": "travel",
-      "what": "Travelling mid-encounter calls encounter.cancel() with no prompt (travel/index.js:132) — a silent loss of a fight the player was in. cancel() also resolves nothing, so a party that fainted in that fight is written to the save unconscious; since slice 012 the city heals on arrival, so it is a lost fight rather than a dead save (DECISIONS #81). The prompt is still owed.",
-      "repro": "read travel/index.js:130-134"
+      "what": "Travelling mid-encounter calls encounter.cancel() with no prompt (travel/index.js:152-153) — a silent loss of a fight the player was in. cancel() also resolves nothing, so a party that fainted in that fight is written to the save unconscious, and the battle card `ui` opened on encounter:started stays open in the destination scene until Escape/X manually closes it (no encounter:resolved ever fires to tell ui the fight is over). Since slice 014 the free lobby heal is gone (DECISIONS #83, revising #81's third net) — the recovery path is now a walk to the Pokemon Center and a cooldown-gated Nurse Joy cure, not an automatic heal on arrival. The prompt is still owed.",
+      "repro": "read travel/index.js:145-156"
     },
     {
       "id": "battle-no-accuracy-evasion",
@@ -123,6 +123,12 @@
       "module": "idle",
       "what": "A backgrounded tab credits its experience to idle.totals() and to the away card whether or not the party can receive it. idle/index.js:283 hands gains.exp to pokemon.grantPartyExp, which filters `party.filter((p) => p.hp > 0)` (pokemon/index.js:281), so a party with nothing conscious in it banks nothing — while totals.exp, the digest and the toast all report the full amount. Measured at seed 1337 in hunt-meadow with the party at 0 hp: setHidden(true), advanceWallMs(3600000), pump() gave totals.exp 66739.25 over 57 encounters and party exp unchanged at [135,135,135]; the same hour on a healthy party granted it (exp [66873,66873,66873]). Money stayed 0 in both, so ARCHITECTURE §0's money rule is not involved. Related to closed-tab-exp-discarded, which is the offline half of the same asymmetry.",
       "repro": "boot /?seed=1337&timeFrozen=1, travel.go('hunt-meadow'), `for (const m of __CTX__.get('pokemon').party()) __CTX__.get('pokemon').damage(m.instanceId, m.maxHp)`, then `const i=__CTX__.get('idle'); i.debug.setHidden(true); i.debug.advanceWallMs(3600e3); await i.debug.pump({}); i.debug.setHidden(false); i.totals().exp` against `__CTX__.get('pokemon').party().map(p=>p.exp)`"
+    },
+    {
+      "id": "reload-position-not-restored",
+      "module": "offline",
+      "what": "A reload never puts the player back where the save says they stood. offline/index.js:384-393's restorePlayer listens for scene:entered and calls sim.teleport(want.cx, want.cz, want.dir) once self.player matches the landed mapId — but on a real reload sim.teleport is never called at all (confirmed by spying it directly), even though the saved simulation slice is correct and terrain.passable(want.cx, want.cz, want.dir) is true for it. Reproduced on plain demo-city, not just a scene slice 013/014 added: teleport to (20,25), persist, reload — the save correctly holds slices.simulation {mapId:'demo-city',cx:20,cz:25,dir:0}, but simulation.player() after reload is back at the city's own default SPAWN (31,40). Predates slices 013/014 entirely (`git diff 0ee4b5e -- src/offline src/simulation` is empty); found while testing the Pokemon Center's own reload behaviour, which surfaced the same gap for the first time because nothing had exercised an exact-position reload check before.",
+      "repro": "boot /, `const sim=__CTX__.get('simulation'); sim.teleport(20,25,0);`, `await __CTX__.get('offline').persist('x')`, reload the page, then `__CTX__.get('simulation').player()` — expect {cx:20,cz:25} and get the city's default spawn instead"
     }
   ],
   "modules": {
@@ -186,7 +192,8 @@
       "selftest": true,
       "openIssues": [
         "closed-tab-exp-discarded",
-        "catchup-biome-always-meadow"
+        "catchup-biome-always-meadow",
+        "reload-position-not-restored"
       ]
     },
     "pokecenter": {

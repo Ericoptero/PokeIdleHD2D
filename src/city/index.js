@@ -99,46 +99,6 @@ export default {
       ctx.three.rig.setFocus(at.cx + 0.5, y, at.cz + 0.5, true);
     }
 
-    /**
-     * **The lobby is the Pokemon Center.**
-     *
-     * `travel` already teleports a wiped party to the `pokecenter-door` marker (§5.16) and the
-     * wipe toast already tells the player they paid at the Centre — but nothing in the game ever
-     * healed them there. `pokemon.reviveAll()` had exactly one caller and it was inside
-     * `encounter`'s `wipe()`, so every other route to an unconscious party — leaving a lost fight
-     * through the travel panel, which calls `encounter.cancel()` and never resolves — left a save
-     * that could not fight and could not be healed: `slotNear` refuses a party with no conscious
-     * member, so no encounter could start, so no resolve could ever revive it. Arriving in the
-     * city fixes that, free and unconditionally, because a heal a broke player cannot afford
-     * rebuilds the same trap one level up. It is an outflow, so "money is earned by selling"
-     * (§0) is untouched.
-     *
-     * Silent when nobody needed it: a toast on every boot would sit in the bottom-right of every
-     * city capture, inside the rows `regress` measures. And skipped entirely under a showcase,
-     * which stages a frame and writes nothing.
-     *
-     * **One of three deliberately overlapping nets** — this, `hunts`' lap rest and `encounter`'s
-     * wipe. The redundancy is the point and DECISIONS #81 is why: cutting any one of them as
-     * "already covered" is how the deadlock was written in the first place.
-     */
-    function heal() {
-      // A showcase stages a frame and never writes state (CLAUDE.md), and `city.showcase()` runs
-      // `enter()`. The guard is first, not around the toast: a staged party happens to be
-      // undamaged today, so a later guard would be correct only by accident.
-      if (ctx.config.showcase) return;
-      const pokemon = ctx.get('pokemon');
-      if (!isLive(pokemon) || typeof pokemon.party !== 'function') return;
-      const hurt = pokemon.party().filter((m) => m && (m.hp < m.maxHp || m.status));
-      if (!hurt.length) return;
-      pokemon.reviveAll?.();
-      bus.emit('ui:toast', {
-        text: hurt.length === 1
-          ? 'The Pokémon Center patched up your Pokémon.'
-          : `The Pokémon Center patched up all ${hurt.length} of your Pokémon.`,
-        kind: 'good',
-      });
-    }
-
     const api = {
       /** How the lobby is played, so `travel` can show it without entering it. */
       formation: () => ({ ...FORMATION }),
@@ -173,7 +133,6 @@ export default {
         ctx.three.rig.setFocus(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
 
         cast = await populateCity(ctx);
-        heal();
         return handle;
       },
 

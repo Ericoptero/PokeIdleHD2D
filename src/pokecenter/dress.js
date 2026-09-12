@@ -10,7 +10,7 @@
  * its authored buildings and adapted props.
  */
 
-import { WINDOW, BENCHES } from './layout.js';
+import { WINDOW, COUNTER, BENCHES } from './layout.js';
 
 /** The registry hands out a null-object proxy for a dead module; `__missing` is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -99,7 +99,16 @@ export async function dressPokecenter(ctx) {
   if (isLive(env) && env.lamps && typeof env.lamps.add === 'function') {
     env.lamps.clear();
     const shaftX = WINDOW.cx + WINDOW.w / 2;
-    const shaftZ = WINDOW.cz + 1.4;             // a little into the room, past the wall itself
+    // In front of the counter (`COUNTER.cz + 1.4`), matching the comment above — not behind it.
+    // At `WINDOW.cz + 1.4` this sat almost exactly on Nurse Joy's own cell once slice 014 put
+    // her there (`NURSE`, `layout.js`): the light's hot filament core landed on her face and
+    // blew her out to a barely-visible smudge, confirmed by a cropped screenshot before this
+    // fix (nothing wrong with her sprite or her spawn — `simulation.npcs()` and the sprite
+    // field both showed a correctly placed, correctly framed actor sitting under a light this
+    // bright). Moving the shaft one row south costs nothing compositionally — it was always
+    // meant to fall in front of the counter, on the floor the player actually stands on to
+    // talk to her — and clears the row she stands in entirely.
+    const shaftZ = COUNTER.cz + 1.4;
     // `size` is kept modest on purpose: this room is a third the width of `city`'s plaza, and
     // the quad that read as a wide sodium halo out there (`city/structures.js`) bloomed clean
     // over the top of this room's 2.875-tall wall at the same setting — a light visibly

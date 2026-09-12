@@ -18,7 +18,7 @@
 
 import terrainModule from '../terrain/index.js';
 import { buildPokecenterMap } from './map.js';
-import { ROOM_W, ROOM_H, SPAWN, EXIT, EXIT_TAG, COUNTER, BENCHES } from './layout.js';
+import { ROOM_W, ROOM_H, SPAWN, EXIT, EXIT_TAG, COUNTER, NURSE, BENCHES } from './layout.js';
 
 const stubCtx = {
   bus: { emit() {}, on: () => () => {}, once() {} },
@@ -109,6 +109,25 @@ for (let cx = COUNTER.cx; cx < COUNTER.cx + COUNTER.w; cx++) {
     `got "${draft.collisionAt(cx, COUNTER.cz)}"`);
 }
 check('the counter was actually measured', counterCells === COUNTER.w, String(counterCells));
+let counterTagCells = 0;
+for (let cx = COUNTER.cx; cx < COUNTER.cx + COUNTER.w; cx++) {
+  counterTagCells++;
+  check(`counter cell ${cx},${COUNTER.cz} carries the 'counter' tag`,
+    draft.hasTag(cx, COUNTER.cz, 'counter'));
+}
+check('the counter tag was checked on every cell', counterTagCells === COUNTER.w, String(counterTagCells));
+
+// --- Nurse Joy's spot -----------------------------------------------------------
+check('the Nurse spot is inside the room', draft.inside(NURSE.cx, NURSE.cz),
+  `${NURSE.cx},${NURSE.cz} against ${ROOM_W}x${ROOM_H}`);
+check('the Nurse spot is walkable', draft.passable(NURSE.cx, NURSE.cz, 0),
+  `collision "${draft.collisionAt(NURSE.cx, NURSE.cz)}"`);
+check('the Nurse spot is not a counter cell',
+  !(NURSE.cz === COUNTER.cz && NURSE.cx >= COUNTER.cx && NURSE.cx < COUNTER.cx + COUNTER.w));
+check('the Nurse spot is distinct from spawn',
+  NURSE.cx !== SPAWN.cx || NURSE.cz !== SPAWN.cz);
+check('the Nurse spot is distinct from the exit',
+  NURSE.cx !== EXIT.cx || NURSE.cz !== EXIT.cz);
 
 // --- the three built walls, and the one side that is not -----------------------
 check('the north wall blocks its row (outside the window)',

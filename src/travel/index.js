@@ -234,22 +234,29 @@ export default {
     };
 
     /**
-     * A wiped party goes to the Pokémon Center, and `travel` is what takes it there.
+     * A wiped party goes to the Pokémon Center itself now, not just the pavement outside it —
+     * and `travel` is what takes it there.
      *
-     * `encounter` pays the toll and heals the party, then emits `party:wiped` and stops — it
+     * `encounter` pays the toll and revives the party, then emits `party:wiped` and stops — it
      * cannot hop itself, because it is emitting from inside `tick()` and `go()` is async,
      * serialised behind `busy`, and calls `encounter.cancel()` on the way in (DECISIONS #72).
      * So the hop happens here, one turn of the event loop later, and a failure to hop costs the
      * player a walk home rather than a wedged frame loop.
      *
-     * The Center's door is a **marker on the city draft**, not a constant: `city/map.js` mints
-     * `<plot>-door` for every plot it places, so the target moves with the town rather than
-     * having to be kept in step with it by hand.
+     * `go('pokecenter')` lands the player at `pokecenter.enter()`'s own `SPAWN` — no extra
+     * teleport needed on the success path. The **fallback** (a quarantined `pokecenter`,
+     * `?break=pokecenter`) still has to work: the room itself may be down, but a fainted party
+     * must never be stranded, so a failed hop falls back to the old target — the city's
+     * `pokecenter-door` marker on its pavement (`city/map.js` mints `<plot>-door` for every
+     * plot it places, so the target moves with the town rather than being kept in step by
+     * hand) — facing north, into the door.
      */
     bus.on('party:wiped', () => {
       if (config.showcase) return;              // a showcase stages a frame; it never travels
       queueMicrotask(async () => {
         try {
+          const ok = await api.go('pokecenter');
+          if (ok) return;
           if (current?.id !== 'demo-city') await api.go('demo-city');
           const terrain = ctx.get('terrain');
           const door = isLive(terrain) ? terrain.draft?.()?.markers?.get('pokecenter-door') : null;

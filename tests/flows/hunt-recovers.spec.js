@@ -12,7 +12,9 @@
  * Everything drives `__HOOKS__` and `__CTX__`; nothing reads a pixel.
  */
 import { test, expect } from '@playwright/test';
-import { installEventLog, boot, events, stepUntil, call } from './harness.js';
+import {
+  installEventLog, boot, events, stepUntil, call, key,
+} from './harness.js';
 
 /**
  * The raw log length, which is what `harness.js` stamps each event's `at` from. `events()`
@@ -27,6 +29,8 @@ const STEPS_PER_TILE = 5;
 
 const partyHp = (page) => page.evaluate(() =>
   window.__CTX__.get('pokemon').party().map((p) => p.hp));
+const partyMaxHp = (page) => page.evaluate(() =>
+  window.__CTX__.get('pokemon').party().map((p) => p.maxHp));
 const conscious = (page) => page.evaluate(() =>
   !!window.__CTX__.get('pokemon').firstConscious());
 
@@ -34,6 +38,57 @@ async function goTo(page, sceneId) {
   await call(page, 'travel', 'go', sceneId);
   await page.waitForFunction((id) => window.__CTX__.get('travel').current()?.id === id,
     sceneId, { timeout: 30_000, polling: 100 });
+}
+
+/**
+ * Holds `code` down, resumes the frame loop, and polls real wall-clock time for an event of
+ * `type` logged after `after` — the same technique `tests/flows/pokecenter.spec.js` proved for
+ * walking a real `KeyboardEvent` through `ui/input.js` onto a door tile. Bounded, and failing
+ * with the log rather than a bare timeout message.
+ */
+async function walkOnto(page, code, type, { after, maxMs = 15_000, pollMs = 100 } = {}) {
+  await page.evaluate(() => window.__HOOKS__.resume());
+  await key(page, code, true);
+  const t0 = Date.now();
+  try {
+    for (;;) {
+      const log = await events(page);
+      const hit = log.find((e) => e.type === type && e.at >= after);
+      if (hit) return hit;
+      if (Date.now() - t0 > maxMs) {
+        const seen = [...new Set(log.filter((e) => e.at >= after).map((e) => e.type))].join(', ');
+        expect(null, `no ${type} within ${maxMs}ms of walking ${code}; events since: ${seen || '(none)'}`)
+          .not.toBeNull();
+      }
+      await page.waitForTimeout(pollMs);
+    }
+  } finally {
+    await key(page, code, false);
+  }
+}
+
+/**
+ * Holds `code` down until `simulation.player()` reports `predicate(player)`, then releases.
+ * Movement is tile-locked (`ui/input.js`) and the counter blocks further steps, so walking
+ * north into it cannot overshoot the row this waits for.
+ */
+async function walkUntil(page, code, predicate, { maxMs = 15_000, pollMs = 100 } = {}) {
+  await page.evaluate(() => window.__HOOKS__.resume());
+  await key(page, code, true);
+  const t0 = Date.now();
+  try {
+    for (;;) {
+      const player = await call(page, 'simulation', 'player');
+      if (predicate(player)) return player;
+      if (Date.now() - t0 > maxMs) {
+        expect(null, `walking ${code} never reached the target cell; last at ${JSON.stringify(player)}`)
+          .not.toBeNull();
+      }
+      await page.waitForTimeout(pollMs);
+    }
+  } finally {
+    await key(page, code, false);
+  }
 }
 
 /** One full lap plus the two-step detour and a margin — 17 s of real play in the meadow. */
@@ -96,7 +151,7 @@ test('a lap of the circuit brings a fainted party back and the hunt resumes', as
   expect(errors, 'no console error while recovering on the circuit').toEqual([]);
 });
 
-test('the city heals, so a party fainted outside a resolve is never stranded', async ({ page }) => {
+test('the city no longer heals — Nurse Joy does, once you walk in and face the counter', async ({ page }) => {
   await installEventLog(page);
   const errors = await boot(page);
   await goTo(page, 'hunt-meadow');
@@ -109,7 +164,47 @@ test('the city heals, so a party fainted outside a resolve is never stranded', a
     for (const m of pk.party()) pk.damage(m.instanceId, m.maxHp);
   });
   await goTo(page, 'demo-city');
-  expect(await conscious(page), 'arriving in the city heals the party').toBe(true);
+  // Inverted from slice 013: `city.enter()`'s free lobby heal is gone (DECISIONS #83, revising
+  // #81's third net) — a fainted party arriving in the lobby is still fainted.
+  expect(await conscious(page), 'arriving in the city no longer heals the party').toBe(false);
+
+  // `encounter.cancel()` (called from inside `travel.go()`) resolves nothing, so `ui`'s battle
+  // card — opened on the meadow's `encounter:started` and never told the fight is over — is
+  // still open here (STATUS `travel-mid-encounter-silent`; confirmed live: `ui.openPanel()`
+  // reads `'battle'` at this point). `Escape`/`X` closes ANY open panel that does not consume
+  // the key itself (`ui/input.js`'s panel branch) — the same key a player already has for this,
+  // out of scope for this slice to change (the *prompt* itself is untouched).
+  expect(await call(page, 'ui', 'openPanel'), 'the stale battle card is still up').toBe('battle');
+  await key(page, 'Escape');
+  await key(page, 'Escape', false);
+  expect(await call(page, 'ui', 'openPanel')).toBeNull();
+
+  // Walk to the Center's door, in, up to the counter, and press Z.
+  const marker = await call(page, 'city', 'marker', 'pokecenter-door');
+  expect(marker, 'the city draft mints a pokecenter-door marker').not.toBeNull();
+  await call(page, 'simulation', 'teleport', marker.cx, marker.cz, 2); // NORTH, facing the door
+
+  const before = await mark(page);
+  await walkOnto(page, 'KeyW', 'scene:entered', { after: before });
+  const entered = (await events(page)).filter((e) => e.type === 'scene:entered' && e.at >= before);
+  expect(entered.at(-1)?.payload.sceneId).toBe('pokecenter');
+  expect((await call(page, 'travel', 'current'))?.id).toBe('pokecenter');
+  expect(await conscious(page), 'walking in the door does not itself heal').toBe(false);
+
+  // Spawn already faces the counter (north, `layout.js SPAWN.dir`); walk up next to it —
+  // the counter blocks further steps, so holding north cannot overshoot the row.
+  const atCounter = await walkUntil(page, 'KeyW', (p) => p.cz <= 3);
+  expect(atCounter.cz).toBe(3);
+  expect(atCounter.dir).toBe(2); // still facing north, into the counter
+
+  await key(page, 'KeyZ');
+  await key(page, 'KeyZ', false);
+  // Back to deterministic ticking (`stepUntil` below drives `registry.tick` directly through
+  // `__HOOKS__.step()`; leaving the real render loop running would double-advance sim time).
+  await page.evaluate(() => window.__HOOKS__.pause());
+
+  expect(await conscious(page), 'Nurse Joy revives the party').toBe(true);
+  expect(await partyHp(page)).toEqual(await partyMaxHp(page));
 
   // And the hunt it goes back to still produces a fight. (What the *save* holds after a reload is
   // save.spec.js's job; persisting here only proves the write does not throw on a healed party.)
@@ -117,7 +212,48 @@ test('the city heals, so a party fainted outside a resolve is never stranded', a
   await goTo(page, 'hunt-meadow');
   const met = await stepUntil(page, 'encounter:started', { chunk: 10, maxTicks: await lapBound(page) });
   expect(met.hit.payload.species).toEqual(expect.any(String));
-  expect(errors, 'no console error on the city round trip').toEqual([]);
+  expect(errors, 'no console error on the city + Pokemon Center round trip').toEqual([]);
+});
+
+test('a wipe lands the player inside the Pokemon Center, already healed, with no cooldown armed', async ({ page }) => {
+  await installEventLog(page);
+  const errors = await boot(page);
+  await goTo(page, 'hunt-meadow');
+
+  const before = await mark(page);
+  await forceWipe(page);
+  const since = (await events(page)).filter((e) => e.at >= before);
+  expect(since.some((e) => e.type === 'party:wiped'), 'the wipe emits party:wiped').toBe(true);
+
+  // `travel`'s `party:wiped` listener hops to `pokecenter` a microtask later — wait for it
+  // rather than asserting on the very next tick.
+  await page.waitForFunction(() => window.__CTX__.get('travel').current()?.id === 'pokecenter',
+    null, { timeout: 15_000, polling: 100 });
+  const scene = since.find((e) => e.type === 'scene:entered' && e.payload.sceneId === 'pokecenter')
+    ?? (await events(page)).find((e) => e.type === 'scene:entered' && e.payload.sceneId === 'pokecenter');
+  expect(scene, 'a scene:entered names the Pokemon Center as the wipe destination').toBeTruthy();
+  expect(await conscious(page), 'encounter.wipe()\'s own reviveAll() already cured the party').toBe(true);
+
+  // The wipe never arms the cooldown — read directly off `pokecenter`'s own save slice rather
+  // than inferring it from HP (the party is already full by construction here, so a no-op and
+  // a real cure would look identical on HP alone).
+  expect((await call(page, 'pokecenter', 'saveState')).lastHealMs,
+    'a wipe never stamps lastHealMs').toBeNull();
+
+  // Pressing Z at the counter right after arriving must still succeed — proving "unconditional
+  // once off cooldown" (it heals a party that is, by construction, already full) rather than a
+  // no-op the party's own full HP would otherwise make indistinguishable from a refusal.
+  const atCounter = await walkUntil(page, 'KeyW', (p) => p.cz <= 3);
+  expect(atCounter.cz).toBe(3);
+  await key(page, 'KeyZ');
+  await key(page, 'KeyZ', false);
+  await page.evaluate(() => window.__HOOKS__.pause());
+  expect(await conscious(page)).toBe(true);
+  expect(await partyHp(page)).toEqual(await partyMaxHp(page));
+  expect((await call(page, 'pokecenter', 'saveState')).lastHealMs,
+    'the manual cure DID run — it stamped the cooldown this time').not.toBeNull();
+
+  expect(errors, 'no console error wiping into the Pokemon Center').toEqual([]);
 });
 
 test('a hunt entered the way a player enters it produces a battle', async ({ page }) => {

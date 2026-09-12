@@ -11,7 +11,9 @@
  *     `player:enteredTile`, which is not debounced) — never wedges `travel` and never builds
  *     the room twice.
  *  3. A save whose last scene was `pokecenter` survives a real page reload: `travel`'s own
- *     `sceneId` slice, with no save slice of pokecenter's own to fall back on.
+ *     `sceneId` slice puts the player back in the room. (Slice 014 gave `pokecenter` its own
+ *     save slice too, but it carries only the cure's cooldown timestamp — not scene state —
+ *     so this is still `travel`'s own `sceneId` doing the work here.)
  */
 import { test, expect } from '@playwright/test';
 import { installEventLog, boot, call, prop } from './harness.js';
