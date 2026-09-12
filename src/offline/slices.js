@@ -150,8 +150,11 @@ export const ADAPTERS = {
       const player = fn(api, 'player');
       if (!player) return undefined;
       const p = player() ?? {};
-      // `handle()` returns `id`, not `mapId` — this read has been `null` since it was
-      // written, so `restorePlayer`'s `want.mapId !== mapId` guard always bailed.
+      // `handle()` returns `{ id, … }` (terrain/index.js), so this is the map's real id and
+      // `restorePlayer`'s `want.mapId !== mapId` guard does match — the comment that used to sit
+      // here, claiming the read was always `null`, was describing a bug that had been fixed.
+      // Measured harmless in a hunt: the scene places the party first and the restore lands on a
+      // loop cell (slice 012, probe B).
       const mapId = ctx.get('terrain')?.handle?.()?.id ?? null;
       if (!Number.isFinite(p.cx) || !Number.isFinite(p.cz)) return undefined;
       return { mapId, cx: p.cx, cz: p.cz, dir: num(p.dir, 0) };

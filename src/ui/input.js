@@ -16,9 +16,18 @@
  *
  * ```
  *   ← ↑ → ↓  /  W A S D     walk (walkable maps only)
- *   Z / Enter                confirm         X / Escape     back, or open the menu
+ *   Z / Space                interact — the faced cell's tags, `player:interact` (§4)
+ *   Enter                    confirm / menu   X / Escape     back, or open the menu
  *   T travel  P party   B shop   C boxes   4 dex   M menu   `  debug overlay
  * ```
+ *
+ * `Z`/`Space` swap meaning the instant a panel is open: `onKeyDown`'s panel branch routes them
+ * to that panel's own `key(ev)` first (a dialogue's advance, a battle card's throw) — interact
+ * only ever fires with no panel open, so the two never race for the same press.
+ *
+ * The event is generic — the faced cell's tags, not a fixed list of "things you can talk to" —
+ * on purpose: DECISIONS #83 is why `pokecenter` gets to react to it without this file knowing
+ * the Pokemon Center exists, and why a future NPC anywhere else needs no new key of its own.
  *
  * A touch device gets an on-screen pad instead, drawn on the same canvas — but only on a
  * touch device, because every other module's showcase boots `ui` too (`src/main.js`) and a
@@ -26,7 +35,9 @@
  * someone else's frame.
  */
 
-import { SOUTH, WEST, NORTH, EAST } from '../core/dir.js';
+import {
+  SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ,
+} from '../core/dir.js';
 import { C } from './theme.js';
 
 /** Physical keys → direction. `code` rather than `key`, so a non-QWERTY layout still walks. */
@@ -113,6 +124,24 @@ export function makeInput({ ctx, app }) {
     if (isLive(s) && typeof s.stop === 'function') s.stop();
   }
 
+  /**
+   * `player:interact` (ARCHITECTURE §4): a generic "the player faced a cell and pressed the
+   * button" event, not a Center-specific one — any tagged cell in any scene can react to it
+   * without a new key of its own. `terrain.tagsAt` is the same accessor `simulation`'s own
+   * `announce()` uses to build `player:enteredTile`'s payload (§5.4), so this reuses an
+   * existing, cheap read rather than inventing a second way to ask the question.
+   */
+  function interact() {
+    if (!canWalk()) return;
+    const s = sim();
+    if (!isLive(s) || typeof s.player !== 'function') return;
+    const { cx, cz, dir } = s.player();
+    const fx = cx + DIR_DX[dir], fz = cz + DIR_DZ[dir];
+    const terrain = ctx.get('terrain');
+    const tags = isLive(terrain) && typeof terrain.tagsAt === 'function' ? terrain.tagsAt(fx, fz) : [];
+    ctx.bus.emit('player:interact', { cx, cz, dir, facing: { cx: fx, cz: fz }, tags });
+  }
+
   function onKeyDown(ev) {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const code = ev.code;
@@ -133,6 +162,12 @@ export function makeInput({ ctx, app }) {
       if (code.startsWith('Arrow')) ev.preventDefault();
       if (!canWalk()) { refuse(); return; }
       press(MOVE_KEYS.get(code));
+      return;
+    }
+    if (code === 'KeyZ' || code === 'Space') {
+      // Always prevented, even when nothing reacts: Space scrolls the page by default.
+      if (code === 'Space') ev.preventDefault();
+      interact();
       return;
     }
     if (code === 'Escape' || code === 'KeyX' || code === 'Enter') { app.open('menu'); ev.preventDefault(); return; }

@@ -17,7 +17,8 @@ test('the lobby boots with every module ready and a clean console', async ({ pag
   expect(down, 'every registered module reached ready').toEqual([]);
   expect(modules.map((m) => m.id).sort()).toEqual([
     'automation', 'battle', 'city', 'collection', 'economy', 'encounter', 'environment', 'hunts',
-    'idle', 'offline', 'pokemon', 'preview', 'simulation', 'terrain', 'tiles', 'travel', 'ui',
+    'idle', 'offline', 'pokecenter', 'pokemon', 'preview', 'simulation', 'terrain', 'tiles',
+    'travel', 'ui',
   ]);
 
   const log = await events(page);

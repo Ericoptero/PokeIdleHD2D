@@ -31,20 +31,21 @@ import automation from './automation/index.js';
 import ui from './ui/index.js';
 import city from './city/index.js';
 import hunts from './hunts/index.js';
+import pokecenter from './pokecenter/index.js';
 import preview from './preview/index.js';
 
 // Registration order is NOT init order. `registry.init` runs a Kahn sort over `needs` and
 // re-sorts the ready queue alphabetically after every dequeue (`core/registry.js resolveOrder`),
 // so this array could be reversed and nothing would change; inits are awaited one at a time,
 // so nothing overlaps either. The derived order today is: battle, economy, environment,
-// pokemon, collection, tiles, preview, terrain, city, encounter, automation, hunts, simulation,
-// idle, offline, travel, ui. Two consequences worth knowing: `offline` discovers its save
-// providers during its own init, before `travel` and `ui` exist — `travel` registers its
+// pokemon, collection, tiles, preview, terrain, city, encounter, automation, hunts, pokecenter,
+// simulation, idle, offline, travel, ui. Two consequences worth knowing: `offline` discovers its
+// save providers during its own init, before `travel` and `ui` exist — `travel` registers its
 // slice itself for that reason (`travel/index.js`) — and `battle`'s move-data fetch completes
 // before `economy` even starts. A comment here used to claim the opposite; it was wrong.
 const MODULES = [
   tiles, terrain, environment, pokemon, simulation, travel, battle, encounter,
-  economy, collection, idle, offline, automation, ui, city, hunts, preview,
+  economy, collection, idle, offline, automation, ui, city, hunts, pokecenter, preview,
 ];
 
 const bootEl = document.getElementById('boot');

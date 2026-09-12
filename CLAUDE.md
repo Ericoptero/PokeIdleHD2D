@@ -74,6 +74,7 @@ One folder per module under `src/`, each a default-exported descriptor with `id`
 | `automation` | ten automations — hunt, catch, ball, heal, revive, ether, lead, release, sell, restock — and the rules they run on |
 | `ui` | HUD, panels, dialogue — one 2-D canvas, zero draw calls |
 | `city` / `hunts` | the lobby / the four biomes |
+| `pokecenter` | the Pokémon Center's interior — one room, reached by walking through the city's door, not by picking it in the travel panel |
 | `travel` | where the player is, and how they leave |
 | `preview` | asset viewer; registered on every boot but inert until `?showcase=preview` |
 

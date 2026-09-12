@@ -747,8 +747,22 @@ export default {
      * tether's ±1 drift is what makes the meeting read as a creature noticing the party; it is
      * not extra reach, and treating it as such left the trigger silent.
      */
-    /** One warning per wipe, not one per step. */
-    let faintedWarned = false;
+    /**
+     * One nag per streak, for a party that has nothing left to fight with.
+     *
+     * This is **not** a guard on `wipe()`. It used to be: `wipe()` opened with
+     * `if (faintedWarned) return;` above the revive, and the reset below only ran on a resolve
+     * where somebody was still standing. So the second wipe with no surviving encounter between
+     * paid nothing, revived nobody and emitted nothing, and the party then sat at 0 hp forever —
+     * `slotNear` refuses a party with no conscious member, so no encounter could start, so no
+     * resolve could clear the latch, so `reviveAll()` could never run. A save written in that
+     * state was silent and battle-free for good. A wipe now always pays and always revives; what
+     * is latched is only the nag below.
+     *
+     * One of three deliberately overlapping nets (DECISIONS #81) — this, `hunts`' lap rest and
+     * `city.enter()`. Do not drop one as redundant: the redundancy is the decision.
+     */
+    let faintedNagged = false;
 
     /**
      * The most sim steps one `advance()` call may run.
@@ -766,7 +780,30 @@ export default {
       // rather than losing to it twenty-three times in a row, which is what it did before
       // this guard existed (DECISIONS #67).
       const pokemon = ctx.get('pokemon');
-      if (isLive(pokemon) && typeof pokemon.firstConscious === 'function' && !pokemon.firstConscious()) return null;
+      const canFight = !isLive(pokemon) || typeof pokemon.firstConscious !== 'function'
+        || !!pokemon.firstConscious();
+      // Cleared here and not only in `resolve()`, because the two routes that revive without
+      // resolving anything — a lap of the circuit and arriving in the city — would otherwise
+      // leave the nag latched and swallow the next streak's warning.
+      if (canFight) faintedNagged = false;
+      else {
+        /**
+         * **Say so.** This refusal used to be silent, and a party that had somehow reached 0 hp
+         * across the board walked its circuit past living wildlife forever with nothing in the
+         * console and nothing on screen — which is precisely how long that bug lived. A lap rest
+         * and the city both revive now, so this should be unreachable; the nag is the tripwire
+         * that says out loud if it ever is not. `warn`, never `error`: a handled path must not
+         * spend the zero-error budget every capture is measured against (DECISIONS #15).
+         */
+        if (!faintedNagged) {
+          faintedNagged = true;
+          log.warn('encounter: the whole party is fainted — walking past the wildlife until something revives it');
+          if (!config.showcase) {
+            bus.emit('ui:toast', { text: 'Your party is out cold. Head back to the city to heal.', kind: 'warn' });
+          }
+        }
+        return null;
+      }
       const reach = Math.max(0, Number(config.slotEngageTiles ?? 2));
       for (const s2 of hunts.slots()) {
         if (!s2.occupied) continue;
@@ -1283,7 +1320,7 @@ export default {
         const party = pokemon.party();
         const next = party.findIndex((m) => m.hp > 0);
         if (next > 0) pokemon.setLead(next);
-        if (next < 0) wipe(enc); else faintedWarned = false;
+        if (next < 0) wipe(enc); else faintedNagged = false;
       }
 
       // **The loot.** Pure and index-addressed, so a hunt replayed by `offline` produces the
@@ -1334,8 +1371,7 @@ export default {
      * no currency and there is nothing in flight to disagree with.
      */
     function wipe(enc) {
-      if (faintedWarned) return;
-      faintedWarned = true;
+      faintedNagged = false;
       const economy = ctx.get('economy');
       const pokemon = ctx.get('pokemon');
       let lost = 0;

@@ -160,15 +160,15 @@
    "fps": 60,
    "drawCalls": 221,
    "consoleErrors": 0,
-   "mean": 89.62,
+   "mean": 89.61,
    "p50": 84,
    "p95": 177,
    "p99": 234,
    "max": 255,
-   "belowL8Pct": 2.393,
-   "pureBlackPct": 0.134,
+   "belowL8Pct": 2.376,
+   "pureBlackPct": 0.132,
    "over200Pct": 3.661,
-   "saturation": 0.5582
+   "saturation": 0.5584
   },
   "environment/12": {
    "fps": 60,
@@ -239,6 +239,20 @@
    "pureBlackPct": 0,
    "over200Pct": 0.481,
    "saturation": 0.641
+  },
+  "pokecenter/12": {
+   "fps": 60,
+   "drawCalls": 45,
+   "consoleErrors": 0,
+   "mean": 51.44,
+   "p50": 7,
+   "p95": 148,
+   "p99": 200,
+   "max": 240,
+   "belowL8Pct": 54.778,
+   "pureBlackPct": 0,
+   "over200Pct": 0.969,
+   "saturation": 0.4909
   }
  }
 }

@@ -42,6 +42,7 @@ export const MATRIX = [
   { id: 'city/plaza/12', showcase: 'city', preset: 'plaza', tod: 12 },
   { id: 'city/high-street/17.5', showcase: 'city', preset: 'high-street', tod: 17.5 },
   { id: 'city/high-street/21', showcase: 'city', preset: 'high-street', tod: 21 },
+  { id: 'pokecenter/12', showcase: 'pokecenter', tod: 12 },
   { id: 'tiles/12', showcase: 'tiles', tod: 12 },
   // environment's own showcase, because its critic caught the gate missing half a round:
   // "MATRIX has no showcase:'environment' row, so every pixel of the showcase.js rewrite

@@ -229,8 +229,11 @@ export function evolveTo(inst, species, battle) {
  * the first auto-heal rule would quietly resurrect whatever had just gone down. Raising a
  * fainted Pokemon is `revive()` below, and nothing else.
  *
- * `revive: true` is the one caller that is allowed through: the Pokemon Center, which restores
- * a wiped party in full.
+ * `revive: true` is the opt-in for the callers that may, and there are three: the Pokemon Center
+ * (`pokemon.reviveAll`, full and status cleared), a lap of a hunt circuit (`hunts`, 34 % and
+ * status cleared) and a Revive spent inside a fight (`encounter`'s writeBack). All three are
+ * recoveries a player earned or paid for; the flag exists so an ordinary Potion cannot become
+ * one by accident (DECISIONS #81).
  */
 export function heal(inst, { hp = 'full', status = true, revive = false } = {}) {
   if (inst.hp <= 0 && !revive) return inst.hp;
@@ -303,12 +306,26 @@ export function serialize(inst) {
 export function deserialize(slice, lookup, battle) {
   const species = lookup(slice?.species);
   if (!species) return null;
+  /**
+   * **A save is a file a player can edit, so every number out of it is a claim, not a fact.**
+   *
+   * `Math.floor(slice.hp ?? maxHp)` looked like a clamp and was not: `??` catches only
+   * `null`/`undefined`, `Math.floor('x')` is `NaN`, and `Math.max`/`Math.min` pass `NaN` straight
+   * through. A member at `hp = NaN` is neither conscious (`hp > 0` false) nor hurt
+   * (`hp < maxHp` false) — the one combination all three of the recovery nets in DECISIONS #81
+   * decline, which made it a fourth way to strand a run for good. A non-number now reads as
+   * absent, which for hp means full.
+   */
+  const num = (v, fallback) => {
+    const n = Number(v ?? fallback);                      // `??` first: null still means absent
+    return Number.isFinite(n) ? n : fallback;             // and so, now, does 'x'
+  };
   const inst = {
     instanceId: typeof slice.instanceId === 'string' ? slice.instanceId : `${species.name}#0`,
     species,
-    level: Math.max(1, Math.min(100, Math.floor(slice.level ?? 5))),
+    level: Math.max(1, Math.min(100, Math.floor(num(slice.level, 5)))),
     shiny: !!slice.shiny,
-    exp: Math.max(0, Math.floor(slice.exp ?? 0)),
+    exp: Math.max(0, Math.floor(num(slice.exp, 0))),
     ivs: {
       hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...(slice.ivs ?? {}),
     },
@@ -320,6 +337,6 @@ export function deserialize(slice, lookup, battle) {
   inst.moves = bt(battle).movesFor(species.name, inst.level, { priority: inst.priority });
   const spent = new Map((slice.moves ?? []).map((m) => [m.id, m.pp]));
   for (const slot of inst.moves) if (spent.has(slot.id)) slot.pp = Math.max(0, Math.min(slot.maxPp, spent.get(slot.id)));
-  inst.hp = Math.max(0, Math.min(inst.maxHp, Math.floor(slice.hp ?? inst.maxHp)));
+  inst.hp = Math.max(0, Math.min(inst.maxHp, Math.floor(num(slice.hp, inst.maxHp))));
   return inst;
 }

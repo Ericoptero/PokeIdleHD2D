@@ -687,3 +687,145 @@ so it agreed with the broken code by luck, which is how this survived in the fir
 
 **Measured in a forest hunt:** two mid-fight swaps, both to Tepig, against a Grass table — where
 party order would have sent Oshawott.
+
+### 81 — 2026-09-11 — A wipe always revives, and the lobby is the Pokémon Center
+
+`encounter`'s `wipe()` opened with `if (faintedWarned) return;` above the toll, the `reviveAll()`
+and the `party:wiped` emit, and `faintedWarned` was cleared in exactly one place — a `resolve()`
+that found somebody still standing. So the second wipe with no surviving encounter between it and
+the first did nothing at all: no toll, no revive, no event, no toast.
+
+That is not a cosmetic miss, because a party with no conscious member is a closed loop.
+`slotNear` refuses one (`src/encounter/index.js`), so no encounter can start; `wipe()` runs only
+from `resolve()`, so no resolve can happen; and `reviveAll()` had exactly one caller, inside
+`wipe()`. The party then walked its circuit past living wildlife forever, in silence, and
+`offline` wrote that state to the save on `pagehide`. Measured on a real page: wipe #1 charged
+₽9,984 and revived; wipe #2 charged nothing, emitted nothing and left the party at 0/21 0/19 0/22
+with `firstConscious()` null, and it never recovered.
+
+Three changes, deliberately overlapping, because one net that a future refactor can cut is how
+this happened in the first place:
+
+- **The latch guards the nag, not the recovery.** Every wipe pays and revives. The renamed
+  `faintedNagged` now only stops `slotNear` repeating itself once per step.
+- **A lap of the circuit revives.** `hunts`' lap rest called `pokemon.heal` without `revive`, and
+  the guard at `src/pokemon/instance.js:236` is `if (inst.hp <= 0 && !revive) return inst.hp;` —
+  so the one case whose header the rest was written for ("a wiped party walks its circuit forever
+  meeting nothing") was the one case it declined. `:237` is `inst.hp + hp` clamped to the maximum —
+  the adding branch — which lands on exactly the lap fraction here only because the member is at 0.
+  The revive branch also clears status, and only that branch: a faint cures nothing (the engine
+  never nulls `status` on a KO and writeBack copies it back), so a member revived by a lap would
+  otherwise return poisoned and take residual chip on turn one. This amends #67, which described
+  the lap rest as topping up "everyone's" HP when it could not touch a fainted member at all.
+- **`city.enter()` heals.** `travel` already teleports a wiped party to the `pokecenter-door`
+  marker and the wipe toast already claims they paid at the Centre; nothing healed them there.
+  Free and unconditional, because a heal a broke player cannot afford rebuilds the same trap one
+  level up. It mints nothing, so "money is earned by selling" (§0) is untouched — the rule
+  constrains income, and this is a service with no price rather than a payment either way. What it
+  does cost is the pull of Potions and Revives as purchases; that is the trade #81 accepts. `instance.js` had already
+  written the seam down — its header named the Pokemon Center as the caller `revive: true` exists
+  for, and that caller did not exist. The same header is corrected here, because this commit adds
+  the second and third: it now names all three and says what each one clears.
+
+And the refusal says so out loud now: a fainted party walking past a slot logs `warn` once and
+toasts once. `warn`, never `error`, because a handled path may not spend the zero-error budget
+every capture is measured against (#15). The nag is the tripwire that says if the state is ever
+reached anyway.
+
+An adversary pass found the fourth loop the three nets did **not** cover, and it is closed here
+too. `instance.js` `deserialize` clamped hp with `Math.floor(slice.hp ?? maxHp)`, which looks like
+a sanitiser and is not: `??` catches only `null`/`undefined`, `Math.floor('x')` is `NaN`, and
+`Math.max`/`Math.min` pass `NaN` through. A member at `hp = NaN` is neither conscious (`hp > 0`
+false) nor hurt (`hp < maxHp` false) — the one combination all three nets decline, measured in a
+browser as a full lap and a round trip to the city with the party still `[NaN, NaN, NaN]`. A save
+is a file a player can edit, so every number out of one is a claim: `level`, `exp` and `hp` are now
+each read through a finite check, and a non-number reads as absent. Pinned by
+`src/pokemon/instance-save.test.js`.
+
+The same pass could not break the rest: the four flow cases hold at seeds 1, 42, 99 and 20260911
+(16/16, and the seeds do move the world — first species and loop length both change); fourteen
+`?break=` quarantines heal with zero console errors, and the redundancy pays for itself there —
+`?break=encounter` costs the lap net and the city still heals, `?break=city` and `?break=hunts`
+each lose one and the other covers; twelve showcases leave `pokeidle.save` byte-identical.
+
+Rejected: making `encounter.cancel()` run the wipe. `cancel()`'s caller is `travel.go()` behind
+its `busy` flag, and `party:wiped` sends `travel` straight back into `go()` — the re-entrancy the
+header at `wipe()` already exists to avoid. The city heal makes that path recoverable without it.
+
+### 82 — 2026-09-11 — A room's side walls are collision, not composition, under this camera
+
+Building the Pokemon Center's interior (slice 013) needed to know why `city`'s own buildings
+never show a visible east or west wall either — the same question a future room would ask
+again the first time its own side walls came back invisible or paper-thin. It is arithmetic,
+not an asset problem, and it does not go away by picking a different model.
+
+`core/render.js`'s camera offset is `(0, sin(pitch) * d, cos(pitch) * d)` — zero in `x` — so
+the camera always sits directly above and behind whatever it is focused on in `x`, with real
+lateral distance only from a wall that itself runs east-west (the *north* wall, whose face
+points along `z`, toward the camera's own large `z` offset). A wall running north-south (an
+east or west wall) only ever gets the small angle a room's own half-width provides against
+roughly 30 units of camera height and depth combined: for the 13-cell-wide Pokemon Center
+room, `cos` of that angle is under 0.2, so even a correctly-facing, unculled panel resolves
+to a sliver a few pixels wide. `pt-house-indoor`'s `house_wall_side` family is a single
+`THREE.FrontSide` plane per piece, so getting the facing wrong makes it fully invisible
+(back-face culled) and getting it right only makes it a thin line — proved by placing the
+same model at both `rot:0` and `rot:2`, and at the middle of the room instead of the wall
+column, and finding no visible difference in any of the four screenshots.
+`docs/progress/city/critic/n12-pokecenter.png` shows the same thing on the authored building
+next door: the roof and the front wall (with its windows and awning) read; there is no visible
+east or west wall on that building either, and nothing in `city` has ever added one.
+
+**A side wall in a room built for this fixed camera is collision, not composition.** The
+room's read has to come from its north (far) wall, its floor plan, and whatever stands inside
+it — a counter, a bench, a rug — the way `city`'s hedges and fences already stand in for a
+site boundary no flat wall panel could show from this angle either. A future slice should not
+spend time trying to make an east- or west-facing wall panel read as solid geometry from this
+camera; short of geometry with its own silhouette visible from above (a roofline, a raised
+sill, a row of props along the edge), it structurally cannot. `src/pokecenter/map.js`'s
+`sideWall()` cites this entry.
+
+### 83 — 2026-09-11 — Nurse Joy is the cure now, gated on a minute and a generic interact key
+
+**Revises #81's third net.** #81 gave `city.enter()` an unconditional, free heal on every
+arrival — deliberately redundant with the wipe's own `reviveAll()` and the hunt lap's rest, so
+a party with no conscious member was never a closed loop. That net is deleted here, replaced
+by a manual cure inside the Pokemon Center: facing the counter (3 cells tagged `'counter'`,
+`src/pokecenter/map.js`) and pressing a new generic key opens a dialogue with Nurse Joy, who
+heals the whole party — HP, status **and PP**, once every `HEAL_COOLDOWN_MS` (60 real seconds,
+`src/pokecenter/heal.js`) — free. Nets #1 (`encounter.wipe()`) and #2 (the hunt lap) are
+untouched; a wiped party still arrives already healed, just inside the room now
+(`src/travel/index.js`'s `party:wiped` listener repoints from the outside door marker to
+`pokecenter` itself), and that path never arms the cooldown.
+
+**PP is restored for the first time anywhere in the game.** Every other recovery path —
+`pokemon.reviveAll()` (the wipe), the hunt lap's partial heal — calls `instance.js`'s `heal()`,
+which never touches `moves[].pp`; `restorePp()` existed only for Auto-Ether. The manual cure
+calls both `reviveAll()` (the `revive: true` allowlist's existing caller #1, reused, not
+duplicated — `pokemon/instance.js:230-266`) and `restorePp(instanceId, { moveId, amount: 'full'
+})` on every party member's every move slot. This is the actual functional difference between
+visiting Nurse Joy and every other recovery in the game, and it is why a Potion, a Revive and
+an Ether all still have a job: none of the free nets fills a PP bar.
+
+**`player:interact` is generic, not `pokecenter:heal`.** The key (`Z`/`Space`, `ui/input.js`)
+emits the faced cell's tags — `{ cx, cz, dir, facing: {cx, cz}, tags }`, read through
+`terrain.tagsAt()` the same way `simulation`'s own `player:enteredTile` is built — regardless
+of which scene is loaded or what, if anything, is standing there. `pokecenter`'s listener is
+the only one that exists yet and it just checks `tags.includes('counter')`; a future NPC
+anywhere else in the game (a shopkeeper, a sign, a second counter) reacts to the same event
+without a second key being invented for it.
+
+**Why:** the alternative — keeping the free lobby heal alongside a Nurse Joy that also heals —
+was rejected because it makes the counter interaction pointless (the player is already healed
+by the time they could walk to it) and keeps Potions/Revives exactly as useless as #81 made
+them, which is what this slice exists to undo. A `pokecenter:heal` event scoped to this one
+counter was rejected in favour of the generic `player:interact`: the counter is not special,
+the tag on it is, and the next tagged cell in the next room should not need a new key added to
+`ui/input.js` to be reachable.
+
+**Cost:** a player who never walks to the Center and never fights past a wipe has no free
+recovery at all now — Potions, Revives and a trip to the counter are the only ways back to full
+health outside a fainted party's own two safety nets. `docs/STATUS.json`'s
+`travel-mid-encounter-silent` entry is reworded (not closed): the underlying gap — `travel.go()`
+calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounter travel now costs
+a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
+(`remainingCooldownMs`'s return value is available for one); out of scope here.
