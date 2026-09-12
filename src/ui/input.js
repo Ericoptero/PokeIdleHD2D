@@ -18,7 +18,7 @@
  *   ← ↑ → ↓  /  W A S D     walk (walkable maps only)
  *   Z / Space                interact — the faced cell's tags, `player:interact` (§4)
  *   Enter                    confirm / menu   X / Escape     back, or open the menu
- *   T travel  P party   B shop   C boxes   I bag   4 dex   M menu   `  debug overlay
+ *   T travel  P party   B shop   C boxes   I bag   4 dex   R trainer   M menu   `  debug overlay
  * ```
  *
  * `Z`/`Space` swap meaning the instant a panel is open: `onKeyDown`'s panel branch routes them
@@ -60,14 +60,14 @@ export const MOVE_KEYS = new Map([
  */
 export const PANEL_IDS = Object.freeze([
   'menu', 'travel', 'offline', 'shop', 'boxes', 'dex', 'automation', 'party', 'inventory',
-  'battle', 'dialogue',
+  'trainer', 'battle', 'dialogue',
 ]);
 
 export const PANEL_KEYS = new Map([
   ['KeyT', 'travel'], ['KeyP', 'party'], ['KeyB', 'shop'], ['KeyC', 'boxes'], ['KeyM', 'menu'],
-  ['KeyU', 'automation'], ['KeyI', 'inventory'],
+  ['KeyU', 'automation'], ['KeyI', 'inventory'], ['KeyR', 'trainer'],
   ['Digit1', 'party'], ['Digit2', 'shop'], ['Digit3', 'boxes'], ['Digit4', 'dex'],
-  ['Digit5', 'travel'], ['Digit6', 'automation'], ['Digit7', 'inventory'],
+  ['Digit5', 'travel'], ['Digit6', 'automation'], ['Digit7', 'inventory'], ['Digit8', 'trainer'],
 ]);
 
 const isLive = (api) => !!api && api.__missing === undefined;

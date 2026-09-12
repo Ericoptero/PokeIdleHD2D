@@ -33,6 +33,7 @@ import { makeDex } from './panels/dex.js';
 import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
 import { makeInventory } from './panels/inventory.js';
+import { makeTrainer } from './panels/trainer.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
@@ -188,6 +189,7 @@ export default {
       automation: makeAutomation(app),
       party: makeParty(app),
       inventory: makeInventory(app),
+      trainer: makeTrainer(app),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
     };
@@ -317,6 +319,7 @@ export default {
         // Travel goes first so it sits leftmost; the four data panels keep their order.
         ...(isLive(ctx.get('travel')) ? [{ id: 'travel', label: 'TRAVEL', key: 'T' }] : []),
         { id: 'party', label: 'PARTY', key: 'P' },
+        { id: 'trainer', label: 'TRAINER', key: 'R' },
         { id: 'shop', label: 'SHOP', key: 'B' },
         { id: 'boxes', label: 'BOX', key: 'C' },
         { id: 'inventory', label: 'BAG', key: 'I' },
