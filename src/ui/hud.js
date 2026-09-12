@@ -6,8 +6,9 @@
  * painter never calls into another module while it is drawing.
  */
 
-import { C, CURRENCY_COLOUR, panel, pokeball } from './theme.js';
+import { C, CURRENCY_COLOUR, panel, meter, hpRamp } from './theme.js';
 import { fmt, titleCase, clockTime } from './format.js';
+import { STATUS_NAME } from './panels/battle.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -52,13 +53,45 @@ export function makeHud(ctx) {
     let party = [];
     if (isLive(pokemon) && typeof pokemon.party === 'function') {
       party = (pokemon.party() ?? []).map((p) => ({
+        instanceId: p?.instanceId ?? null,
         name: p?.species?.name ?? '?',
         display: displayName(p?.species),
         level: p?.level ?? 1,
         shiny: !!p?.shiny,
+        hp: Math.max(0, Number(p?.hp) || 0),
+        maxHp: Math.max(1, Number(p?.maxHp) || 1),
+        status: p?.status ?? null,
         url: typeof pokemon.spriteUrl === 'function' && p?.species
           ? pokemon.spriteUrl(p.species, { shiny: !!p.shiny }) : null,
       }));
+    }
+
+    /**
+     * Who the party bar marks: mid-fight, the live combatant `panels/battle.js`'s own `read()`
+     * already reads (`st.a`, DECISIONS #72 — HP/PP is only written back to `pokemon` when the
+     * fight ends, so `pokemon.party()` is stale for exactly the member being hit); otherwise
+     * `party[0]`, the lead. A second reader of the decision the battle card already made, not
+     * a new source of truth. The marked slot's own hp/maxHp/status are overwritten with the
+     * live combatant's, for the same reason: showing the party record's stale HP under a
+     * transcript that says otherwise is the bug this rule exists to avoid.
+     */
+    let activeId = party[0]?.instanceId ?? null;
+    const encounter = ctx.get('encounter');
+    if (isLive(encounter) && typeof encounter.active === 'function') {
+      const active = encounter.active();
+      const side = active?.battle?.win === null && active.duel?.engine ? active.duel.run?.state?.a : null;
+      if (side?.instanceId != null) {
+        activeId = side.instanceId;
+        const i = party.findIndex((m) => m.instanceId === side.instanceId);
+        if (i >= 0) {
+          party[i] = {
+            ...party[i],
+            hp: Math.max(0, Number(side.hp) || 0),
+            maxHp: Math.max(1, Number(side.maxHp) || 1),
+            status: side.status ?? null,
+          };
+        }
+      }
     }
 
     const tod = isLive(environment) && typeof environment.getTimeOfDay === 'function'
@@ -76,7 +109,7 @@ export function makeHud(ctx) {
       if (Number.isFinite(t?.level)) trainer = t;
     }
 
-    return { wallet, party, tod: Number(tod) || 0, phase, player, trainer };
+    return { wallet, party, activeId, tod: Number(tod) || 0, phase, player, trainer };
   }
 
   function onPhase(p) { phase = p; }
@@ -134,41 +167,115 @@ export function makeHud(ctx) {
     return box;
   }
 
+  /** One slot's own footprint, and the gap between two of them — used both to lay the six
+   *  out and to size the panel around them. */
+  const SLOT_W = 42;
+  const SLOT_H = 48;
+  const SLOT_GAP = 2;
+  const BAR_PAD = 3;
+
   /**
-   * The party, bottom-left: the lead at full sprite size because it is the Pokemon walking
-   * around on screen, and the bench as a row of six Poke Ball marks — filled for a slot in
-   * use, hollow for an empty one. That is what the mainline status bar does, and it says
-   * "three of six" without truncating three names into "Sniv".
+   * The party bar, bottom-left: all six slots, always, in `pokemon.party()`'s own order —
+   * which already **is** "the order in use" (`simulation` walks it, `encounter.nextAlly`
+   * falls back to it), so this reads one rather than inventing one. Each filled slot carries
+   * a sprite, a short name, a level, an HP bar and a status abbreviation; a slot beyond the
+   * party's actual size draws as an empty plate with a hollow ring, the way the mainline
+   * status bar shows "three of six" without truncating three names into "Sniv".
+   *
+   * The slot at `s.activeId` (mid-fight: the live combatant; otherwise the lead — the same
+   * rule `panels/battle.js`'s own card applies, DECISIONS #72) is marked with a glow border,
+   * and the mark moves the instant a mid-fight swap changes who is out, because `s.activeId`
+   * is computed in `read()` off the same live duel state the card reads, not off the party's
+   * own resting record.
+   *
+   * `app` wires the two interactions slice 017 adds — a click opens the party panel already
+   * selected on that slot, and a drag reorders the party — through 015's `g.hit(box, {drag,
+   * drop}, tag)` primitives, exactly as `panels/common.js`'s window drag/resize already do; a
+   * plate has no `drag` at all when it has nothing in it, so an empty bench slot cannot be
+   * picked up or dropped on.
    */
-  function drawParty(g, s, { x = 4, bottom = g.height - 4 } = {}) {
-    if (!s.party.length) return null;
-    const lead = s.party[0];
-    const box = { x, y: bottom - 44, w: 108, h: 44 };
+  function drawParty(g, s, { x = 4, bottom = g.height - 4, app } = {}) {
+    const pokemon = app?.ctx?.get?.('pokemon');
+    const contentW = SLOT_W * 6 + SLOT_GAP * 5;
+    const box = { x, y: bottom - (SLOT_H + BAR_PAD * 2), w: contentW + BAR_PAD * 2, h: SLOT_H + BAR_PAD * 2 };
     panel(g, box, { paper: C.wallBase });
 
-    const port = { x: box.x + 4, y: box.y + 4, w: 36, h: 36 };
-    g.fill(port.x, port.y, port.w, port.h, C.glassDeep);
-    g.fill(port.x, port.y, port.w, 1, C.ink);
-    g.fill(port.x, port.y, 1, port.h, C.ink);
-    g.fill(port.x, port.y + port.h - 1, port.w, 1, C.glassShadow);
-    drawIcon(g, lead, port.x + 2, port.y + 2, 32);
-    if (lead.shiny) g.text(port.x + port.w - 7, port.y + 1, '★', C.glowLight, { shadow: C.ink });
-
-    const tx = box.x + 44;
-    g.text(tx, box.y + 6, lead.display, C.ink, { max: box.w - 48 });
-    g.text(tx, box.y + 16, `Lv ${lead.level}`, C.shadowInk);
-
-    // six slots: filled ball for a member, hollow ring for an empty bench slot
     for (let i = 0; i < 6; i++) {
-      const bx = tx + i * 9;
-      const by = box.y + 28;
-      if (i < s.party.length) pokeball(g, bx, by);
-      else {
-        g.fill(bx + 1, by, 5, 1, C.wallDeep);
-        g.fill(bx + 1, by + 6, 5, 1, C.wallDeep);
-        g.fill(bx, by + 1, 1, 5, C.wallDeep);
-        g.fill(bx + 6, by + 1, 1, 5, C.wallDeep);
+      const sx = box.x + BAR_PAD + i * (SLOT_W + SLOT_GAP);
+      const sy = box.y + BAR_PAD;
+      const m = s.party[i];
+      const active = !!m && m.instanceId != null && m.instanceId === s.activeId;
+
+      if (!m) {
+        // An empty bench slot: a hollow plate with a hollow ring, no sprite, no text, and no
+        // hit region — nothing to click, nothing to pick up.
+        g.fill(sx, sy, SLOT_W, SLOT_H, C.wallDeep);
+        g.fill(sx, sy, SLOT_W, 1, C.wallShadow);
+        g.fill(sx, sy + SLOT_H - 1, SLOT_W, 1, C.stoneDeep);
+        const cx = sx + SLOT_W / 2 - 4;
+        const cy = sy + SLOT_H / 2 - 4;
+        g.fill(cx + 1, cy, 6, 1, C.stoneShadow);
+        g.fill(cx + 1, cy + 7, 6, 1, C.stoneShadow);
+        g.fill(cx, cy + 1, 1, 6, C.stoneShadow);
+        g.fill(cx + 7, cy + 1, 1, 6, C.stoneShadow);
+        continue;
       }
+
+      // The plate is the same light paper every filled slot gets, active or not — the HP
+      // ramp (`theme.js` `hpRamp`) already spends `C.martBase` on a healthy bar, and round 1
+      // of this slice painted the active slot's own background in that exact blue: a full
+      // bar on the active slot then blended straight into the plate behind it, invisible at
+      // the one moment (healthy and in front) a player looks at it most. The glow ring below
+      // is the only thing that changes, so it never competes with a bar it sits beside.
+      g.fill(sx, sy, SLOT_W, SLOT_H, C.wallLight);
+      g.fill(sx, sy, SLOT_W, 1, C.wallHi);
+      g.fill(sx, sy + SLOT_H - 1, SLOT_W, 1, C.wallDeep);
+      if (active) {
+        // The mark: a glow ring around the whole slot, so the eye finds who is out without
+        // reading a label — the accent this palette reserves for "the one right now"
+        // (`theme.js` `C.glowBase`/`C.glowLight`), spent nowhere else in this widget.
+        g.fill(sx - 1, sy - 1, SLOT_W + 2, 1, C.glowLight);
+        g.fill(sx - 1, sy + SLOT_H, SLOT_W + 2, 1, C.glowLight);
+        g.fill(sx - 1, sy - 1, 1, SLOT_H + 2, C.glowLight);
+        g.fill(sx + SLOT_W, sy - 1, 1, SLOT_H + 2, C.glowLight);
+      }
+
+      const iconSize = 24;
+      drawIcon(g, m, sx + Math.round((SLOT_W - iconSize) / 2), sy + 1, iconSize);
+      // The level as a corner badge on the portrait rather than inline beside the name: a
+      // second text row would leave "short name" living up to its name for real (three
+      // letters and an ellipsis) once `Lv` and the number ate a third of a 42 px slot. The
+      // icon is bottom-aligned (`drawIcon`'s own convention), so its top-left corner is empty
+      // for every sprite this ever draws.
+      g.text(sx + 1, sy + 1, String(m.level), C.shadowInk);
+      if (m.shiny) g.text(sx + SLOT_W - 7, sy + 1, '★', C.glowDeep);
+
+      g.text(sx + 2, sy + 26, m.display, C.ink, { max: SLOT_W - 4 });
+
+      const frac = m.maxHp > 0 ? Math.max(0, Math.min(1, m.hp / m.maxHp)) : 0;
+      meter(g, { x: sx + 2, y: sy + 35, w: SLOT_W - 4, h: 4 }, frac, { ...hpRamp(frac), back: C.wallDeep });
+
+      if (m.status) {
+        g.text(sx + 2, sy + 40, STATUS_NAME[m.status] ?? String(m.status).toUpperCase(), C.roofShadow);
+      }
+
+      const slotBox = { x: sx, y: sy, w: SLOT_W, h: SLOT_H };
+      // One region does both jobs: `pointerdown` always starts a drag (`gesture.js`), and a
+      // release with no movement lands back on this same slot's own `drop`, which reads
+      // `payload.index === i` as "that was a click" and opens the panel instead of reordering
+      // — the same box, the same gesture, no second hit region racing the first for the
+      // pointerdown that `screen.js`'s `pick()` can only ever hand to one of them.
+      g.hit(slotBox, {
+        drag: { payload: { kind: 'party-slot', index: i } },
+        drop: {
+          accepts: (payload) => payload?.kind === 'party-slot',
+          on: (payload) => {
+            if (payload.index === i) app?.open?.('party', { select: i });
+            else pokemon?.reorder?.(payload.index, i);
+            app?.markDirty?.();
+          },
+        },
+      }, `party-slot-${i}`);
     }
     return box;
   }

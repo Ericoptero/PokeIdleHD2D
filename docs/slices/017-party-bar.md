@@ -194,4 +194,80 @@ drag only reorders within the six on-screen slots, never moving a member out of 
 
 ## Result
 
-Filled in when done.
+Implemented as designed, with one refactor beyond the slice's own file list: the HP colour
+ramp (`hpInk`, local to `src/ui/panels/battle.js`) was extracted to `src/ui/theme.js` as
+`hpRamp` so the party bar could share it rather than duplicate it a second time —
+`battle.js` now imports it back.
+
+**Starting `npm run gate:fast`**: clean (lint/typecheck/seams/unit all `ok`).
+
+**What the six slots do, exactly as specified**: sprite, level badge, short name, an HP bar
+using the shared `hpRamp`, a status abbreviation (`battle.js`'s own `STATUS_NAME`, imported
+rather than re-declared), and a hollow-ring empty plate for a bench slot beyond the party's
+actual size. The active slot — mid-fight the live combatant, otherwise `party[0]` — gets a
+glow-ring border; a round-1 draft painted the active slot's background in the same blue
+`hpRamp` spends on a healthy bar, and a full bar on the active slot blended invisibly into it,
+fixed by leaving every slot's plate the same paper and reserving the accent colour for the
+ring alone.
+
+**One hit region does both a click and a drag**, resolving the ambiguity precisely: every
+`pointerdown` on a slot starts a drag (`gesture.js`); a `pointerup` back on the *same* slot
+(`payload.index === i`) reads as a plain click and opens the party panel already selected on
+it; a `pointerup` on a *different* slot reorders. No second competing hit region, no separate
+click-vs-drag-distance threshold to get wrong.
+
+**`pokemon.reorder(from, to)`** — a splice-move beside `swap` (which still emits nothing and is
+untouched), emitting `party:leadChanged` iff slot 0 actually changes (checked by comparing
+`party[0]` before/after, never inferred from `from`/`to`, since a move that never names slot 0
+can still evict it — e.g. moving slot 1 to the end shifts slot 2 into slot 0).
+
+**Acceptance criteria**:
+1. `src/pokemon/reorder.test.js` (vitest, `init(stubCtx)` on the real module): golden
+   `reorder(2,0)` case, a same-slot-0 no-emit case, and an out-of-range no-op case. 3/3 pass.
+2. `src/pokemon/selftest.js` checks 36-39: the same golden case as a Node literal (independent
+   of vitest ever running), then an invariant sweep — 40 seeds × 20 random moves each — checked
+   against two properties with nothing to do with any one move's arithmetic: the party stays a
+   permutation of itself, and `party:leadChanged` fires iff and only iff slot 0 actually moved.
+   `node src/pokemon/selftest.js`: 67/67 checks pass.
+3. `tests/flows/party-bar.spec.js`, test 4: forces the lead to a sliver of HP in a real
+   `hunt-meadow` fight, steps the sim until `encounter.active().duel.run.state.a.instanceId`
+   differs from the original lead **while the fight is still unresolved** (`win === null`,
+   bounded by `stepUntilTrue` — never a bare timeout), then asserts `ui.snapshot().activeId`
+   matches the live combatant, not `party()[0]`.
+4. Test 1: a real `pointerdown`+`pointerup` on party-bar slot 1's own region (read from
+   `screen.regions()`, not assumed) opens the party panel with `cursor() === 1`.
+5. Tests 2 and 3: a same-slot-3→slot-1 drag reorders with no `party:leadChanged`; a
+   slot-1→slot-0 drag fires it, and `simulation.follower().instanceId` (the sprite actually
+   walking) updates to match — proving the bar's reorder reaches the overworld, not just the
+   party array.
+6. `node tools/shots/regress.js --accept` run: **1 row moved** — `boot/12`'s `over200Pct`
+   luminance statistic, `3.661 → 5.332` (classified `IMPROVED` by `tools/shots/regress.js`'s own
+   direction convention, so the gate's `regress` stage passed even before accepting; accepted
+   anyway per CLAUDE.md so the diff does not linger in every future run). A taller, higher-contrast
+   party bar with six real HP bars is exactly the kind of deliberate visual change this metric is
+   built to notice. Re-verified `0 improved, 0 regressed, 0 moved` on a fresh compare after
+   accepting.
+
+**Final `npm run gate` (`GATE_PORT=5411`, full run):**
+
+```
+  lint       ok       2.5s
+  typecheck  ok       0.5s
+  seams      ok       1.7s
+  unit       ok       0.9s
+  build      ok       3.7s
+  coldboot   ok       4.6s
+  boot       ok       108.2s
+  flows      ok       78.6s
+  parity     ok       40.0s
+  regress    ok       76.0s
+  total               316.7s
+✓ gate: every stage passed
+```
+`unit`: includes the 3 new `reorder.test.js` cases. `flows`: includes the 4 new
+`party-bar.spec.js` tests. `parity`: unaffected (party bar is HUD, not world geometry).
+
+**Process note**: the implementer that built this slice was interrupted mid-verification by a
+model rate limit (its work was otherwise complete and uncommitted). The orchestrating session
+verified the diff line-by-line, re-ran every unit/selftest/flow check independently, ran the
+full gate, accepted the regress baseline, and is committing this slice on its behalf.

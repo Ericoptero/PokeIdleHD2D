@@ -280,6 +280,22 @@ export function button(g, box, { active = false, disabled = false, danger = fals
   return (active || danger) ? C.white : (disabled ? C.stoneShadow : C.ink);
 }
 
+/**
+ * The HP ramp, shared by the battle card and the party bar (moved here for slice 017 rather
+ * than duplicated a second time — `panels/battle.js` was its only caller and now imports it
+ * from here).
+ *
+ * The mainline goes green → yellow → red and **this palette has no green** (this file is a
+ * deliberately warm, desaturated set). Rather than smuggle a foreign hue in for one widget,
+ * the ramp runs mart blue → lamp amber → Center red: three steps at the same thresholds the
+ * games use (1/2 and 1/5), so the *shape* of the cue survives even though the hue does not.
+ */
+export function hpRamp(frac) {
+  if (frac <= 0.2) return { fill: C.roofBase, light: C.roofLight };
+  if (frac <= 0.5) return { fill: C.glowBase, light: C.glowLight };
+  return { fill: C.martBase, light: C.martLight };
+}
+
 /** A horizontal meter. `t` is 0..1. */
 export function meter(g, box, t, { fill = C.glowBase, back = C.wallDeep, light = C.glowLight } = {}) {
   const { x, y, w, h } = box;

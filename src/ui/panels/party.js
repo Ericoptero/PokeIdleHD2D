@@ -209,8 +209,22 @@ export function makeParty(app) {
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
-    /** `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3). */
-    open(opts) { cursor = 0; view = opts?.view === 'moves' ? 'moves' : 'stats'; moveCursor = 0; moveTop = 0; },
+    /** Not part of the panel contract `ui/index.js` drives — `travel.js`'s `rows()` precedent
+     *  for exposing internal state a test needs and nothing else reads (`state.panel.cursor()`
+     *  off `ui`'s own `_state`, which is already exposed for exactly this). */
+    cursor: () => cursor,
+    /**
+     * `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3).
+     * `select: i` (slice 017) opens with slot `i` already highlighted — the party bar's own
+     * click, `ui.open('party', { select: i })` — and falls back to today's default of slot 0
+     * when no `select` is given, so every existing caller (the keyboard shortcut, the menu)
+     * is unaffected.
+     */
+    open(opts) {
+      cursor = Number.isInteger(opts?.select) ? opts.select : 0;
+      view = opts?.view === 'moves' ? 'moves' : 'stats';
+      moveCursor = 0; moveTop = 0;
+    },
     close() {},
 
     key(ev) {

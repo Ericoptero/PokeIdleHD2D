@@ -399,7 +399,7 @@ export default {
       if (!minimal && bars) {
         // The touch pad owns the bottom-left corner when it is up, so the party bar sits
         // above it rather than under it.
-        const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4 });
+        const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4, app });
         state.partyBox = partyBox;
         const stripBox = drawStrip(g);
         state.stripBox = stripBox;
@@ -485,11 +485,16 @@ export default {
         const prev = state.hud;
         // The party is compared on everything the bar draws, not on the lead's name: a
         // level-up or a second Pokemon of the same species would otherwise leave the HUD
-        // stale until something unrelated dirtied it.
-        const party = (p) => JSON.stringify(p.party.map((m) => [m.name, m.level, m.shiny]));
+        // stale until something unrelated dirtied it. `hp`/`maxHp`/`status` (slice 017) are in
+        // this list for the same reason — a bar that only redrew on name/level/shiny would
+        // hold a fainted member's HP bar full until an unrelated event dirtied the screen.
+        const party = (p) => JSON.stringify(p.party.map((m) => [m.instanceId, m.name, m.level, m.shiny, m.hp, m.maxHp, m.status]));
         if (next.tod !== prev.tod
           || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
           || party(next) !== party(prev)
+          // The marked slot (slice 017): mid-fight this swaps the instant `nextAlly` sends a
+          // new member in, on the same 0.2s poll everything else in this snapshot uses.
+          || next.activeId !== prev.activeId
           // The badge is drawn from `trainer`, so a level-up has to dirty the screen on its
           // own account: nothing else in this comparison moves when a battle is won.
           || next.trainer?.level !== prev.trainer?.level
