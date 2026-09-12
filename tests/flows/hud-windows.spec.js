@@ -115,3 +115,36 @@ test('the mouse wheel scrolls a list() over its own box', async ({ page }) => {
 
   expect(errors, 'no console error wheel-scrolling the box list').toEqual([]);
 });
+
+test('the mouse wheel also scrolls the dex\'s multi-column national list', async ({ page }) => {
+  const errors = await boot(page);
+
+  // `dex.js` predates `list()`'s wheel support: its national list is a multi-column grid, not
+  // a single-column row list, so slice 015 left it out (docs/slices/015-pointer-layer.md's own
+  // Result section names this). It now reuses the same `reconciledTop`/`registerScroll`
+  // primitive `list()` does, under its own tag `dex-national`.
+  expect(await call(page, 'ui', 'open', 'dex')).toBe(true);
+  await paintNow(page);
+  expect(await call(page, 'ui', 'openPanel')).toBe('dex');
+
+  const dexIds = (list) => list
+    .map((r) => /^dex-(.+)$/.exec(r.tag))
+    .filter((m) => m && m[1] !== 'national-scroll')
+    .map((m) => m[1]);
+
+  let regs = await regions(page);
+  const before = dexIds(regs);
+  expect(before.length, `no "dex-<key>" rows drawn; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeGreaterThan(0);
+
+  const scrollRegion = regs.find((r) => r.tag === 'dex-national-scroll');
+  expect(scrollRegion, `no "dex-national-scroll" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
+  await pointer(page, { type: 'wheel', ...centre(scrollRegion), deltaY: 120 });
+  await paintNow(page);
+
+  regs = await regions(page);
+  const after = dexIds(regs);
+  expect(after.length, `no "dex-<key>" rows drawn after the wheel; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeGreaterThan(0);
+  expect(after, 'the wheel must move the visible window, not just repaint the same rows').not.toEqual(before);
+
+  expect(errors, 'no console error wheel-scrolling the dex').toEqual([]);
+});

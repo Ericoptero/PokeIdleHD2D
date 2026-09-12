@@ -18,7 +18,7 @@
  */
 
 import { HEIGHT, TRACKING, glyph, ellipsize, characters } from './font.js';
-import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag } from './gesture.js';
+import { startDrag, move as moveDrag, cancel as cancelDrag } from './gesture.js';
 
 /** Ink colour of the atlas before it is tinted. */
 const ATLAS_INK = '#ffffff';
@@ -245,8 +245,11 @@ export function makeScreen({ root, view, log }) {
     if (target) {
       try { target.drop.on(state.payload, p); } catch (err) { log?.warn?.('ui: a drop handler threw', err); }
     }
-    dragState = dropDrag(state, target);
-    dragState = null; // the gesture is over either way — dropped or cancelled, nothing survives it
+    // `dropDrag(state, target)` is not called here: it exists so a *pure* caller (a test, or a
+    // future consumer that wants to distinguish "dropped" from "cancelled") can read that off
+    // the reducer, but this handler's only job once the drop callback above has run is to end
+    // the gesture — there is nothing left here that reads a phase.
+    dragState = null;
     dirty = true;
   });
   on(window, 'pointercancel', () => {

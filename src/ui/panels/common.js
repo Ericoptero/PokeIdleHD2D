@@ -25,15 +25,21 @@ export const MARGIN = 10;
  */
 const scrollMemory = new Map();
 
-/** The effective top for `tag`, reconciling the caller's own `top` with any wheel memory. */
-function reconciledTop(tag, callerTop, contentSize, viewSize) {
+/**
+ * The effective top for `tag`, reconciling the caller's own `top` with any wheel memory.
+ *
+ * Exported (beyond `list()`/`scrollArea()`'s own use) for a caller with its own paging math —
+ * `dex.js`'s multi-column national list is the first one — that wants the identical
+ * wheel/keyboard reconciliation without adopting `list()`'s single-column row layout.
+ */
+export function reconciledTop(tag, callerTop, contentSize, viewSize) {
   const mem = scrollMemory.get(tag);
   const delta = mem && mem.callerTop === callerTop ? mem.delta : 0;
   return clampScroll(callerTop + delta, contentSize, viewSize);
 }
 
 /** Registers the wheel target for `tag` over `box`, moving by `step` units per wheel notch. */
-function registerScroll(g, box, tag, callerTop, contentSize, viewSize, step) {
+export function registerScroll(g, box, tag, callerTop, contentSize, viewSize, step) {
   g.hit(box, {
     scroll: (deltaY) => {
       const mem = scrollMemory.get(tag);

@@ -360,3 +360,50 @@ Poké Mart's own item count).
 - `regress`: **0 improved, 0 regressed, 0 moved, across 18 frames** — exactly what was
   predicted ("the fix is purely to hit-region ordering, not to drawing"); no
   `regress.js --accept` needed, no frame named as moved.
+
+**Post-review fixes** (reviewer + tester ran in parallel per `CLAUDE.md`; both reported no
+blocking findings — full reports below). Two of the reviewer's three notes were addressed here
+rather than deferred:
+
+1. `src/ui/screen.js`'s `pointerup` handler computed `dropDrag(state, target)` and immediately
+   discarded it (`dragState = null` on the next line) — a real but harmless dead computation the
+   reviewer flagged (finding 1). The drop callback itself (`target.drop.on(...)`) already ran on
+   the line above, so nothing was actually broken; the dead call and its now-unused `dropDrag`
+   import are removed, with a comment explaining why `gesture.js`'s `drop()` is exercised only by
+   its own pure tests today.
+2. The reviewer's finding 2 — `dex.js`'s multi-column national list was the one `list()`-shaped
+   panel this slice did not give wheel-scroll, since it predates `list()` and hand-rolls its own
+   paging — is fixed rather than left as a disclosed gap: `common.js`'s `reconciledTop`/
+   `registerScroll` (previously module-local to `list()`/`scrollArea()`) are now exported and
+   reused by `dex.js` under its own tag (`dex-national`), with the keyboard-driven `top` and the
+   wheel-reconciled render position kept distinct exactly as `list()` already does. A third flow
+   test (`hud-windows.spec.js`, "the mouse wheel also scrolls the dex's multi-column national
+   list") proves it through a real `WheelEvent`.
+3. Finding 3 (`scrollMemory`'s tag-keyed lifecycle has no dispose/lifecycle tie) is left as
+   noted — no shipped caller collides today, and it is a latent-footgun note for the next
+   `scrollArea()`/`reconciledTop()` caller to pick a unique tag, not a defect in this slice.
+
+`npm run gate:fast` re-run clean after both fixes; full `npm run gate` re-run (GATE_PORT=5217):
+all 10 stages green, `flows` 23/23 (the new dex test included), `regress` 0 moved.
+
+**Reviewer** (independent `git show 9de6d1c`, own `npm run gate:fast`/`gate --only build,coldboot,
+boot,regress` run, own Playwright run of the new spec and the full suite): no blocking findings.
+Confirmed boundaries (no `ctx.get` in any touched file; `gesture.js` pure, imported only within
+`src/ui/`), determinism (no `Math.random`), `warn`-not-`error` on every new catch site, showcase
+untouched, every acceptance criterion mapped to an executed check, and the diff's scope matching
+the slice's own file list exactly (`git show 9de6d1c --stat`).
+
+**Tester** (independent tests written from the slice's Acceptance criteria alone, `gesture.js`'s
+API and `hud-windows.spec.js`'s scenario read only afterward): wrote an independent unit suite
+(`gesture.indep.test.js`), a plain-Node selftest script, and an independent flow spec
+(`hud-windows-indep.spec.js`) with a layout-independent probe point (searches for an uncovered
+buffer pixel rather than a fixed offset). Proved every one of them fails on the pre-change tree
+(`191a821`, via a temporary `git worktree`) for the on-topic reason — `Cannot find module
+'./gesture.js'` for the unit/selftest checks, `Received: undefined` for the swallow/scroll
+regions on the flow checks — then deleted all temporary files, confirmed a clean tree, and ran
+the full gate against the implementer's committed tests: all 10 stages green, `flows` 22/22,
+`regress` 0 moved. Named three real, disclosed gaps neither test suite closes: `g.clip()` is
+never exercised by any test (verified only by screenshot inspection per this Result section),
+`scrollArea()` is unused by any panel yet (deferred to 016+), and the live `drag`/`drop` wiring
+inside `screen.js` itself has no test with a real panel registering a `drag`/`drop` region —
+correctly matching the slice's own "not yet wired" scope statement.
