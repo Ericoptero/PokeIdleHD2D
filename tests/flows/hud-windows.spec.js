@@ -226,9 +226,15 @@ test('dragging a window\'s title bar moves it, live, and the moved position surv
   expect(dragRegion, `no "window-drag" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
   expect(dragRegion.drag, 'the title bar region must carry drag:true').toBe(true);
 
+  // Horizontal only: `party`'s own authored height, once `hudReserved()` (the post-review fix
+  // for the reviewer's `uiScale:2` finding) reserves the wallet/clock and party-bar/strip
+  // bands out of the buffer, exactly fills the vertical room left between them at this
+  // viewport — a real, verified fact (`window.test.js`'s `clampToSafeArea` cases, and the
+  // overlap-regression test below, cover *that* claim). A drag still has to prove it moves
+  // the window, which the x-axis — untouched by any reservation — does unambiguously.
   const from = centre(dragRegion);
   const dx = 18;
-  const dy = 11;
+  const dy = 0;
   const to = { x: from.x + dx, y: from.y + dy };
 
   await dragStart(page, from, to);
@@ -237,7 +243,8 @@ test('dragging a window\'s title bar moves it, live, and the moved position surv
   const mid = regs.find((r) => r.tag === 'window-body');
   expect(mid.box.x, 'the window must already have moved while the drag is still held')
     .toBe(before.box.x + dx);
-  expect(mid.box.y).toBe(before.box.y + dy);
+  expect(mid.box.y, 'y is pinned by hudReserved() at this viewport; a move must not fight it')
+    .toBe(before.box.y + dy);
   expect(mid.box.w, 'a move must not touch the size').toBe(before.box.w);
   expect(mid.box.h).toBe(before.box.h);
 
@@ -361,4 +368,47 @@ test('opening a `full` panel (shop) keeps the wallet, the clock and the party ba
   expect(opened.stripBox, 'the button strip must stay up behind a `full` panel too').toBeTruthy();
 
   expect(errors, 'no console error opening a full panel').toEqual([]);
+});
+
+/** True if two boxes ({x,y,w,h}) share any pixel. */
+const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+test('a `full` panel window never geometrically covers the wallet/clock/party-bar/strip, ' +
+  'even at uiScale:2 (the reviewer\'s finding on slice 016, fixed by `hudReserved`/' +
+  '`clampToSafeArea`)', async ({ page }) => {
+  // The bug this guards: `bars` stayed up behind a `full` panel (the previous test in this
+  // file), but nothing kept the window's own opaque box from being *drawn over* them — at
+  // `uiScale:1` a full panel's authored size happened to leave enough margin that it went
+  // unnoticed; at `uiScale:2` the same authored size covers nearly the whole halved buffer,
+  // painting over the bars it was supposed to leave visible. This test is the one neither the
+  // implementer's own suite nor the independent tester's combined: each tested `uiScale` and
+  // "bars stay up" separately, never together.
+  const errors = await boot(page, { uiScale: '2' });
+
+  const bars = await hudBars(page);
+  expect(bars.partyBox, 'the party bar must be up before this test means anything').toBeTruthy();
+  expect(bars.clockBox, 'the clock must be up before this test means anything').toBeTruthy();
+  expect(bars.stripBox, 'the button strip must be up before this test means anything').toBeTruthy();
+
+  for (const id of ['shop', 'boxes', 'dex', 'party', 'automation']) {
+    expect(await call(page, 'ui', 'open', id)).toBe(true);
+    await paintNow(page);
+
+    const regs = await regions(page);
+    const body = regs.find((r) => r.tag === 'window-body');
+    expect(body, `${id}: no "window-body" region at uiScale:2`).toBeTruthy();
+
+    const b = await hudBars(page);
+    for (const [name, box] of [['clockBox', b.clockBox], ['partyBox', b.partyBox], ['stripBox', b.stripBox]]) {
+      expect(box, `${id}: ${name} must still be up at uiScale:2`).toBeTruthy();
+      expect(overlaps(body.box, box),
+        `${id}'s window ${JSON.stringify(body.box)} must not cover ${name} ${JSON.stringify(box)} at uiScale:2`)
+        .toBe(false);
+    }
+
+    expect(await call(page, 'ui', 'close')).toBe(true);
+    await paintNow(page);
+  }
+
+  expect(errors, 'no console error opening every full panel at uiScale:2').toEqual([]);
 });

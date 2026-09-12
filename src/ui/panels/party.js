@@ -204,8 +204,10 @@ export function makeParty(app) {
 
   return {
     id: 'party',
-    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
-     *  see DECISIONS #85. */
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     /** `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3). */
     open(opts) { cursor = 0; view = opts?.view === 'moves' ? 'moves' : 'stats'; moveCursor = 0; moveTop = 0; },
@@ -236,7 +238,7 @@ export function makeParty(app) {
       const list = members();
       cursor = Math.max(0, Math.min(list.length - 1, cursor));
       const win = windowFrame(g, {
-        windowId: 'party',
+        windowId: 'party', reserved: app.hudReserved(),
         title: 'PARTY', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: view === 'moves'
           ? '↑↓ choose    Z pin / unpin    M back to stats    X close'

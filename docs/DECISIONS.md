@@ -953,3 +953,43 @@ Window geometry, by contrast, **is** a save-slice field (`ui.saveState()` → `{
 because it is per-panel state that only makes sense restored alongside the rest of a save, not
 a session-wide preference — self-registered with `offline.store`, `travel`'s own pattern
 (`src/ui` inits after `offline` in the real boot order), at `order: 55`.
+
+---
+
+### 86 — 2026-09-12 — Keeping the bars visible only works if a window is kept off them too
+
+Revises #85. Its review round (reviewer + tester, parallel, per `CLAUDE.md`) found #85's fix
+half-finished: the wallet/clock/party-bar/strip stayed *computed* with a `full` panel open, but
+nothing stopped that panel's own opaque window from being *drawn over them* — at `uiScale: 1`
+every one of the five panels' authored sizes happened to leave enough margin that this went
+unnoticed, but at `uiScale: 2` (real repro, both 1280×720 and 1920×1080) a `full` panel's window
+covers nearly the whole halved buffer, painting straight over the bars #85 was supposed to leave
+up. Separately: #85's own claim that `full` is "a hint `windowFrame`/`window.js` consume for the
+window's first-ever size" was never true — nothing reads `panel.full` anywhere; it is inert data,
+kept only as a record of which five panels used to stand the HUD down and for `battle.js`'s own
+contrasting `full: false` comment. Per this file's own convention, #85's text is not edited.
+
+**`app.hudReserved()` and `window.js`'s `clampToSafeArea` close the gap.** `index.js` already
+computes the wallet/clock/party-bar/strip boxes every frame it draws them; `hudReserved()`
+reduces those four to `{top, bottom}` — the pixels already spoken for at each edge, `{0,0}`
+when `hidesHud` — and every `windowFrame` caller passes it through as `opts.reserved`.
+`clampToSafeArea(box, buffer, margin, reserved, min)` is applied to a window's box **twice**:
+once to `base` before it ever reaches `reconcileDrag`, and once more to the final, gesture-
+reconciled result. The first application is not redundant — the first draft of this fix applied
+it only at the end, so a live drag's own anchor (`reconcileDrag`'s `mem.base`, captured from the
+*pre*-safe-area value) started from a box the player had never actually seen on screen, and a
+resize the tester drove by exactly −14px only moved −4px: the ten-pixel gap between what was
+displayed and what the drag math started from. Both flow tests this slice's own review pass
+added (`tests/flows/hud-windows.spec.js`) caught it before it shipped.
+
+**Avoiding the bars wins over honouring a window's own minimum size.** `clampToSafeArea` shrinks
+`h` below `MIN_SIZE` when the safe area itself is smaller than that, rather than floor at `min`
+and let the window overlap a band anyway — measured directly against the game's own real
+internal buffer (640×360, the size `targetInternalWidth: 640` produces regardless of the
+physical viewport tried, from 1280×720 up to 2560×1440): reserving the wallet/clock at the top
+and the party bar/strip at the bottom leaves `party`'s own 250px-tall authored window exactly
+240px of safe vertical room, zero px of it spare. A cramped window is still there, and a player
+can drag it bigger the moment there is room (which `full`'s own now-larger default, if `full`
+is ever wired to something again, would give it); a window painted over the money or the party
+never was fixable by the player at all. `min` only wins in the one case nothing can do better
+in — the reserved bands leave no safe space whatsoever.

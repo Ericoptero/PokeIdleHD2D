@@ -86,6 +86,42 @@ export function clampResize(box, buffer, margin, min) {
   };
 }
 
+/**
+ * The final safety clamp: keeps a window's box out of the top/bottom bands `hudReserved()`
+ * reports as already spoken for (the wallet/clock, the party bar, the button strip).
+ *
+ * Applied *after* `clampMove`/`clampResize` (which only know about the plain buffer margin),
+ * because the reserved bands are dynamic per frame — `hidesHud` reads back as `{top:0,
+ * bottom:0}` and this is then a no-op, and a taller party bar simply reserves more without
+ * this function's own math changing. Shrinks `h` before it clamps `y`: a window whose full
+ * height cannot fit between the two bands would otherwise be pinned against one band while
+ * still overlapping the other.
+ *
+ * **Avoiding the reserved bands wins over honouring `min`.** A window shrunk below its usual
+ * floor is still there and the player can drag it bigger the moment there is room (slice 016
+ * already gives them the grip); a window painted over the wallet or the party bar defeats the
+ * whole point of this function and the player has no way to fix it themselves. Measured
+ * against a real 1080p viewport at `uiScale:2` (320×180 buffer): the reviewer's own finding —
+ * this function's first draft floored `h` at `min.h` regardless of how little safe space was
+ * actually available, and a `full` panel still clipped 11 px into the party bar. `min` is used
+ * only in the one case nothing can do better in: the reserved bands leave no safe space at
+ * all (`available <= 0`), a screen too small for any window to open on without overlapping
+ * something.
+ * @param {{x:number,y:number,w:number,h:number}} box
+ * @param {{width:number, height:number}} buffer
+ * @param {number} margin
+ * @param {{top:number,bottom:number}} [reserved]
+ * @param {{w:number,h:number}} [min]
+ */
+export function clampToSafeArea(box, buffer, margin, reserved = { top: 0, bottom: 0 }, min = MIN_SIZE) {
+  const top = margin + (reserved.top || 0);
+  const bottom = buffer.height - margin - 2 - (reserved.bottom || 0);
+  const available = bottom - top;
+  const h = available > 0 ? Math.min(box.h, available) : min.h;
+  const maxY = Math.max(top, bottom - h);
+  return { ...box, h, y: Math.max(top, Math.min(box.y, maxY)) };
+}
+
 /** Applies a live pointer delta to a window being moved: only `x`/`y` change. */
 export function applyMove(originBox, dx, dy) {
   return { ...originBox, x: originBox.x + dx, y: originBox.y + dy };

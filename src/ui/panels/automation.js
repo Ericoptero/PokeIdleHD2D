@@ -107,8 +107,10 @@ export function makeAutomation(app) {
 
   return {
     id: 'automation',
-    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
-     *  see DECISIONS #85. */
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     has: () => isLive(app.ctx.get('automation')),
     open() { top = 0; ruleTop = 0; },
@@ -144,7 +146,7 @@ export function makeAutomation(app) {
       const def = all[selected] ?? null;
 
       const win = windowFrame(g, {
-        windowId: 'automation',
+        windowId: 'automation', reserved: app.hudReserved(),
         title: 'AUTOMATION', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑↓ pick    ←→ rules / settings    Z unlock or toggle    X close',
         footerRight: 'every list is FIRST MATCH WINS',

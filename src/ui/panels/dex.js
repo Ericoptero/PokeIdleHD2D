@@ -31,8 +31,10 @@ export function makeDex(app) {
 
   return {
     id: 'dex',
-    /** A sizing hint only (a bigger default `windowFrame` size), not a HUD-visibility flag —
-     *  see DECISIONS #85. */
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     open() { top = 0; cursor = 0; },
     close() {},
@@ -52,7 +54,7 @@ export function makeDex(app) {
       const records = isLive(c) && typeof c.records === 'function' ? (c.records() ?? []) : [];
 
       const win = windowFrame(g, {
-        windowId: 'dex',
+        windowId: 'dex', reserved: app.hudReserved(),
         title: 'POKéDEX', bar: C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: '↑↓ scroll    ←→ generation / type    X close',
         onClose: () => app.close(), ...fit(g, 560, 288),

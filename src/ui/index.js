@@ -106,6 +106,8 @@ export default {
       clockBox: null,
       stripBox: null,
       partyBox: null,
+      /** Set by `draw` each frame; the only consumer today is `hudReserved()` below. */
+      walletBox: null,
     };
 
     const app = {
@@ -143,6 +145,30 @@ export default {
       stripBox: () => state.stripBox,
       /** Where the party bar landed. It moves when the touch pad is out, so it is measured. */
       partyBox: () => state.partyBox,
+      /**
+       * How many pixels at the top and bottom of the buffer are already spoken for by the
+       * wallet/clock (top) and the party bar/button strip (bottom) *this frame* — every
+       * `windowFrame` call passes this straight through so a window can never open, default,
+       * or be dragged/resized on top of them (the bug slice 016's own review caught: at
+       * `uiScale: 2` a `full` panel's authored size covers nearly the whole halved buffer,
+       * including the bars it was supposed to leave visible).
+       *
+       * Measured from the boxes `draw()` already computed this frame, not from a hard-coded
+       * constant — `bars` being false (`hidesHud`) reads back as `{top:0, bottom:0}`, and a
+       * future, taller party bar (slice 017) is reserved for correctly with no change here.
+       */
+      hudReserved() {
+        const top = Math.max(
+          state.walletBox ? state.walletBox.y + state.walletBox.h : 0,
+          state.clockBox ? state.clockBox.y + state.clockBox.h : 0,
+        );
+        const bottomEdge = Math.min(
+          state.partyBox ? state.partyBox.y : Infinity,
+          state.stripBox ? state.stripBox.y : Infinity,
+        );
+        const bottom = Number.isFinite(bottomEdge) ? Math.max(0, screen.height - bottomEdge) : 0;
+        return { top: top ? top + 2 : 0, bottom: bottom ? bottom + 2 : 0 };
+      },
       toggleDebug() {
         state.debug = !state.debug;
         config.set({ debug: state.debug });
@@ -353,18 +379,21 @@ export default {
       // (theme.js `applyLight`), so the wallet, the panels and the toasts share the world's
       // light instead of sitting on top of it at one fixed brightness.
       if (applyLight(s.tod)) screen.clearTints();
-      // `full` (a per-panel sizing hint only, since slice 016 — see `windowFrame`/`window.js`)
-      // used to also stand the whole HUD down while the panel was open, which is what made
-      // opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the clock
-      // and the party bar along with it (DECISIONS #85). A message box is the one thing that
-      // still stands the bottom bars down — it occupies the same strip of screen they do, and
-      // in the mainline a message is the only thing on that strip.
+      // `full` used to also stand the whole HUD down while the panel was open, which is what
+      // made opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the
+      // clock and the party bar along with it (DECISIONS #85). It is inert data now — nothing
+      // reads `panel.full` any more, kept on the descriptor only as a note of which panels
+      // used to behave this way; `hudReserved()` (below) is what actually keeps a window from
+      // covering the bars it no longer stands down. A message box is the one thing that still
+      // stands the bottom bars down — it occupies the same strip of screen they do, and in
+      // the mainline a message is the only thing on that strip.
       const bars = !state.panel?.hidesHud;
       state.clockBox = null;
       state.stripBox = null;
       state.partyBox = null;
+      state.walletBox = null;
       if (bars) {
-        hud.drawWallet(g, s);
+        state.walletBox = hud.drawWallet(g, s);
         state.clockBox = hud.drawClock(g, s);
       }
       if (!minimal && bars) {

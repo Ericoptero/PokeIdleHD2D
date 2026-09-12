@@ -114,7 +114,7 @@ export function makeTravel(app) {
       // 720p, and an authored number is what put two panels off the left edge in round 1.
       const { w, h } = fit(g, 212, 128);
       const inner = windowFrame(g, {
-        windowId: 'travel',
+        windowId: 'travel', reserved: app.hudReserved(),
         title: 'TRAVEL', w, h,
         bar: C.deepBase ?? C.roofBase, edge: C.roofDeep, light: C.roofLight,
         footer: pending ? 'travelling…' : '↑↓ choose   Z go   X back',

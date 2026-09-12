@@ -8,7 +8,7 @@
 import { C, panel, header, well, row, button } from '../theme.js';
 import { clampScroll } from '../gesture.js';
 import {
-  minSizeFor, defaultBox, clampMove, clampResize, applyMove, applyResize,
+  minSizeFor, defaultBox, clampMove, clampResize, clampToSafeArea, applyMove, applyResize,
 } from '../window.js';
 
 export const MARGIN = 10;
@@ -207,14 +207,20 @@ function drawGrip(g, box) {
  * `windowId` is required (slice 016): it is the key `windowGeometry`/`serializeWindows`
  * remembers this window's position and size under, so two panels must never pass the same
  * one. Every existing call site passes its own panel `id` (`'party'`, `'shop'`, …).
+ *
+ * `reserved` (`app.hudReserved()`) is how a window is kept off the wallet/clock/party-bar/
+ * strip once `full` no longer stands them down (DECISIONS #85, and the fix folded into that
+ * same slice after review): every call site passes it, so a caller that forgets it only loses
+ * the safety clamp, never crashes (`clampToSafeArea`'s own default is `{top:0, bottom:0}`).
  * @param {object} g painter
- * @param {{windowId:string, title:string, bar?:string, edge?:string, light?:string, footer?:string, footerRight?:string, onClose?:Function, w?:number, h?:number}} opts
+ * @param {{windowId:string, title:string, bar?:string, edge?:string, light?:string, footer?:string, footerRight?:string, onClose?:Function, w?:number, h?:number, reserved?:{top:number,bottom:number}}} opts
  */
 export function windowFrame(g, opts) {
   const m = margin(g);
   const id = opts.windowId;
   const buffer = { width: g.width, height: g.height };
   const min = minSizeFor(id);
+  const reserved = opts.reserved ?? { top: 0, bottom: 0 };
 
   // Clamped here as well as by the caller: a panel that forgets `fit()` still cannot draw
   // itself off the screen, which is the whole of issue 1. This is now only the *authored*
@@ -227,9 +233,20 @@ export function windowFrame(g, opts) {
   let base = windowGeometry.get(id) ?? defaultBox(fitW, fitH, buffer, m);
   base = clampResize(base, buffer, m, min);
   base = clampMove(base, buffer, m);
+  // Applied to `base` *before* `reconcileDrag`, not only after: `reconcileDrag` anchors a live
+  // drag's delta to whatever `base` it is handed the first frame the drag is held (`mem.base`),
+  // and a player can only ever have seen the *safe-area-clamped* box — so a delta computed
+  // against the pre-clamp box would move the window from a position 10+ px away from the one
+  // on screen, which is exactly the 10 px the drag-resize test caught (240 shown, 250 actually
+  // moved from).
+  base = clampToSafeArea(base, buffer, m, reserved, min);
 
   let box = reconcileDrag(id, 'move', base, buffer, m, min);
   box = reconcileDrag(id, 'resize', box, buffer, m, min);
+  // Applied again at the end: a live drag's own `clampMove`/`clampResize` (inside
+  // `reconcileDrag`) do not know about the reserved bands, so a gesture in progress could
+  // still push the box past them for the one frame between here and the next `base` clamp.
+  box = clampToSafeArea(box, buffer, m, reserved, min);
 
   g.scrim(0, 0, g.width, g.height, 0.5);
   if (opts.onClose) g.hit({ x: 0, y: 0, w: g.width, h: g.height }, opts.onClose, 'scrim');

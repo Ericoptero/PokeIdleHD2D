@@ -77,9 +77,10 @@ export function makeShop(app) {
 
   return {
     id: 'shop',
-    /** `full` is a sizing hint only (a bigger default `windowFrame` size) — since slice 016 it
-     *  no longer stands the HUD down; the wallet, the clock and the party bar stay up behind
-     *  it, same as every other panel here except `dialogue`'s `hidesHud` (DECISIONS #85). */
+    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+     *  anything else any more. Kept as a record of which panels used to stand the whole HUD
+     *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
+     *  own header comment, which contrasts its `full: false` against every panel here. */
     full: true,
     open() { ensureShop(); cursor = 0; top = 0; },
     close() {},
@@ -108,7 +109,7 @@ export function makeShop(app) {
       const shop = all.find((s) => s.id === shopId) ?? null;
       const deal = isLive(e) && typeof e.deal === 'function' ? e.deal() : null;
       const win = windowFrame(g, {
-        windowId: 'shop',
+        windowId: 'shop', reserved: app.hudReserved(),
         title: 'SHOP', bar: C.martBase, edge: C.martDeep, light: C.martLight,
         footer: '↑↓ choose    ←→ shop    Z buy    X close',
         onClose: () => app.close(), ...fit(g, 540, 278),

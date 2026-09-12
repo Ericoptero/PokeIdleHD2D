@@ -380,3 +380,67 @@ nothing was re-accepted.
 `docs/STATUS.json`'s `gate` block (stale numbers from 2026-09-11, and the "17 regress rows"
 baseline count, corrected to 18) and its dangling `ui` "has `snapshot()` without `restore()`"
 sentence in `ARCHITECTURE.md` §10 (now a provider, order 55).
+
+**Post-review fixes** (reviewer + tester ran in parallel per `CLAUDE.md`). Both found real
+gaps this pass closed — recorded in full as DECISIONS #86, which revises #85 forward without
+editing its text:
+
+1. **The reviewer's main finding**: at `uiScale: 2` (real repro, both 1280×720 and 1920×1080), a
+   `full` panel's own window painted straight over the wallet/clock/party-bar/strip — computed
+   and drawn, but drawn *under* the panel's own opaque paper. Fixed with two new pieces:
+   `app.hudReserved()` (`src/ui/index.js`), reducing the four bar boxes `draw()` already
+   computes each frame to `{top, bottom}`; and `window.js`'s new `clampToSafeArea(box, buffer,
+   margin, reserved, min)`, applied by `windowFrame` (`panels/common.js`) both to the window's
+   base geometry and to the final gesture-reconciled result. All six `windowFrame` callers now
+   pass `reserved: app.hudReserved()`.
+2. **A bug found while fixing (1), by this pass's own new flow tests, not by the reviewer or
+   tester**: the first draft applied `clampToSafeArea` only at the very end, so
+   `reconcileDrag`'s live-drag anchor (`mem.base`) was captured from the *pre*-safe-area value —
+   a resize dragged by exactly −14px only moved −4px, a 10px gap between what was on screen and
+   what the drag math started from. Fixed by applying `clampToSafeArea` to `base` before it
+   reaches `reconcileDrag` too (kept at the end as well, for a live gesture that could still push
+   past the bands mid-drag).
+3. **The reviewer's second finding**: `full` was documented (DECISIONS #85, `ARCHITECTURE.md`,
+   and a comment on all five panels) as "a sizing hint `windowFrame`/`window.js` consume" — untrue;
+   nothing reads `panel.full` anywhere, and never did after this slice's own edits. All five
+   comments, `ARCHITECTURE.md` §5.12, and a new DECISIONS entry now say plainly that `full` is
+   inert data, kept only as a record of which panels used to stand the HUD down and for
+   `battle.js`'s own contrasting `full: false` comment.
+4. **A real design decision, not a bug**: `clampToSafeArea` shrinks a window's height *below*
+   `MIN_SIZE` rather than floor at it and let the window overlap a band anyway — measured
+   directly against the game's real internal buffer (always ~640×360 in this environment
+   regardless of the physical viewport tried, from 1280×720 up to 2560×1440, since
+   `targetInternalWidth: 640` dominates): reserving the bars leaves `party`'s own 250px-tall
+   authored window exactly 240px of safe room, none spare. Avoiding the bars wins over
+   honouring the floor, since a cramped window is still recoverable by the player and a window
+   painted over the money or the party is not. `window.test.js` gained 5 new golden cases for
+   `clampToSafeArea` (all pass); the pre-existing drag-move flow test's vertical assertion was
+   changed to `dy: 0` with a comment explaining why (`party` has zero vertical slack at this
+   buffer once the bars are correctly reserved) — the horizontal half of that same test still
+   proves a drag moves the window, unaffected by any reservation.
+5. Two duplicate scratch test files the independent tester left in the tree
+   (`src/ui/window.verify.test.js`, `tests/flows/window-system-verify.spec.js`) were removed:
+   both substantially duplicated `window.test.js`/`hud-windows.spec.js` per the tester's own
+   comparison ("no gap"), and both hit the exact same zero-vertical-slack fact for `party` once
+   this pass's fix was in place — fixing them a second time in a near-duplicate file would only
+   be maintenance burden with no additional coverage.
+
+`npm run gate:fast` re-run clean after every fix above; full `npm run gate` re-run
+(`GATE_PORT=5361`): all 10 stages green (275.7 s) —
+
+```
+  lint       ok       2.3s
+  typecheck  ok       0.4s
+  seams      ok       1.5s
+  unit       ok       0.8s
+  build      ok       3.7s
+  coldboot   ok       4.1s
+  boot       ok       96.4s
+  flows      ok       59.3s
+  parity     ok       36.4s
+  regress    ok       70.7s
+  total               275.7s
+✓ gate: every stage passed
+```
+`flows`: 27/27 (including the new `hud-windows.spec.js` overlap-regression test — 8 tests in
+that file now). `regress`: 0 improved, 0 regressed, 0 moved, across 18 frames.
