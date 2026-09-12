@@ -80,10 +80,14 @@ export function makeInventory(app) {
     open(opts) {
       tab = opts?.tab === 'stash' ? 'stash' : 'bag';
       category = null; cursor = 0; top = 0;
+      // Unreachable through any shipped input path today (`ui/index.js`'s own `open()` only
+      // calls `p.open?.(opts)` again without a `close()` in between when this panel is already
+      // the one open, and every shortcut into it is blocked while a panel is up) — but a second
+      // `open()` with no intervening `close()` would otherwise leak one subscriber per call into
+      // `economy`'s `onChange` set for the rest of the session. Cheap to close first regardless.
+      offChange?.();
       const e = eco();
-      if (isLive(e) && typeof e.onChange === 'function') {
-        offChange = e.onChange(() => app.markDirty());
-      }
+      offChange = (isLive(e) && typeof e.onChange === 'function') ? e.onChange(() => app.markDirty()) : null;
     },
     close() {
       offChange?.();

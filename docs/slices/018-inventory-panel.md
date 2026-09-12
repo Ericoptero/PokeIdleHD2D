@@ -247,3 +247,18 @@ panel inside `ui`, not a registered module, so it adds no new showcase entry poi
 `flows`: 35/35, including the 3 new `tests/flows/inventory.spec.js` cases.
 `regress`: **0 improved, 0 regressed, 0 moved, across 18 frames** — none of the 18 fixed regress
 captures open the inventory panel, so no baseline re-accept is needed and none was done.
+
+**Post-review** (reviewer + tester ran in parallel per `CLAUDE.md`; both independently re-ran
+every unit/flow test from a fresh save and the full gate — no blocking findings from either).
+Both hit the same transient `flows` failure from an unrelated concurrent `npm run gate` process
+sharing this worktree and writing to the same `shots/out/flows` directory; both traced it to
+contention (re-running the single failing test alone passed cleanly) rather than a defect in
+this slice, matching this repo's own multi-agent-worktree hazard note.
+
+One non-blocking observation applied anyway, for defence in depth: `inventory.js`'s `open()`
+assigned `offChange` unconditionally, so a second `open()` with no intervening `close()` would
+leak one `economy.onChange` subscriber per call — unreachable through any shipped input path
+today (`ui/index.js` never calls a panel's `open()` twice without a `close()` in between while
+it is already the open panel, and every shortcut into this panel is blocked while any panel is
+up), but cheap to close first regardless. Fixed; `npm run gate:fast` and a full `npm run gate`
+(`GATE_PORT=5511`) both re-ran clean afterward, all 10 stages green, regress still 0 moved.
