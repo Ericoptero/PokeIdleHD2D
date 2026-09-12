@@ -281,9 +281,10 @@ export function button(g, box, { active = false, disabled = false, danger = fals
 }
 
 /**
- * The HP ramp, shared by the battle card and the party bar (moved here for slice 017 rather
- * than duplicated a second time — `panels/battle.js` was its only caller and now imports it
- * from here).
+ * The HP ramp — one colour pair per band, shared by the battle card, the party bar, the
+ * trainer panel and the world's own nameplates (`plates.js`) so a Pokémon's bar reads the
+ * same wherever it is drawn (moved here for slice 017 rather than duplicated a second time —
+ * `panels/battle.js` was its only caller and now imports it from here).
  *
  * The mainline goes green → yellow → red and **this palette has no green** (this file is a
  * deliberately warm, desaturated set). Rather than smuggle a foreign hue in for one widget,

@@ -830,8 +830,6 @@ calling `encounter.cancel()` with no prompt — is unchanged, and a mid-encounte
 a walk to the Center rather than costing nothing. No visible cooldown countdown exists yet
 (`remainingCooldownMs`'s return value is available for one); out of scope here.
 
----
-
 ### 84 — 2026-09-12 — A pointer layer: the state that survives a repaint, and the plain paper that swallowed nothing
 
 **Revises #77(a) forward, without editing its text.** #77 rejected drag for the automation
@@ -993,3 +991,338 @@ can drag it bigger the moment there is room (which `full`'s own now-larger defau
 is ever wired to something again, would give it); a window painted over the money or the party
 never was fixable by the player at all. `min` only wins in the one case nothing can do better
 in — the reserved bands leave no safe space whatsoever.
+
+---
+
+### 87 — 2026-09-12 — The wild is met, not revealed: no burst, no bubble, no banner
+
+The user asked for a Tibia-style hunt: the wild Pokémon already walks the map, the party walks
+up to it, and the fight happens where the two are standing — not a cutscene that pops one out of
+the grass with a ring of leaves, a "!" balloon and an `A wild X appeared!` toast. That entire
+vocabulary (`T.APPEAR`/`T.RUSTLE`, `ball.js`'s `LEAF_*`/`ALERT_*` meshes, `alertPhase`, the toast
+in `begin()`) is deleted rather than shortened — a reveal that is merely faster is still a reveal.
+
+**The handover, not a second spawn.** `hunts.spawnNpc` already made the wild a wandering NPC
+(`tether: {radius:1}, solid:true`) and `hunts.index.js`'s own `player:enteredTile` listener
+already walks the party off the circuit to stand next to it. What changed is `takeSlot(k)`: it
+used to delete that NPC and hand `encounter` only its species/shiny/anchor cell, so `encounter`
+spawned a **second**, brand-new sprite that burst out of the grass — the cutscene was, literally,
+one Pokémon vanishing and a different one appearing in its place. `takeSlot` now returns the
+live `npcId` and the creature's **current** cell (read off `simulation.npcs()`, not the slot's
+authored anchor — a tether drifts ±1 tile, and the fight has to happen where the body actually
+is). `encounter` spawns its own actor on that same cell and retires the map NPC only once its own
+actor is drawn, so there is never a frame with neither.
+
+**The level moved to the slot.** A plate over a wandering creature's head (the next slice) has to
+show the level it will actually fight at, and until now that level was rolled fresh at the
+moment of engagement (`rollIndex`, seeded by the encounter index). It is now rolled once, when
+the creature spawns onto its slot, from its own stream (`hunts/level/<biome>/<k>/<gen>`) against
+`encounter.band()` — a sibling stream, so no species, shiny or IV roll anywhere else moves
+(ARCHITECTURE §2.5). `engage()` takes species, level and cell from the slot and everything else
+(shiny, IVs, catch rate) from the index, as before.
+
+**What replaces the "!" and the toast is nothing, on purpose.** The plate the next slice adds and
+that plate's HP bar are what says "this is an encounter, and it is waiting on you" — a banner
+announcing an arrival is describing something that, in this flow, never happens. `shimmer()` (the
+shiny's ring) is kept: it is identity, not a transition, and a green Azurill is still unreadable
+in green grass without it.
+
+**Showcase renamed, not repointed.** `?showcase=encounter`'s default mode was `reveal`, staged at
+the apex of the hop with the bubble popped. There is no apex any more, so the mode is `meet` —
+the moment of contact, wild and lead standing on their own cells — and the two regress rows this
+touches (`encounter/12`, `encounter/vfx/12`, `encounter/vfx/21`) were re-accepted in this commit;
+only the two `vfx/*` rows moved outside tolerance (`p99`, from the wild's breathing phase no
+longer offsetting by the deleted `T.APPEAR`), looked at frame by frame, both correct.
+
+### 88 — 2026-09-12 — Nameplates read the world; nothing new was published to give them one
+
+MMORPG-style plates — name, level, HP — over the trainer, the party's lead and every wild in a
+hunt, name-only over everything else, was asked for as new UI. It shipped as almost entirely a
+**read**, not a new contract: `ui/plates.js` gathers what it draws from APIs every one of those
+modules already published — `simulation.lineup()`, `hunts.slots()`, `encounter.active()`/
+`scene()`, `pokemon.lead()` — the same pull discipline `hud.js` and `panels/battle.js` already
+use (a quarantined module costs this file a category of plate, never a crash). The one live-HP
+computation a plate needs mid-duel is copied from `panels/battle.js`'s own `read()` rather than
+re-derived, because that file already solved "read the live fight, not the party record" for the
+exact same reason (DECISIONS #72: HP writes back to an instance only when a duel ends).
+
+**Two small widenings, both additive.** `simulation.npcs()` gained `x,y,z` (posed exactly as the
+renderer would, `poseWalker` at `sub: 0` — not a fresh formula, the one `renderPose` already
+uses) plus `species`/`shiny`/`trainer`/`display`, and `spawnNpc(spec)` gained an optional
+`display` — a human label for the three city person-NPCs and Nurse Joy, none of which a slug
+title-cases into anything a player should read. Nothing else moved: no new `plates()` method on
+`simulation`, `hunts` or `encounter` — the data was already there, or one field short of it.
+
+**`hpInk` moved from `panels/battle.js` to `theme.js`.** A plate's bar and the battle card's own
+bar have to agree, and the alternative was a second copy drifting the moment one of them tuned a
+threshold.
+
+**Composition, not perf, is why a plate is capped, clamped and sometimes dropped.** A wide hunt
+framing can put most of a lap's nine slots on screen; a plate for every one of them crowded into
+the same few rows near the horizon and read as a smear, not nine labels — measured on
+`?scene=hunt-meadow`, screenshot, looked at, twice: first with no cutoff (`docs/progress`
+equivalent: `shots/out/plates-hunt.png`), then again once `MAX_PLATE_TILES` (14, Chebyshev) and
+the party-bar/button-strip/battle-card clamps were in and one collision pair (`Bunnelby`,
+`Cottonee`, standing one tile apart) still printed as one smeared label. The fix for *that* is
+the rule the collision pass follows: a plate pushed against the floor with nowhere left to go is
+**skipped**, never snapped back onto the plate it was trying to clear — the first cut did the
+snap and produced exactly the two-names-stitched-together bug a screenshot caught immediately.
+
+**Painted in `lateFrame`, and this marks the screen dirty far more than `ui` used to.** A plate
+tracks a sprite that can move every *rendered* frame, and painting it against the previous
+frame's camera (the `frame` hook ran before `rig.update()`) trailed a moving sprite by one frame
+of motion — the same bug `pokemon/field.js`'s own `lateFrame` placement exists to avoid. The
+honest cost is that `screen.dirty`'s tick-driven model, built to save a redraw while nothing was
+happening, no longer saves much of anything while any plate is on screen — which is most of a
+hunt or a city.
+
+**Measured against the actual frame-timing budget, not against `regress`.** The first draft of
+this entry cited `regress`'s `p99`/`over200Pct` moving on `boot/12` as the evidence — those are
+pixel-*brightness* histogram statistics (`tools/shots/shoot.js`'s `sceneStats`), not timing, and
+a reviewer caught the mix-up. Worse, `regress`'s own matrix (`tools/shots/regress.js`) shoots a
+module's own showcase for every row but `boot/12`, and a showcase is exactly where plates are
+suppressed (`minimal`, above) — so it structurally cannot see this cost at all. The number that
+actually matters is `fps`/`p95ms` (`tools/shots/shoot.js`'s own `fps.mean`/`fps.p95ms`, budgeted
+in `checkBudgets` at ≥50 / ≤20ms) against a **real scene**, plates on: `hunt-meadow`, `hunt-forest`,
+`hunt-cave`, `hunt-coast` and `demo-city` all measured 60 fps mean, 16.7–16.8 ms p95 — comfortably
+inside budget, and `npm run gate`'s own `boot` stage (which shoots every real scene, not the
+showcases) is what would fail first if that ever stopped being true.
+
+### 89 — 2026-09-12 — A turn's strikes are drained one beat at a time, never emitted as a block
+
+The brief asks that a trainer's Pokémon and the wild never attack at the same time, with a real
+delay between actions. They already didn't decide at the same time — `battle/engine.js`'s
+`turn()` has always resolved priority, then speed, then a coin, and returned both sides' events
+in that order — but `encounter`'s own stepping put both sides' `battle:strike` in the **same
+tick**: `stepDuel` called `run.step()` once every `T.TURN` (24 sim steps) and looped over every
+strike the whole turn produced, emitting all of them before the loop returned. Two blows in one
+tick is two balloons popping together and one visual effect overwriting the other before it had
+finished, which is exactly the "attacks at the same time" the brief names.
+
+**`src/encounter/beats.js`'s `planBeats(strikes, beats)` turns the engine's ordered output into
+a timeline**, not a reordering — it does not touch who acts first, only when each of the
+engine's own outputs is allowed to reach the bus. One `config.actionSteps` (18, replacing the
+unread `turnSteps`) apart for an ordinary strike, `T.ITEM`/`reviveSteps()` for an item or a
+revive — the same beats a turn already held for, just now assigned to the strike that earns
+them instead of summed into one number for the whole turn. Pure and index-free like every other
+roll in this module, and pinned in `encounter/selftest.js` #24 against literals, not a second
+call to itself (DECISIONS #35).
+
+**`encounter/index.js`'s `tickDuel` replaces `stepDuel`.** It asks the engine for a new turn
+only once the previous one's plan is fully drained (`scene.turnPlan === null`), and drains at
+most the beats that are due on the current tick — in practice one, since two beats landing on
+the same tick would need `actionSteps` to be smaller than a single sim step. `emitStrike` is the
+per-strike body the old per-turn loop used to run for every strike at once: it arms `scene.vfx`
+**only** for a strike that carries a move (a residual tick, an item or a swap gets no effect,
+and explicitly clears whatever the previous strike armed rather than letting it linger into a
+beat with nothing to show), and it is where `battle:strike` gains two fields it never had:
+`type` and `shape` — the move's element and delivery shape, read once here via `battle.move(id)`
+and handed to `ui` on the event, because a balloon that colours itself by type (the next slice)
+may not import `encounter`'s own element table across the module boundary.
+
+**One consequence, taken deliberately: a turn where both sides act now takes `2 ×
+actionSteps` (36 steps) instead of the old fixed 24.** A fight is slower to watch by about a
+half, in exchange for every blow actually being legible on its own. Nothing about the *fold*
+(the `idle`/`offline` path through `encounter.pure()` → `battle.resolve()`) changes — it never
+read `T` or `ACTION_STEPS` in the first place, and stays exactly as fast as it always was, which
+is the whole point of DECISIONS #72's "presentation, never a rule" for every beat in this file.
+
+**Cost.** `tests/flows/action-pacing.spec.js` proves the property end to end — two strikes of
+the same turn land at least an `actionSteps`-sized gap of real sim ticks apart, measured by
+stepping in small counted chunks rather than trusting the bus log's own array index (which is
+not a tick count, and a first draft of this test trusted it and passed for the wrong reason: a
+broken de-duplication re-recorded the same already-seen strike on every later poll, which
+happened to produce a small, wrong, but plausible-looking gap). `hunt.spec.js`'s existing tick
+budgets did not need raising — the common case (one side already fainted, or a one-strike turn)
+is unaffected, and the slower two-strike case still lands well inside the existing ceilings.
+
+### 90 — 2026-09-12 — One colour table for a strike, a balloon and a floater; the balloon's paper stays neutral
+
+The user asked for a tail on the speech/attack balloons and for the move's name inside them to
+be coloured by its type — explicitly **not** the balloon itself, since a bright type painted
+over the whole box is unreadable for the lighter ones (ice, fairy, electric) exactly the way
+`encounter/strikes.js`'s own effects would be if their bloom-safe edge colour were used at full
+size, per DECISIONS #79.
+
+**`battle/types.js` gains `TYPE_INK`** — `{ core, edge, ink }` per type, the fourth independent
+copy of this table this project has had (`encounter/strikes.js`, `ui/panels/dex.js`,
+`idle/panel.js`, `collection/showcase.js` each already carried their own). `core`/`edge` are
+`strikes.js`'s own values, unmoved: that file is rewritten wholesale in the next slice (a
+shader-based VFX system) and refactoring its *current* pixel-art palette usage now would be
+work deleted within the week. `ink` is new and **derived, not chosen**: `edge`, darkened in
+equal RGB steps (never shifting the hue) until it clears a 4.5:1 WCAG contrast ratio against
+`C.wallLight` (the balloon's own paper). Eight of eighteen needed no darkening; `electric`'s raw
+edge was 1.39:1 against cream paper (a lemon yellow that came from the same table that had to
+survive a very different test — bloom at noon, not legibility on a page) and needed eight steps.
+`battle/selftest.js` #61–66 pins the *computed ratio*, not the hex, so a future palette edit
+cannot reintroduce an unreadable type silently. This is the canonical table now; `dex.js`'s type
+completion bar reads `typeColour(t).edge` through the same undeclared, `isLive`-guarded access
+`ui/index.js` already uses for `battle` (§5.12's own list), replacing its own copy — unlike
+`idle/panel.js` and `collection/showcase.js`, `dex.js` is a live panel (`Digit4`, `input.js`),
+not a showcase surface, so it was in scope for real. The other two copies are left: both are
+genuinely showcase-only, painting a fixed reference frame no player reaches.
+
+**No `EMISSIVE` entry was needed.** The plan going in assumed `TYPE_INK` would need adding to
+`ui/theme.js`'s `EMISSIVE` set so the sky does not dim it at night — but the table lives in
+`battle/types.js`, entirely outside `theme.js`'s `C`/`applyLight` machinery, so it was never
+subject to that dimming in the first place. Reality corrected the plan for free.
+
+**`callout.js`'s tail is four rows of `g.fill`, drawn after the panel and its drop shadow, not
+before** — the first cut drew it first and the panel's own `drop: true` shadow (which shades a
+strip exactly where the tail sits) ate its top row. The tail's horizontal position is the *true*
+projected anchor, clamped inside the balloon's own width, independent of the lean that already
+separates the two sides — so a leaned balloon still visibly points at its actual speaker rather
+than at whatever happens to be under the box's centre.
+
+**Floaters are a new file, `ui/floaters.js`, not a mode of `callout.js`.** A balloon replaces
+per side and holds for a fixed life; a floater stacks (several can be over the same target at
+once) and rises continuously over its own life via `screen.js`'s new `textScaled` for a crit's
+double size — different enough lifecycles that sharing one file would have meant branching
+most of it. Anchored on the *target*, not the attacker, which is the one place this doubles as
+a correction: the ally's own damage has to land on the Pokémon fighting, `simulation.follower()`,
+never on the trainer standing behind it the way the ally's *balloon* deliberately does.
+
+**Cost.** `src/ui/floaters.test.js` and `src/ui/callout.test.js` pin the drawing geometry (the
+fake-painter discipline `plates.test.js` already established) — stacking, rising, the crit
+scale, the tail's position, the two-tone text. `tests/flows/balloons-and-damage.spec.js` proves
+a real fight actually reaches both with the right content. What it does **not** cover: a miss or
+an immune hit. This is *not* because the roster is uniformly 100% accurate — it is not
+(`mudshot` 95, `rollout`/`wrap` 90, the powder moves 75, `hypnosis` 60, `sing`/`supersonic` 55,
+all real learnset entries in the meadow/forest band) — but because no move this slice checked
+for a *guaranteed* live repro exists: which move `battle.choose()`'s expected-damage ranking
+actually picks depends on the live matchup's types and levels, so a flow test would have to pin
+a specific pair of species and moves and accept a real (if small) chance of the RNG rolling a
+hit anyway, or spend a turn budget hunting for a miss that might not come in time. That branch
+of the listener is checked by reading `floaters.test.js`'s direct push of
+`{text:'MISS'}`/`{text:'IMMUNE'}` and by inspection of the (short, mechanical) mapping in
+`ui/index.js`, not by a live repro — a deterministic one is future work, not a closed question.
+
+### 91 — 2026-09-12 — A strike's effect is three shaders now, a named exception to "always pixel art"
+
+The user asked, in their own words, for the attack effects to be "muito bem feito e bonito,
+moderno e complexo" — well-made, beautiful, modern and complex, for an elemental MMORPG — and,
+when asked directly during planning, chose a fully modern/shader look over a pixel-art-consistent
+redesign. That choice **revokes CLAUDE.md's "Compose from real geometry" rule** ("an untextured
+box, a magenta placeholder or a flat-shaded primitive is a bug, not a milestone") and the doctrine
+`strikes.js` (deleted this slice) stated as "never a coloured primitive" — for this one system,
+named here, and nowhere else. The rest of the game is still pixel art painted to a canvas and
+sampled `NearestFilter`; a reviewer who finds a `ShaderMaterial` anywhere else in `src/` has found
+a real bug, not a precedent this entry set.
+
+**What replaced `strikes.js`.** `encounter/vfx/elements.js` is pure data: `shapeOf(move)` moved
+here unchanged (contact/projectile/field, read off the move's category); `PROFILE`, eighteen
+types crossed with five motions (rise/fall/zigzag/orbit/spiral) and six particle roles
+(spark/ember/shard/droplet/leaf/dust) — the personality the old system never had, since its own
+eighteen palettes were one sprite recoloured eighteen times (the exact defect DECISIONS #79
+recorded: 291 contact moves sharing one star); `BEATS[shape]`, a four-beat `charge → deliver →
+impact → resolve` timeline covering `[0,1]` with no gap, pinned by `selftest.js` and
+`elements.test.js` alike. `particles.js`/`beams.js`/`ground.js` are the three `ShaderMaterial`s —
+copying `environment/weather.js`'s own pattern, named as the one to copy in the plan: one
+hand-built `BufferGeometry`, one draw call, placement computed **in the vertex shader** from a
+per-vertex seed and a handful of uniforms, no `InstancedMesh`, no per-frame CPU matrix writes.
+`play.js` orchestrates the three against the beat timeline and keeps the exact
+`play({shape,type,from,to,crit,effectiveness})`/`phase(p)`/`hide()`/`playing()`/`dispose()`
+contract `strikes.js` already offered, so `encounter/index.js`'s own changes are an import swap,
+`scene.vfx` gaining `crit`/`effectiveness` (threaded through for a super-effective hit's second
+ring and a crit's white flash), and its render-rate hook moving from `frame` to `lateFrame`.
+
+**Colour is read, not carried.** `core`/`edge` come from `battle.typeColour(type)` (DECISIONS
+#90) rather than a fourth copy of the table — `strikes.js`'s own values were the ones DECISIONS
+#90 carried into `battle/types.js` unmoved, on the promise that this slice would be the one to
+actually delete the file that used to own them, which it now has.
+
+**No `refit()` for the new system, and reality found this for free.** The plan's own wording
+("`refit()` migra de `frame` para `lateFrame`") assumed the new billboards would still need a
+per-frame camera-quaternion copy the way `ball.js`'s sprite and the old `strikes.js` quads did.
+They don't: `particles.js` and `beams.js` add their local offset in *view space*, after
+`modelViewMatrix` — the same trick `weather.js` already uses for rain and mist — which is
+already correct for whatever camera the renderer draws with this frame, with nothing left for a
+per-frame call to repeat. The hook still moves to `lateFrame`, because `ball.js`'s own sprite
+billboard still needs the camera to have already been updated by `rig.update()`
+(`src/main.js`) — the same reason `pokemon/index.js`'s sprites pose there. `encounter`'s own
+`refit()` API method now calls only `sprite.refit()`.
+
+**One real bug, caught by screenshot, not by a static check.** The ribbon's width was first
+added along a fixed view-space axis; for a bowed arc that axis is nearly parallel to the bow's
+own sweep at this camera's pitch, so instead of a thin stroke tracing the curve, the two offsets
+stacked and filled in one solid wedge the size of the whole swept arc — found because a solid
+magenta test fill rendered exactly the footprint of a nearby terrain prop, sized like the whole
+bow, not a stroke that should have read as much smaller. Fixed by sampling the curve a hair
+further along, projecting *that* point to view space too, and turning the resulting 2-D tangent
+90° — the width direction now genuinely follows the curve regardless of camera angle. A second,
+smaller issue: the ground ring's fragment shader judged distance in the raw `[-1,1]` UV square
+rather than world units, so `uRadius`/`uThickness` meant a different physical size than the
+number suggested; fixed by baking the plane's own half-width into the shader so a radius is a
+literal world-space distance.
+
+**The showcase's own staged phases moved.** `vfx-contact`/`vfx-projectile`/`vfx-field` used to
+freeze at 0.25/0.45/0.5 — tuned for the old system's hard-edged painted quad, which was already
+at full opacity the instant it appeared. This system's brightness genuinely ramps through its
+own beat, so the same phases caught two of three shapes early in their charge/deliver beat,
+before the burst had anything to show — corrected to land inside each shape's own **impact**
+beat (0.58/0.72/0.65) instead, where the effect is at its fullest. `regress`'s existing
+`encounter/vfx/12`/`encounter/vfx/21` rows (contact) moved as a result and are `--accept`ed in
+this commit, alongside two new rows this slice adds — `encounter/vfx-projectile/12` and
+`encounter/vfx-field/21` — so the other two deliveries are pinned to a frame someone looked at
+too, not left to `vfx-contact`'s row alone the way DECISIONS #79 first shipped it.
+
+**Verified by screenshot, per CLAUDE.md's own rule that `regress` cannot see composition**: a
+fire contact at noon reads as a bright ember burst with a visible golden arc slash beneath it;
+an ice projectile at 21:00 is a pale-blue comet with a trailing streak, landing in a small icy
+burst; a psychic field at 21:00 is a magenta ring glowing on the ground under the wild, with
+motes swirling up through it; an electric contact at 21:00 (DECISIONS #79's own hard case) is a
+bright yellow-white flash with a faint ring, not the washed-out blob the old system risked at a
+low bloom threshold. A real fight (not a showcase) was also checked end-to-end at
+`?scene=hunt-meadow&seed=1337`: a normal-type Tackle produced a small, appropriately modest
+burst (`normal`'s own `intensity: 0.7`, the lowest of the eighteen) alongside the balloon,
+nameplate and floater from slices 016–018, all three systems reading correctly on the same
+frame with zero console errors.
+
+**Budget.** Three `ShaderMaterial`s while a strike is playing, one draw call each — measured via
+`node tools/shots/boot.js`: 17 programs and 54 draw calls for the `encounter` showcase, both
+comfortably inside the `programs ≤ 60` / `drawCalls ≤ 1500` budgets `tools/shots/shoot.js`
+enforces.
+
+**Review found one real, serious mistake in this same session, caught before commit: the
+baseline itself was briefly destroyed.** The first `regress.js --accept` was run with no dev
+server listening on the default port — the command still exits 0 and prints "baseline updated:
+N rows", so nothing announced the failure — and silently overwrote **all 18 pre-existing rows**,
+not just this slice's 2 new ones, with `net::ERR_CONNECTION_REFUSED` placeholders. Because
+`compare()` only diffs metrics present on both sides, a baseline of bare error objects makes
+every future `regress` run report a false "0 improved, 0 regressed, 0 moved" — the entire
+project's visual-regression net would have been silently disabled by this slice's own commit.
+Caught by review, not by any check: fixed by restoring `docs/baseline.json` from `HEAD`, then
+re-running `--accept` against a real, curl-verified-live dev server, then confirming every row
+holds real numeric fields (not an `error` key) before trusting it again. The lesson this leaves
+behind: **`--accept`'s own exit code is not evidence a capture succeeded** — a future run should
+check the resulting file for `error` keys, not just that the command returned 0.
+
+**Review also flagged the contact arc as looking like a solid dome rather than "a thin stroke",
+contradicting this entry's own claim.** Traced to a coincidence, not a regression: the
+showcase's fixed staging position happens to sit a wild Marill directly behind this map's own
+terrain mushroom decal, which is a similar warm gold colour and a similar dome silhouette —
+confirmed by isolating the beam mesh alone (every other mesh hidden) at the reviewer's exact
+settings and finding no wedge shape at all, only the pre-existing decal. That said, the beam
+*was* under-tuned on its own merits: sampled at a pure mid-deliver phase with the decal's
+influence set aside, the arc alone was close to invisible against noon-bright grass. Retuned
+(width `0.32→0.5`, bow `0.55→0.7`, and a `sqrt` opacity ramp through the deliver beat so the
+slash reads early rather than only once the burst beside it is already doing the work) —
+verified this did not move `regress`'s own `encounter/vfx/*` rows outside tolerance.
+
+**The tester's own pass, independent of the above, found three more things**: `MOTION_CODE`/
+`ROLE_CODE` were checked for internal self-consistency but never against `PROFILE`'s actual
+`motion`/`role` values — a sixth motion added to the enum without a matching code entry would
+pass both existing suites while handing `particles.js` an `undefined` shader uniform at
+runtime, invisible to `regress`'s scalar metrics; closed by
+`vfx/elements-shader-codes.test.js`. No flow test drove a **real** fight through the new VFX at
+all (`elements.test.js` and `selftest.js` are pure-logic only, and `stageStrike` is a
+manufactured call, not a genuine strike) — closed by `tests/flows/vfx-real-fight.spec.js`,
+which also proves the `frame`→`lateFrame` rename is a real rename and not a stale duplicate key
+(reading `ctx.registry.descriptor('encounter')` directly, since a duplicate `frame` key would
+still fire and a screenshot-only check could not tell the two apart), and separately confirms a
+real thrown ball (via the actual `KeyZ` hotkey, not `encounter.attempt()`) still renders through
+the renamed hook end to end. Verifying the `lateFrame` rename via the showcase's own
+`mode=throw` turned out to be unreliable for an unrelated reason, found along the way: that
+mode (and `shake`/`caught`/`escaped`/`night`) never reaches an airborne ball — confirmed
+pre-existing via a git-stash round-trip against pre-019 `HEAD`, unrelated to this slice, logged
+as `docs/STATUS.json`'s `showcase-throw-family-stuck`.

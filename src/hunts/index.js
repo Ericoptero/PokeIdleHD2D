@@ -125,10 +125,13 @@ export default {
     /**
      * What is standing on each slot right now, keyed by slot index.
      *
-     * `encounter` engages a slot by index and this module hands over the creature and takes
-     * its sprite off the map — so the wild that walks out to fight is the one that was
-     * standing there, rather than a second copy of it spawned beside the first.
-     * @type {Map<number, {npcId:number, species:object, shiny:boolean, cx:number, cz:number, dir:number}>}
+     * `encounter` engages a slot by index and this module hands the creature over **without**
+     * taking its sprite off the map — the wild that fights is the one that was standing there,
+     * the same body, and `encounter` retires it only once its own actor is in place (#87).
+     *
+     * `level` is rolled here, when the creature walks onto the slot, and not at engagement:
+     * a plate over its head has to say the level it will actually fight at (#87).
+     * @type {Map<number, {npcId:number, species:object, shiny:boolean, level:number, cx:number, cz:number, dir:number}>}
      */
     const occupancy = new Map();
     /** Slots waiting to be refilled: `{ k, at }` in `clock.simTime` seconds. */
@@ -163,6 +166,30 @@ export default {
 
     /** @type {number[]} the wild Pokemon standing in this map's grass, by NPC id. */
     let wildIds = [];
+
+    /**
+     * The level of the creature that walks onto slot `k` on its `gen`-th refill.
+     *
+     * **Rolled when it arrives, not when it is fought.** `encounter.engage` used to take the
+     * species from the slot and the level from the encounter index, which was invisible while
+     * the only thing a level did was decide a fight — but a plate over a wandering creature's
+     * head advertises it, and a number that changed the moment you touched it would be a lie
+     * (DECISIONS #87).
+     *
+     * Its own sibling stream (`hunts/level/…`) rather than a draw appended to the slot's
+     * respawn stream: sibling streams cannot perturb each other (ARCHITECTURE §2.5), so every
+     * species and shiny this module has ever rolled from a seed still rolls the same.
+     * The band is `encounter`'s own (`levelBand` of the party's best member), so a hunt does
+     * not suddenly stand up level-40 wildlife for a level-5 party.
+     */
+    function levelForSlot(biomeId, k, gen) {
+      const encounter = ctx.get('encounter');
+      const band = (isLive(encounter) && typeof encounter.band === 'function')
+        ? encounter.band() : null;
+      const min = Math.max(1, Math.round(Number(band?.min) || 3));
+      const max = Math.max(min, Math.round(Number(band?.max) || min + 3));
+      return ctx.rng.fork(`hunts/level/${biomeId}/${k}/${gen}`).int(min, max);
+    }
 
     function disposeExtras() {
       for (const w of extraWorlds) w.dispose?.();
@@ -359,6 +386,7 @@ export default {
       const shinyAt = rng.next() < 0.35 ? rng.int(0, n - 1) : -1;
       const picked = cells.slice(0, n).map((c, i) => ({
         ...c, k: c.k ?? i, species: roster[i % roster.length], shiny: i === shinyAt,
+        level: levelForSlot(biome.id, c.k ?? i, 0),
       }));
 
       await pokemon.sprites?.prepare?.(picked.map((p) => ({ species: p.species, shiny: p.shiny })));
@@ -382,7 +410,8 @@ export default {
           // The slot remembers what is standing on it, so `encounter` can engage it by index
           // and this module can put something new there when the fight is over.
           occupancy.set(p.k ?? wildIds.length - 1, {
-            npcId: npc.id, species: p.species, shiny: !!p.shiny, cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
+            npcId: npc.id, species: p.species, shiny: !!p.shiny, level: p.level,
+            cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
           });
         }
       }
@@ -855,30 +884,46 @@ export default {
             approach: s2.approach ? { ...s2.approach } : null,
             occupied: !!held,
             species: held?.species?.name ?? null,
+            display: held?.species?.display ?? held?.species?.name ?? null,
             shiny: !!held?.shiny,
+            level: Number.isFinite(held?.level) ? held.level : null,
             npcId: held?.npcId ?? 0,
           };
         });
       },
 
       /**
-       * Hands the creature on slot `k` to whoever asked, and takes its sprite off the map.
+       * Hands the creature on slot `k` over, **leaving its sprite standing where it is**.
        *
-       * This is what makes a slot a *respawn point* rather than scenery: the wild that walks
-       * out to fight is **the one that was standing there**, not a second copy spawned beside
-       * it. The slot is scheduled to refill on this module's own tick, so the next lap meets
-       * something new in the same place.
+       * This is what makes a slot a *respawn point* rather than scenery: the wild that fights
+       * is the one that was standing there. It used to be the *identity* that carried over and
+       * not the body — this method deleted the NPC and `encounter` spawned a second sprite that
+       * burst out of the grass over twenty sim steps. There is no burst any more (DECISIONS
+       * #87), so deleting the body here would leave one or two frames of empty grass: the
+       * caller retires `npcId` itself, the moment its own actor is in place.
+       *
+       * `cx,cz` is where the creature **is**, not the cell the slot was authored on: it drifts
+       * one tile around its tether (§5.14), and staging the fight on the authored cell would
+       * teleport it up to a tile at the moment of contact. The slot is scheduled to refill on
+       * this module's own tick, so the next lap meets something new in the same place.
        */
       takeSlot(k) {
         const held = occupancy.get(k);
         if (!held) return null;
         occupancy.delete(k);
         const sim = ctx.get('simulation');
-        if (isLive(sim) && typeof sim.removeNpc === 'function') sim.removeNpc(held.npcId);
+        const live = (isLive(sim) && typeof sim.npcs === 'function')
+          ? sim.npcs().find((n) => n.id === held.npcId) : null;
         const i = wildIds.indexOf(held.npcId);
         if (i >= 0) wildIds.splice(i, 1);
         refills.push({ k, at: elapsed + RESPAWN_S });
-        return { species: held.species, shiny: held.shiny, cx: held.cx, cz: held.cz, k };
+        return {
+          species: held.species, shiny: held.shiny, level: held.level, k,
+          npcId: held.npcId,
+          cx: Number.isFinite(live?.cx) ? live.cx : held.cx,
+          cz: Number.isFinite(live?.cz) ? live.cz : held.cz,
+          dir: Number.isFinite(live?.dir) ? live.dir : (held.dir ?? 0),
+        };
       },
 
       /** Seconds an emptied slot stays empty. `encounter` times its own beats against it. */
@@ -920,6 +965,7 @@ export default {
           const species = pokemon.species(table[rng.int(0, table.length - 1)]);
           if (!species) continue;
           const shiny = rng.next() < 1 / 512;
+          const level = levelForSlot(biome.id, k, gen);
 
           // Fire and forget: the atlas may need the sheet and `spawnNpc` is synchronous, so
           // the sprite is prepared first and the NPC lands a microtask later.
@@ -933,8 +979,10 @@ export default {
             });
             if (!npc) return;
             wildIds.push(npc.id);
-            occupancy.set(k, { npcId: npc.id, species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0 });
-            bus.emit('slot:respawned', { biome: biome.id, slot: k, species: species.name, shiny });
+            occupancy.set(k, {
+              npcId: npc.id, species, shiny, level, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
+            });
+            bus.emit('slot:respawned', { biome: biome.id, slot: k, species: species.name, shiny, level });
           }).catch(() => {});
         }
       },

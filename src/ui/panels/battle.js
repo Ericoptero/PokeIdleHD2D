@@ -409,6 +409,9 @@ export function makeBattle(app) {
           g.text(x, y + 15, `Z ${ballName(id)}    R run`, C.stoneShadow, { max: barW });
         }
       }
+      // Handed back so `ui` can keep a plate from drawing on top of the card — the same
+      // discipline as `partyBox`/`stripBox` (`ui/index.js`).
+      return box;
     },
   };
 }

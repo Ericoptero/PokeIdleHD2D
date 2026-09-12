@@ -21,6 +21,8 @@ import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeToasts } from './toasts.js';
 import { makeCallouts } from './callout.js';
+import { makeFloaters, CRIT_FLOATER_SCALE } from './floaters.js';
+import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
@@ -28,7 +30,7 @@ import { makeTravel } from './panels/travel.js';
 import { makeOfflineCard } from './panels/offline.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
-import { makeBattle } from './panels/battle.js';
+import { makeBattle, STATUS_NAME } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
 import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
@@ -45,6 +47,15 @@ import { setActiveDrag, serializeWindows, restoreWindows } from './panels/common
  * (`core/registry.js`). The only safe test is the marker.
  */
 const isLive = (api) => !!api && api.__missing === undefined;
+
+/**
+ * How much higher than its speaker's plate a balloon floats, in world units — clear of the
+ * name/level/HP row `plates.js` draws at the same lift, plus a little air. Measured against
+ * the plate's own on-screen height (about a third of a world unit at this project's fixed
+ * `pixelsPerUnit`), not computed exactly: the plate's own width and whether it carries a bar
+ * both vary the row's pixel height by a point or two, and this only has to clear the tallest.
+ */
+const BALLOON_CLEARANCE = 0.6;
 
 let live = null;
 
@@ -77,6 +88,8 @@ export default {
     const toasts = makeToasts({ frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
     const callouts = makeCallouts();
+    const floaters = makeFloaters();
+    const plates = makePlates(ctx);
 
     /**
      * A world point on the HUD canvas, in internal pixels.
@@ -108,6 +121,8 @@ export default {
       clockBox: null,
       stripBox: null,
       partyBox: null,
+      /** This frame's nameplates, gathered once in `lateFrame` and painted by `draw`. */
+      plates: [],
       /** Set by `draw` each frame; the only consumer today is `hudReserved()` below. */
       walletBox: null,
     };
@@ -225,26 +240,68 @@ export default {
        * — and it is also what makes the picture work: in a hunt the Pokemon leads and the
        * trainer follows two cells behind, so a balloon over the Pokemon lands across the
        * trainer's face and a balloon over the trainer has clear sky above it. The wild's goes
-       * over the cell `encounter` staged it on.
+       * over the cell `encounter` staged it on, lifted by the exact head height its own plate
+       * already measured (`encounter.scene().headLift`) rather than a second guess at the same
+       * sprite.
+       *
+       * The move's name is coloured by its type (`s2.type`, DECISIONS #89/#90) — never the
+       * balloon itself, which stays the same paper every other panel here uses; a bright type
+       * painted over the whole box would be unreadable for exactly the types `battle/types.js`'s
+       * `TYPE_INK` had to darken to make legible as text in the first place.
        */
       bus.on('battle:strike', (s2) => {
         if (minimal || config.showcase) return;
         if (!s2?.name && !s2?.struggle) return;
         const enc = ctx.get('encounter');
         const sim = ctx.get('simulation');
-        const at = s2.attacker === 'b'
-          ? (isLive(enc) ? enc.scene?.()?.at : null)
-          : (isLive(sim) ? sim.player?.() : null);
-        if (!at) return;
-        const text = s2.struggle ? `${s2.attackerSpecies}: Struggle!` : `${s2.attackerSpecies}: ${s2.name}!`;
-        callouts.say({
-          text, side: s2.attacker ?? 'a',
-          x: at.cx + 0.5, z: at.cz + 0.5,
-          y: at.y ?? (isLive(sim) ? sim.surfaceAt?.(at.cx, at.cz) ?? 0 : 0),
-        });
+        const bt = ctx.get('battle');
+
+        // Where the two live: the trainer speaks (the brief's own words — the balloon belongs
+        // to whoever "calls the move out"), but a *hit* lands on the creature, not on the
+        // trainer standing behind it — so a floater and a balloon read a side differently.
+        const wildAt = isLive(enc) ? enc.scene?.()?.at : null;
+        const speakerAt = s2.attacker === 'b' ? wildAt : (isLive(sim) ? sim.player?.() : null);
+        const targetAt = s2.target === 'b' ? wildAt : (isLive(sim) ? sim.follower?.() : null);
+        const groundY = (at) => at?.y ?? (isLive(sim) ? sim.surfaceAt?.(at?.cx, at?.cz) ?? 0 : 0);
+
+        if (speakerAt) {
+          const wild = s2.attacker === 'b';
+          const lift = (wild ? enc.scene?.()?.headLift : null) ?? (wild ? POKEMON_LIFT : TRAINER_LIFT);
+          const ink = !s2.struggle && isLive(bt) && typeof bt.typeColour === 'function'
+            ? bt.typeColour(s2.type)?.ink ?? null : null;
+          callouts.say({
+            name: s2.attackerSpecies, move: s2.struggle ? 'Struggle' : s2.name, ink,
+            side: s2.attacker ?? 'a',
+            x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5,
+            y: groundY(speakerAt) + lift + BALLOON_CLEARANCE,
+          });
+        }
+
+        if (targetAt) {
+          // Both possible targets are Pokémon (the wild, or the ally the trainer sends out) —
+          // never the trainer itself, so this is always `POKEMON_LIFT`, precisely
+          // `scene.headLift` when the target is the wild being fought. Cleared above the
+          // plate by the same margin the balloon uses — the first cut spawned a floater right
+          // on the plate's own lift and it printed straight across the HP bar.
+          const lift = ((s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT) + BALLOON_CLEARANCE;
+          const at3 = { x: targetAt.cx + 0.5, y: groundY(targetAt) + lift, z: targetAt.cz + 0.5 };
+          if (s2.damage > 0) {
+            floaters.push({
+              text: `-${s2.damage}`, ...at3, scale: s2.crit ? CRIT_FLOATER_SCALE : 1,
+              colour: s2.effectiveness > 1 ? C.roofShadow : s2.effectiveness > 0 && s2.effectiveness < 1 ? C.shadowInk : C.ink,
+            });
+          } else if (s2.miss) {
+            floaters.push({ text: 'MISS', ...at3, colour: C.shadowInk });
+          } else if (s2.immune) {
+            floaters.push({ text: 'IMMUNE', ...at3, colour: C.shadowInk });
+          } else if (s2.status) {
+            floaters.push({ text: STATUS_NAME[s2.status] ?? s2.status.toUpperCase(), ...at3, colour: C.roofShadow });
+          }
+        }
+
         screen.markDirty();
       }),
-      bus.on('encounter:resolved', () => { callouts.clear(); screen.markDirty(); }),
+      bus.on('encounter:resolved', () => { callouts.clear(); floaters.clear(); screen.markDirty(); }),
       bus.on('economy:changed', () => screen.markDirty()),
       bus.on('collection:added', () => screen.markDirty()),
       bus.on('party:leadChanged', () => screen.markDirty()),
@@ -449,15 +506,40 @@ export default {
       // panel draws next — can see the live gesture `screen.js` is holding, without every one
       // of its six call sites threading `screen.drag()` through `opts` by hand (slice 016).
       setActiveDrag(screen.drag());
-      if (state.panel) state.panel.draw(g, app);
+      const panelBox = state.panel ? state.panel.draw(g, app) : null;
       // The away card is the one moment the wallet is the *subject*: it is telling the player
       // what they earned. Round 1 dimmed the wallet under the card's own scrim at exactly
       // that moment, so it is repainted on top of it here.
       if (state.panel?.id === 'offline') hud.drawWallet(g, s);
       // A menu opens over the bottom-right corner the toasts stack in; they step aside.
       const toastRight = state.panel?.id === 'menu' ? g.width - 150 : g.width - 6;
+      // Plates first, callouts over them: a name/level/HP plate names who is standing there,
+      // a speech balloon is what that creature just did — the balloon reads as the newer,
+      // louder thing precisely because it is drawn on top.
+      //
+      // Suppressed entirely under a `full`/`hidesHud` panel, exactly like `bars` above — but
+      // `bars` alone is not the right test here. `travel` and `offline` are neither `full` nor
+      // `hidesHud` (the wallet stays up over them on purpose, `panels/offline.js`'s own
+      // comment), yet both scrim the *whole* screen themselves (`windowFrame`'s `g.scrim`, or
+      // `offline.js`'s own call to it) — a plate drawn after that scrim would float over a
+      // dimmed background like a lit sign in a blackout, anywhere on screen, not only over the
+      // panel's own box. `battle` and `menu` are the only two panels that draw no scrim at all
+      // (a docked card and a column that says outright "the city stays readable behind it"),
+      // so they are the only two a plate may still show around — clipped to the box each
+      // panel's own `draw()` just handed back, the same discipline `partyBox`/`stripBox` use.
+      const platesShow = !minimal && bars && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
+      if (platesShow) {
+        const plateFloor = Math.min(
+          state.partyBox ? state.partyBox.y : g.height,
+          state.stripBox ? state.stripBox.y : g.height,
+        );
+        plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: panelBox ?? null });
+      }
       // Under the toasts and over the world: a callout belongs to a creature, not to the HUD.
       callouts.draw(g, project);
+      // Floaters last: the most transient thing on screen, over a balloon if the two ever
+      // land on the same spot.
+      floaters.draw(g, project);
       toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
       if (state.debug) drawDebug(g);
       // The drag ghost, last of all: whatever is held follows the pointer over the top of
@@ -510,6 +592,25 @@ export default {
           screen.markDirty();
         }
       }
+    }
+
+    /**
+     * The paint, moved out of `frame` and run after the camera rig updates
+     * (`core/registry.js`'s `lateFrame`, `src/main.js`'s frame loop) — the same reason
+     * `pokemon/field.js` poses its sprites there rather than in `frame`: a plate projected
+     * against last frame's camera trails a moving sprite by exactly one frame of motion, a
+     * different sub-pixel offset every time, which reads as the plate swimming (DECISIONS #18
+     * for the sprite side of the same bug).
+     *
+     * A plate follows a sprite that moves every rendered frame, not merely every sim tick, so
+     * `screen.dirty`'s tick-driven model does not fit it — this marks the screen dirty
+     * whenever there is a plate to draw, which is most of the time a scene has anyone standing
+     * in it. Measured against the render budget (§7) rather than assumed: `npm run gate`'s
+     * `boot`/`coldboot`/`regress` stages all read `fps`/`p95` off exactly this cost.
+     */
+    function lateFrame() {
+      state.plates = minimal ? [] : plates.read();
+      if (state.plates.length) screen.markDirty();
       if (screen.dirty) screen.paint(draw);
     }
 
@@ -572,10 +673,15 @@ export default {
       _screen: screen,
       _toasts: toasts,
       _callouts: callouts,
-      _tick() { if (callouts.count() && callouts.tick(1)) screen.markDirty(); },
+      _floaters: floaters,
+      _tick() {
+        if (callouts.count() && callouts.tick(1)) screen.markDirty();
+        if (floaters.count() && floaters.tick(1)) screen.markDirty();
+      },
       /** A world point on the HUD canvas, in internal pixels. Exact under the ortho camera. */
       project,
       _frame: frame,
+      _lateFrame: lateFrame,
       _draw: draw,
       _state: state,
       _minimal: minimal,
@@ -625,6 +731,8 @@ export default {
   tick() { live?._tick?.(); },
 
   frame(dt) { live?._frame(dt); },
+
+  lateFrame() { live?._lateFrame(); },
 
   dispose() { live?.dispose?.(); },
 

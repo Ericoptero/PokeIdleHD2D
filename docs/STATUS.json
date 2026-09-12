@@ -1,24 +1,24 @@
 {
-  "updated": "2026-09-11",
-  "commit": "d9ae3cd",
+  "updated": "2026-09-12",
+  "commit": "66f49b5",
   "seed": 1337,
-  "now": "A hunt produces battles again. A party with no conscious member was a closed loop — `slotNear` refuses one, so no encounter starts, so no resolve runs, so `wipe()` (the only caller of `reviveAll`) is unreachable — and `wipe()` itself latched above its own revive, so the second wipe in a streak paid nothing and healed nobody and the save was silent and battle-free from then on. Fixed four ways over (DECISIONS #81): every wipe revives, a lap of the circuit revives, the city heals, and a save's hp is sanitised so a non-number cannot become the NaN none of those three can leave. The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
+  "now": "A hunt is field-first (DECISIONS #87) with nameplates everywhere (DECISIONS #88), a turn's strikes drain one beat at a time (DECISIONS #89), and each strike carries a balloon, a type-coloured move name and a damage floater (DECISIONS #90). A strike's own effect is now three shaders — a shared particle field, a ribbon and a ground ring, eighteen types crossed with five motions and six particle roles — replacing the eighteen-palette pixel-art system that shared one sprite across 291 contact moves; a deliberate, named exception to the pixel-art-only doctrine, at the user's own request (DECISIONS #91). A pointer layer, movable windows, and an inventory and trainer panel landed alongside it (DECISIONS #84–86). The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
   "gate": {
     "at": "2026-09-12",
-    "result": "every stage passed (315 s)",
+    "result": "every stage passed (314 s)",
     "seconds": {
-      "lint": 2.8,
+      "lint": 2.6,
       "typecheck": 0.5,
       "seams": 1.6,
-      "unit": 0.9,
+      "unit": 1.2,
       "build": 3.9,
-      "coldboot": 4.0,
-      "boot": 113.9,
-      "flows": 66.0,
-      "parity": 42.0,
-      "regress": 79.3
+      "coldboot": 5.6,
+      "boot": 101.2,
+      "flows": 73.8,
+      "parity": 37.7,
+      "regress": 86.0
     },
-    "baseline": "docs/baseline.json — 1280x720, 18 regress rows (corrected from 17, DECISIONS #85's own inspection found the drift), last accepted 39883bb; 0 moved by slice 016's window chrome"
+    "baseline": "docs/baseline.json — 1280x720, 20 regress rows (2 new: encounter/vfx-projectile/12, encounter/vfx-field/21); 0 improved/regressed/moved against this commit's own accepted baseline. Two earlier gate attempts in this session FAILED on unrelated fps/timing flakiness (boot's tiles/preview showcases, three flow tests) traced to an orphaned headless-Chrome process left running from hours earlier in the same environment, competing for CPU/GPU — killed, then a clean re-run passed every stage. A real, separate mistake in this same session: the first --accept run was executed with no dev server on the default port, which silently overwrote all 18 prior baseline rows (not just the 2 new ones) with net::ERR_CONNECTION_REFUSED placeholders — caught by review before commit, restored from HEAD's docs/baseline.json, and re-accepted against a real, verified-live server; the diff against the pre-slice baseline was re-derived and matches what was originally reported (3 improved: encounter/vfx/21, boot/12 x2; 2 moved: the 2 new rows). This run predates the merge with origin/main (slice 016's window chrome, 018/019's inventory and trainer panels) — the merge commit still owes a fresh full `npm run gate` of its own."
   },
   "open": [
     {
@@ -51,12 +51,6 @@
       "module": "offline",
       "what": "The closed-tab catch-up always simulates the meadow: offline.decide() runs at init before any scene exists, terrain.handle() is null, and idle falls to own.biome ?? DEFAULT_BIOME (idle/index.js:107); own.biome is set only by idle.setBiome(), which has no callers, and is not in idle's save snapshot. The saved scene is never consulted.",
       "repro": "grep -rn 'setBiome' src | grep -v 'selftest\\|showcase'  # only the definition"
-    },
-    {
-      "id": "turnsteps-dead",
-      "module": "encounter",
-      "what": "config.turnSteps (core/config.js:193) is read by nothing; the visible fight steps every T.TURN = 24 sim steps, a literal (encounter/index.js:116), and the comment at :109 claiming an override is false. Three documents repeated the claim.",
-      "repro": "grep -rn 'turnSteps' src | grep -v core/config.js  # one comment, no reader"
     },
     {
       "id": "watched-win-mints-money",
@@ -131,6 +125,18 @@
       "repro": "boot /, `const sim=__CTX__.get('simulation'); sim.teleport(20,25,0);`, `await __CTX__.get('offline').persist('x')`, reload the page, then `__CTX__.get('simulation').player()` — expect {cx:20,cz:25} and get the city's default spawn instead"
     },
     {
+      "id": "cancel-races-spawn-actor",
+      "module": "encounter",
+      "what": "encounter.begin()'s scene.ready = showWild(...).then(id => { if (scene) {...} }) guards the write-back but not the spawn: pokemon.sprites.spawn() has already run and minted an actor by the time this callback fires, and if cancel() (a travel out, or a second begin()) has already nulled scene, that actor is never pokemon.sprites.remove()d — found while reviewing DECISIONS #87, which sits a retireNpc() call in the same callback but does not touch this pre-existing gap.",
+      "repro": "start a hunt encounter, then synchronously call encounter.cancel() before scene.ready resolves (before the sprite sheet fetch/atlas prepare lands) — pokemon.sprites.count() is one higher than it should be and stays that way"
+    },
+    {
+      "id": "showcase-throw-family-stuck",
+      "module": "encounter",
+      "what": "?showcase=encounter&mode=throw (and shake/caught/escaped/night, which all share throw:true) never reaches the airborne ball: scene().stage stays 'fight' instead of advancing to 'throw'. advanceToStage('throw', frac) computes its target off marks(scene).throwAt, which is only finite once the duel has actually been won — but showcase.js's own pre-roll (advanceToStage('meet', 1)) does not carry the duel far enough to decide a winner first, so the target is non-finite and advanceToStage logs its own 'nothing was thrown' warning and returns without advancing. Predates slice 019 (the shader VFX rewrite): confirmed via a git-stash round-trip that HEAD before 019 reproduces the identical stuck 'fight' stage at the identical URL, and slice 019 touches no code on this path (marks(), T.THROW, fightEndsAt are all untouched by it). Found incidentally while verifying slice 019's lateFrame rename against a real thrown ball instead of this showcase mode.",
+      "repro": "boot /?showcase=encounter&mode=throw&tod=12&seed=1337&timeFrozen=1 — __CTX__.get('encounter').scene().stage reads 'fight', never 'throw'"
+    },
+    {
       "id": "item-icon-placeholders",
       "module": "ui",
       "what": "The inventory panel's category marks (theme.js's itemMark, ui/panels/inventory.js, slice 018) are hand-authored 7x7 bitmaps tinted by tier, one per category — a deliberate placeholder (no item icon asset exists anywhere in the repository) rather than final art, per the same 'placeholder, not a magenta box' rule pokeball() already follows on the offline card.",
@@ -173,9 +179,10 @@
       "selftest": true,
       "openIssues": [
         "shiny-charm-id-mismatch",
-        "turnsteps-dead",
         "watched-win-mints-money",
-        "selftest-in-bundle"
+        "selftest-in-bundle",
+        "cancel-races-spawn-actor",
+        "showcase-throw-family-stuck"
       ]
     },
     "environment": {

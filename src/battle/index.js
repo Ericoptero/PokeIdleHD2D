@@ -20,7 +20,7 @@
  */
 
 import * as MOVES from './moves.js';
-import { TYPES, effectiveness, effectivenessText, STAB } from './types.js';
+import { TYPES, effectiveness, effectivenessText, STAB, typeColour } from './types.js';
 import { statsOf, stageMultiplier, expAtLevel, expToNextLevel, levelForExp, expYield } from './stats.js';
 import {
   makeCombatant, begin, turn, resolve, stepper, applyAction,
@@ -74,6 +74,9 @@ export default {
       types: () => [...TYPES],
       effectiveness,
       effectivenessText,
+      /** `{ core, edge, ink }` for a type — `ink` is what a balloon or a floater prints on
+       *  paper; `core`/`edge` are the strike's own effect colours. Falls back to `normal`. */
+      typeColour,
       STAB,
 
       /** The four slots a species carries at a level, honouring its owner's preference list. */

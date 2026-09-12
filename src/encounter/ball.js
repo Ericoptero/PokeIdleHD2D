@@ -64,48 +64,17 @@ const BALL_ART = [
 ];
 
 /**
- * The **"!" bubble** — the era's own signal that an encounter has started.
+ * The **"!" bubble is gone**, and so is the grass that used to part under it.
  *
- * `docs/refs/01-forest-tilemap-frame.png` is the whole argument for this sprite: the entire
- * frame's claim to being an encounter rather than two characters standing in a field is one
- * white balloon with a red exclamation mark over the wild's head. The whole-game critic's
- * verdict on this module was "there is no encounter on screen at all" — the beats were all
- * being narrated in a readout instead of drawn — and this is the single cheapest mark that
- * says *something is happening here, to that one*.
+ * Both were the vocabulary of a reveal: 16 px of balloon that said *something is happening
+ * here, to that one*, and nine leaves that said *it came out of there*. DECISIONS #87 removed
+ * the thing they were describing — the creature was already walking the map and the party
+ * walked up to it, so there is no arrival to caption. What names the wild now is the plate over
+ * its head, and what says "you may throw" is that plate's empty HP bar.
  *
- * It is also what separates the wild from the party. A staged frame holds a lead, a trainer,
- * two more party members and one wild Pokemon, all the same size, all the same art style,
- * all standing in the same grass; nothing in the picture said which of the five the scene was
- * about. The bubble does, in one glance, in the way this era already taught players to read.
- *
- * Drawn on the same 16 px grid as the ball for the same reason: one texel is a whole number
- * of internal pixels only if the quad is one world unit across (DECISIONS #18). The balloon
- * is 12 texels wide inside the frame so it reads 0.75 tiles — about a third of a Pokemon,
- * which is the proportion the reference shows.
- *
- * `W` paper, `r` the mark, `o` outline.
+ * `shimmer()` below is deliberately kept: a shiny Azurill is green on green grass, and that
+ * ring is the only thing that makes one legible. It is identity, not a transition.
  */
-const ALERT_ART = [
-  '................',
-  '................',
-  '...oooooooooo...',
-  '..oWWWWWWWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWWWWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWrrWWWWo..',
-  '..oWWWWWWWWWWo..',
-  '...ooooWWoooo...',
-  '......oWWo......',
-  '.......oo.......',
-];
-
-/** Paper, mark and outline. Kept off `SHARED` so the ball's `W` stays pure white. */
-const ALERT_PALETTE = { W: '#f6f1dd', r: '#d8332a', o: '#241f28' };
 
 /**
  * How wide one sparkle quad is, in world units.
@@ -118,58 +87,7 @@ const ALERT_PALETTE = { W: '#f6f1dd', r: '#d8332a', o: '#241f28' };
  */
 const SPARK_SIZE = 0.34;
 
-/**
- * A **leaf**, for the grass parting — and the reason it is not another sparkle.
- *
- * Round 2 drew the rustle with the capture burst's own four-point stars, and the shot says
- * why that fails: at `mode=approach` the ten stars are 65 px across on a 77 px ring, so they
- * overlap into one horizontal white bar, and a white bar in tall grass reads as *magic*, not
- * as vegetation. The burst and the shimmer should read as magic — a capture and a shiny are
- * exactly that. A Pokemon pushing through grass should read as grass moving.
- *
- * So the rustle gets its own art and its own material: a small blade, lit side and shade
- * side, with the same dark outline every sprite in this project carries so it holds a
- * silhouette against the leaves behind it. Lit rather than bloomed, because the whole point
- * is that it is a piece of the world rather than a light.
- *
- * `L` the lit face, `d` the shaded face, `o` outline.
- */
-const LEAF_ART = [
-  '...LL...',
-  '..LLLL..',
-  '.LLLLLd.',
-  '.LLLLdo.',
-  '.oLLLdo.',
-  '..oLdo..',
-  '..odo...',
-  '...o....',
-];
 
-/**
- * Leaf colours.
- *
- * Deliberately *lighter* than the tall grass it flies out of, not the same green: the critic
- * measured this module's own shiny Azurill at 19 degrees of hue and 0.30 of saturation from
- * the grass and called it unreadable, and a leaf that matches its background is the same
- * failure in miniature. `#b6d95a` against AdAstra's tall grass is a clear value step up, and
- * the outline holds the edge where the value step is not enough.
- */
-const LEAF_PALETTE = { L: '#d6ee7a', d: '#8fbf46', o: '#33501f' };
-
-/**
- * How many leaves, and why it is not ten.
- *
- * The first cut ran fourteen on the sparkle instancer's own count and they merged: at the
- * opening radius the ring's circumference divided by fourteen is less than one leaf's width,
- * so every frozen frame showed a dark clump rather than blades. Nine is the number at which
- * the gaps are wider than the leaves for the whole of the beat — the same arithmetic the
- * capture burst's comment records ("the stars have to be further apart than they are big for
- * the eye to count them"), applied to a ring that opens from a tighter start.
- */
-const LEAF_COUNT = 9;
-
-/** How wide one leaf is, in world units. Smaller than a sparkle: a dozen have to read as a dozen. */
-const LEAF_SIZE = 0.30;
 
 /** A four-point sparkle for the capture burst — the same 16 px grid, drawn at 8x8. */
 const SPARK_ART = [
@@ -229,8 +147,9 @@ export const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', 
 
 /** Draws one 16x16 grid into a canvas at 1 texel per pixel. */
 /**
- * Pixel art to a canvas. Exported so `strikes.js` builds its move effects the same way this
- * file builds its ball — one grid, one palette swap, one nearest-filtered texture (#78).
+ * Pixel art to a canvas — one grid, one palette swap, one nearest-filtered texture (#78). Once
+ * shared with `encounter/strikes.js`'s own move effects too; that file is gone (DECISIONS #91,
+ * a deliberate shader rewrite for that system only), so this is the ball's own helper again.
  */
 export function paint(art, palette, size) {
   const canvas = document.createElement('canvas');
@@ -311,38 +230,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
   mesh.frustumCulled = false;
   group.add(mesh);
 
-  // --- the "!" bubble -------------------------------------------------------
-  // Its own quad rather than a second texture on the ball's, because the two are on screen
-  // at different moments *and* at different heights, and one mesh cannot be in two places.
-  const alertGeo = new THREE.PlaneGeometry(1, stretch);
-  {
-    const n = alertGeo.attributes.normal;
-    for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 0.78, 0.63);
-    n.needsUpdate = true;
-  }
-  const alertTex = texture(THREE, paint(ALERT_ART, ALERT_PALETTE, 16));
-  // Lambert like every other cutout in the frame, so the bubble takes the hour's light and
-  // does not float over a golden-hour scene at flat midday white — but with a floor under it.
-  // A marker whose whole job is to be seen is useless at 21:30, and `mode=night` is a shot
-  // this module is judged on: the emissive keeps the paper legible after dark without
-  // making it a light source (it is far below the bloom threshold at every keyframe).
-  const alertMat = new THREE.MeshLambertMaterial({
-    map: alertTex,
-    transparent: false,
-    alphaTest: 0.5,
-    side: THREE.DoubleSide,
-    emissive: new THREE.Color(0x4a4438),
-    fog: true,
-    name: 'encounter:alert',
-  });
-  const alertMesh = new THREE.Mesh(alertGeo, alertMat);
-  alertMesh.name = 'encounter:alert';
-  alertMesh.castShadow = false;
-  alertMesh.receiveShadow = true;
-  alertMesh.frustumCulled = false;
-  alertMesh.renderOrder = 4;
-  alertMesh.visible = false;
-  group.add(alertMesh);
+
 
   // --- sparkles -------------------------------------------------------------
   const sparkGeo = new THREE.PlaneGeometry(SPARK_SIZE, SPARK_SIZE * stretch);
@@ -382,32 +270,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
   sparkMesh.count = 0;
   group.add(sparkMesh);
 
-  // --- leaves ---------------------------------------------------------------
-  // Its own instancer and its own material, because a leaf and a sparkle differ in exactly
-  // the way that cannot be expressed by swapping a texture: the sparkle is `toneMapped:false`
-  // at 5.6x white so it clips and blooms, and running leaf art through that returns white
-  // diamonds again. One extra draw call, and only while a reveal is on screen.
-  const leafGeo = new THREE.PlaneGeometry(LEAF_SIZE, LEAF_SIZE * stretch);
-  {
-    const n = leafGeo.attributes.normal;
-    for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 0.78, 0.63);
-    n.needsUpdate = true;
-  }
-  const leafTex = texture(THREE, paint(LEAF_ART, LEAF_PALETTE, 8));
-  const leafMat = new THREE.MeshLambertMaterial({
-    map: leafTex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    // A floor under the light, the same trick the bubble uses: the reveal has to read at
-    // 21:30 as well as at noon, and a lit-only leaf at night is a black speck.
-    emissive: new THREE.Color(0x24301a),
-    fog: true, name: 'encounter:leaf',
-  });
-  const leafMesh = new THREE.InstancedMesh(leafGeo, leafMat, LEAF_COUNT);
-  leafMesh.name = 'encounter:leaves';
-  leafMesh.frustumCulled = false;
-  leafMesh.renderOrder = 4;
-  leafMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  leafMesh.count = 0;
-  group.add(leafMesh);
+
 
   // --- contact shadow -------------------------------------------------------
   // The ball's own, not a sprite's: `pokemon`'s blob belongs to `pokemon`'s field and this
@@ -486,8 +349,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
    * `arc()` again. So the correction is re-applied per rendered frame instead.
    */
   let airborne = null;
-  /** The same, for the bubble: it hangs over a Pokemon's head, so it is off the ground too. */
-  let bubble = null;
+
 
   /** Places the ball, rolled by `roll` radians about the view axis. */
   function place(x, y, z, roll = 0, scale = 1) {
@@ -498,19 +360,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     mesh.scale.setScalar(scale);
   }
 
-  /** Places the bubble. `y` is the bottom of the balloon, i.e. the tip of its tail. */
-  function placeAlert(x, y, z, scale) {
-    group.visible = true;
-    alertMesh.visible = true;
-    alertMesh.position.set(x, y + (stretch * scale) / 2, z);
-    alertMesh.scale.setScalar(scale);
-  }
 
-  /** Takes the bubble down. Every beat after the reveal calls it; only `alert()` puts it up. */
-  function dropAlert() {
-    bubble = null;
-    alertMesh.visible = false;
-  }
 
   /**
    * The contact blob, on the surface the ball is actually over.
@@ -536,36 +386,10 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     setBall(ballId) { material.map = texFor(ballId); material.needsUpdate = true; },
 
     /**
-     * The "!" over the wild's head — see `ALERT_ART`.
-     *
-     * `t` runs 0..1 across the beat that owns it (the reveal and the pause after it), `headY`
-     * is the world height the balloon's tail hangs from, which the caller measures off the
-     * actor rather than this file guessing at it.
-     *
-     * The pop is deliberately over-shot and then settled: at 20 frames per beat a marker that
-     * simply fades in is, in the one frozen frame a critic looks at, a marker at some
-     * arbitrary opacity. A marker that is *scaled* is at some arbitrary size but always fully
-     * opaque and always fully saturated, which is the property a still frame needs. The bob
-     * afterwards is a function of `t` alone, so a frozen scene renders it identically twice.
-     */
-    alert(at, t, headY) {
-      const k = Math.min(1, Math.max(0, t));
-      const grow = Math.min(1, k / 0.2);
-      const scale = 0.55 + 0.45 * grow + 0.16 * Math.sin(grow * Math.PI);
-      const y = (headY ?? at.y + 1.6) + 0.06 + 0.05 * Math.sin(k * Math.PI * 3);
-      bubble = { x: at.x, y, z: at.z, groundY: at.y, scale };
-      placeAlert(at.x, y, at.z, scale * gridScale(at.x, y, at.z, at.y));
-    },
-    /** Takes it down early — the throw, or a reveal that nobody answered. */
-    clearAlert: dropAlert,
-
-    /**
      * The throw: a parabola from `from` to `to`, `t` in [0,1], spinning three times on the
      * way. Height is proportional to the distance so a long throw arcs higher.
      */
     arc(from, to, t, groundY = to.y, shadowY = groundY) {
-      dropAlert();
-      leafMesh.count = 0;
       const k = Math.min(1, Math.max(0, t));
       const dx = to.x - from.x, dz = to.z - from.z;
       const span = Math.hypot(dx, dz);
@@ -602,8 +426,6 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
      */
     rest(at, shake, t) {
       airborne = null;
-      dropAlert();
-      leafMesh.count = 0;
       const k = Math.min(1, Math.max(0, t));
       // A wobble is a NUDGE, not a tilt.
       //
@@ -638,7 +460,6 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
      */
     shimmer(at, phase) {
       airborne = null;
-      leafMesh.count = 0;
       group.visible = true;
       mesh.visible = false;
       blob.visible = false;
@@ -659,67 +480,6 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
       sparkMat.opacity = 0.9;
     },
 
-    /**
-     * The grass parting as the wild comes up, `t` in [0,1] across the appear beat.
-     *
-     * The reveal was the weakest of the four stages and the critic put a number on why: the
-     * hop is `sin(t*pi)*0.55`, about 24 screen pixels at its top, and a Pokemon 24 px higher
-     * than it was is not a Pokemon *rising* — `c02` and `c13` both read as one sitting in the
-     * grass. Half of that is fixed by freezing at the apex instead of at 0.85 of the way down
-     * (`STOP.reveal`); the other half is that nothing else in the frame moved.
-     *
-     * This is the other half: a low, wide ring of the same bloomed stars, at ankle height,
-     * opening outwards and fading. It costs no draw call — it is the sparkle instancer that
-     * is already there for the burst and the shimmer — and it puts the one thing a still
-     * frame needs into the frame, which is evidence that the ground was disturbed. A shiny
-     * keeps its ring instead: that ring is what makes a green Azurill legible on green grass
-     * and it is not worth trading for a puff.
-     */
-    rustle(at, t) {
-      airborne = null;
-      const k = Math.min(1, Math.max(0, t));
-      group.visible = true;
-      mesh.visible = false;
-      blob.visible = false;
-      sparkMesh.count = 0;
-      const n = leafMesh.instanceMatrix.count;
-      // A ring that is a ring, not a bar. Round 2's numbers put ten 65 px stars on a 77 px
-      // radius, which is a solid overlap: the leaves are smaller than the sparkles were, the
-      // vertical extent of the ellipse is nearly twice what it was, and the ring starts wider,
-      // so at every frozen frame the eye can count them.
-      const spread = 0.42 + k * 1.00;
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + 0.17;
-        const r = spread * (0.66 + 0.34 * ((i % 3) / 2));
-        // At the *tops* of the blades, not at the soil. `tall_grass` stands 0.625 proud of
-        // its cell and a puff below that is simply behind the grass — which is what the first
-        // cut of this did, and at 4x the whole effect was four pale specks. The leaves also
-        // *rise* as they spread, because a disturbed leaf goes up before it falls.
-        pos.set(
-          at.x + Math.cos(a) * r,
-          at.y + 0.58 + k * 0.55 + Math.sin(a) * r * 0.55,
-          at.z - 0.01,
-        );
-        /**
-         * Three sizes and **no mirroring**, and the second half of that is a measured bug fix.
-         *
-         * The obvious way to vary a pixel sprite without resampling it is a sign flip on X —
-         * a mirror is free where a rotation is not (DECISIONS #18). It is wrong for a *lit*
-         * instance: a negative determinant inverts the normal matrix, so every mirrored leaf
-         * turned its normal away from the sun and rendered as a near-black blob. Cropped at
-         * 3x on `d-approach.png` the ring came out alternating pale, dark, pale, dark — four
-         * of the nine were silhouettes with no lit face at all, which is exactly the murk the
-         * leaves were introduced to replace. Size alone carries the variety.
-         */
-        const size = 0.78 + 0.34 * ((i % 3) / 2) - k * 0.18;
-        scl.setScalar(size);
-        m.compose(pos, q.identity(), scl);
-        leafMesh.setMatrixAt(i, m);
-      }
-      leafMesh.count = n;
-      leafMesh.instanceMatrix.needsUpdate = true;
-      leafMat.opacity = Math.min(1, (1 - k) * 2.1);
-    },
 
     /**
      * The click: sparkles thrown outward from the ball, `t` in [0,1]. Deterministic — the
@@ -728,8 +488,6 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
      */
     burst(at, t, { keepBall = true } = {}) {
       airborne = null;
-      dropAlert();
-      leafMesh.count = 0;
       const k = Math.min(1, Math.max(0, t));
       if (keepBall) place(at.x, at.y, at.z, 0, 1);
       else mesh.visible = false;
@@ -758,8 +516,6 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
 
     hide() {
       airborne = null;
-      dropAlert();
-      leafMesh.count = 0;
       group.visible = false;
       mesh.visible = false;
       blob.visible = false;
@@ -769,32 +525,25 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     /**
      * Re-apply the airborne pixel-grid scale against the camera as it is *now*.
      *
-     * Called once per rendered frame from the module's `frame` hook. It is a no-op unless the
+     * Called once per rendered frame from the module's `lateFrame` hook (DECISIONS #91 — moved
+     * from `frame` so this runs after the camera rig has actually updated). It is a no-op unless the
      * ball is in the air, and it reads nothing but the camera — so a frozen scene stays
      * deterministic (the camera spring converges to the same place from the same URL) while a
      * moving one keeps the ball's texels on the grid as the camera follows.
      */
     refit() {
-      if (bubble) {
-        const b = bubble;
-        placeAlert(b.x, b.y, b.z, b.scale * gridScale(b.x, b.y, b.z, b.groundY));
-      }
       if (!airborne) return;
       const a = airborne;
       place(a.x, a.y, a.z, 0, gridScale(a.x, a.y, a.z, a.groundY));
     },
 
     /** For the showcase's own readout: how many textures the palette actually built. */
-    stats: () => ({ palettes: textures.size, sparks, leaves: leafMesh.instanceMatrix.count }),
-    /** Whether the bubble is currently up — the showcase prints it as part of its proof. */
-    alerting: () => alertMesh.visible,
+    stats: () => ({ palettes: textures.size, sparks }),
 
     dispose() {
       ctx.three.scene.remove(group);
       geo.dispose(); material.dispose();
-      alertGeo.dispose(); alertMat.dispose(); alertTex.dispose();
       sparkGeo.dispose(); sparkMat.dispose(); sparkTex.dispose();
-      leafGeo.dispose(); leafMat.dispose(); leafTex.dispose();
       blobGeo.dispose(); blobMat.dispose(); blobTex.dispose();
       for (const t of textures.values()) t.dispose();
       textures.clear();

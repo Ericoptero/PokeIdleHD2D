@@ -27,7 +27,9 @@ import {
   MATERIAL_FAMILIES, FAMILY_BY_TYPE, MAX_DROP_ROWS, SPECIES_DROPS,
 } from './drops.js';
 import { THROWS_PER_FAINT, WIPE_PENALTY } from './index.js';
-import { ELEMENT, elementOf, shapeOf } from './strikes.js';
+import { PROFILE, profileFor, shapeOf, BEATS, beatAt, MOTION, ROLE } from './vfx/elements.js';
+import { PARTICLE_COUNT } from './vfx/particles.js';
+import { planBeats } from './beats.js';
 import {
   STREAM_ROOT, SHINY_RATE, IV_KEYS,
   streamFor, catchRateFor, levelBand, rollAt, catchRoll,
@@ -432,32 +434,56 @@ export function runSelfTest({ species = null } = {}) {
 
   // --- 22 every move has a look, and it is derived -------------------------------
   //
-  // 721 moves, twenty-one authored pieces: eighteen elemental palettes crossed with three
-  // delivery shapes. What is worth pinning is that the crossing is total — a move added to
-  // `moves.json` tomorrow must not fall through to nothing (DECISIONS #79).
+  // 721 moves, twenty-one authored pieces: eighteen elemental palettes (`battle.typeColour`,
+  // DECISIONS #90) crossed with three delivery shapes, each shape a four-beat timeline
+  // (`vfx/elements.js`, DECISIONS #91). What is worth pinning here — the colour half moved to
+  // `battle/selftest.js` #61-66 when `battle/types.js` became the one canonical table — is
+  // that the shape/beat/profile crossing is total: a move added to `moves.json` tomorrow, or a
+  // type this table has never seen, must not fall through to nothing.
   {
-    eq('there are eighteen elemental looks', Object.keys(ELEMENT).length, 18);
-    check('every look has a core and an edge',
-      Object.values(ELEMENT).every((e) => /^#[0-9a-f]{6}$/i.test(e.C) && /^#[0-9a-f]{6}$/i.test(e.E)));
-    // The core carries the bloom and the edge sits under it. A palette whose edge is as bright
-    // as its core is the flat wash the first cut of the impact art was.
-    const lum = (h) => {
-      const n = parseInt(h.slice(1), 16);
-      return (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
-    };
-    check('every core is brighter than its own edge',
-      Object.entries(ELEMENT).every(([, e]) => lum(e.C) > lum(e.E)),
-      Object.entries(ELEMENT).filter(([, e]) => lum(e.C) <= lum(e.E)).map(([k]) => k).join(' '));
-
     eq('a status move is a field glyph', shapeOf({ c: 0 }), 'field');
     eq('a physical move is contact', shapeOf({ c: 1 }), 'contact');
     eq('a special move travels', shapeOf({ c: 2 }), 'projectile');
     // Never nothing: an unknown move still gets a look, because a move with no effect at all
     // reads as a bug rather than as a design decision.
     eq('an unknown move still has a shape', shapeOf(null), 'contact');
-    eq('and an unknown type still has a palette', elementOf('nonsense'), ELEMENT.normal);
-    check('every one of the eighteen types resolves to its own palette',
-      Object.keys(ELEMENT).every((t) => elementOf(t) === ELEMENT[t]));
+
+    eq('there are eighteen movement personalities', Object.keys(PROFILE).length, 18);
+    const motions = new Set(Object.values(MOTION));
+    const roles = new Set(Object.values(ROLE));
+    check('every profile is one of the five motions and six roles',
+      Object.values(PROFILE).every((p) => motions.has(p.motion) && roles.has(p.role) && p.intensity > 0));
+    eq('and an unknown type still resolves to a profile', profileFor('nonsense'), PROFILE.normal);
+    check('every one of the eighteen types resolves to its own profile',
+      Object.keys(PROFILE).every((t) => profileFor(t) === PROFILE[t]));
+
+    // The four-beat timeline: charge, deliver, impact, resolve, covering [0,1] with no gap and
+    // no overlap for every shape — a strike whose phase fell in a hole between two beats would
+    // freeze mid-effect on a showcase and nobody would notice until that exact phase was asked
+    // for (the same class of bug DECISIONS #79 records for a screenshot caught mid-settle).
+    for (const shape of ['contact', 'projectile', 'field']) {
+      const beats = BEATS[shape];
+      check(`${shape}'s beats start at 0`, beats[0].from === 0);
+      check(`${shape}'s beats end at 1`, beats[beats.length - 1].to === 1);
+      check(`${shape}'s beats have no gap or overlap`,
+        beats.every((b, i) => i === 0 || b.from === beats[i - 1].to));
+      check(`${shape}'s beats are named charge, deliver, impact, resolve in order`,
+        beats.map((b) => b.name).join(',') === 'charge,deliver,impact,resolve');
+    }
+    check('beatAt names the right beat at each boundary and holds the last beat at phase 1',
+      beatAt('contact', 0).name === 'charge'
+      && beatAt('contact', 0.15).name === 'deliver'
+      && beatAt('contact', 0.9999).name === 'resolve'
+      && beatAt('contact', 1).name === 'resolve'
+      && beatAt('contact', 1).k === 1);
+    check('an unrecognised shape falls back to contact\'s own timeline',
+      JSON.stringify(BEATS[shapeOf(undefined)]) === JSON.stringify(BEATS.contact));
+
+    // The particle field is one fixed-size buffer built once at init (`vfx/particles.js`) —
+    // pinning its own declared cap here is what stops a future retune from quietly asking a
+    // 128-quad buffer for more particles than it has room to draw.
+    check('the shared particle field has a sane, fixed size',
+      Number.isInteger(PARTICLE_COUNT) && PARTICLE_COUNT > 0 && PARTICLE_COUNT <= 512);
   }
 
   // --- 23 the two rules a fight is settled by -------------------------------------
@@ -475,6 +501,34 @@ export function runSelfTest({ species = null } = {}) {
     // grind in the game at a stroke.
     check('the pity ladder still measures victories, not a full bag',
       THROWS_PER_FAINT * 7 >= 7, 'a common is seven won fights');
+  }
+
+  // --- 24 planBeats: the timeline never lets two actions land in the same tick (DECISIONS #89) ---
+  {
+    const BEATS = { actionSteps: 18, itemSteps: 16, reviveSteps: 100 };
+    const strike = (patch) => ({ turn: 1, attacker: 'a', move: 'tackle', cause: null, use: null, ...patch });
+
+    const three = planBeats([strike({ attacker: 'a' }), strike({ attacker: 'b' }), strike({ attacker: 'a' })], BEATS);
+    check('one beat per strike', three.length === 3, `${three.length}`);
+    check('the order the engine produced is kept, not reordered',
+      three.map((b) => b.strike.attacker).join('') === 'aba', three.map((b) => b.strike.attacker).join(''));
+    check('every beat starts strictly after the one before it — never two in the same tick',
+      three.every((b, i) => i === 0 || b.at > three[i - 1].at), three.map((b) => b.at).join(','));
+    check('an ordinary strike is one ACTION_STEPS apart from the next',
+      three[1].at - three[0].at === BEATS.actionSteps, `${three[1].at - three[0].at}`);
+
+    const withItem = planBeats([strike({}), strike({ cause: 'item', use: 'potion', move: null }), strike({})], BEATS);
+    check('an item strike holds itemSteps, not actionSteps',
+      withItem[2].at - withItem[1].at === BEATS.itemSteps, `${withItem[2].at - withItem[1].at}`);
+
+    const withRevive = planBeats([strike({ cause: 'item', use: 'revive', move: null }), strike({})], BEATS);
+    check('a revive holds reviveSteps, which can be longer than any other beat',
+      withRevive[1].at - withRevive[0].at === BEATS.reviveSteps, `${withRevive[1].at - withRevive[0].at}`);
+
+    check('an empty turn plans to nothing', planBeats([], BEATS).length === 0, '0');
+    check('planBeats does not mutate its input',
+      (() => { const s2 = [strike({})]; const copy = JSON.stringify(s2); planBeats(s2, BEATS); return JSON.stringify(s2) === copy; })(),
+      'unchanged');
   }
 
   return out;

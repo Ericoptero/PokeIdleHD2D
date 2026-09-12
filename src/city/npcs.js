@@ -79,7 +79,7 @@ export async function populateCity(ctx) {
     const npc = sim.spawnNpc({
       name: `city/${spec.name}`,
       cx: spec.cx, cz: spec.cz, dir: spec.dir ?? 0,
-      trainer: spec.trainer, species: spec.species, shiny: spec.shiny,
+      trainer: spec.trainer, species: spec.species, shiny: spec.shiny, display: spec.display,
       route: spec.route, loop: true,
     });
     if (npc?.id) ids.push(npc.id);

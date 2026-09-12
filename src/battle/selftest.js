@@ -25,7 +25,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import * as MOVES from './moves.js';
-import { effectiveness, TYPES } from './types.js';
+import { effectiveness, TYPES, TYPE_INK, typeColour } from './types.js';
 import { statsOf, expAtLevel, levelForExp, expYield, stageMultiplier } from './stats.js';
 import {
   makeCombatant, resolve, stepper, applyAction, damageOf, streamFor, STREAM_ROOT, MAX_BETWEEN,
@@ -259,6 +259,48 @@ check('60. a runaway between is capped rather than obeyed',
   resolve(osha, cat, 1337, 12, {
     between: () => Array.from({ length: 9 }, () => ({ kind: 'heal', item: 'potion', hp: 1 })),
   }).betweenCapped === true);
+
+// --- 61-64 TYPE_INK: the one colour table a balloon, a floater and a strike's own effect ----
+// all read (DECISIONS #90). `core`/`edge` are strikes.js's own values, unchanged; `ink` is
+// derived from `edge` and has to actually clear the contrast floor it was derived to hit, not
+// merely look plausible.
+{
+  eq('61. eighteen types, eighteen colour triples', Object.keys(TYPE_INK).length, 18);
+  check('62. every triple is three real hex colours',
+    Object.values(TYPE_INK).every((t) => ['core', 'edge', 'ink'].every((k) => /^#[0-9a-f]{6}$/i.test(t[k]))));
+  // Simple weighted luminance — an ordering check, not a ratio, so the cheap formula this
+  // file's sibling checks (49-52) don't need is not needed here either.
+  const lum = (h) => {
+    const n = parseInt(h.slice(1), 16);
+    return (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
+  };
+  check('63. every core is brighter than its own edge',
+    Object.entries(TYPE_INK).every(([, t]) => lum(t.core) > lum(t.edge)),
+    Object.entries(TYPE_INK).filter(([, t]) => lum(t.core) <= lum(t.edge)).map(([k]) => k).join(' '));
+
+  // The WCAG contrast ratio `ink` was actually derived against — the paper a balloon and a
+  // floater print on (`ui/theme.js`'s `C.wallLight`, '#F5E9CE'). A future palette edit that
+  // moves `ink` without re-deriving it fails here, loudly, instead of shipping an unreadable
+  // move name for one type that nobody happened to screenshot.
+  const srgbToLin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const relLum = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    const r = srgbToLin((n >> 16) & 255), g = srgbToLin((n >> 8) & 255), b = srgbToLin(n & 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  };
+  const PAPER = '#F5E9CE';
+  const ratios = Object.entries(TYPE_INK).map(([k, t]) => [k, contrast(t.ink, PAPER)]);
+  check('64. every type\'s ink clears 4.5:1 against the balloon paper',
+    ratios.every(([, r]) => r >= 4.5), ratios.map(([k, r]) => `${k}:${r.toFixed(2)}`).join(' '));
+
+  eq('65. an unknown type still gets a colour', typeColour('nonsense'), TYPE_INK.normal);
+  check('66. every one of the eighteen types resolves to its own triple',
+    Object.keys(TYPE_INK).every((t) => typeColour(t) === TYPE_INK[t]));
+}
 
 // --- report -----------------------------------------------------------------
 const failed = results.filter((r) => !r.ok);

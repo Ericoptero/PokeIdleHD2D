@@ -1,10 +1,13 @@
 /**
- * callout.js — the line a trainer shouts over a fight.
+ * callout.js — the line a trainer shouts over a fight, and the wild's own answer.
  *
  * The brief asks that "the trainer visibly calls out the moves used by their Pokémon" and that
- * "the wild Pokémon's moves should also be shown during combat". That is *text over a place in
- * the world*, which is a shape this project did not have: `ui` is a HUD anchored to the screen
- * (DECISIONS #34a) and everything in the world is a textured quad.
+ * "the wild Pokémon's moves should also be shown during combat", with a balloon over each
+ * speaker's head, an arrow tying it to who said it, and the move's own name coloured by its
+ * type (the balloon's paper stays neutral — only the move name takes the colour, so a bright
+ * type does not turn the whole balloon into a wash nobody can read). That is *text over a place
+ * in the world*, which is a shape this project did not have: `ui` is a HUD anchored to the
+ * screen (DECISIONS #34a) and everything in the world is a textured quad.
  *
  * **It is drawn on the HUD canvas, not in the scene**, and the reason is arithmetic rather than
  * convenience. Text in 3-D would need a second font atlas as a texture, one draw call per
@@ -24,27 +27,32 @@ import { C, panel } from './theme.js';
 /** How long a line hangs there, in sim steps (1/20 s). Just under one exchange. */
 export const CALLOUT_STEPS = 22;
 
-/**
- * How far above the speaker's feet the balloon floats, in world units.
- *
- * **3.1, and the number is measured rather than chosen.** A 32-texel sprite is 16 texels per
- * world unit stretched by `1/cos(45°)` (DECISIONS #18), so it stands 2.83 units tall — at 2.15
- * the balloon landed across the middle of the Pokemon that was speaking and hid it. 3.1 clears
- * the head with a quarter-tile of air, and still sits under the "!" balloon's own ceiling.
- */
-const LIFT = 3.1;
+/** How tall the tail is, in px, and how far its tip clears the anchor point beneath it. */
+const TAIL_H = 4;
+const TAIL_GAP = 2;
 
 export function makeCallouts() {
-  /** @type {{text:string, x:number, y:number, z:number, side:string, born:number, life:number}[]} */
+  /** @type {{name:string, move:string, ink:string, x:number, y:number, z:number, side:string, born:number, life:number}[]} */
   let lines = [];
   let step = 0;
 
   return {
-    /** Says one line over a world position. A second line from the same side replaces the first. */
-    say({ text, x, y = 0, z, side = 'a', life = CALLOUT_STEPS }) {
-      if (!text) return false;
+    /**
+     * Says one line over a world position. A second line from the same side replaces the
+     * first. `x,y,z` is the point the balloon's tail points *at* — the caller lifts it clear
+     * of the head already (`ui/plates.js`'s own `POKEMON_LIFT`/`TRAINER_LIFT`, plus a margin
+     * for the plate now living there too), because only the caller knows which of the two this
+     * speaker is.
+     *
+     * `name` and `move` are printed as two runs, `name` in the ordinary ink and `move` in
+     * `ink` (the type's own — `battle.typeColour(type).ink`, resolved by the caller so this
+     * file stays free of `battle`). A line with no `move` (a struggle, a status) prints `name`
+     * alone in the ordinary ink.
+     */
+    say({ name, move = null, ink = null, x, y = 0, z, side = 'a', life = CALLOUT_STEPS }) {
+      if (!name) return false;
       lines = lines.filter((l) => l.side !== side);
-      lines.push({ text: String(text), x, y: y + LIFT, z, side, born: step, life });
+      lines.push({ name: String(name), move, ink, x, y, z, side, born: step, life });
       return true;
     },
     /**
@@ -75,7 +83,11 @@ export function makeCallouts() {
         // Behind the camera, or off the buffer entirely: say nothing rather than clamping a
         // balloon to an edge it does not belong to.
         if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) continue;
-        const w = Math.min(g.width - 8, g.measure(l.text) + 10);
+
+        const moveW = l.move ? g.measure(`${l.move}!`) : 0;
+        const nameW = g.measure(l.move ? `${l.name}:` : l.name);
+        const text = moveW ? nameW + 3 + moveW : nameW;
+        const w = Math.min(g.width - 8, text + 10);
         const h = 12;
         // Centred on the speaker and nudged inside the frame, because a creature at the edge of
         // the screen still has something to say.
@@ -84,12 +96,36 @@ export function makeCallouts() {
         // (DECISIONS #18) — and `encounter` stages the wild two cells in front of the party's
         // Pokemon. So a balloon lifted clear of the wild's head lands precisely where the
         // Pokemon is standing, every time, and no vertical lift can separate them. Leaning the
-        // ally's line left and the wild's right does, and it reads the way a fight should.
+        // ally's line left and the wild's right does, and it reads the way a fight should — and
+        // the tail (below) still points at the true anchor, so the lean never reads as a balloon
+        // belonging to the wrong speaker.
         const lean = (l.side === 'b' ? 1 : -1) * (w / 2 + 6);
         const x = Math.round(Math.max(4, Math.min(g.width - w - 4, at.x - w / 2 + lean)));
-        const y = Math.round(Math.max(2, Math.min(g.height - h - 2, at.y - h)));
+        const y = Math.round(Math.max(2 + TAIL_H + TAIL_GAP, Math.min(g.height - h - 2, at.y - h - TAIL_H - TAIL_GAP)));
+
         panel(g, { x, y, w, h }, { paper: C.wallLight, edge: C.woodShadow, bevel: false, drop: true });
-        g.text(x + 5, y + 3, l.text, C.ink, { max: w - 10 });
+
+        // The tail, drawn *after* the panel (and its own drop shadow) rather than before —
+        // `drop: true` shades a strip right where the tail sits, and drawing under it left the
+        // tail's top row eaten by the panel's own shadow on the first cut of this.  A small
+        // downward-narrowing notch, anchored at the *true* projected point (clamped inside the
+        // balloon's own width) so a leaned balloon still visibly belongs to its speaker rather
+        // than to whatever happens to be under its centre.
+        const tipX = Math.round(Math.max(x + 4, Math.min(x + w - 4, at.x)));
+        for (let row = 0; row < TAIL_H; row++) {
+          const rw = Math.max(1, (TAIL_H - row) * 2 - 1);
+          g.fill(tipX - Math.floor(rw / 2), y + h + row, rw, 1, row === 0 ? C.woodShadow : C.wallLight);
+        }
+        // The tail's own outline, so it does not read as a paper-coloured blob with no edge.
+        g.fill(tipX - Math.floor(TAIL_H / 2) - 1, y + h, 1, TAIL_H, C.woodShadow);
+        g.fill(tipX + Math.floor(TAIL_H / 2), y + h, 1, TAIL_H, C.woodShadow);
+
+        if (l.move) {
+          const after = g.text(x + 5, y + 3, `${l.name}:`, C.ink, { max: nameW });
+          g.text(after + 3, y + 3, `${l.move}!`, l.ink ?? C.ink, { max: moveW });
+        } else {
+          g.text(x + 5, y + 3, l.name, C.ink, { max: w - 10 });
+        }
       }
     },
   };
