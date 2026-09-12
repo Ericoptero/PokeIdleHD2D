@@ -1,24 +1,24 @@
 {
   "updated": "2026-09-12",
-  "commit": "d6ee6c5",
+  "commit": "66f49b5",
   "seed": 1337,
-  "now": "A hunt is field-first (DECISIONS #84) with nameplates everywhere (DECISIONS #85), and a turn's strikes drain one beat at a time — config.actionSteps (18) apart, never two in the same tick (DECISIONS #86) — so the trainer's Pokémon and the wild never attack together. Each strike now carries a balloon with a tail, the move's own name coloured by its type via battle.typeColour, and a damage/MISS/IMMUNE/status floater over the target — one canonical TYPE_INK table replacing the four copies that used to exist (DECISIONS #87). The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
+  "now": "A hunt is field-first (DECISIONS #84) with nameplates everywhere (DECISIONS #85), a turn's strikes drain one beat at a time (DECISIONS #86), and each strike carries a balloon, a type-coloured move name and a damage floater (DECISIONS #87). A strike's own effect is now three shaders — a shared particle field, a ribbon and a ground ring, eighteen types crossed with five motions and six particle roles — replacing the eighteen-palette pixel-art system that shared one sprite across 291 contact moves; a deliberate, named exception to the pixel-art-only doctrine, at the user's own request (DECISIONS #88). The economy loop is still the open work: research, which every automation costs, cannot be minted from a fresh save, and loot cannot be sold by hand.",
   "gate": {
     "at": "2026-09-12",
-    "result": "every stage passed (376 s)",
+    "result": "every stage passed (314 s)",
     "seconds": {
-      "lint": 2.5,
+      "lint": 2.6,
       "typecheck": 0.5,
-      "seams": 1.5,
-      "unit": 0.9,
-      "build": 3.6,
-      "coldboot": 3.9,
-      "boot": 105.4,
-      "flows": 87.9,
-      "parity": 55.5,
-      "regress": 114.7
+      "seams": 1.6,
+      "unit": 1.2,
+      "build": 3.9,
+      "coldboot": 5.6,
+      "boot": 101.2,
+      "flows": 73.8,
+      "parity": 37.7,
+      "regress": 86.0
     },
-    "baseline": "docs/baseline.json — 1280x720, 18 regress rows; 2 improved (boot/12, both directions preferred, carried over from slice 017, unrelated to this slice), 0 regressed on this commit"
+    "baseline": "docs/baseline.json — 1280x720, 20 regress rows (2 new: encounter/vfx-projectile/12, encounter/vfx-field/21); 0 improved/regressed/moved against this commit's own accepted baseline. Two earlier gate attempts in this session FAILED on unrelated fps/timing flakiness (boot's tiles/preview showcases, three flow tests) traced to an orphaned headless-Chrome process left running from hours earlier in the same environment, competing for CPU/GPU — killed, then a clean re-run passed every stage. A real, separate mistake in this same session: the first --accept run was executed with no dev server on the default port, which silently overwrote all 18 prior baseline rows (not just the 2 new ones) with net::ERR_CONNECTION_REFUSED placeholders — caught by review before commit, restored from HEAD's docs/baseline.json, and re-accepted against a real, verified-live server; the diff against the pre-slice baseline was re-derived and matches what was originally reported (3 improved: encounter/vfx/21, boot/12 x2; 2 moved: the 2 new rows)."
   },
   "open": [
     {
@@ -129,6 +129,12 @@
       "module": "encounter",
       "what": "encounter.begin()'s scene.ready = showWild(...).then(id => { if (scene) {...} }) guards the write-back but not the spawn: pokemon.sprites.spawn() has already run and minted an actor by the time this callback fires, and if cancel() (a travel out, or a second begin()) has already nulled scene, that actor is never pokemon.sprites.remove()d — found while reviewing DECISIONS #84, which sits a retireNpc() call in the same callback but does not touch this pre-existing gap.",
       "repro": "start a hunt encounter, then synchronously call encounter.cancel() before scene.ready resolves (before the sprite sheet fetch/atlas prepare lands) — pokemon.sprites.count() is one higher than it should be and stays that way"
+    },
+    {
+      "id": "showcase-throw-family-stuck",
+      "module": "encounter",
+      "what": "?showcase=encounter&mode=throw (and shake/caught/escaped/night, which all share throw:true) never reaches the airborne ball: scene().stage stays 'fight' instead of advancing to 'throw'. advanceToStage('throw', frac) computes its target off marks(scene).throwAt, which is only finite once the duel has actually been won — but showcase.js's own pre-roll (advanceToStage('meet', 1)) does not carry the duel far enough to decide a winner first, so the target is non-finite and advanceToStage logs its own 'nothing was thrown' warning and returns without advancing. Predates slice 019 (the shader VFX rewrite): confirmed via a git-stash round-trip that HEAD before 019 reproduces the identical stuck 'fight' stage at the identical URL, and slice 019 touches no code on this path (marks(), T.THROW, fightEndsAt are all untouched by it). Found incidentally while verifying slice 019's lateFrame rename against a real thrown ball instead of this showcase mode.",
+      "repro": "boot /?showcase=encounter&mode=throw&tod=12&seed=1337&timeFrozen=1 — __CTX__.get('encounter').scene().stage reads 'fight', never 'throw'"
     }
   ],
   "modules": {
@@ -169,7 +175,8 @@
         "shiny-charm-id-mismatch",
         "watched-win-mints-money",
         "selftest-in-bundle",
-        "cancel-races-spawn-actor"
+        "cancel-races-spawn-actor",
+        "showcase-throw-family-stuck"
       ]
     },
     "environment": {

@@ -147,8 +147,9 @@ export const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', 
 
 /** Draws one 16x16 grid into a canvas at 1 texel per pixel. */
 /**
- * Pixel art to a canvas. Exported so `strikes.js` builds its move effects the same way this
- * file builds its ball — one grid, one palette swap, one nearest-filtered texture (#78).
+ * Pixel art to a canvas — one grid, one palette swap, one nearest-filtered texture (#78). Once
+ * shared with `encounter/strikes.js`'s own move effects too; that file is gone (DECISIONS #88,
+ * a deliberate shader rewrite for that system only), so this is the ball's own helper again.
  */
 export function paint(art, palette, size) {
   const canvas = document.createElement('canvas');
@@ -524,7 +525,8 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     /**
      * Re-apply the airborne pixel-grid scale against the camera as it is *now*.
      *
-     * Called once per rendered frame from the module's `frame` hook. It is a no-op unless the
+     * Called once per rendered frame from the module's `lateFrame` hook (DECISIONS #88 — moved
+     * from `frame` so this runs after the camera rig has actually updated). It is a no-op unless the
      * ball is in the air, and it reads nothing but the camera — so a frozen scene stays
      * deterministic (the camera spring converges to the same place from the same URL) while a
      * moving one keeps the ball's texels on the grid as the camera follows.

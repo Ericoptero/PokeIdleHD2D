@@ -56,6 +56,11 @@ export const MATRIX = [
   // bloom threshold (DECISIONS #79). Without a row here neither would be noticed again.
   { id: 'encounter/vfx/12', showcase: 'encounter', mode: 'vfx-contact', tod: 12 },
   { id: 'encounter/vfx/21', showcase: 'encounter', mode: 'vfx-contact', tod: 21 },
+  // The other two deliveries, one row each (slice 019's shader rewrite) — without these, a
+  // beam's travel or a ground ring's growth could break and only `vfx-contact`'s own row
+  // would ever be re-checked.
+  { id: 'encounter/vfx-projectile/12', showcase: 'encounter', mode: 'vfx-projectile', tod: 12 },
+  { id: 'encounter/vfx-field/21', showcase: 'encounter', mode: 'vfx-field', tod: 21 },
   { id: 'boot/12', tod: 12 },
 ];
 

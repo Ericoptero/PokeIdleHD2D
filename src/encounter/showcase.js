@@ -809,9 +809,14 @@ const STOP = {
    * `?showcase=encounter&mode=vfx-contact&vfxType=fire` overrides the element, so all eighteen
    * are reachable from a URL without eighteen modes.
    */
-  'vfx-contact': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.25 } },
-  'vfx-projectile': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.45 } },
-  'vfx-field': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'field', phase: 0.5 } },
+  // Phases land inside each shape's own **impact** beat (`vfx/elements.js` BEATS) — the
+  // moment the burst/ring/trail is at its fullest — not the earlier, quieter charge/deliver
+  // beats a fixed screenshot would otherwise catch mid-fade-in (DECISIONS #88 corrects this
+  // from the previous system's own 0.25/0.45/0.5, tuned for a hard-edged painted quad rather
+  // than a shader whose brightness genuinely ramps through its beat).
+  'vfx-contact': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.58 } },
+  'vfx-projectile': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.72 } },
+  'vfx-field': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'field', phase: 0.65 } },
 
   // **k = 3, i.e. two thirds of the distance every other mode frames at.** `mode=walk` has no
   // ball and no wild in it: its whole claim is that the lead is standing on a cell tagged

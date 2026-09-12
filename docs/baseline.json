@@ -160,15 +160,15 @@
    "fps": 60,
    "drawCalls": 221,
    "consoleErrors": 0,
-   "mean": 89.61,
-   "p50": 84,
-   "p95": 177,
-   "p99": 234,
+   "mean": 89.26,
+   "p50": 82,
+   "p95": 185,
+   "p99": 248,
    "max": 255,
-   "belowL8Pct": 2.395,
-   "pureBlackPct": 0.13,
-   "over200Pct": 3.661,
-   "saturation": 0.5585
+   "belowL8Pct": 2.339,
+   "pureBlackPct": 0.128,
+   "over200Pct": 4.321,
+   "saturation": 0.5548
   },
   "environment/12": {
    "fps": 60,
@@ -214,31 +214,31 @@
   },
   "encounter/vfx/12": {
    "fps": 60,
-   "drawCalls": 58,
+   "drawCalls": 57,
    "consoleErrors": 0,
-   "mean": 98.25,
-   "p50": 108,
+   "mean": 98.68,
+   "p50": 109,
    "p95": 148,
-   "p99": 164,
+   "p99": 167,
    "max": 255,
-   "belowL8Pct": 0.293,
-   "pureBlackPct": 0.003,
-   "over200Pct": 0.287,
-   "saturation": 0.6867
+   "belowL8Pct": 0.268,
+   "pureBlackPct": 0.002,
+   "over200Pct": 0.329,
+   "saturation": 0.6833
   },
   "encounter/vfx/21": {
    "fps": 60,
-   "drawCalls": 64,
+   "drawCalls": 63,
    "consoleErrors": 0,
-   "mean": 47.38,
-   "p50": 46,
-   "p95": 91,
-   "p99": 146,
+   "mean": 47.99,
+   "p50": 47,
+   "p95": 94,
+   "p99": 153,
    "max": 255,
-   "belowL8Pct": 0.862,
+   "belowL8Pct": 0.829,
    "pureBlackPct": 0,
-   "over200Pct": 0.423,
-   "saturation": 0.645
+   "over200Pct": 0.466,
+   "saturation": 0.6396
   },
   "pokecenter/12": {
    "fps": 60,
@@ -253,6 +253,34 @@
    "pureBlackPct": 0,
    "over200Pct": 0.969,
    "saturation": 0.4909
+  },
+  "encounter/vfx-projectile/12": {
+   "fps": 60,
+   "drawCalls": 57,
+   "consoleErrors": 0,
+   "mean": 98.6,
+   "p50": 109,
+   "p95": 148,
+   "p99": 168,
+   "max": 255,
+   "belowL8Pct": 0.268,
+   "pureBlackPct": 0.002,
+   "over200Pct": 0.33,
+   "saturation": 0.6843
+  },
+  "encounter/vfx-field/21": {
+   "fps": 60,
+   "drawCalls": 62,
+   "consoleErrors": 0,
+   "mean": 47.99,
+   "p50": 47,
+   "p95": 94,
+   "p99": 163,
+   "max": 255,
+   "belowL8Pct": 0.828,
+   "pureBlackPct": 0,
+   "over200Pct": 0.466,
+   "saturation": 0.64
   }
  }
 }

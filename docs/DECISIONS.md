@@ -1032,3 +1032,133 @@ hit anyway, or spend a turn budget hunting for a miss that might not come in tim
 of the listener is checked by reading `floaters.test.js`'s direct push of
 `{text:'MISS'}`/`{text:'IMMUNE'}` and by inspection of the (short, mechanical) mapping in
 `ui/index.js`, not by a live repro — a deterministic one is future work, not a closed question.
+
+### 88 — 2026-09-12 — A strike's effect is three shaders now, a named exception to "always pixel art"
+
+The user asked, in their own words, for the attack effects to be "muito bem feito e bonito,
+moderno e complexo" — well-made, beautiful, modern and complex, for an elemental MMORPG — and,
+when asked directly during planning, chose a fully modern/shader look over a pixel-art-consistent
+redesign. That choice **revokes CLAUDE.md's "Compose from real geometry" rule** ("an untextured
+box, a magenta placeholder or a flat-shaded primitive is a bug, not a milestone") and the doctrine
+`strikes.js` (deleted this slice) stated as "never a coloured primitive" — for this one system,
+named here, and nowhere else. The rest of the game is still pixel art painted to a canvas and
+sampled `NearestFilter`; a reviewer who finds a `ShaderMaterial` anywhere else in `src/` has found
+a real bug, not a precedent this entry set.
+
+**What replaced `strikes.js`.** `encounter/vfx/elements.js` is pure data: `shapeOf(move)` moved
+here unchanged (contact/projectile/field, read off the move's category); `PROFILE`, eighteen
+types crossed with five motions (rise/fall/zigzag/orbit/spiral) and six particle roles
+(spark/ember/shard/droplet/leaf/dust) — the personality the old system never had, since its own
+eighteen palettes were one sprite recoloured eighteen times (the exact defect DECISIONS #79
+recorded: 291 contact moves sharing one star); `BEATS[shape]`, a four-beat `charge → deliver →
+impact → resolve` timeline covering `[0,1]` with no gap, pinned by `selftest.js` and
+`elements.test.js` alike. `particles.js`/`beams.js`/`ground.js` are the three `ShaderMaterial`s —
+copying `environment/weather.js`'s own pattern, named as the one to copy in the plan: one
+hand-built `BufferGeometry`, one draw call, placement computed **in the vertex shader** from a
+per-vertex seed and a handful of uniforms, no `InstancedMesh`, no per-frame CPU matrix writes.
+`play.js` orchestrates the three against the beat timeline and keeps the exact
+`play({shape,type,from,to,crit,effectiveness})`/`phase(p)`/`hide()`/`playing()`/`dispose()`
+contract `strikes.js` already offered, so `encounter/index.js`'s own changes are an import swap,
+`scene.vfx` gaining `crit`/`effectiveness` (threaded through for a super-effective hit's second
+ring and a crit's white flash), and its render-rate hook moving from `frame` to `lateFrame`.
+
+**Colour is read, not carried.** `core`/`edge` come from `battle.typeColour(type)` (DECISIONS
+#87) rather than a fourth copy of the table — `strikes.js`'s own values were the ones DECISIONS
+#87 carried into `battle/types.js` unmoved, on the promise that this slice would be the one to
+actually delete the file that used to own them, which it now has.
+
+**No `refit()` for the new system, and reality found this for free.** The plan's own wording
+("`refit()` migra de `frame` para `lateFrame`") assumed the new billboards would still need a
+per-frame camera-quaternion copy the way `ball.js`'s sprite and the old `strikes.js` quads did.
+They don't: `particles.js` and `beams.js` add their local offset in *view space*, after
+`modelViewMatrix` — the same trick `weather.js` already uses for rain and mist — which is
+already correct for whatever camera the renderer draws with this frame, with nothing left for a
+per-frame call to repeat. The hook still moves to `lateFrame`, because `ball.js`'s own sprite
+billboard still needs the camera to have already been updated by `rig.update()`
+(`src/main.js`) — the same reason `pokemon/index.js`'s sprites pose there. `encounter`'s own
+`refit()` API method now calls only `sprite.refit()`.
+
+**One real bug, caught by screenshot, not by a static check.** The ribbon's width was first
+added along a fixed view-space axis; for a bowed arc that axis is nearly parallel to the bow's
+own sweep at this camera's pitch, so instead of a thin stroke tracing the curve, the two offsets
+stacked and filled in one solid wedge the size of the whole swept arc — found because a solid
+magenta test fill rendered exactly the footprint of a nearby terrain prop, sized like the whole
+bow, not a stroke that should have read as much smaller. Fixed by sampling the curve a hair
+further along, projecting *that* point to view space too, and turning the resulting 2-D tangent
+90° — the width direction now genuinely follows the curve regardless of camera angle. A second,
+smaller issue: the ground ring's fragment shader judged distance in the raw `[-1,1]` UV square
+rather than world units, so `uRadius`/`uThickness` meant a different physical size than the
+number suggested; fixed by baking the plane's own half-width into the shader so a radius is a
+literal world-space distance.
+
+**The showcase's own staged phases moved.** `vfx-contact`/`vfx-projectile`/`vfx-field` used to
+freeze at 0.25/0.45/0.5 — tuned for the old system's hard-edged painted quad, which was already
+at full opacity the instant it appeared. This system's brightness genuinely ramps through its
+own beat, so the same phases caught two of three shapes early in their charge/deliver beat,
+before the burst had anything to show — corrected to land inside each shape's own **impact**
+beat (0.58/0.72/0.65) instead, where the effect is at its fullest. `regress`'s existing
+`encounter/vfx/12`/`encounter/vfx/21` rows (contact) moved as a result and are `--accept`ed in
+this commit, alongside two new rows this slice adds — `encounter/vfx-projectile/12` and
+`encounter/vfx-field/21` — so the other two deliveries are pinned to a frame someone looked at
+too, not left to `vfx-contact`'s row alone the way DECISIONS #79 first shipped it.
+
+**Verified by screenshot, per CLAUDE.md's own rule that `regress` cannot see composition**: a
+fire contact at noon reads as a bright ember burst with a visible golden arc slash beneath it;
+an ice projectile at 21:00 is a pale-blue comet with a trailing streak, landing in a small icy
+burst; a psychic field at 21:00 is a magenta ring glowing on the ground under the wild, with
+motes swirling up through it; an electric contact at 21:00 (DECISIONS #79's own hard case) is a
+bright yellow-white flash with a faint ring, not the washed-out blob the old system risked at a
+low bloom threshold. A real fight (not a showcase) was also checked end-to-end at
+`?scene=hunt-meadow&seed=1337`: a normal-type Tackle produced a small, appropriately modest
+burst (`normal`'s own `intensity: 0.7`, the lowest of the eighteen) alongside the balloon,
+nameplate and floater from slices 016–018, all three systems reading correctly on the same
+frame with zero console errors.
+
+**Budget.** Three `ShaderMaterial`s while a strike is playing, one draw call each — measured via
+`node tools/shots/boot.js`: 17 programs and 54 draw calls for the `encounter` showcase, both
+comfortably inside the `programs ≤ 60` / `drawCalls ≤ 1500` budgets `tools/shots/shoot.js`
+enforces.
+
+**Review found one real, serious mistake in this same session, caught before commit: the
+baseline itself was briefly destroyed.** The first `regress.js --accept` was run with no dev
+server listening on the default port — the command still exits 0 and prints "baseline updated:
+N rows", so nothing announced the failure — and silently overwrote **all 18 pre-existing rows**,
+not just this slice's 2 new ones, with `net::ERR_CONNECTION_REFUSED` placeholders. Because
+`compare()` only diffs metrics present on both sides, a baseline of bare error objects makes
+every future `regress` run report a false "0 improved, 0 regressed, 0 moved" — the entire
+project's visual-regression net would have been silently disabled by this slice's own commit.
+Caught by review, not by any check: fixed by restoring `docs/baseline.json` from `HEAD`, then
+re-running `--accept` against a real, curl-verified-live dev server, then confirming every row
+holds real numeric fields (not an `error` key) before trusting it again. The lesson this leaves
+behind: **`--accept`'s own exit code is not evidence a capture succeeded** — a future run should
+check the resulting file for `error` keys, not just that the command returned 0.
+
+**Review also flagged the contact arc as looking like a solid dome rather than "a thin stroke",
+contradicting this entry's own claim.** Traced to a coincidence, not a regression: the
+showcase's fixed staging position happens to sit a wild Marill directly behind this map's own
+terrain mushroom decal, which is a similar warm gold colour and a similar dome silhouette —
+confirmed by isolating the beam mesh alone (every other mesh hidden) at the reviewer's exact
+settings and finding no wedge shape at all, only the pre-existing decal. That said, the beam
+*was* under-tuned on its own merits: sampled at a pure mid-deliver phase with the decal's
+influence set aside, the arc alone was close to invisible against noon-bright grass. Retuned
+(width `0.32→0.5`, bow `0.55→0.7`, and a `sqrt` opacity ramp through the deliver beat so the
+slash reads early rather than only once the burst beside it is already doing the work) —
+verified this did not move `regress`'s own `encounter/vfx/*` rows outside tolerance.
+
+**The tester's own pass, independent of the above, found three more things**: `MOTION_CODE`/
+`ROLE_CODE` were checked for internal self-consistency but never against `PROFILE`'s actual
+`motion`/`role` values — a sixth motion added to the enum without a matching code entry would
+pass both existing suites while handing `particles.js` an `undefined` shader uniform at
+runtime, invisible to `regress`'s scalar metrics; closed by
+`vfx/elements-shader-codes.test.js`. No flow test drove a **real** fight through the new VFX at
+all (`elements.test.js` and `selftest.js` are pure-logic only, and `stageStrike` is a
+manufactured call, not a genuine strike) — closed by `tests/flows/vfx-real-fight.spec.js`,
+which also proves the `frame`→`lateFrame` rename is a real rename and not a stale duplicate key
+(reading `ctx.registry.descriptor('encounter')` directly, since a duplicate `frame` key would
+still fire and a screenshot-only check could not tell the two apart), and separately confirms a
+real thrown ball (via the actual `KeyZ` hotkey, not `encounter.attempt()`) still renders through
+the renamed hook end to end. Verifying the `lateFrame` rename via the showcase's own
+`mode=throw` turned out to be unreliable for an unrelated reason, found along the way: that
+mode (and `shake`/`caught`/`escaped`/`night`) never reaches an airborne ball — confirmed
+pre-existing via a git-stash round-trip against pre-019 `HEAD`, unrelated to this slice, logged
+as `docs/STATUS.json`'s `showcase-throw-family-stuck`.

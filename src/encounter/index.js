@@ -45,7 +45,7 @@
  */
 
 import { makeBallSprite } from './ball.js';
-import { makeStrikeVfx, shapeOf } from './strikes.js';
+import { makeStrikeVfx, shapeOf } from './vfx/play.js';
 import { planBeats } from './beats.js';
 import {
   SHINY_RATE, SHINY_RATE_CHARM,
@@ -467,7 +467,12 @@ export default {
       const bt = ctx.get('battle');
       const moveRec = strike.move && isLive(bt) && typeof bt.move === 'function' ? bt.move(strike.move) : null;
       scene.vfx = strike.move
-        ? { at: step, shape: shapeOf(moveRec), type: moveRec?.t ?? 'normal', toWild: strike.target === 'b' }
+        ? {
+          at: step, shape: shapeOf(moveRec), type: moveRec?.t ?? 'normal', toWild: strike.target === 'b',
+          // Threaded through so `play.js` can add a super-effective hit's second ring and a
+          // crit's white flash (DECISIONS #88) without `ui`'s own copy of the same fields.
+          crit: !!strike.crit, effectiveness: strike.effectiveness ?? 1,
+        }
         : null;
       if (config.showcase) return;
       bus.emit('battle:strike', {
@@ -641,6 +646,7 @@ export default {
             shape: s.vfx.shape, type: s.vfx.type,
             from: s.vfx.toWild ? mine : theirs,
             to: s.vfx.toWild ? theirs : mine,
+            crit: s.vfx.crit, effectiveness: s.vfx.effectiveness,
           });
           strikeVfx.phase((step - s.vfx.at) / T.STRIKE);
         } else {
@@ -1544,7 +1550,7 @@ export default {
        * three times of day rather than only reachable by waiting for the right move
        * (DECISIONS #79).
        */
-      stageStrike({ shape = 'contact', type = 'normal', phase = 0.25 } = {}) {
+      stageStrike({ shape = 'contact', type = 'normal', phase = 0.25, crit = false, effectiveness = 1 } = {}) {
         const sim = ctx.get('simulation');
         const head = isLive(sim) ? sim.followerCell?.() : null;
         const target = scene?.at ?? (head ? { cx: head.cx, cz: head.cz - 2, y: 0 } : { cx: 0, cz: 0, y: 0 });
@@ -1552,9 +1558,8 @@ export default {
           ? { x: head.cx + 0.5, y: surfaceAt(head.cx, head.cz), z: head.cz + 0.5 }
           : { x: target.cx + 0.5, y: target.y ?? 0, z: (target.cz ?? 0) + 2.5 };
         const theirs = { x: (target.cx ?? 0) + 0.5, y: target.y ?? 0, z: (target.cz ?? 0) + 0.5 };
-        strikeVfx.play({ shape, type, from: mine, to: theirs });
+        strikeVfx.play({ shape, type, from: mine, to: theirs, crit, effectiveness });
         strikeVfx.phase(phase);
-        strikeVfx.refit();
         frozen = true;
         return { shape, type, phase, from: mine, to: theirs };
       },
@@ -1572,10 +1577,13 @@ export default {
        * which the harness captures alongside the PNG.
        */
       /**
-       * Re-fits the airborne ball to the camera. Driven by the module's `frame` hook; see
-       * `ball.js` `refit()` for why it cannot be done once at placement time.
+       * Re-fits the airborne ball to the camera. Driven by the module's `lateFrame` hook; see
+       * `ball.js` `refit()` for why it cannot be done once at placement time. `strikeVfx` has
+       * no equivalent method any more (DECISIONS #88): its meshes billboard by construction,
+       * adding their local offset in view space rather than copying a camera quaternion, so
+       * there is nothing here left for a per-frame call to do.
        */
-      refit() { sprite.refit(); strikeVfx.refit(); },
+      refit() { sprite.refit(); },
 
       /** Resolves once the wild Pokemon's sprite is actually in the field. */
       ready: () => scene?.ready ?? Promise.resolve(0),
@@ -1793,11 +1801,13 @@ export default {
   },
 
   /**
-   * Render-rate, and it does exactly one thing: keep the thrown ball's sprite on the pixel
-   * grid as the camera moves. Deliberately not an animation hook — the moment is driven by
-   * `tick` on the fixed step so a frozen scene is a frozen picture (DECISIONS #14).
+   * `lateFrame`, not `frame` (DECISIONS #88): the ball's sprite billboard reads the camera to
+   * face it, and the camera does not move until `rig.update()` has run between `frame` and
+   * `lateFrame` (`src/main.js`) — `pokemon/index.js`'s own sprites move here for the same
+   * reason. Deliberately not an animation hook either way — the moment is driven by `tick` on
+   * the fixed step so a frozen scene is a frozen picture (DECISIONS #14).
    */
-  frame(dt, alpha, ctx) {
+  lateFrame(dt, alpha, ctx) {
     ctx.get('encounter').refit?.();
   },
 

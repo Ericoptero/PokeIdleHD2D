@@ -79,13 +79,16 @@ export const isType = (t) => T.has(String(t ?? '').toLowerCase());
 /**
  * One colour triple per type — `core`/`edge` for a strike's own effect, `ink` for its name
  * printed over paper (a balloon, a floater). Canonical: this used to be four independent
- * copies (`encounter/strikes.js`, `ui/panels/dex.js`, `idle/panel.js`,
- * `collection/showcase.js`), and the ask that a balloon colour its move name by type is what
- * made the fourth one land here instead of copying the pattern a fifth time.
+ * copies (`encounter/strikes.js` — deleted in the shader VFX rewrite, DECISIONS #88 — plus
+ * `ui/panels/dex.js`, `idle/panel.js`, `collection/showcase.js`), and the ask that a balloon
+ * colour its move name by type is what made the fourth one land here instead of copying the
+ * pattern a fifth time; `dex.js`'s own copy has since been retired too (DECISIONS #87), so
+ * `encounter/vfx/*.js` and `dex.js` both now read `core`/`edge`/`ink` from here.
  *
- * `core`/`edge` are unchanged from `strikes.js`'s own table — chosen against the mainline's
- * colour language, checked there against this renderer's bloom threshold (DECISIONS #79).
- * `ink` is **derived, not chosen**: `edge`, darkened in equal steps (RGB scaled together, so
+ * `core`/`edge` are unchanged from `strikes.js`'s own table, carried forward verbatim into
+ * `encounter/vfx/play.js`'s shaders — chosen against the mainline's colour language, checked
+ * against this renderer's bloom threshold (DECISIONS #79). `ink` is **derived, not chosen**:
+ * `edge`, darkened in equal steps (RGB scaled together, so
  * the hue does not shift) until its WCAG contrast ratio against `C.wallLight` (the balloon's
  * own paper, `#F5E9CE`) clears 4.5:1 — the same threshold this project already cites for a
  * readable pair elsewhere (DECISIONS #77's "5.2:1 to 2.5:1" collapse). Eight of the eighteen
