@@ -32,6 +32,7 @@ import { makeBattle } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
 import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
+import { makeInventory } from './panels/inventory.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
@@ -186,6 +187,7 @@ export default {
       dex: makeDex(app),
       automation: makeAutomation(app),
       party: makeParty(app),
+      inventory: makeInventory(app),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
     };
@@ -317,6 +319,7 @@ export default {
         { id: 'party', label: 'PARTY', key: 'P' },
         { id: 'shop', label: 'SHOP', key: 'B' },
         { id: 'boxes', label: 'BOX', key: 'C' },
+        { id: 'inventory', label: 'BAG', key: 'I' },
         { id: 'dex', label: 'DEX', key: '4' },
         // Only when there is an `automation` to configure: a chip that opens an empty window is
         // worse than no chip, and the strip is already the widest thing on the bottom bar.

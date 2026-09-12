@@ -67,6 +67,25 @@ toggle — the one write action this panel needs.
   `ui`), since the user's own direction ("caso seja item use um placeholder") makes the gap
   deliberate but still worth tracking until real art exists.
 
+**Amended during implementation** (re-inspection before editing, as the process requires):
+
+- `src/ui/panels/common.js` (015/016, already landed) — `windowFrame(g, opts)` now **requires**
+  both `windowId` and `reserved: app.hudReserved()` in every call's `opts`, and `full` is inert
+  data, not a sizing hint (both true when this slice's own "Inspected" section above was
+  written, but worth restating since every other panel's call site — `shop.js`, `party.js` — was
+  re-read before writing `inventory.js`'s own `windowFrame` call, which follows the identical
+  shape). No contradiction found, just confirmed.
+- `src/automation/index.js:1074-1078` (`preview(id)`) — acceptance criterion 4's own framing
+  ("once research is granted... a subsequent `automation.preview('sell')`... excludes the locked
+  item") reads as if `preview()` only reflects a sell-lock once the automation is unlocked.
+  Reality: `preview(id)` calls `planSell()`/`planRelease()`/`planRestock()` directly with no
+  `engine.isActive(id)` gate at all — only `run(id)` checks that. `planSell()`'s sell-lock check
+  (`economy.sellLocked?.(id)`, `automation/index.js:610`) runs regardless of unlock/enable state,
+  so `preview('sell')` would have excluded a locked item even with `research: 0` and `sell`
+  never unlocked. The flow test still grants research and calls `unlock('sell')` — it is a more
+  realistic rehearsal of the actual player path and costs nothing to keep — but the gate it
+  proves past is `economy.setSellLock`, not `automation`'s own unlock state.
+
 ## Files / modules affected
 
 New: `src/ui/panels/inventory.js`, `src/ui/panels/inventory.test.js`.
@@ -134,4 +153,97 @@ comment is corrected. The trainer panel (019).
 
 ## Result
 
-Filled in when done.
+**Starting `npm run gate:fast`** (before any edit, matching the working tree at `9a6a8e8`):
+
+```
+  lint       ok       2.5s
+  typecheck  ok       0.5s
+  seams      ok       1.6s
+  unit       ok       0.9s
+  build      skipped
+  coldboot   skipped
+  boot       skipped
+  flows      skipped
+  parity     skipped
+  regress    skipped
+  total               5.5s
+✓ gate: every stage passed
+```
+(70 passed, 1 expected fail — `unit`'s pre-existing `STATUS:research-unmintable` pin.)
+
+**What shipped.** `src/ui/panels/inventory.js` (new): `makeInventory(app)`, a panel following the
+`windowFrame({windowId, reserved: app.hudReserved(), ...fit(g, w, h)})` shape every other panel
+uses post-016 — BAG/STASH tabs, a category filter row built from whatever categories the active
+tab's own rows actually carry (never a dead tab), a `dark:true` recessed item grid (`list()`,
+015's scrollbar/wheel primitive) with a placeholder category mark + count + stack-fill meter per
+row, and a detail pane with the one write control (the sell-lock toggle,
+`economy.setSellLock(id, !locked)`). `filterRows(app, tab, category)` is the row-building
+function, exported standalone and also exposed as `panel.rows(tab, category)` (the `travel.js`
+precedent) so `inventory.test.js` drives it with a fake `economy` and no canvas. The panel
+subscribes to `economy.onChange(fn)` on `open()` (unsubscribing on `close()`) since `economy` has
+no bus event for a bare item-count change.
+`src/ui/theme.js`: seven placeholder category marks (`itemMark(g, x, y, category, tier, opts)`,
+one 7×7 bitmap per category — ball/medicine/candy/evolution/lure/held/treasure — tinted by tier
+off the four-tone dark side of the recess ramp, `pokeball()`'s own no-image-load style).
+`src/ui/index.js`: `inventory: makeInventory(app)` in `PANELS`, a `BAG` strip chip.
+`src/ui/input.js`: `PANEL_IDS` gains `inventory`; `KeyI` and `Digit7` open it.
+`src/ui/panels/shop.js`: the stale "no screen of its own yet" comment corrected to point at the
+new panel instead of describing an absence that no longer exists.
+`src/ui/selftest.js`: a character-coverage check over every string `inventory.js` can draw
+(the seven category labels plus one real `desc` per category, literal per seam rule 2 — no
+cross-module import of `economy/items.js`); the pre-existing "authored panel size" clamp check
+gained `inventory`'s `480×264` and, found while extending it, `automation.js`'s own `600×300`,
+which had been missing from that list since `automation.js` shipped (a latent gap, not something
+this slice's own change caused, fixed here because it sits in the same array for the same
+reason).
+`docs/STATUS.json`: new `open` entry `item-icon-placeholders` (module `ui`); `no-manual-sell`'s
+`what` corrected — `economy.stash()`/`bag()` now have a caller in `src/ui`, but that caller's one
+write action is the sell-lock, not a sell button, so the entry's substance (no player-facing sell
+path) still stands.
+`ARCHITECTURE.md` §5.12: the panel id list gains `inventory`; the key list gains `KeyI`/`Digit7`;
+the `full` panel count corrected 5→6; a new paragraph describing the panel and `itemMark`.
+Tests: `src/ui/panels/inventory.test.js` (vitest, 7 cases — the row filter, both tabs, a category
+filter, a category absent from the active tab, a quarantined `economy`, the panel's own exposed
+`rows()`, every category has a label) and `tests/flows/inventory.spec.js` (Playwright, 3 cases —
+acceptance criteria 2, 3, 4: the fresh-save starting kit exactly, a real `economy.buy()` call
+updating the open panel's count with `screen.dirty` proving the `onChange`→`markDirty` wiring
+fired (not a fresh read on reopen), and a real click on the panel's own `sell-lock` region
+flipping `economy.sellLocked()` and excluding the item from a subsequent
+`automation.preview('sell')`).
+
+**Verification in the real application.** Screenshotted directly (Playwright script against a
+manually-started `vite --port 48173`, not committed): a fresh save's BAG tab shows Poké Ball
+×20, Potion ×10, Ether ×3, Super Potion ×3, Revive ×2 with the ALL/BALL/MEDICINE category tabs
+and a visible stack-fill meter per row; giving the trainer one item of every category and
+re-opening shows all seven category tabs and seven distinct marks; the STASH tab (after
+`economy.give('nugget', …)`) shows the `L` lock glyph on a locked row and the UNLOCK/LOCK detail
+button flips as expected. One artifact noticed and *ruled out* as unrelated to this slice: a
+"READY" callout with a progress bar bleeds through on top of **every** panel in this build,
+`inventory` included — confirmed by opening the pre-existing `shop` panel in the identical scene
+and seeing the identical bleed-through at the identical pixel position. Cause: `ui/index.js`'s
+`draw()` calls `callouts.draw(g, project)` *after* `state.panel.draw(g, app)` unconditionally, so
+a world callout always paints over whatever panel is open — an existing ordering this slice did
+not touch and is out of its "Files / modules affected" list.
+
+**Final `npm run gate`** (`GATE_PORT=48173`, no other process bound to that port or its `+1`
+checked first via `ps`/`lsof`):
+
+```
+  lint       ok       2.5s
+  typecheck  ok       0.5s
+  seams      ok       1.6s
+  unit       ok       0.9s
+  build      ok       3.7s
+  coldboot   ok       3.9s
+  boot       ok       91.5s
+  flows      ok       76.8s
+  parity     ok       37.2s
+  regress    ok       70.1s
+  total               288.7s
+✓ gate: every stage passed
+```
+`boot`: 24/24 entry points (18 showcases + 6 scenes) still draw a real frame — `inventory` is a
+panel inside `ui`, not a registered module, so it adds no new showcase entry point of its own.
+`flows`: 35/35, including the 3 new `tests/flows/inventory.spec.js` cases.
+`regress`: **0 improved, 0 regressed, 0 moved, across 18 frames** — none of the 18 fixed regress
+captures open the inventory panel, so no baseline re-accept is needed and none was done.

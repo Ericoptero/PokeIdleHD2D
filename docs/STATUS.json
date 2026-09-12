@@ -31,7 +31,7 @@
     {
       "id": "no-manual-sell",
       "module": "economy",
-      "what": "There is no player-facing sell path. economy.sell() has exactly one caller, automation.runSell (automation/index.js:633), behind the research-priced 'sell' unlock; the shop panel only buys (ui/panels/shop.js); economy.stash()/bag() have no caller in src/ui. With research-unmintable, loot never becomes money in play, against CLAUDE.md's 'money is earned by selling'.",
+      "what": "There is still no player-facing sell path. economy.sell() has exactly one caller, automation.runSell (automation/index.js:633), behind the research-priced 'sell' unlock; the shop panel only buys (ui/panels/shop.js). economy.stash()/bag() do now have a caller (ui/panels/inventory.js, slice 018), but that panel's one write action is the sell-lock toggle (economy.setSellLock) — it shows what bag()/stash() already sort by value, it does not sell. With research-unmintable, loot never becomes money in play, against CLAUDE.md's 'money is earned by selling'.",
       "repro": "grep -rn '\\.sell(' src | grep -v 'selftest\\|showcase'"
     },
     {
@@ -129,6 +129,12 @@
       "module": "offline",
       "what": "A reload never puts the player back where the save says they stood. offline/index.js:384-393's restorePlayer listens for scene:entered and calls sim.teleport(want.cx, want.cz, want.dir) once self.player matches the landed mapId — but on a real reload sim.teleport is never called at all (confirmed by spying it directly), even though the saved simulation slice is correct and terrain.passable(want.cx, want.cz, want.dir) is true for it. Reproduced on plain demo-city, not just a scene slice 013/014 added: teleport to (20,25), persist, reload — the save correctly holds slices.simulation {mapId:'demo-city',cx:20,cz:25,dir:0}, but simulation.player() after reload is back at the city's own default SPAWN (31,40). Predates slices 013/014 entirely (`git diff 0ee4b5e -- src/offline src/simulation` is empty); found while testing the Pokemon Center's own reload behaviour, which surfaced the same gap for the first time because nothing had exercised an exact-position reload check before.",
       "repro": "boot /, `const sim=__CTX__.get('simulation'); sim.teleport(20,25,0);`, `await __CTX__.get('offline').persist('x')`, reload the page, then `__CTX__.get('simulation').player()` — expect {cx:20,cz:25} and get the city's default spawn instead"
+    },
+    {
+      "id": "item-icon-placeholders",
+      "module": "ui",
+      "what": "The inventory panel's category marks (theme.js's itemMark, ui/panels/inventory.js, slice 018) are hand-authored 7x7 bitmaps tinted by tier, one per category — a deliberate placeholder (no item icon asset exists anywhere in the repository) rather than final art, per the same 'placeholder, not a magenta box' rule pokeball() already follows on the offline card.",
+      "repro": "grep -n 'ITEM_MARKS' src/ui/theme.js — seven silhouettes, no image load"
     }
   ],
   "modules": {
@@ -229,7 +235,9 @@
     },
     "ui": {
       "selftest": true,
-      "openIssues": []
+      "openIssues": [
+        "item-icon-placeholders"
+      ]
     },
     "tools": {
       "selftest": null,

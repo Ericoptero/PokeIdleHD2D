@@ -257,9 +257,12 @@ export function makeShop(app) {
         }
 
         // --- what you already hold ------------------------------------------
-        // The bag has no screen of its own yet, and this column was a third empty under
-        // five stat lines (round-1 issue 11). The same pane that quotes a price now says
-        // what the player is already carrying, which is the question a price provokes.
+        // This column was a third empty under five stat lines (round-1 issue 11). The same
+        // pane that quotes a price now says what the player is already carrying, which is
+        // the question a price provokes. The richer view — every held item, filterable,
+        // with the sell-lock — is `inventory.js` (slice 018); this stays a five-item glance
+        // read off the raw `inventory()` map, on purpose: rewiring this corner onto
+        // `bag()`'s own rows is out of that slice's scope.
         const by = detail.y + detail.h - 30;
         const bagTop = y + 5;
         const bagRoom = Math.floor((by - 14 - bagTop - 10) / 9);

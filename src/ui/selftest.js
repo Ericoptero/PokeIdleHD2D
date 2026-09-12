@@ -39,6 +39,9 @@ import { lineFor, STATUS_NAME } from './panels/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
+// `panels/inventory.js` touches the DOM only inside `draw`, same as `battle.js` above; its
+// category labels are pure data.
+import { CATEGORY_LABEL } from './panels/inventory.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -95,6 +98,31 @@ const check = (name, ok, detail = '') => {
     battleMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
   check('the battle card has a line for every event kind it lists',
     EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
+
+  /**
+   * The inventory panel's own strings (slice 018) — the category labels it draws as filter
+   * tabs, and one real `desc` per category (`economy/items.js`, copied verbatim as a literal
+   * rather than imported: seam rule 2 forbids importing a sibling module's non-`index.js`
+   * file, the same reason the battle events above are hand-written rather than pulled from
+   * `battle/moves.js`). `CATEGORY_LABEL` is imported for real, so a label added or renamed in
+   * `panels/inventory.js` is covered here without a second copy to keep in sync.
+   */
+  const ITEM_DESC_SAMPLE = [
+    'The standard capsule. 1× catch rate.', // ball: pokeball
+    'Restores 20 HP. ₽10 per point.', // medicine: potion
+    '3,000 EXP. ₽0.27 per point.', // candy: expcandy_xs
+    'Evolves the Fire Stone family. 40 shards at the Shard Stall.', // evolution: firestone
+    '+50% encounter rate for 10 minutes.', // lure: lure
+    '+50% money from every source, forever. One only.', // held: amuletcoin
+    'Sell-only loot.', // treasure: nugget
+  ];
+  const invText = [...Object.values(CATEGORY_LABEL), 'ALL', 'BAG', 'STASH', 'ITEMS', 'DETAIL',
+    'Category', 'Held', 'Sells for', 'Stack worth', 'LOCK (never auto-sold)',
+    'UNLOCK (auto-sell allowed)', 'nothing in the bag', 'nothing in the stash',
+    'nothing selected', ...ITEM_DESC_SAMPLE].join('');
+  const invMissing = [...new Set([...invText])].filter((ch) => ch !== ' ' && !has(ch));
+  check('every string the inventory panel draws has a glyph', invMissing.length === 0,
+    invMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
 
   const ragged = [];
   const tall = [];
@@ -199,7 +227,11 @@ const check = (name, ok, detail = '') => {
     [640, 360], [534, 300], [756, 492], [640, 270], [390, 844],
     [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
   ];
-  const authored = [[560, 288], [540, 278], [502, 264], [424, 250]];
+  // Every `...fit(g, w, h)` call site across `panels/*.js` — `automation.js`'s 600x300 was
+  // missing here before this slice (a pre-existing gap this check's own purpose, "every
+  // authored panel size", was silently not living up to); `inventory.js`'s 480x264 (slice
+  // 018) is added for the same reason a new authored size always belongs in this list.
+  const authored = [[560, 288], [540, 278], [502, 264], [424, 250], [600, 300], [480, 264]];
   const bad = [];
   for (const [W, H] of buffers) {
     const g = { width: W, height: H };
