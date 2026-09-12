@@ -10,7 +10,7 @@
  * ### The income model
  *
  * Mirrored from `src/idle/accrual.js` (read, never imported — cross-module deep imports are
- * banned by ARCHITECTURE §5, and this is a *projection*, not the live path):
+ * banned by src/offline/slices.js, and this is a *projection*, not the live path):
  *
  *   power        = 0.6 + Σ level^0.85 · (BST/300) · slot · affinity        (lead ×1.25)
  *   money/s      = 0.85 · power^0.92 · biome.money

@@ -1,6 +1,6 @@
 /**
  * The dex. `collection` records every sighting and every catch and reports completion per
- * generation and per type (§5.10); this panel is that report.
+ * generation and per type (src/collection/index.js); this panel is that report.
  *
  * It is deliberately a *progress* screen and not a species browser: 1025 rows of "not seen"
  * tell the player nothing, while "gen 1 is 12 %, ghost is 0 %" tells them where to hunt
@@ -15,7 +15,7 @@ import { meter, pokeball } from '../theme.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 /** A type's own colour for the completion bar — `battle.typeColour(t).edge`, the same vivid
- *  tone `encounter`'s strike effects use (DECISIONS #90); `C.stoneBase` only if `battle` itself
+ *  tone `encounter`'s strike effects use; `C.stoneBase` only if `battle` itself
  *  is quarantined, never a second copy of the eighteen. */
 const typeBarColour = (app, type) => {
   const bt = app.ctx.get('battle');
@@ -33,7 +33,7 @@ export function makeDex(app) {
 
   return {
     id: 'dex',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept as a record of which panels used to stand the whole HUD
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */
@@ -163,7 +163,7 @@ export function makeDex(app) {
       // notch instead lives in `registerScroll`'s shared memory, keyed by this tag, and is
       // reconciled onto `top` only for *this frame's* rendering — this panel is one of the ones
       // that predates `list()`'s wheel support (its multi-column grid does not fit `list()`'s
-      // one-row-per-item layout), and slice 015 left it out (docs/slices/015-pointer-layer.md);
+      // one-row-per-item layout);
       // this closes that gap with the same primitive rather than inventing a second one.
       const scrollTag = 'dex-national';
       const renderTop = reconciledTop(scrollTag, top, entries.length, capacity);

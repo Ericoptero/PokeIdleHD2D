@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
  * Runs a module's whole screenshot matrix — presets x times of day x zoom levels — writes
- * every PNG and JSON, and prints one table a critic can read at a glance
- * (ARCHITECTURE §8, §11).
+ * every PNG and JSON, and prints a summary table. Optional visual inspection tool.
  *
- *   node tools/shots/gauntlet.js --module city --round r1
- *   node tools/shots/gauntlet.js --module tiles --round r0 --presets default,catalog
+ *   node tools/shots/gauntlet.js --module city
+ *   node tools/shots/gauntlet.js --module tiles --out shots/out/tiles
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -42,11 +41,10 @@ const GENERIC = { tods: [12], ppus: [32] };
 
 const a = parseArgs(process.argv.slice(2));
 const moduleId = a.extra.module ?? a.showcase ?? 'city';
-const round = a.extra.round ?? 'r0';
 const size = a.size ?? '1920x1080';
 const spec = { ...GENERIC, ...(MATRIX[moduleId] ?? {}) };
 
-const outDir = join('docs', 'progress', moduleId, round);
+const outDir = a.out ?? join('shots', 'out', 'gauntlet', moduleId);
 mkdirSync(outDir, { recursive: true });
 
 const jobs = [];
@@ -54,7 +52,7 @@ for (const mode of spec.modes ?? [null]) {
   for (const preset of (a.extra.presets?.split(',') ?? spec.presets ?? [null])) {
     for (const tod of spec.tods ?? [12]) {
       // Zoom is `pixelsPerUnit` on the 16/32/64 ladder, not a camera distance — the camera
-      // is orthographic (DECISIONS #60). Bigger number, closer shot, which is the opposite of
+      // is orthographic. Bigger number, closer shot, which is the opposite of
       // the `d` in the old filenames, hence `p`.
       for (const ppu of spec.ppus ?? [32]) {
         const name = [mode, preset, tod == null ? null : `t${tod}`, `p${ppu}`]
@@ -65,7 +63,7 @@ for (const mode of spec.modes ?? [null]) {
   }
 }
 
-console.log(`gauntlet: ${moduleId} ${round} — ${jobs.length} shots -> ${outDir}`);
+console.log(`gauntlet: ${moduleId} — ${jobs.length} shots -> ${outDir}`);
 const results = [];
 for (const job of jobs) {
   const log = await shoot({
@@ -84,7 +82,7 @@ for (const job of jobs) {
 }
 
 const summary = {
-  module: moduleId, round, size, at: new Date().toISOString(),
+  module: moduleId, size, at: new Date().toISOString(),
   shots: results.map((r) => ({
     name: r.name, png: `${r.name}.png`, ok: r.fails.length === 0, fails: r.fails,
     fps: r.log.fps?.mean ?? null, drawCalls: r.log.drawCalls ?? null,

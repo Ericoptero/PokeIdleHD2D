@@ -31,7 +31,7 @@ export function makeTravel(app) {
     const t = travel();
     if (!isLive(t) || typeof t.destinations !== 'function') return [];
     const here = t.current()?.id ?? null;
-    // `hidden` is door-only entry (§5.16) — the Pokemon Center is reached by walking through
+    // `hidden` is door-only entry (src/travel/index.js) — the Pokemon Center is reached by walking through
     // it in the city, never by picking it here. `travel.go()` still accepts the id; only the
     // row is gone.
     return t.destinations().filter((d) => !d.hidden).map((d) => ({
@@ -42,7 +42,7 @@ export function makeTravel(app) {
       loading: d.id === pending,
       // A hunt the trainer is too low for is SHOWN AND GREYED, never hidden — the same rule
       // `economy/shops.js` uses for a shelf that is not unlocked yet. A destination you cannot
-      // see is not a goal; one you can see with its price on it is (DECISIONS #70).
+      // see is not a goal; one you can see with its price on it is.
       locked: !!d.locked,
       need: Number(d.requiredLevel) || 0,
       // The place you are already standing in is not a destination, and nothing is pickable

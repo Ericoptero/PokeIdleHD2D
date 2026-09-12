@@ -18,8 +18,7 @@ export const MARGIN = 10;
  * `list()`'s or `scrollArea()`'s caller-owned `top`/`ruleTop`/etc. closure variable, which
  * `screen.js`'s wheel handler has no way to reach. Four of the six panels that call `list()`
  * never read its returned `top` back into their own state (`shop.js`, `boxes.js`,
- * `travel.js`, and `dex.js` does not call `list()` at all — see the correction in slice 015's
- * Inspected section), so this is the only place a wheel delta can live.
+ * `travel.js`; `dex.js` does not call `list()` at all), so this is the only place a wheel delta can live.
  *
  * A tag's memory is discarded, not applied, the moment the caller's own `top` changes from
  * what it was when the memory was recorded — a keyboard nav, a fresh selection or a fresh
@@ -59,7 +58,7 @@ export function registerScroll(g, box, tag, callerTop, contentSize, viewSize, st
  * `scrollMemory` above, and for the same reason: `windowFrame` is called fresh from inside
  * each panel's own closure every frame, so the one thing that has to survive a repaint is a
  * module-scope `Map`, not a caller-owned variable. Populated lazily, only once a window is
- * actually dragged or resized (slice 016) — a panel nobody has touched keeps recomputing
+ * actually dragged or resized — a panel nobody has touched keeps recomputing
  * `defaultBox()` centred at its own authored size against whatever the buffer currently is,
  * which is what lets a browser resized between sessions still open a sane first window.
  * @type {Map<string, {x:number,y:number,w:number,h:number}>}
@@ -138,7 +137,7 @@ function reconcileDrag(id, kind, base, buffer, m, min) {
  * Every window's geometry, JSON-safe — the `ui` save slice's own payload
  * (`index.js`'s `saveState`). Only ids a player has actually dragged or resized appear; a
  * panel never touched keeps opening at its authored default (`defaultBox`), which is exactly
- * what a save with no `ui` slice at all already did before this slice.
+ * what a save with no `ui` slice at all already did previously.
  */
 export function serializeWindows() {
   return Object.fromEntries(windowGeometry);
@@ -204,13 +203,12 @@ function drawGrip(g, box) {
 /**
  * The window. Returns the content rect inside the header and above the footer.
  *
- * `windowId` is required (slice 016): it is the key `windowGeometry`/`serializeWindows`
+ * `windowId` is required: it is the key `windowGeometry`/`serializeWindows`
  * remembers this window's position and size under, so two panels must never pass the same
  * one. Every existing call site passes its own panel `id` (`'party'`, `'shop'`, …).
  *
  * `reserved` (`app.hudReserved()`) is how a window is kept off the wallet/clock/party-bar/
- * strip once `full` no longer stands them down (DECISIONS #85, and the fix folded into that
- * same slice after review): every call site passes it, so a caller that forgets it only loses
+ * strip once `full` no longer stands them down : every call site passes it, so a caller that forgets it only loses
  * the safety clamp, never crashes (`clampToSafeArea`'s own default is `{top:0, bottom:0}`).
  * @param {object} g painter
  * @param {{windowId:string, title:string, bar?:string, edge?:string, light?:string, footer?:string, footerRight?:string, onClose?:Function, w?:number, h?:number, reserved?:{top:number,bottom:number}}} opts
@@ -257,13 +255,13 @@ export function windowFrame(g, opts) {
   // afterward (a row, a button, the close cross below) registers its own hit region strictly
   // later and so wins over this one, by the same "last one wins" rule the scrim itself relies
   // on — but the plain paper in between them had nothing registered on it at all, which was
-  // the bug (DECISIONS #84).
+  // the bug.
   g.hit(box, { swallow: true }, 'window-body');
   const inner = header(g, box, opts.title, {
     bar: opts.bar ?? C.roofBase, edge: opts.edge ?? C.roofDeep, light: opts.light ?? C.roofLight,
   });
 
-  // The title bar itself, a drag region (slice 016): picked up on `pointerdown` instead of
+  // The title bar itself, a drag region: picked up on `pointerdown` instead of
   // calling anything (`screen.js`'s `r.drag` branch), so a plain click that never moves does
   // nothing — which is the point, a window does not open or close from its own title bar.
   // Registered *before* the close cross below, so "last one wins" still gives the cross the
@@ -377,8 +375,7 @@ export function list(g, box, opts) {
  * A scrolling window over content that is not a uniform row list — a wrapped paragraph, a
  * detail pane, anything currently truncated at a hard `y` budget rather than reachable
  * (`boxes.js`, `shop.js`'s multiplier column and `automation.js`'s settings column all still
- * do this; wiring them onto this widget is out of this slice's scope, per its own "Out of
- * scope" section — this builds the primitive, unused as yet).
+ * do this; this primitive is not wired to those callers yet).
  *
  * Unlike `list()`, the caller draws whatever it wants at whatever `y` it wants (`opts.draw`
  * receives the scrolled `top`, in pixels, to subtract from its own layout), clipped to `box`

@@ -1,7 +1,7 @@
 /**
  * The evolution animation.
  *
- * DECISIONS #62 made evolution a button, and a button that silently swaps one sprite for
+ * Evolution uses a button, and a button that silently swaps one sprite for
  * another is a worse moment than the automatic one it replaced — the player pays a hunt's
  * worth of drops for it, so it has to be worth watching.
  *

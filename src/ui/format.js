@@ -3,7 +3,7 @@
  * `selftest.js` imports this file and `font.js` and nothing else.
  */
 
-/** `12345.7` → `12,345`. Balances keep their fractions; only displays are floored (#16). */
+/** `12345.7` → `12,345`. Balances keep their fractions; only displays are floored. */
 export const fmt = (n) => Math.floor(Number(n) || 0).toLocaleString('en-US');
 
 /** `1234567` → `1.2M`, for a column too narrow for the real number. */

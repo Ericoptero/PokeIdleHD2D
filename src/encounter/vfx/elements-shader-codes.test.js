@@ -1,5 +1,5 @@
 /**
- * Independent tester coverage for slice 019 (shader-vfx) — a gap neither `elements.test.js`
+ * Shader-code coverage — a gap neither `elements.test.js`
  * nor `src/encounter/selftest.js` covers.
  *
  * Both existing suites check `MOTION_CODE`/`ROLE_CODE` for internal self-consistency only
@@ -10,8 +10,7 @@
  * enum and used by a profile without a line added to `MOTION_CODE` — passes both existing
  * suites (the value is still "one of the five/six motions/roles") but hands `particles.js` an
  * `undefined` uniform at runtime, which `three`'s `WebGLUniforms` either throws on or silently
- * uploads as `NaN` — exactly the kind of defect DECISIONS #79 records losing a round to, and
- * exactly the kind a purely-scalar screenshot regression (`tools/shots/regress.js`) cannot see
+ * uploads as `NaN` — a defect a purely-scalar screenshot regression (`tools/shots/regress.js`) cannot see
  * either (`fps`/`drawCalls`/`consoleErrors` on a frame that never got that type rolled).
  *
  * Proven able to fail: adding `BOUNCE: 'bounce'` to `MOTION` and pointing a profile at it

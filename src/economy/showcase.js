@@ -1,5 +1,5 @@
 /**
- * The economy showcase (ARCHITECTURE §6).
+ * The economy showcase (src/main.js).
  *
  * A systems module cannot prove itself with a pretty frame, so this one proves itself with
  * *evidence*: every number on screen is produced by calling the live public API, in order,

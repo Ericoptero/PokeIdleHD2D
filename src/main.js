@@ -1,7 +1,7 @@
 /**
  * Boot. Wires core, registers every module, and runs the frame loop.
  *
- * Two contracts the screenshot harness depends on (ARCHITECTURE §8) and that must never
+ * Two contracts the screenshot harness depends on (src/main.js) and that must never
  * regress: `window.__READY__` flips true exactly once the first real frame has been
  * presented, and `window.__HOOKS__` exposes deterministic camera / time / seed control.
  */
@@ -94,7 +94,7 @@ async function boot() {
   }
 
   // ?showcase=<id> boots only that module, what it needs, and whatever its showcase needs
-  // to stage a scene (ARCHITECTURE §6).
+  // to stage a scene (src/main.js).
   const showcase = config.showcase;
   setProgress(0.15, showcase ? `showcase: ${showcase}` : 'initialising');
   const showcaseOnly = showcase
@@ -112,7 +112,7 @@ async function boot() {
   } else {
     // Where the player was: `?scene=` first so the harness can frame a hunt at `/`, then the
     // save, then the lobby. A quarantined `travel` costs the game travel, not its lobby, so
-    // the old direct call is kept as the fallback (§2.1).
+    // the old direct call is kept as the fallback (src/core/registry.js).
     try {
       const nav = registry.get('travel');
       if (nav && nav.__missing === undefined && typeof nav.go === 'function') {
@@ -199,7 +199,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  // --- harness hooks (ARCHITECTURE §8) --------------------------------------
+  // --- harness hooks (src/main.js) --------------------------------------
   window.__HOOKS__ = {
     setPreset(name) {
       const env = registry.get('environment');
@@ -245,7 +245,7 @@ async function boot() {
     /**
      * The pixel grid, for `tools/shots/parity.js`: the internal buffer, the one density the
      * whole scene draws at, and where each sprite's feet landed on it. The claim under test is
-     * that every one of these is identical on a phone and on an ultrawide (DECISIONS #60).
+     * that every one of these is identical on a phone and on an ultrawide.
      */
     grid() {
       const pk = registry.get('pokemon');
@@ -263,7 +263,7 @@ async function boot() {
      * from the tree instead of carrying a list that goes stale the day a biome is added.
      * `locked` is reported, not filtered: the boot matrix boots locked scenes on purpose,
      * because `?scene=` stands the gate down and that path is exactly the one that shipped
-     * broken (DECISIONS #70).
+     * broken.
      */
     destinations: () => (registry.get('travel')?.destinations?.() ?? [])
       .map((d) => ({ id: d.id, locked: !!d.locked })),

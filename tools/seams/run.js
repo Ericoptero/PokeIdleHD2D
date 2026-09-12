@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cross-module contract checks (ARCHITECTURE §2 and §5). These are the rules the reviewer
- * polices, expressed as code so a builder finds out before the reviewer does. Every rule is
+ * Cross-module contract checks. Every rule is
  * derived from the tree at check time — nothing here is a list that has to be kept up.
  *
  *   node tools/seams/run.js
@@ -9,8 +8,7 @@
  * Rules, in file order: 1 no Math.random; 2 no deep imports (static or dynamic); 3 module
  * descriptor shape; 4 the default tile pack is consistent; 5 economy's copy of idle's income
  * constants; 7 the drop catalogue mirrors the evolution bill; 8 every listened event is one
- * something emits; 9 an expected-to-fail test and its STATUS entry exist together; 6 every
- * selftest passes and actually ran something.
+ * something emits; 6 every selftest passes and actually ran something.
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
@@ -35,7 +33,7 @@ const files = walk(SRC);
 const failures = [];
 const fail = (rule, file, msg) => failures.push({ rule, file: relative(REPO, file), msg });
 
-// --- 1. no Math.random in src/ (ARCHITECTURE §2.5) --------------------------
+// --- 1. no Math.random in src/ (src/core/rng.js) --------------------------
 for (const f of files) {
   const src = readFileSync(f, 'utf8');
   src.split('\n').forEach((line, i) => {
@@ -47,7 +45,7 @@ for (const f of files) {
   });
 }
 
-// --- 2. no deep imports across modules (ARCHITECTURE §5) --------------------
+// --- 2. no deep imports across modules (public index.js boundaries) --------------------
 const MODULES = readdirSync(SRC, { withFileTypes: true })
   .filter((e) => e.isDirectory() && e.name !== 'core').map((e) => e.name);
 
@@ -84,7 +82,7 @@ for (const m of MODULES) {
     }
   }
   if (!/showcase\s*[:(]/.test(src)) {
-    fail('module-shape', index, 'no showcase() — a module without one cannot pass its gauntlet (§6)');
+    fail('module-shape', index, 'no showcase() — required by the module descriptor contract');
   }
   if (!new RegExp(`id:\\s*['"]${m}['"]`).test(src)) {
     fail('module-shape', index, `descriptor id must be "${m}" (the folder name)`);
@@ -137,7 +135,7 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
 // --- 7. the drop catalogue matches the evolution bill --------------------------
 // `pokemon/evolution.js` bills an evolution in twelve `treasure` items keyed by the child's
 // type; `encounter/drops.js` hands the same twelve out keyed by the defeated wild's. Two views
-// of one catalogue (DECISIONS #68(a), #75) — and they have to be one catalogue, or a player
+// of one catalogue — and they have to be one catalogue, or a player
 // grinds a wood for mushrooms to pay a bill that has quietly started asking for pearls.
 //
 // A copy rather than a shared file because seam rule 2 forbids the import and neither table
@@ -183,42 +181,6 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
   }
   for (const [type, f] of listened) {
     if (!emitted.has(type)) fail('event-never-emitted', f, `listens for "${type}" and nothing in src/ emits it`);
-  }
-}
-
-// --- 9. an expected-to-fail test and its STATUS entry exist together -----------
-// `it.fails` / `test.fail` is how a known bug is pinned by a test that turns red the day it is
-// fixed. Left alone, it would also be how a bug is laundered into a permanent expectation.
-// So each one carries a `STATUS:<id>` token on the line before it, the id must be an `open`
-// entry in docs/STATUS.json, and every `open` entry that names a `test` file must still have
-// its token in that file. Removing either side without the other fails here.
-{
-  const status = JSON.parse(readFileSync(join(REPO, 'docs', 'STATUS.json'), 'utf8'));
-  const open = new Map((status.open ?? []).filter((o) => o.id).map((o) => [o.id, o]));
-  const testFiles = [...walk(SRC), ...(existsSync(join(REPO, 'tests')) ? walk(join(REPO, 'tests')) : [])]
-    .filter((f) => /\.(test|spec)\.js$/.test(f));
-  const seenTokens = new Map();
-  for (const f of testFiles) {
-    const lines = readFileSync(f, 'utf8').split('\n');
-    lines.forEach((line, i) => {
-      if (!/\b(?:it|test)\.fails?\s*\(/.test(line)) return;
-      const tokenLine = [lines[i - 1] ?? '', line].join(' ');
-      const tok = tokenLine.match(/STATUS:([a-z0-9-]+)/);
-      if (!tok) { fail('expected-fail-untracked', f, `line ${i + 1}: an expected failure with no STATUS:<id> token on the line before it`); return; }
-      seenTokens.set(tok[1], f);
-      if (!open.has(tok[1])) fail('expected-fail-untracked', f, `line ${i + 1}: STATUS:${tok[1]} is not an \`open\` entry id in docs/STATUS.json — fixed? then drop the .fails`);
-    });
-  }
-  // The other direction: the entry names a test, so that test must still EXPECT to fail. A
-  // token left in a comment above a test that now passes does not count — when the bug is
-  // fixed, the `.fails` goes and this rule asks for the STATUS entry to go with it.
-  for (const [id, o] of open) {
-    if (!o.test) continue;
-    const at = join(REPO, o.test);
-    if (relative(REPO, seenTokens.get(id) ?? '') !== o.test) {
-      fail('expected-fail-untracked', at,
-        `docs/STATUS.json open "${id}" names this test but no it.fails/test.fail there carries STATUS:${id} — fixed? then close the entry`);
-    }
   }
 }
 

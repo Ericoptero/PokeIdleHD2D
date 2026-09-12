@@ -1,5 +1,5 @@
 /**
- * The instanced world (ARCHITECTURE §7).
+ * The instanced world (tools/shots/shoot.js).
  *
  * Placements are grouped by (model, material group) and each group becomes one
  * InstancedMesh. A 96x96 map lands at roughly 110–200 draw calls with every tile resident,
@@ -42,7 +42,7 @@ function attachUvOffset(mesh, offsets, tileset, label, scatter) {
   // would silently lose the normal-elevation clamp its original carries — a lawn that shades
   // differently from the path beside it. Both patches are re-applied together, and the key is
   // their names joined: every material carrying the same set compiles one program, which is
-  // what keeps the count at 13 (ARCHITECTURE §7 budgets 60).
+  // what keeps the count at 13 (tools/shots/shoot.js budgets 60).
   applyShaderPatches(mat, [...(mesh.material.userData.shaderPatches ?? []), uvOffsetPatch,
     ...(scatter ? [makeGroundScatterPatch(scatter)] : [])]);
   mesh.material = mat;
@@ -57,7 +57,7 @@ function attachUvOffset(mesh, offsets, tileset, label, scatter) {
  *
  * `GLOBALMAPPING` alone gives a field of grass a `1/uvScale`-cell period — the AdAstra lawn
  * is scale 0.25, so it is one 4x4-cell stamp tiled forever, and that quilt is plainly
- * visible in `docs/progress/_boot/wave-a-end.png`. `phase` adds a per-cell offset of whole
+ * visible. `phase` adds a per-cell offset of whole
  * texels (so the art stays on the pixel grid) drawn from the same position hash the variant
  * picker uses, which turns the quilt into per-cell noise at no cost: it is two more floats
  * per instance on a mesh that was already instanced.
@@ -90,13 +90,12 @@ export function footprint(model, rot = 0) {
 /**
  * The yaw a placement is actually *drawn* at, once half its geometry has been thrown away.
  *
- * `dropEdgeOnTwins` (DECISIONS #41b) collapses the X-facing half of a crossed foliage
+ * `dropEdgeOnTwins` collapses the X-facing half of a crossed foliage
  * billboard because the camera's yaw is fixed forever and that card can only ever rasterise
  * as a 1–2 px smear. The half it keeps is the Z-facing one — which is camera-facing at
  * `rot 0` and `rot 2`, and **edge-on at `rot 1` and `rot 3`**. So a tree the map turned a
  * quarter took the drop on the card the camera was about to see and rendered as a bare
- * trunk with a few leaves clinging to it (`docs/progress/tiles/r4/00-rotate-before.png`,
- * the `tree 2x2` row: rot 0 and rot 2 are full crowns, rot 1 and rot 3 are slivers).
+ * trunk with a few leaves clinging to it (rot 0 and rot 2 are full crowns, rot 1 and rot 3 are slivers).
  *
  * The fix is to test the placement's own yaw instead of assuming one. A quarter turn of a
  * *crossed billboard* carries no information — both cards hold the same picture, which is
@@ -187,8 +186,7 @@ function lattice(x, z, salt, period) {
  * field it was sampled from, so the *only* thing that decides whether a lawn reads as ground
  * or as a checkerboard is how much the field can move between one cell and the next: at most
  * `amplitude x 1.5 / period` per octave. The first cut ran 9 and 4 cells at +-7.5 %,
- * which puts a 3.4 % step across every cell edge — plainly a chequerboard at close range in
- * `docs/progress/tiles/critic/hedge-close-12.png`. At 24 and 11 cells, weighted 1.6 / 0.4, the
+ * which puts a 3.4 % step across every cell edge — plainly a chequerboard at close range. At 24 and 11 cells, weighted 1.6 / 0.4, the
  * same +-6.5 % of tone moves **1.0 %** per cell, which is a quarter of a level at 8 bits and
  * below what the eye can find a grid in — while a patch two dozen cells wide still swings the
  * whole amount. Large soft blotches, no cell edges, which is what
@@ -237,7 +235,7 @@ const CONTACT_OPACITY = 0.42;
  * `hedge4` carries a `kage_out` quad over its own 4x1 footprint at y 0.13 — and the hedge
  * body is a full cell tall, so at a 45-degree pitch it covers every pixel of its own baked
  * shadow and the hedge still meets the lawn with a hard edge
- * (`docs/progress/tiles/critic/hedge-close-12.png`). The baked blobs are painted to sit
+ *. The baked blobs are painted to sit
  * *under* a piece; what grounds it is the half cell of penumbra that reaches past it.
  */
 function wantsContactShadow(model) {
@@ -331,7 +329,7 @@ export class InstancedWorld {
       // `1/uvScale` cells (grass runs 4x4). Spinning one cell of that pattern, or phasing it
       // independently of its neighbours, tears the pattern at every cell edge — which is
       // invisible at the game camera and reads as a grid of green squares at three times the
-      // zoom (`docs/progress/tiles/critic/hedge-close-12.png`). So a global tile is varied by
+      // zoom. So a global tile is varied by
       // its **block**: the whole 4x4 patch shifts together and stays continuous inside itself,
       // and the repeat is broken at the scale it actually repeats at.
       // Measured off the model's own vertices, not read off `uvScale`: `globalUvStep` records

@@ -1,7 +1,7 @@
 /**
  * The trainer's own level.
  *
- * ARCHITECTURE §0: the trainer has a level, and it gates which maps `travel` will take the
+ * The trainer has a level, and it gates which maps `travel` will take the
  * party to. This is that number, and it is **derived from a counter this module already
  * keeps** rather than stored: `progress().battlesWon` has been incremented on every
  * `encounter:resolved` since `economy` was written, so there is no new state, no new save
@@ -27,7 +27,7 @@
  *     level  2    5    12    20    30
  *     wins   3   30   198   570  1305
  *
- * The hunt gates (§5.14) are meadow 0, forest 5, coast 12, cave 20 — so the forest opens after
+ * The hunt gates (src/hunts/index.js) are meadow 0, forest 5, coast 12, cave 20 — so the forest opens after
  * thirty wins, the coast after two hundred, and the cave is a long way in.
  */
 export const STEP = 3;

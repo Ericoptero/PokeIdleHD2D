@@ -1,7 +1,7 @@
 /**
  * The evolution cutscene — a full-resolution DOM overlay, not a sprite swap.
  *
- * DECISIONS #63 animated the evolution on the **overworld sprite**, and the player could not
+ * The initial effect animated the evolution on the **overworld sprite**, and the player could not
  * see it: the button that starts it lives in the party panel, the party panel is full-screen,
  * and the flash was happening on a 32-pixel sprite behind it. It was a correct animation in a
  * place nobody was looking.
@@ -14,7 +14,7 @@
  *
  * ## It stays reproducible
  *
- * `?showcase=…` promises the same URL gives the same pixels (§6.3), and a five-second
+ * `?showcase=…` promises the same URL gives the same pixels (tools/shots/shoot.js), and a five-second
  * animation caught ninety settle-frames after `__READY__` would give a different one every
  * run. Every animated element here is driven by one clock, so `freeze(t)` holds the whole
  * cutscene at an exact moment with `animation-delay: -t` and `animation-play-state: paused` —
@@ -86,7 +86,7 @@ export function swapKeyframes(swapsBy, alternateS) {
 /**
  * One sprite frame, cropped out of a walk sheet with `background-position`.
  *
- * Rows are `[north, west, south, east]` (ARCHITECTURE §5.5, measured from the shipped art), so
+ * Rows are `[north, west, south, east]` (src/pokemon/index.js, measured from the shipped art), so
  * row 2 is the front-facing one — the only one worth looking at for four seconds. Column 0 is
  * the contact frame of the two-frame walk cycle.
  */
@@ -103,7 +103,7 @@ function makeSprite(cls, url, frame, scale) {
   el.style.height = `${size}px`;
   el.style.backgroundImage = `url(${JSON.stringify(url)})`;
   el.style.backgroundSize = `${size * 2}px ${size * 4}px`;
-  // Rows are [north, west, south, east] (§5.5), so row 2 is front-facing; column 0 is the
+  // Rows are [north, west, south, east] (src/pokemon/index.js), so row 2 is front-facing; column 0 is the
   // contact frame of the two-frame walk cycle.
   el.style.backgroundPosition = `0px ${-size * 2}px`;
   el.style.backgroundRepeat = 'no-repeat';
@@ -165,8 +165,8 @@ export function makeEvolutionOverlay(app) {
     node.append(stage, div('evo-burst'));
 
     for (let i = 0; i < 14; i++) {
-      // Fixed angles and delays, never random: `Math.random()` is banned in `src/` (§2.5), and
-      // a sparkle ring that moved between two captures of one URL would break §6.3 anyway.
+      // Fixed angles and delays, never random: `Math.random()` is banned in `src/` (src/core/rng.js), and
+      // a sparkle ring that moved between two captures of one URL would break tools/shots/shoot.js anyway.
       const a = (i / 14) * Math.PI * 2;
       const spark = document.createElement('i');
       spark.className = 'evo-spark';

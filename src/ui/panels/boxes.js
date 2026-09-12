@@ -1,6 +1,6 @@
 /**
  * Storage. `collection` owns 960 slots across 32 boxes, ten sort orderings and the
- * duplicate-release rules (§5.10); this is the box screen over them.
+ * duplicate-release rules (src/collection/index.js); this is the box screen over them.
  *
  * The grid is the real 6×5 box `collection.layout()` reports, drawn with the species' own
  * overworld sprite at its authored size, so a box of Pokemon looks like the same art that is
@@ -52,7 +52,7 @@ export function makeBoxes(app) {
 
   return {
     id: 'boxes',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept as a record of which panels used to stand the whole HUD
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */

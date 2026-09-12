@@ -1,5 +1,5 @@
 /**
- * hunts — the biomes a party actually hunts in (ARCHITECTURE §5.14).
+ * hunts — the biomes a party actually hunts in (src/hunts/index.js).
  *
  * A hunt map is composed, never sampled: every region in it exists because the place has a
  * reason for its shape. The authoring lives in `biomes/<id>.js`, one file per biome, and
@@ -111,7 +111,7 @@ export default {
   id: 'hunts',
   needs: ['terrain', 'encounter', 'environment'],
   /**
-   * Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6).
+   * Extra modules the showcase scene needs on top of `needs` (src/main.js).
    *
    * The party is the point of a hunt — the lead walks the grass and the trainer follows —
    * and every reference still we are scored against has characters in it. So `simulation`
@@ -143,7 +143,7 @@ export default {
      * `encounter` is not armed in another module's showcase, or is quarantined, or the party is
      * wiped — it steps back onto the cell it left, `player:enteredTile` fires for that cell
      * again, and it commits the same detour forever. Measured in `?showcase=hunts&mode=meadow`
-     * before this: **216 detours in 2000 ticks over twelve cells of map** (DECISIONS #74).
+     * before this: **216 detours in 2000 ticks over twelve cells of map**.
      *
      * Cleared on a completed lap and on entry, so a slot the party could not take this time
      * round is tried again next time round — which is also the honest reading of "move toward
@@ -174,10 +174,10 @@ export default {
      * species from the slot and the level from the encounter index, which was invisible while
      * the only thing a level did was decide a fight — but a plate over a wandering creature's
      * head advertises it, and a number that changed the moment you touched it would be a lie
-     * (DECISIONS #87).
+     *.
      *
      * Its own sibling stream (`hunts/level/…`) rather than a draw appended to the slot's
-     * respawn stream: sibling streams cannot perturb each other (ARCHITECTURE §2.5), so every
+     * respawn stream: sibling streams cannot perturb each other (src/core/rng.js), so every
      * species and shiny this module has ever rolled from a seed still rolls the same.
      * The band is `encounter`'s own (`levelBand` of the party's best member), so a hunt does
      * not suddenly stand up level-40 wildlife for a level-5 party.
@@ -213,7 +213,7 @@ export default {
      *
      * Per LAP and not per second, because that is what survives being chunked: `offline`
      * applies a gap in one call and `idle` drains it in slices, and a heal counted in whole
-     * laps lands identically either way (§5.7). The full rule — a potion below a threshold,
+     * laps lands identically either way (src/idle/index.js). The full rule — a potion below a threshold,
      * and the Pokemon Center — is phase 6; this is the floor.
      */
     bus.on('player:enteredTile', () => {
@@ -230,7 +230,7 @@ export default {
         // `revive` because the header above is otherwise a promise this loop does not keep:
         // the guard at `pokemon/instance.js` heal() is `if (inst.hp <= 0 && !revive) return`, so
         // the one case the rest exists for — "a wiped party walks its circuit forever meeting
-        // nothing" — was the one case it silently declined (DECISIONS #81, amending #67).
+        // nothing" — was the one case it silently declined.
         //
         // `status` clears on the revive branch and only there. A faint does not cure anything:
         // `battle/engine.js` never nulls `status` on a KO and `encounter`'s writeBack copies the
@@ -259,7 +259,7 @@ export default {
      * is never itself a loop cell. Queued as a pair at commit time, so nothing has to run when
      * the fight ends to bring the party home — a `hunts` quarantined mid-duel cannot strand the
      * queue off its own route. And drained ahead of the autopilot, so the route's index never
-     * learns it happened (DECISIONS #73).
+     * learns it happened.
      *
      * The target is frozen at commit, because a tethered wild drifts a tile and a target that
      * steps aside between the commit and the arrival turns the detour into a miss.
@@ -280,7 +280,7 @@ export default {
         // the slot was chosen would make the approach a step into a wall, and `strict` would
         // stall where the player can see it. A refusal is `debug`, never `warn` — the harness
         // records `consoleWarnings` in every shot's JSON and a handled path must not spend them
-        // (DECISIONS #15).
+        //.
         const terrain = ctx.get('terrain');
         const back = (slot.step + 2) & 3;
         const ok = isLive(terrain) && typeof terrain.passable === 'function'
@@ -339,7 +339,7 @@ export default {
       if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
       if (!isLive(pokemon) || typeof pokemon.species !== 'function') return 0;
       // The SLOTS, not `wildCells`' scenery scatter. A slot is a fixed respawn point two
-      // cells off the circuit (§5.14) and the creature on it drifts one tile around it, so the
+      // cells off the circuit (src/hunts/index.js) and the creature on it drifts one tile around it, so the
       // party meets the same wildlife in the same places on every lap — which is what makes a
       // hunt a route rather than a lucky dip. Falls back to the old scatter when a map could
       // not be given a loop, so a biome with no circuit still has animals in it.
@@ -349,7 +349,7 @@ export default {
        * `takeSlot` has nothing to hand over and a player can walk past them forever. The brief
        * is explicit that every wild visible on a hunt map must be huntable, so a map with no
        * loop now stands empty and says so. A wood with no animals is a legible bug; a wood full
-       * of animals that cannot be fought is not (DECISIONS #73).
+       * of animals that cannot be fought is not.
        */
       const cells = (built.get(biome.id)?.slots ?? []).map((c, i) => ({ ...c, k: i }));
       if (!cells.length) {
@@ -369,7 +369,7 @@ export default {
       }
 
       // Seeded off the biome *and the hour*, so the same URL gives the same creatures and a
-      // different hour gives the nocturnal ones. Never `Math.random` (ARCHITECTURE §2.5).
+      // different hour gives the nocturnal ones. Never `Math.random` (src/core/rng.js).
       const rng = ctx.rng.fork(`hunts/wild/${biome.id}/${Math.round(tod * 4)}`);
       /** A short cast, so a frame reads as a place with animals in it rather than a zoo. */
       const roster = [];
@@ -397,7 +397,7 @@ export default {
           // One tile of drift around the slot and no further: far enough that the wood is
           // alive, near enough that the slot is still where the player learned it was.
           tether: { cx: p.cx, cz: p.cz, radius: 1 },
-          // Blocks the party's step (§5.4). Safe because a slot is at Chebyshev exactly 2 from
+          // Blocks the party's step (src/simulation/index.js). Safe because a slot is at Chebyshev exactly 2 from
           // the circuit and the tether radius is 1, so a wild can never stand on a loop cell.
           solid: true,
           // Named, because `simulation` forks its stream off the name: an unnamed NPC keys off
@@ -460,7 +460,7 @@ export default {
      *
      * `cells[i]` is where the trainer is put; the head lands `gap` cells ahead on
      * `cells[i + gap]`, and `dirs[i + gap]` is the step that cell is due to take. `enter()` is
-     * the `i = 0` case of this (DECISIONS #65).
+     * the `i = 0` case of this.
      */
     function routeFrom(loop, i, gap) {
       const dirs = parseLoop(loop.route);
@@ -473,13 +473,13 @@ export default {
      * Stands the party **on its own circuit**, at the cell nearest the place a preset frames.
      *
      * This replaced `stageWalk`, which installed the biome's authored `walk.route` string —
-     * `'e16 n2 e10 s2'` and three like it. Those predate the found loop (DECISIONS #65) and
+     * `'e16 n2 e10 s2'` and three like it. Those predate the found loop and
      * survived it, so `/` walked the circuit and **every showcase and preset capture walked
      * something else**. Measured before the change: in `?showcase=hunts&mode=meadow` the party
      * visited 53 cells, **two of them on the loop**, and met **nothing at all** in two thousand
      * ticks — a lap that never gets near a wild Pokemon, in the one view a person is most
      * likely to look at. Every hunt frame this project had judged was staged that way
-     * (DECISIONS #74).
+     *.
      *
      * The marker is a *framing* request, not a position: the party stands on the nearest loop
      * cell to it, so the picture is of the place asked for and the walker is on the path it
@@ -503,7 +503,7 @@ export default {
        * because `rotateToStraight` opens the ring on its longest straight; an arbitrary cell
        * near a marker does not, and a start one cell before a turn puts the head off the
        * circuit. Measured on the coast before this: 63 of 70 visited cells were off its own
-       * loop (DECISIONS #65(c), for the third time — #74).
+       * loop.
        */
       const dirsAll = parseLoop(loop.route);
       // `gap + 1`, not `gap`: the run has to cover the cells the queue is laid across AND the
@@ -533,7 +533,7 @@ export default {
       // its own frame and `?autowalk=0` pins one), so installing the route through it leaves a
       // showcase standing still. `enter()` has already set the formation — the head, the input
       // lock, `strict` — so all this has to do is hand over the route, which is exactly what
-      // `stageWalk` did before it (DECISIONS #74).
+      // `stageWalk` did before it.
       if (typeof sim.walk === 'function') {
         sim.walk(rotated, {
           loop: true,
@@ -564,12 +564,12 @@ export default {
       }
       // Zoom is `pixelsPerUnit` on the 16/32/64 ladder, not a camera distance: the camera is
       // orthographic, so standing it further back changes nothing about the size of anything
-      // (DECISIONS #60).
+      //.
       if (ppu != null) ctx.config.set({ pixelsPerUnit: ppu });
       const sim = ctx.get('simulation');
       const biome = byId(currentId ?? 'forest');
-      // The camera follows the trainer every frame (DECISIONS #27), so a framing that only
-      // moves the rig is undone before the shutter — `city` learned this as #28j. Move the
+      // The camera follows the trainer every frame, so a framing that only
+      // moves the rig is undone before the shutter; the city has the same constraint. Move the
       // party, and the rig follows it.
       if (isLive(sim) && typeof sim.teleport === 'function') {
         const walk = stageOnLoop(sim, biome, m, spec);
@@ -641,7 +641,7 @@ export default {
         // `terrain.load` builds one `InstancedWorld` from one tileset, and `InstancedWorld`
         // resolves every placement's id against that tileset alone. A model from `props` put
         // through an AdAstra draft therefore draws AdAstra's model of the same number, with
-        // no warning anywhere, because both ids exist (DECISIONS #26a). Anything from another
+        // no warning anywhere, because both ids exist. Anything from another
         // set gets its own world here, disposed on `world:unloaded`.
         disposeExtras();
         for (const extra of built.get(biome.id)?.extras ?? []) {
@@ -679,7 +679,7 @@ export default {
            * **The route belongs to the HEAD, and `placePlayer` places the TRAINER.**
            *
            * `placePlayer(cx, cz, dir)` stands the trainer on that cell and lays the lead
-           * Pokemon `gap` cells ahead of it — and in a hunt the Pokemon is the head (§5.4), so
+           * Pokemon `gap` cells ahead of it — and in a hunt the Pokemon is the head (src/simulation/index.js), so
            * teleporting to `loop.start` puts the walker that follows the route two cells PAST
            * the corner, off the circuit entirely. It then walked the first leg from the wrong
            * place, ran into the rectangle's own side and stalled: measured as 22 of a 58-cell
@@ -841,7 +841,7 @@ export default {
         }
 
         // --- the slots, measured -------------------------------------------
-        // Distance EXACTLY 2 is the arithmetic the encounter trigger rests on (§5.14): a
+        // Distance EXACTLY 2 is the arithmetic the encounter trigger rests on (src/hunts/index.js): a
         // tether of 1 plus a trigger of 1. A slot at 1 puts the party permanently in a battle
         // and a slot at 3 is never met.
         const slots = built.get(biome.id)?.slots ?? [];
@@ -898,12 +898,11 @@ export default {
        * This is what makes a slot a *respawn point* rather than scenery: the wild that fights
        * is the one that was standing there. It used to be the *identity* that carried over and
        * not the body — this method deleted the NPC and `encounter` spawned a second sprite that
-       * burst out of the grass over twenty sim steps. There is no burst any more (DECISIONS
-       * #87), so deleting the body here would leave one or two frames of empty grass: the
+       * burst out of the grass over twenty sim steps. There is no burst any more, so deleting the body here would leave one or two frames of empty grass: the
        * caller retires `npcId` itself, the moment its own actor is in place.
        *
        * `cx,cz` is where the creature **is**, not the cell the slot was authored on: it drifts
-       * one tile around its tether (§5.14), and staging the fight on the authored cell would
+       * one tile around its tether (src/hunts/index.js), and staging the fight on the authored cell would
        * teleport it up to a tile at the moment of contact. The slot is scheduled to refill on
        * this module's own tick, so the next lap meets something new in the same place.
        */
@@ -929,12 +928,12 @@ export default {
       /** Seconds an emptied slot stays empty. `encounter` times its own beats against it. */
       respawnSeconds: RESPAWN_S,
 
-      /** Driven by the descriptor's `tick`; not part of the §5.14 surface. */
+      /** Driven by the descriptor's `tick`; not part of the src/hunts/index.js surface. */
       _refill(dt = 0) {
         // **This module's own accumulator, not `clock.simTime`.** The clock advances in
         // `clock.beginFrame`, and `registry.tick` — which is what drives this — does not touch
         // it. Timing a respawn off `simTime` meant a slot emptied under the screenshot
-        // harness or a stepped sim never came back at all (DECISIONS #67).
+        // harness or a stepped sim never came back at all.
         elapsed += Math.max(0, dt);
         if (!refills.length || !currentId) return;
         const now = elapsed;
@@ -952,7 +951,7 @@ export default {
 
           // Rolled fresh, from a stream addressed by the slot and how many times it has
           // refilled — so a respawn is reproducible from the seed rather than from when the
-          // player happened to walk past (DECISIONS #67).
+          // player happened to walk past.
           const gen = (generations.get(k) ?? 0) + 1;
           generations.set(k, gen);
           const encounter = ctx.get('encounter');
@@ -994,7 +993,7 @@ export default {
    * Refills emptied slots.
    *
    * On `tick` and not on a timer, because `clock.simTime` is the only clock gameplay may read
-   * (§2.4) and a slot that refilled on wall time would repopulate a frozen screenshot.
+   * (src/core/clock.js) and a slot that refilled on wall time would repopulate a frozen screenshot.
    */
   tick(dt, ctx) {
     const api = ctx.get('hunts');

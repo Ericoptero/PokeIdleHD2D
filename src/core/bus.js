@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Synchronous, ordered, isolated event bus (ARCHITECTURE §2.3).
+ * Synchronous, ordered, isolated event bus (src/core/bus.js).
  *
  * Isolation matters more than speed here: a listener that throws must not stop the other
  * listeners, and must not take down the frame it was called from. A listener that keeps

@@ -25,7 +25,7 @@ export function runSelfTest(api, ctx) {
 
   // Everything below may move Pokémon about; this puts them back. Toasts are silenced for
   // the duration: a release rule applied by a *test* must not tell the player it happened,
-  // and a toast is wall-clock timed, so one left fading would break §6.3's promise that the
+  // and a toast is wall-clock timed, so one left fading would break tools/shots/shoot.js's promise that the
   // same URL gives the same pixels.
   const before = JSON.stringify(api.saveState());
   api.setQuiet(true);

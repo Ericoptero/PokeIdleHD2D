@@ -4,7 +4,7 @@
  * The scene renders at `config.pixelScale` (640x360 internally at 1080p), which is right
  * for the art and hopeless for text: a 6-pixel-tall glyph upscaled 3x is a smudge. So the
  * labels are DOM, at full resolution, projected from world space every frame — the same
- * split the debug overlay uses (ARCHITECTURE §5.12).
+ * split the debug overlay uses (src/ui/index.js).
  */
 
 import * as THREE from 'three';

@@ -1,5 +1,5 @@
 /**
- * automation — the idle layer's agency (ARCHITECTURE §5.11).
+ * automation — the idle layer's agency (src/automation/index.js).
  *
  * `idle` decides what a second of play produces. This module decides what the player would
  * have *done* with that second: which encounters are worth fighting, which are worth a
@@ -39,7 +39,7 @@
  *
  * **A catch made inside `idle` has to be given a body.** `idle`'s model is pure and
  * chunk-invariant: it reports `gains.catches` as a count and up to eight sample events,
- * and it never creates a Pokémon or emits `catch:succeeded` (§4 reserves that for
+ * and it never creates a Pokémon or emits `catch:succeeded` (that event is emitted by
  * `encounter`). This module is the bridge: it materialises those catches through
  * `collection.deposit()`, which is the same intake path a wild catch takes, so the dex,
  * the boxes and the toasts all behave identically. Catches beyond the sampled events are
@@ -94,7 +94,7 @@ let live = null;
 export default {
   id: 'automation',
   needs: ['encounter', 'economy', 'collection'],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['city', 'terrain', 'idle'],
 
   init(ctx) {
@@ -193,7 +193,7 @@ export default {
      * The counters an unlock gate is measured against.
      *
      * **It is `economy.progress()` plus this module's own two**, and it was three hand-listed
-     * keys until DECISIONS #76. That was fine while every automation gated on `dexCaught` or
+     * keys before the rule UI was connected. That was fine while every automation gated on `dexCaught` or
      * `stored`; the moment one gated on `battlesWon` it read `undefined || 0` and the gate
      * could **never** open — measured: 21 battles won and `unlock('heal')` still answering
      * *"needs 5 battlesWon (0)"*. Spreading `economy.progress()` means a gate can name any
@@ -301,7 +301,7 @@ export default {
        * and for a fallback to "the best available option" when the preferred one is not there.
        * So: walk the ladder, take the first ball actually in the bag, and if none of them is,
        * fall through to the cost-per-catch optimiser that was here before. A ladder therefore
-       * never makes the choice *worse* than not having one (DECISIONS #78).
+       * never makes the choice *worse* than not having one.
        */
       const ladder = settings.mode === 'advanced'
         ? (settings.perSpecies?.[facts.species] ?? settings.ladder ?? [])
@@ -434,7 +434,7 @@ export default {
 
       // A handful arrive one at a time so the player gets the toast and the `collection:added`
       // event; a drained gap arrives as a silent batch, because 400 toasts is not a feature
-      // and the bus spy only keeps 256 events (§2.3).
+      // and the bus spy only keeps 256 events (src/core/bus.js).
       let stored = 0;
       if (specs.length <= 6 || typeof collection.importBatch !== 'function') {
         for (const spec of specs) if (collection.deposit(spec)) stored++;
@@ -600,7 +600,7 @@ export default {
          * The brief calls it a lock on *automatic* selling: collectibles, rare loot, crafting
          * materials, anything the player marked. A player standing at the shop counter asking
          * to sell a locked item is not what it protects against, and refusing them there would
-         * be a trap — so `economy.sell()` ignores it and this pass does not (DECISIONS #75).
+         * be a trap — so `economy.sell()` ignores it and this pass does not.
          *
          * Checked before the rules run, so no ruleset can outvote it. That is the same
          * discipline auto-release uses, where seven protective rules sit above the one that
@@ -702,7 +702,7 @@ export default {
        * party standing.
        *
        * `purchaseClass` reads what the item *does* rather than what shelf it is on, and the
-       * player can reorder the four (DECISIONS #78). Price still breaks ties inside a class,
+       * player can reorder the four. Price still breaks ties inside a class,
        * which is the one place cheapest-first is right.
        */
       const order = Array.isArray(s.categoryOrder) && s.categoryOrder.length
@@ -784,7 +784,7 @@ export default {
 
       // The foreground path: a real encounter, where a real ball is really thrown.
       /**
-       * **`battle:ended`, not `encounter:started`** (DECISIONS #67).
+       * **`battle:ended`, not `encounter:started`**.
        *
        * This used to throw from inside the `encounter:started` emit, on turn one, because a
        * battle was a coin flip already resolved before the animation began. It is a real
@@ -814,7 +814,7 @@ export default {
         if (!pick?.ball) return;
         const encounter = mod('encounter');
         if (typeof encounter.attempt !== 'function') return;
-        // `encounter` owns the roll *and* the spend (ARCHITECTURE §5.6 / economy's
+        // `encounter` owns the roll *and* the spend (src/encounter/index.js / economy's
         // `throwBall`); this module only names the ball. The seed ignores the argument.
         const ok = encounter.attempt(pick.ball);
         engine.bump('catch', 'actions');
@@ -1028,7 +1028,7 @@ export default {
        * bundle: the caller gets `between(state)` and `chooseLead(party, wild)` closed over this
        * player's configuration, and hands in the two things only it can supply — the stock it
        * is going to debit, and `battle`'s `effectiveness`. One implementation then serves the
-       * watched fight and the closed-tab replay, which is the whole of DECISIONS #72's claim.
+       * watched fight and the closed-tab replay, so both resolve the same turn engine.
        *
        * An automation that is locked or switched off simply contributes nothing: `settingsOf`
        * returns `null` for it and every chooser treats that as "not configured".
@@ -1056,7 +1056,7 @@ export default {
              * slots straight to `leadChoice` left every offensive score at its floor and the
              * rule that is supposed to dominate was inert: measured against a Grass wild with a
              * Tepig holding Ember on the bench, it sent the Snivy. `battle` owns the move table
-             * and this module may not import it, so the resolver is injected (DECISIONS #80).
+             * and this module may not import it, so the resolver is injected.
              */
             const look = moveOf ?? (() => null);
             return leadChoice(roster ?? party ?? [], wild, {

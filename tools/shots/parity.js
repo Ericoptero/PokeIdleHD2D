@@ -1,7 +1,7 @@
 /**
  * The cross-device gate: **the same world is the same pixels on every screen.**
  *
- * The defect this exists to catch is the one that prompted DECISIONS #60. `unitsPerPixel` used
+ * The defect this exists to catch: `unitsPerPixel` used
  * to fall out of `fov`, `cameraDistance` and the internal buffer height, so it moved with the
  * size of the window — 26.0 internal pixels per world unit at 1080p, 23.7 on a 1512-wide
  * laptop, 17.4 at 1280x720. Sprites are magnified by a whole number of pixels per texel, so
@@ -96,7 +96,7 @@ const pass = (what, detail = '') => console.log(`  ✓ ${what}${detail ? ` — $
  * The **showcase**, not `/`, and that is load-bearing. `timeFrozen` freezes the clock, not the
  * simulation: at `/` the party is walking, the accumulator advances on wall-clock time, and two
  * captures that spent different milliseconds compiling shaders stop on different sub-tiles. A
- * showcase walks to an exact step count and calls `sim.freeze(true)` (ARCHITECTURE §6.3, "same
+ * showcase walks to an exact step count and calls `sim.freeze(true)` (tools/shots/shoot.js, "same
  * URL, same pixels"), so the only thing left varying between these seven shots is the size of
  * the window — which is the whole point of the comparison.
  */

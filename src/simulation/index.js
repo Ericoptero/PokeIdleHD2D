@@ -1,6 +1,6 @@
 /**
  * simulation — the grid walker, and the thing the whole game is looked at through
- * (ARCHITECTURE §5.4).
+ * (src/simulation/index.js).
  *
  * **The arrangement is a property of the scene, not of the game.** A scene hands one in
  * through `setFormation` and everything else falls out of it:
@@ -25,7 +25,7 @@
  * step exactly, so the same seed and the same input give the same path, cell for cell.
  * Rendering interpolates *between* fixed steps with the frame's `alpha` so 20 Hz gameplay
  * does not read as 20 fps motion — except when the sim is frozen for a screenshot, where
- * alpha is dropped so the same URL gives the same pixels (ARCHITECTURE §6.3).
+ * alpha is dropped so the same URL gives the same pixels (tools/shots/shoot.js).
  *
  * This module owns no art. Sprites, sheets, atlas and contact shadows all belong to
  * `pokemon` and are reached through `ctx.get('pokemon')` (see cast.js).
@@ -60,13 +60,13 @@ const IDLE_HOLD = 1.3;
 /**
  * The closest two members of the queue may stand and still both be *visible*.
  *
- * A sprite is 16 texels per world unit and stretched by 1/cos(45°) (DECISIONS #18), so a
+ * A sprite is 16 texels per world unit and stretched by 1/cos(45°), so a
  * 32 px trainer frame is an upright quad 2.83 world units tall. Under a camera pitched 45°
  * below horizontal that quad covers `2.83 · sin(45°) = 2.0` tiles of *ground depth* on
  * screen. At `followerGapTiles = 1` the walker in front therefore covers the one behind it
  * completely: shot at `/` with the party walking north, the lead Pokemon — the entity the
  * whole brief is about — was entirely hidden behind the trainer
- * (docs/progress/simulation/r1/00-gap1-lead-hidden.png).
+ *.
  *
  * The argument is symmetric and survives the formation flip: the occlusion is a property of
  * the *separation*, not of which walker is in front, so 2 is still the floor when the trainer
@@ -81,7 +81,7 @@ const MAX_NPCS = 32;
 export default {
   id: 'simulation',
   needs: ['terrain', 'pokemon'],
-  /** The showcase authors its own map but reuses the city for `mode=city` (ARCHITECTURE §6). */
+  /** The showcase authors its own map but reuses the city for `mode=city` (src/main.js). */
   showcaseNeeds: ['terrain', 'city'],
 
   init(ctx) {
@@ -121,7 +121,7 @@ export default {
      * A detour pushes BOTH legs at commit time — out and back — so nothing has to run when the
      * fight ends to bring the party home. A `hunts` that is quarantined mid-duel therefore
      * cannot strand the queue off its own circuit; the return leg is already in the queue and
-     * `pause(false)` drains it (DECISIONS #73).
+     * `pause(false)` drains it.
      */
     const detour = [];
     let frozen = false;
@@ -130,7 +130,7 @@ export default {
     /**
      * A whole-cell nudge added to the camera's focus, for a staged frame only.
      *
-     * The camera follows the trainer (ARCHITECTURE §5.4) and nothing in the game moves this.
+     * The camera follows the trainer (src/simulation/index.js) and nothing in the game moves this.
      * A showcase sometimes needs the subject off centre — the party in the empty half of a
      * crowded square, the corner sitting low in a wide frame — and moving the *focus* is the
      * only way to do that without moving the party off its own route. Whole cells, because a
@@ -158,7 +158,7 @@ export default {
      * the circuit (`hunts.audit()` asserts it on every `enter()`) and its tether radius is 1, so
      * a wild's reachable set **never touches a loop cell**. The one blocked cell a walker can
      * meet is the approach cell of a detour, and the target is frozen before the step is taken.
-     * Only `hunts` opts its wildlife in; the city's NPCs stay walk-through (DECISIONS #73).
+     * Only `hunts` opts its wildlife in; the city's NPCs stay walk-through.
      */
     const solid = new Map();
     const cellKey = (cx, cz) => `${cx},${cz}`;
@@ -312,12 +312,12 @@ export default {
         // **The detour is drained AHEAD of the autopilot**, which is what makes it invisible
         // to the route: `route.next` is never called on a detour step, so its index cannot
         // advance, and the head comes home to the cell it left with the route owing exactly
-        // the step it owed before (DECISIONS #73).
+        // the step it owed before.
         // `paused` gates the detour too, and that is the whole point of queuing both legs at
         // once: the party walks OUT, the fight starts, `pause(true)` freezes the queue with the
         // return leg still in it, and `pause(false)` on `encounter:resolved` walks it home. Left
         // ungated the head strolled back to the path while the duel was still being fought, and
-        // the wild was left punching an empty cell (DECISIONS #73).
+        // the wild was left punching an empty cell.
         const cmd = intent ?? (paused ? null
           : (detour.length ? { dir: detour.shift() } : route.next(head, world)));
         intent = null;
@@ -394,7 +394,7 @@ export default {
     // ----------------------------------------------------------------- API
 
     const api = {
-      // --- §5.4 ------------------------------------------------------------
+      // --- src/simulation/index.js ------------------------------------------------------------
       /** The trainer: the player's own avatar, the camera's focus and what `offline` saves. */
       player() {
         const c = line.cellOf(trainerIndex);
@@ -445,7 +445,7 @@ export default {
 
         if (!auto) route = STILL;
         else if (kind === 'route' && formation.route) {
-          // A hunt walks a CLOSED CIRCUIT (§5.14), forever, and it is `strict` unless told
+          // A hunt walks a CLOSED CIRCUIT (src/hunts/index.js), forever, and it is `strict` unless told
           // otherwise: a blocked step stalls where the player can see it rather than skipping
           // to the next heading and quietly walking the party off its own loop.
           route = makeScriptedRoute(formation.route, {
@@ -471,7 +471,7 @@ export default {
       /**
        * Stops the party where it stands, **keeping the route's place in its loop**.
        *
-       * Three ways to stop and they are not interchangeable (§5.4): `halt()` replaces the
+       * Three ways to stop and they are not interchangeable (src/simulation/index.js): `halt()` replaces the
        * route object and therefore loses a scripted route's index; `freeze()` is the
        * screenshot tool and also stops every NPC and the idle animation; this one is for a
        * battle, which has to hand the walk back exactly where it took it.
@@ -481,7 +481,7 @@ export default {
 
       /**
        * The active Pokemon, wherever it is standing — in front of the trainer in a hunt,
-       * behind it in a walkable map. It is the §5.4 contract, so it follows the creature and
+       * behind it in a walkable map. It is the src/simulation/index.js contract, so it follows the creature and
        * not the slot.
        */
       follower() {
@@ -517,12 +517,12 @@ export default {
           line: l,
           spec: { trainer: spec.trainer, species: spec.species, shiny: spec.shiny, name: spec.name, display: spec.display ?? null },
           who: spec.trainer ?? null,
-          /** Blocks the party's step. Wildlife opts in; the city's NPCs do not (§5.4). */
+          /** Blocks the party's step. Wildlife opts in; the city's NPCs do not (src/simulation/index.js). */
           solid: !!spec.solid,
           /** Frozen where it stands, so a detour's target cannot walk out from under it. */
           held: false,
           route: spec.tether
-            // A wild on a spawn slot drifts one tile and no further (§5.14).
+            // A wild on a spawn slot drifts one tile and no further (src/hunts/index.js).
             ? makeTether(rng, spec.tether)
             : spec.route === 'wander' || (!spec.route && spec.wander)
               ? makeWander(rng, { preferTags: spec.preferTags ?? ['path'] })
@@ -537,7 +537,7 @@ export default {
       },
       /**
        * Every NPC, posed exactly as the renderer would (`poseWalker` at `sub: 0`) rather than
-       * the raw cell — `x,y,z` are what `ui`'s nameplates (§5.12) anchor to, and a plate a
+       * the raw cell — `x,y,z` are what `ui`'s nameplates (src/ui/index.js) anchor to, and a plate a
        * whole tile off its sprite because this read used the discrete cell instead of the
        * walker's own interpolated pose would be a visible, silly bug.
        *
@@ -571,7 +571,7 @@ export default {
        *
        * `hunts` holds a wild the instant the party commits to walking at it: the creature
        * drifts a tile around its slot, and a target that steps aside between the commit and the
-       * arrival turns a two-step detour into a miss (DECISIONS #73).
+       * arrival turns a two-step detour into a miss.
        */
       holdNpc(id, on = true) {
         const npc = npcs.find((n) => n.id === id);
@@ -587,7 +587,7 @@ export default {
        * happened: `route.next` is not called on a queued step, so its index does not advance,
        * and the head returns to the cell it left owing exactly the step it owed before. That is
        * the whole mechanism by which a hunt can leave its closed circuit to reach a creature
-       * and still come home to the same lap (§5.14, DECISIONS #73).
+       * and still come home to the same lap (src/hunts/index.js).
        */
       detour(dirs) {
         const list = (Array.isArray(dirs) ? dirs : [dirs]).filter((d) => Number.isFinite(d));
@@ -612,7 +612,7 @@ export default {
 
       /**
        * Freezes the walk, the idle animation and every NPC, so a screenshot of a moving
-       * scene is reproducible (ARCHITECTURE §6.3). The pose is kept exactly as it is.
+       * scene is reproducible (tools/shots/shoot.js). The pose is kept exactly as it is.
        */
       freeze(on = true) { frozen = !!on; return api; },
       frozen: () => frozen,
@@ -706,7 +706,7 @@ export default {
       const lead = isLive(pokemon) && typeof pokemon.lead === 'function' ? pokemon.lead() : null;
 
       // **The restage is the load-bearing half and it is unconditional.** The flourish moved
-      // to `ui`'s full-screen cutscene (DECISIONS #64): animating a 32-pixel overworld sprite
+      // to `ui`'s full-screen cutscene: animating a 32-pixel overworld sprite
       // behind the full-screen party panel that starts the evolution was a correct animation
       // in a place nobody was looking. What has to happen HERE is that the sprite walking in
       // front of the trainer stops being the old species.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Property checks for the two pure files DECISIONS #68 added — `pricing.js` and `pity.js`.
+ * Property checks for the two pure files — `pricing.js` and `pity.js`.
  * Discovered and run under plain Node by `tools/seams/run.js` rule 6.
  *
  *   node src/economy/selftest.js
@@ -11,7 +11,7 @@
  * curve lands where the ball line says it should, because those two numbers together are the
  * whole grind.
  *
- * `trainer.js` joined them in DECISIONS #70. Its curve is closed-form in both directions — the
+ * `trainer.js` is checked here too. Its curve is closed-form in both directions — the
  * triangular numbers and their inverse — so the check that matters is that the two agree at
  * every level, and that the four biome gates the maps ship with land where they were authored
  * to. A gate off by one is invisible in a screenshot and locks a player out of a map.
@@ -136,7 +136,7 @@ check('8. the anchor is the ball line', BASE_PRICE / 200 >= 5 && BASE_PRICE / 20
 // --- PP restoration, which the game modelled and could not buy ---------------
 //
 // Per-move PP and Struggle have been in the engine since the turn engine landed, and until
-// DECISIONS #72 there was no item anywhere in the tree that put PP back — so a long hunt ended
+// Previously there was no item anywhere in the tree that put PP back — so a long hunt ended
 // in a Pokemon flailing at 50 power with recoil and no purchasable answer. Auto-Ether is what
 // the brief asks for; these two are what it spends.
 {
@@ -181,7 +181,7 @@ check('8. the anchor is the ball line', BASE_PRICE / 200 >= 5 && BASE_PRICE / 20
   eq('35. exactly one category is loot', STASH_CATEGORIES.size, 1);
   check('36. every treasure item is Stash and nothing else is',
     ITEMS.every((d) => isStashItem(d) === (d.category === 'treasure')));
-  // The twelve that had no source until DECISIONS #68 are the twelve the Stash holds.
+  // The twelve drop materials are the twelve the Stash holds.
   eq('37. the Stash holds the twelve treasures', ITEMS.filter(isStashItem).length, 12);
   // A consumable a hunt spends is never loot, or Auto-Sell would sell the balls.
   check('38. nothing a hunt spends can be sold as loot',

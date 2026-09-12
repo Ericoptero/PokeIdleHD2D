@@ -5,7 +5,7 @@
  * to roughly 1 Hz, and after a few minutes Chrome pushes an "intensively throttled" tab's
  * timers out to once a minute. A dedicated worker keeps a much better beat than that, so
  * this is what tells the game that time is passing while the player is reading something
- * else (ARCHITECTURE §5.7).
+ * else (src/idle/index.js).
  *
  * It deliberately carries NO game state. It says "time passed, this is beat 41, my clock
  * reads X" and nothing more; the main thread reconciles against `Date.now()` and decides

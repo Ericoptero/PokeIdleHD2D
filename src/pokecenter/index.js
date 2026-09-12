@@ -1,9 +1,9 @@
 /**
- * pokecenter — the Pokemon Center's interior (ARCHITECTURE §5.18).
+ * pokecenter — the Pokemon Center's interior (src/pokecenter/index.js).
  *
  * One room, entered through the city's own `door:pokecenter` tile and left through this
  * room's own door tile, both driven off `simulation`'s `player:enteredTile` (ARCHITECTURE
- * §5.4) rather than a special-cased key: walking onto a tagged cell **is** the interaction,
+ * src/simulation/index.js) rather than a special-cased key: walking onto a tagged cell **is** the interaction,
  * the same way a hunt's tall grass is (`encounter/index.js`).
  *
  * It is assembled from four files, split the way `city` splits its four:
@@ -12,20 +12,18 @@
  *   `map.js`     the base tileset half (`pt-house-indoor`): floor, walls, the counter
  *   `dress.js`   the window and the benches (their own tilesets, so their own instanced
  *                worlds) plus the one practical light
- *   `heal.js`    the cure's cooldown arithmetic — pure, no `ctx` (DECISIONS #35)
+ *   `heal.js`    the cure's cooldown arithmetic — pure, no `ctx`
  *
  * **Nurse Joy is the cure.** Facing the counter (its 3 cells carry the `counter` tag, added
  * by `map.js`) and pressing the generic `player:interact` key (`ui/input.js`, `Z`/`Space`)
  * opens a dialogue with her: off cooldown, the whole party is healed — HP, status **and PP**,
  * the actual difference from every other recovery in the game — once every `HEAL_COOLDOWN_MS`
- * real seconds (`heal.js`), free. `city.enter()` no longer heals anything (DECISIONS #83,
- * revising #81's third net); a party wipe still arrives already healed (`encounter.wipe()`'s
+ * real seconds (`heal.js`), free. `city.enter()` no longer heals anything; a party wipe still arrives already healed (`encounter.wipe()`'s
  * own `pokemon.reviveAll()`, unchanged), just in this room now instead of on the pavement, and
  * that path never touches the cooldown.
  *
  * **Not on the travel panel.** `travel.destinations()` carries it with `hidden: true`
- * (§5.16) so `ui/panels/travel.js` never lists it — the door is the only way in, on purpose
- * (the user's own answer, recorded in the slice this module was written from).
+ * (src/travel/index.js) so `ui/panels/travel.js` never lists it — the door is the only way in.
  */
 
 import { buildPokecenterMap } from './map.js';
@@ -42,13 +40,13 @@ const isLive = (api) => !!api && api.__missing === undefined;
  *  `hunts` registers `hunt-<id>` under the id `hunts.list()` uses for it. */
 const MAP_ID = 'pokecenter';
 
-/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `loadState` migrates forward and refuses a newer one (src/offline/slices.js). */
 const SAVE_VERSION = 1;
 
 export default {
   id: 'pokecenter',
   needs: ['terrain', 'environment'],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['tiles', 'terrain', 'environment', 'pokemon', 'simulation'],
 
   init(ctx) {
@@ -60,7 +58,7 @@ export default {
     let dressing = null;
     /** Nurse Joy's `simulation` npc id, so re-entering the room does not spawn a second copy. */
     let nurseId = null;
-    /** `ctx.clock.wallMs()` of the last successful cure, or `null` — "never healed" (§ heal.js). */
+    /** `ctx.clock.wallMs()` of the last successful cure, or `null` — "never healed" (see heal.js). */
     let lastHealMs = null;
 
     /** The room takes itself down when its map is unloaded — see `city/index.js`'s twin. */
@@ -233,7 +231,7 @@ export default {
         return handle;
       },
 
-      /** Named camera framings the screenshot harness can request (ARCHITECTURE §8). */
+      /** Named camera framings the screenshot harness can request (src/main.js). */
       preset(name) {
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name ?? ''));
         const p = PRESETS[name]
@@ -257,7 +255,7 @@ export default {
       /** What the room is made of, for the debug overlay and the screenshot log. */
       stats: () => ({ ...(dressing?.stats ?? {}) }),
 
-      // --- the save seam (§5) -------------------------------------------------
+      // --- the save seam (src/offline/slices.js) -------------------------------------------------
       // Discovered automatically by `offline.init()`'s `discoverProviders` — `pokecenter`
       // inits before `offline` in the registry's Kahn order, so a plain native
       // `saveState`/`loadState` pair needs no self-registration (unlike `travel`, which inits
@@ -268,7 +266,7 @@ export default {
         if (!value || typeof value !== 'object') return false;
         // Tolerates an older slice, refuses a newer one — the same seam every sibling at this
         // save order implements (`travel`, `battle`, `collection`, `encounter`); this module
-        // is not one of the two named exceptions in ARCHITECTURE §5 (`economy`, `idle`).
+        // is not one of the two named exceptions in src/offline/slices.js (`economy`, `idle`).
         if (Number(value.v) > SAVE_VERSION) {
           log.warn(`pokecenter: save slice v${value.v} is newer than v${SAVE_VERSION} — not loaded`);
           return false;

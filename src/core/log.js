@@ -50,7 +50,7 @@ export const log = {
  * that painted `20/26 checks` into the page and by nothing else, which means a red
  * invariant was a colour in a screenshot nobody was obliged to look at.
  *
- * `console.error` is what makes it a gate: §7 budgets zero console errors, so a failing
+ * `console.error` is what makes it a gate: tools/shots/shoot.js budgets zero console errors, so a failing
  * invariant now fails the capture that ran it. It is the one place an `error` is correct for
  * a handled path, because the handling is *this*.
  *

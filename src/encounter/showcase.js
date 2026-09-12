@@ -20,7 +20,7 @@
  *   balls     every one of economy's eighteen balls priced against one encounter
  *
  * Every mode stages, then **freezes both timelines** — `simulation`'s walk and this
- * module's own — so the same URL gives the same pixels (ARCHITECTURE §6.3, DECISIONS #14).
+ * module's own — so the same URL gives the same pixels (tools/shots/shoot.js).
  * The harness spins ninety frames between `__READY__` and the shutter, and `registry.tick`
  * keeps running the whole time, so an unfrozen animation is a different picture every run.
  */
@@ -69,16 +69,16 @@ const LINK = { x0: 23, x1: 24, z0: 25, z1: 29 };
  * scene with **no light source in it at all**: the critic measured `c04` at median L 42.8
  * against noon's 107.2 — a near-uniform x0.40 — with the whole frame inside a 38-degree hue
  * wedge, a brightest pixel of L 114 and 0.00 % above L 140, against `docs/refs/03`'s 8.77 %
- * above L 100 and a max of 217. The grade is `environment`'s and DECISIONS #31a/#32e have
+ * above L 100 and a max of 217. The grade is `environment`'s and the grading changes have
  * already been round the houses on it; what this scene could do and did not was *put
  * something in the frame that emits*. `environment.lamps.add()` is the published seam for
- * exactly that (#25d, #31h), it owns the dusk ramp so the lamps are dark at noon for free,
+ * exactly that, it owns the dusk ramp so the lamps are dark at noon for free,
  * and its glow quad is authored to sit above the bloom threshold.
  *
  * Placed on `cz 27` — the verge between the walk row and the track — because the corridor
  * keeps that row clear of hedges and a lamp belongs beside a road. Never `orientation: 'n'`
  * or `'s'`: at a fixed 45-degree camera those arms point straight down the view axis and the
- * shade lands on its own post (DECISIONS #25a, #26e). Both arms point *inward*, so the two
+ * shade lands on its own post. Both arms point *inward*, so the two
  * pools fall on the near lawn the picture is composed around rather than off the edge.
  */
 const LAMPS = [{ cx: 14, cz: 27, head: 'e' }, { cx: 22, cz: 27, head: 'w' }];
@@ -87,7 +87,7 @@ const LAMPS = [{ cx: 14, cz: 27, head: 'e' }, { cx: 22, cz: 27, head: 'w' }];
  * Where a lamp model's bulb actually is, from its own bounds.
  *
  * The same arithmetic `city` uses, re-derived here rather than imported: a module reaches a
- * sibling only through `ctx.get` (ARCHITECTURE §5) and `city/layout.js` is not importable.
+ * sibling only through `ctx.get` (src/offline/slices.js) and `city/layout.js` is not importable.
  * The arm overhangs its cell, so the bulb is at whichever end of the bounds leaves the cell.
  */
 function bulbOf(model, cx, cz) {
@@ -127,7 +127,7 @@ function hash(x, z) {
  * Was `pixelExactDistance(config, k)`, which solved for the camera distance that put a sprite
  * texel on `k` whole internal pixels at the window it was measured at. The density is a config
  * key now and the ladder has three rungs — 16, 32, 64 — because those are the only ones at
- * which 16-texel sprite art and 32-texel tile art are both whole (DECISIONS #60).
+ * which 16-texel sprite art and 32-texel tile art are both whole.
  *
  * Every stop takes `normal`, and that is a choice the ladder forced. These were shot at `k: 3`
  * — three internal pixels per sprite texel — which is not on it: 16-texel sprites want a
@@ -226,7 +226,7 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
         // own hashed spin, which only applies to flat ground anyway.
         //
         // The tint is the +-7 % red/blue, +-4 % green `tiles` uses for its own ground variety
-        // (#25e), and it costs nothing: `instanceColor` is an attribute, not a draw call.
+        //, and it costs nothing: `instanceColor` is an attribute, not a draw call.
         //
         // Worth recording because it cost a wrong diagnosis for one frame: the first cut of
         // this hunk painted half the patch **navy-black**, which looks exactly like the
@@ -256,7 +256,7 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
   // **Not** `maxCells: 1`. Round 1 asked for single cells and got `hedge1` twenty-one times
   // in a row; AdAstra also ships the same bush authored 2, 3 and 4 cells wide as ONE model
   // (`hedge2/3/4`, and `_v2` for the north-south cuts), which is what `city` found for its
-  // planters (DECISIONS #28h). A run drawn from the widest piece that fits has the artist's
+  // planters. A run drawn from the widest piece that fits has the artist's
   // own end caps instead of a seam every cell.
   const hedges = tiles.find(SLUG, { category: 'plant', tags: ['hedge'] });
   const singles = hedges.filter((m) => (m.w ?? 1) === 1 && (m.h ?? 1) === 1);
@@ -272,7 +272,7 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
      *
      * Round 1 planted one `hedge1` per cell across a 21-cell row with a 16 % dropout, which
      * at a fixed 45-degree camera is a wall of identical cubes with a seam between every
-     * pair — `city` reached the same conclusion about its planters (DECISIONS #28h). Worse,
+     * pair — `city` reached the same conclusion about its planters. Worse,
      * it is a single 21-cell **occluder**, so its own painted `kage_out` decals merge into
      * one continuous strip and the sun's shadow lands on top of that: measured on
      * `c03-caught-golden.png`, the row-mean luminance falls 94.3 -> 11.7 over the frame's
@@ -314,14 +314,14 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
     // frame was undifferentiated grass.
     // …with a **gateway** in it, and that is a lighting decision as much as a compositional
     // one. At 17:30 `env.sun()` reports azimuth 270 and a shadow 5.93x the caster's height
-    // (DECISIONS #31f), so a hedgerow's shadow runs due *east*, parallel to the row: a gap
+    //, so a hedgerow's shadow runs due *east*, parallel to the row: a gap
     // narrower than six cells is filled in by its own neighbour's shadow and the row still
     // paints one unbroken bar across the frame, which is exactly what round 1's 16 % dropout
     // produced. The opening sits directly behind the action, is as wide as the smear, and
     // takes the band from **91 % of its columns under L 15 to 36 %** — and the eye reads
     // straight through it to the second hedgerow, which is depth the top of this frame did
     // not have. It does not make the *remaining* bar shallower: that ratio is the lighting
-    // rig's and is measured in DECISIONS #39.
+    // rig's and has been measured independently.
     const GATE = { x0: 13, x1: 18 };
     hedgerow(BOUNDARY, PATCH.x0 - 2, PATCH.x1 + 2, 9, GATE, 0.10);
     // A second hedgerow behind it, because a gateway has to open onto something. Projected
@@ -366,7 +366,7 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
   // the brightest thing in the picture and the reason the frame reads at all, and at noon it
   // is a dead grey slab across the middle of the field with a hard black post shadow beside
   // it. Shot both ways and looked at. So the furniture follows the hour the shot asks for —
-  // `tod` is a query parameter, so the same URL still gives the same pixels (DECISIONS #14).
+  // `tod` is a query parameter, so the same URL still gives the same pixels.
   for (const spec of (lamps ? LAMPS : [])) {
     const model = tiles.find(SLUG, { category: 'light', orientation: spec.head })[0];
     if (model && draft.inside(spec.cx, spec.cz)) {
@@ -384,7 +384,7 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
     // far lawn the gateway opens onto (`cz 17..19`) and the track's verges (`cz 26..30`).
     // A flower is a flat decal at a finer texel pitch than the grass under it, so it is the
     // one thing that puts high-frequency detail on an empty field without changing its
-    // silhouette; `city` learned the opposite lesson (#28h) about laying them in *rows*, so
+    // silhouette; `city` learned the opposite lesson about laying them in *rows*, so
     // these are a hash scatter and never a grid.
     for (const band of [{ z0: BOUNDARY - 3, z1: BOUNDARY - 1 }, { z0: PATCH.z1 + 1, z1: TRACK.z1 + 1 }]) {
       for (let cz = band.z0; cz <= band.z1; cz++) {
@@ -409,9 +409,9 @@ function buildMap(draft, ctx, { lamps = false } = {}) {
  *
  * Round 1 hid `terrain`'s world and rebuilt the same placements with `variety: 0`, to dodge
  * the per-cell UV phase that three critics had called a checkerboard. `tiles` then shipped
- * its own round 2 and bounded that phase (DECISIONS #29, #30), so the workaround now buys
+ * its own round 2 and bounded that phase, so the workaround now buys
  * nothing and costs a duplicate `InstancedWorld` — and it was actively deleting the tonal
- * blotch `tiles` lays down on purpose (#25e).
+ * blotch `tiles` lays down on purpose.
  *
  * Measured, same URL one flag apart, at `?showcase=encounter&mode=throw&tod=12&grain=0`:
  * `?variety=1` against the round-1 default give a **maximum channel delta of 43** and, on the
@@ -489,7 +489,7 @@ function findIndex(enc, { want, ball, biome, tod, limit = 400, shinyRate = null,
     // encounter that fires the *most* conditions rather than the hardest one, which is still
     // the seed's own encounter and not a rigged context.
     if (want === 'variety') continue;
-    // **A ball is illegal until the wild is beaten** (DECISIONS #67), so an encounter the
+    // **A ball is illegal until the wild is beaten**, so an encounter the
     // party loses has no throw in it at all — and a mode that then asks to be frozen at the
     // `capture` beat is asking for a beat that does not exist. The scan skips them.
     const probe = probeOf(enc, rolled);
@@ -645,7 +645,7 @@ function render(ctx, mode, staged) {
     + `<td>${s2.approach ? `via ${s2.approach.cx},${s2.approach.cz}` : ''}</td></tr>`).join('');
 
   // The eight-row "last grass steps and their verdicts" table went with the roll it printed
-  // (DECISIONS #73): nothing decides whether a Pokemon appears any more, so there is no coin to
+  //: nothing decides whether a Pokemon appears any more, so there is no coin to
   // show. What replaces it as the trigger's evidence is the **slot roster** below — which slots
   // this lap holds, what is standing on them, and which one the party is walking at.
 
@@ -689,7 +689,7 @@ function render(ctx, mode, staged) {
       ${e?.ivs ? ivRow(e.ivs) : ''}
       <div class="row"><span class="k">IV total</span><span class="v">${e?.ivTotal ?? 0} / 186 (${Math.round(((e?.ivTotal ?? 0) / 186) * 100)}%)</span></div>
       <div class="row"><span class="k">battle</span><span class="v">${e?.battle
-        // **Three readings, not two.** A fight is stepped now (DECISIONS #72), so `win` is
+        // **Three readings, not two.** A fight is stepped now, so `win` is
         // `null` until somebody faints — and printing that as "party lost" put a defeat in the
         // readout beside a picture of a duel that had not started yet.
         ? `${e.battle.win === null ? 'in progress' : e.battle.win ? 'party won' : 'party lost'}`
@@ -754,7 +754,7 @@ function render(ctx, mode, staged) {
  * toast instead (see `begin()`): the box waits for a keypress to close, and an idle game
  * that opened one on every encounter would leave a modal in front of an absent player. In a
  * showcase there is no player, the box never has to close, and — unlike a toast — it carries
- * no wall-clock timer, so the same URL gives the same pixels (DECISIONS #14).
+ * no wall-clock timer, so the same URL gives the same pixels.
  */
 function say(ctx, mode, staged, enc) {
   const ui = ctx.get('ui');
@@ -804,15 +804,14 @@ const STOP = {
    * not something a screenshot can ask for — so these stage it directly through
    * `encounter.stageStrike` and freeze on the beat. Three modes, shot at noon, golden hour and
    * night, are what turn "the VFX read as a flash rather than a hit" from an impression into
-   * something a contact sheet settles (DECISIONS #79).
+   * something a contact sheet settles.
    *
    * `?showcase=encounter&mode=vfx-contact&vfxType=fire` overrides the element, so all eighteen
    * are reachable from a URL without eighteen modes.
    */
   // Phases land inside each shape's own **impact** beat (`vfx/elements.js` BEATS) — the
   // moment the burst/ring/trail is at its fullest — not the earlier, quieter charge/deliver
-  // beats a fixed screenshot would otherwise catch mid-fade-in (DECISIONS #91 corrects this
-  // from the previous system's own 0.25/0.45/0.5, tuned for a hard-edged painted quad rather
+  // beats a fixed screenshot would otherwise catch mid-fade-in (replacing the previous system's 0.25/0.45/0.5, tuned for a hard-edged painted quad rather
   // than a shader whose brightness genuinely ramps through its beat).
   'vfx-contact': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'contact', phase: 0.58 } },
   'vfx-projectile': { stage: 'meet', at: 0.9, throw: false, ppu: PPU.normal, vfx: { shape: 'projectile', phase: 0.72 } },
@@ -824,7 +823,7 @@ const STOP = {
   // a 60-pixel sprite in the middle of the same picture `mode=throw` takes. Only the panel
   // changed between the two, which is what shooting more than one angle is for. `k` stays an
   // **integer** because `pixelExactDistance` only lands a sprite texel on a whole internal
-  // pixel for integer k (DECISIONS #29).
+  // pixel for integer k.
   walk: { throw: false, ppu: PPU.normal },
   /**
    * **The moment of contact.** The party has walked off its circuit to the creature's cell and
@@ -837,7 +836,7 @@ const STOP = {
    * wild breathing in place, the first exchange one step away.
    *
    * This mode was `reveal` and it was the apex of a hop out of the grass. There is no hop
-   * (DECISIONS #87) — a wild is met, not revealed — so the mode is renamed rather than
+   * — a wild is met, not revealed — so the mode is renamed rather than
    * repointed, because a stop called `reveal` that photographs a standing animal is a name
    * that lies. It is still the module's default mode, and still the `encounter/12` regress row.
    */
@@ -874,16 +873,15 @@ export async function showcaseEncounter(mode, ctx) {
   /**
    * **The default is the meeting**, and that is this round's answer to the whole-game critic.
    *
-   * `?showcase=encounter` with no mode is the URL an outside critic shoots, and it is the one
-   * that produced `docs/progress/_whole/enc-default.png` and the verdict "there is no
-   * encounter on screen at all — the catch resolving entirely inside a developer readout".
+   * `?showcase=encounter` with no mode needs to show an encounter on screen, including
+   * the catch, instead of resolving it entirely inside a developer readout.
    * The default was `throw`, on the argument that a ball in the air is "the one unambiguous
    * frame". It is unambiguous about a *ball*; the wild in it is passive and the same size as
    * three party members standing in the same grass, so the frame's subject was whichever
    * sprite the reader guessed at.
    *
    * It was then `reveal` — the apex of a hop out of the grass, with a "!" over the wild's
-   * head. Both are gone (DECISIONS #87): the wild is met, not revealed. What makes the subject
+   * head. Both are gone: the wild is met, not revealed. What makes the subject
    * legible instead is the plate over its head and the box at the bottom that names it.
    * `throw` is one URL away and is still the frame the ball's own critique is judged on.
    */
@@ -905,7 +903,7 @@ export async function showcaseEncounter(mode, ctx) {
 
   // Run the invariants the frame cannot show. `selfTest()` covers the roll tables, the odds
   // and the drop ledger — none of which a screenshot can check — and it reports a failure as
-  // a console error, which is what makes the capture that ran it fail (§8.1).
+  // a console error, which is what makes the capture that ran it fail.
   enc.selfTest?.();
 
   // Freeze this module's own trigger BEFORE the walk runs. `simulation.advanceTo` fires
@@ -916,7 +914,7 @@ export async function showcaseEncounter(mode, ctx) {
   enc.cancel();
   // A staged catch must not toast. `ui`'s toast fades on a 2.6 s wall-clock timer, which is
   // still on screen when the shutter opens and is the one thing in this frame that would not
-  // be reproducible (DECISIONS #14).
+  // be reproducible.
   if (isLive(collection)) collection.setQuiet?.(true);
 
   // --- the map --------------------------------------------------------------
@@ -926,8 +924,8 @@ export async function showcaseEncounter(mode, ctx) {
 
 
   // Register the bulbs with `environment`, which owns the night ramp and the point-light pool
-  // (ARCHITECTURE §5.3). `clear()` first because a showcase may be re-entered; the numbers are
-  // `city`'s (#28f) — sodium rather than a white LED, a reach short enough that the two pools
+  // (src/environment/index.js). `clear()` first because a showcase may be re-entered; the numbers are
+  // `city`'s — sodium rather than a white LED, a reach short enough that the two pools
   // do not merge into a wash, and a glow quad deliberately large against its intensity so the
   // sodium colour lives in the halo.
   let lampCount = 0;
@@ -958,7 +956,7 @@ export async function showcaseEncounter(mode, ctx) {
   const biome = 'meadow';
   // A shop-full of balls, so the "every ball on this target" table is priced against a bag
   // that actually holds them and `recommendBall` has something to recommend. Showcase-only:
-  // `offline` never writes a save in showcase mode (DECISIONS #15), so nothing persists.
+  // `offline` never writes a save in showcase mode, so nothing persists.
   if (isLive(economy)) {
     for (const def of economy.items((i) => i.category === 'ball')) economy.give(def.id, 5, 'showcase');
   }
@@ -1011,7 +1009,7 @@ export async function showcaseEncounter(mode, ctx) {
     }
     enc.advanceToStage(stop.stage, stop.at);
     // The strike, staged directly rather than waited for. `vfxType` from the URL so all
-    // eighteen elements are reachable without eighteen modes (DECISIONS #79).
+    // eighteen elements are reachable without eighteen modes.
     if (stop.vfx && typeof enc.stageStrike === 'function') {
       const wanted = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('vfxType');
       enc.stageStrike({ ...stop.vfx, type: wanted || stop.vfx.type || 'normal' });
@@ -1020,7 +1018,7 @@ export async function showcaseEncounter(mode, ctx) {
 
   // --- frame it ---------------------------------------------------------------
   // Two cells of camera nudge west and one north: the camera follows the *trainer*
-  // (ARCHITECTURE §5.4) and the wild Pokemon stands four cells further on than that — two
+  // (src/simulation/index.js) and the wild Pokemon stands four cells further on than that — two
   // for the follower gap, two more for the stage — so an unshifted frame puts the subject
   // against the top edge.
   sim.frameOffset?.(-2, -1);
@@ -1039,7 +1037,7 @@ export async function showcaseEncounter(mode, ctx) {
     `lead at ${lead.cx},${lead.cz} on [${standing.join(',') || 'plain'}]; ${lampCount} lamps`);
 
   // A staged scene whose lead is not actually in the grass is not proving what it claims.
-  // `warn`, not `error`: the shot is still a shot, and §7 counts errors.
+  // `warn`, not `error`: the shot is still a shot, and tools/shots/shoot.js counts errors.
   if (!standing.includes('tallgrass')) {
     ctx.log.warn(`encounter showcase "${key}": the lead is standing on [${standing.join(',') || 'plain'}], not tall grass`);
   }

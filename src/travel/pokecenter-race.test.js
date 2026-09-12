@@ -6,17 +6,17 @@
  * off the door cell before the first hop's `terrain.load()` resolves), and the shape a console
  * user produces by calling `travel.go()` twice without awaiting the first.
  *
- * `src/travel/selftest.js` (the implementer's own file) never calls `go()` a second time before
+ * `src/travel/selftest.js` never calls `go()` a second time before
  * the first has settled, and never round-trips a save whose `sceneId` is the hidden `pokecenter`
  * destination specifically (its save-round-trip case, #32-34, uses `hunt-coast`). Both gaps are
- * closed here, written independently against the module's real code — not the implementer's
+ * closed here, written independently against the module's real code — not the selftest's
  * `makeWorld` fixture, though the shape of a minimal stub ctx is necessarily similar, since
  * `travel/index.js`'s own `init(ctx)` contract dictates what a caller must supply.
  *
- * Proven able to fail: on the pre-slice tree `travel/index.js` has no `pokecenter` destination
+ * Proven able to fail: on the previous tree `travel/index.js` has no `pokecenter` destination
  * at all, so `find('pokecenter')` returns null and every assertion below that expects a
  * successful hop fails immediately (`travel: no destination "pokecenter"`, `entered` stays
- * empty, `current()` stays null) — see the slice's tester report for the captured output.
+ * empty, `current()` stays null).
  */
 import { describe, it, expect } from 'vitest';
 import travel from './index.js';
@@ -103,7 +103,7 @@ describe('a save whose last scene was the hidden Pokemon Center', () => {
 
     const fresh = makeWorld();
     fresh.api.loadState(saved);
-    // `hidden` is a panel-only flag (§5.16) — it must not read as `locked` and bounce the
+    // `hidden` is a panel-only flag (src/travel/index.js) — it must not read as `locked` and bounce the
     // save to the lobby the way an actually-gated destination does (selftest #26).
     expect(fresh.api.boot()).toBe('pokecenter');
   });

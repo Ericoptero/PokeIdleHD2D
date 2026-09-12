@@ -3,10 +3,10 @@
  *
  * `automation` has published `schema()`, `fields()`, `operators()`, `addRule`, `updateRule`,
  * `removeRule`, **`moveRule`**, `settings()` and `configure()` since it was written, and the
- * §5.11 block calls that "the schema `ui` renders from". Nothing rendered it. `moveRule` had
- * zero callers anywhere in `src/`, and after DECISIONS #76 four automations that decide what
+ * src/automation/index.js block calls that "the schema `ui` renders from". Nothing rendered it. `moveRule` had
+ * zero callers anywhere in `src/`, and after the rule UI was connected four automations that decide what
  * happens inside a fight were configurable only from a console. Four automations nobody can see
- * are not shipped (DECISIONS #77).
+ * are not shipped.
  *
  * ## Reordering is ↑ / ↓ buttons, not drag
  *
@@ -107,7 +107,7 @@ export function makeAutomation(app) {
 
   return {
     id: 'automation',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept as a record of which panels used to stand the whole HUD
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */
@@ -202,7 +202,7 @@ export function makeAutomation(app) {
           def.enabled ? 'SWITCH OFF' : 'SWITCH ON',
           { active: def.enabled, tag: 'auto-toggle', onPick: () => { a.toggle(def.id); app.markDirty(); } });
         // The cadence, in the words the brief uses. `0` is not "never" — it is "when the
-        // fight asks", and a blank here would read as broken (DECISIONS #76).
+        // fight asks", and a blank here would read as broken.
         g.text(head.x + 4, head.y + 20,
           def.everyS > 0 ? `Runs every ${def.everyS}s` : 'Runs inside a fight, not on a clock',
           C.shadowInk);

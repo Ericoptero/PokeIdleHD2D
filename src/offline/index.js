@@ -1,5 +1,5 @@
 /**
- * offline — closed-tab catch-up and the save format (ARCHITECTURE §5.8, §10).
+ * offline — closed-tab catch-up and the save format (src/offline/index.js, src/offline/save.js).
  *
  * Three jobs, in this order at boot:
  *
@@ -22,7 +22,7 @@
  *
  * Showcase mode is strictly read-only: `?showcase=…` runs against an in-memory copy of the
  * real save and never writes, never hydrates and never grants, because a showcase must be
- * deterministic (§6) and must not spend a player's actual absence on a screenshot.
+ * deterministic (src/main.js) and must not spend a player's actual absence on a screenshot.
  */
 
 import { makeSaveStore, makeStorage, makeMemoryStorage, KEY, BROKEN_KEY, FUTURE_KEY } from './save.js';
@@ -39,7 +39,7 @@ const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 export default {
   id: 'offline',
   needs: ['idle'],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['city', 'terrain'],
 
   init(ctx) {
@@ -103,7 +103,7 @@ export default {
     });
 
     // Every module the registry knows about, not just the ones with an adapter written for
-    // them. ARCHITECTURE §5 promises a module opts into saving "simply by having"
+    // them. `discoverProviders` discovers modules by their
     // `saveState`/`loadState` and needs no entry anywhere — with the default id list that was
     // never true, and `encounter` has shipped a save seam nothing ever called since it was
     // written. `discoverProviders` already skips an id with neither a seam nor an adapter.
@@ -124,8 +124,8 @@ export default {
 
     /* ------------------------------------------------------------- the curve */
 
-    // Read from config where the integrator has defined the key, otherwise from the
-    // module's own defaults. Written this way so these become live tunables (§2.6) the
+    // Read from config where the key is defined, otherwise from the
+    // module's own defaults. Written this way so these become live tunables (src/core/config.js) the
     // moment `core/config.js` grows them, with no change here — see the coreRequest.
     const curve = () => ({
       graceS: num(config.offlineGraceS, CURVE_DEFAULTS.graceS),
@@ -151,7 +151,7 @@ export default {
       const state = { ...base, biome };
       if (state.pure === undefined) {
         // The same three pure functions `idle` injects, so a closed-tab replay and a live
-        // session share one index space (DECISIONS #69). Back-filled here rather than saved,
+        // session share one index space. Back-filled here rather than saved,
         // because functions do not survive JSON.
         const e = ctx.get('encounter');
         const live = !!e && e.__missing === undefined;
@@ -324,7 +324,7 @@ export default {
 
       const toast = (text, kind) => { try { ctx.get('ui').toast?.(text, kind); } catch { /* ui is someone else's */ } };
       if (decision.ok) {
-        // Exactly the payload ARCHITECTURE §4 documents. `ui` pulls the full card with
+        // Exactly the payload src/core/bus.js documents. `ui` pulls the full card with
         // `ctx.get('offline').summary()`.
         bus.emit('offline:applied', { awayS: decision.awayS, gains: decision.gains, capped: decision.capped });
         toast(`Welcome back — ${summary.awayText} away, ₽${(applied.money ?? 0).toLocaleString()}`, 'offline');
@@ -402,7 +402,7 @@ export default {
     /* ------------------------------------------------------------------ API */
 
     return {
-      // --- save (§10) -------------------------------------------------------
+      // --- save (src/offline/save.js) -------------------------------------------------------
       /** A deep snapshot of the save document. */
       save: () => store.snapshot(),
       /** Writes immediately, bypassing the debounce. Never throws. */
@@ -423,7 +423,7 @@ export default {
       }),
       keys: { save: KEY, broken: BROKEN_KEY, future: FUTURE_KEY },
 
-      // --- catch-up (§5.8) --------------------------------------------------
+      // --- catch-up (src/offline/index.js) --------------------------------------------------
       /** The "while you were away" payload, for `ui` to render. Null once dismissed. */
       summary: () => summary,
       dismissSummary() { const s = summary; summary = null; return s; },

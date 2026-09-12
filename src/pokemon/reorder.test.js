@@ -1,7 +1,6 @@
 /**
- * `pokemon.reorder(from, to)` — slice 017's own splice-move, added beside `swap(i, j)`
- * (which "emits nothing", one line above it in `index.js`, and is not fixed here — see the
- * slice's Inspected section).
+ * `pokemon.reorder(from, to)` splices a party member into a new position.
+ * `swap(i, j)` remains a separate operation that emits no event.
  *
  * `init(stubCtx)` on the REAL module rather than a hand-rolled reducer, so a drift between
  * this test and `index.js`'s actual splice cannot happen — the same discipline every other

@@ -1,8 +1,4 @@
-# No Git LFS (DECISIONS #9). Re-add the filter lines in the same commit that installs git-lfs
-# and runs `git lfs migrate import`, never before: a half-migrated repo (old PNGs plain, new
-# PNGs pointers) is indistinguishable in a diff. The tracked screenshot weight is
-# `du -sh docs/progress` (~150 MB across ~250 files at the time of writing), not a number to
-# restate here.
+# Binary assets use normal Git storage. Git LFS is not configured.
 
 * text=auto eol=lf
 *.png binary

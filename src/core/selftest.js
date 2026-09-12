@@ -13,7 +13,7 @@
  *
  *   1. **Golden values** — literals recorded from seed 1337. Comparing two live calls to
  *      each other cannot catch a reordered stream, because both calls reorder identically
- *      and both agree; only literals can (DECISIONS #35).
+ *      and both agree; only literals can.
  *   2. **Invariants** — the clamps and limits the comments promise: MAX_FRAME_DT, the
  *      throw limit, the spy ring, the topological order.
  *   3. **Isolation** — the properties the whole architecture rests on: sibling streams do
@@ -36,8 +36,7 @@ const quietLog = { info() {}, warn() {}, error() {} };
 
 // --- rng --------------------------------------------------------------------
 // Golden literals. If these move, every seeded thing in the game moved with them: spawn
-// tables, drops, IVs, the shiny roll, scatter. That is a save-breaking change and wants a
-// DECISIONS entry, not a re-recorded literal.
+// tables, drops, IVs, the shiny roll, scatter. That changes saved-world reproducibility; investigate the cause before updating goldens.
 {
   const r = makeRng(1337, 'root');
   const seq = [r.next(), r.next(), r.next()].map((n) => Math.round(n * 1e9));
@@ -266,7 +265,7 @@ const ctxFor = (over = {}) => ({ config: { get: () => '' }, ...over });
   const order = [];
   // Two roots with no relationship: the tie-break is alphabetical, and it is *stable*.
   // `main.js` leans on that when it registers modules whose order would otherwise be an
-  // accident of file layout (DECISIONS #61).
+  // accident of file layout.
   for (const id of ['zeta', 'alpha', 'mu']) reg.add(desc(id, [], () => { order.push(id); return {} }));
   await reg.init(ctxFor());
   eq('32. registry: independent modules tie-break alphabetically', order.join(','), 'alpha,mu,zeta');
@@ -334,7 +333,7 @@ const ctxFor = (over = {}) => ({ config: { get: () => '' }, ...over });
   const errs = [];
   const reg = makeRegistry({ bus: makeBus(), log: { ...quietLog, error: (m) => errs.push(m) } });
   reg.add(desc('economy'));
-  // `?break=` is a *handled* path, so it may not spend §7's zero-console-error budget.
+  // `?break=` is a *handled* path, so it may not spend tools/shots/shoot.js's zero-console-error budget.
   await reg.init(ctxFor({ config: { get: (k) => (k === 'break' ? 'economy' : '') } }));
   eq('39. registry: ?break= quarantines the module', reg.status().find((r) => r.id === 'economy').status, 'failed');
   eq('40. registry: a deliberate break costs no console error', errs.length, 0);

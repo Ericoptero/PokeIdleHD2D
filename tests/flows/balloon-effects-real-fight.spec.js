@@ -1,10 +1,8 @@
 /**
- * Independent tester coverage for slice 018 (balloons-and-damage), written from the slice's
- * own "Expected behaviour"/"Acceptance criteria" without reading the implementer's tests
- * first, then checked against them afterwards.
+ * Balloon colour and damage effects exercised during a real fight.
  *
  * Two real-fight properties `src/ui/callout.test.js`, `src/ui/floaters.test.js` and the
- * implementer's own `tests/flows/balloons-and-damage.spec.js` cannot reach, because that flow
+ * `tests/flows/balloons-and-damage.spec.js` cannot reach, because that flow
  * spec grabs only the *first* damaging strike it sees — which, on `seed=1337` /
  * `hunt-meadow`, is always attacker `'a'`, never a crit and always type-neutral (verified by
  * instrumenting a real run: the first six damaging strikes are `{a,false,1}` `{b,false,1}`
@@ -20,7 +18,7 @@
  *      fight.** Both are reachable deterministically on this seed well inside a few thousand
  *      ticks (a crit at tick 486, a resisted hit also at 486, a super-effective hit at 1566 —
  *      measured against this tree), but nothing walks the fight far enough to hit them: the
- *      implementer's flow test only ever sees the neutral, non-crit first exchange, and
+ *      basic flow test only ever sees the neutral, non-crit first exchange, and
  *      `floaters.test.js`'s crit case pushes a fake floater directly rather than driving it
  *      through a real `battle:strike`.
  */
@@ -35,8 +33,8 @@ const peekUi = (page, key) => page.evaluate((k) => window.__CTX__.get('ui')?.[k]
  * rewrites `C` **in place** for whatever time of day the boot lands on (`ui/theme.js`), which a
  * literal cannot track and would either fail the case (`toString(16)` always lowercases) or the
  * shade itself, depending on `tod`. This is not "a second live call [that] agree[s] while both
- * are wrong" (DECISIONS #35, about re-deriving the value under test): the shading math in
- * `theme.js` is not what this test is about, and is untouched by slice 018 — this reads the
+ * are wrong" (re-deriving the value under test): the shading math in
+ * `theme.js` is not what this test is about, so this reads the
  * *named constant* (`C.roofShadow`, not "whatever hex ui/index.js happens to emit") to check
  * that the correct field, not merely *a* hex string, landed on the floater.
  */
@@ -89,7 +87,7 @@ test('the balloon and the floater anchor to different actors depending on who at
     ticks += 6;
   }
 
-  // Positions are read only now, deliberately: the sim is paused for the whole duel (§5.4;
+  // Positions are read only now, deliberately: the sim is paused for the whole duel (src/simulation/index.js;
   // `encounter/index.js`'s `walker.pause(true)`), so the trainer/ally/wild cells are stable
   // for as long as we are still inside the loop above.
   const [trainerPos, followerPos, wildAt] = await Promise.all([
@@ -118,7 +116,7 @@ test('the balloon and the floater anchor to different actors depending on who at
 
   // 2. The wild's own strike: the balloon hangs over the WILD itself, and its damage floater
   //    lands on the ally's OWN Pokemon (`sim.follower()`) — never on the trainer standing
-  //    behind it, which is exactly the distinction the slice's "Expected behaviour" names:
+  //    behind it, the behavior under test:
   //    "the ally's floater hangs over the ally's own Pokemon, since that is what is actually hit."
   expect(found.calloutB.x, "the wild's balloon anchors to its own x").toBeCloseTo(wildAt.cx + 0.5, 6);
   expect(found.calloutB.z, "the wild's balloon anchors to its own z").toBeCloseTo(wildAt.cz + 0.5, 6);

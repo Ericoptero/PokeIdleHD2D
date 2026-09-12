@@ -1,5 +1,5 @@
 /**
- * Closed-tab catch-up (ARCHITECTURE §5.8). Pure: no DOM, no module lookups, no clock of
+ * Closed-tab catch-up (src/offline/index.js). Pure: no DOM, no module lookups, no clock of
  * its own — every input is an argument, so the whole thing is testable from node and the
  * same inputs always produce the same payload.
  *

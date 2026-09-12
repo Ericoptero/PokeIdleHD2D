@@ -49,7 +49,7 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * Every building carried a hard-edged black wedge across its roof at every hour with the sun
  * above the horizon, and the discriminating fact is that the wedge sat on the **same west
  * facet at 08:00, with the sun in the east, and at 17:30 with it in the west**
- * (`docs/progress/city/critic/m08-plaza.png` against `g175-plaza.png`). A real hipped-roof
+ *. A real hipped-roof
  * terminator swaps sides when the sun crosses the ridge; one that does not is not shading,
  * it is the roof shadow-mapping *itself* — `shadowBias -0.0006` / `shadowNormalBias 0.035`
  * are not enough for a 45-degree facet at `shadowExtent 56`, and the facet's own depth wins
@@ -127,10 +127,10 @@ export async function dressCity(ctx) {
   // the grass beside it, and because the head hangs a cell out on the arm its shadow landed
   // clear of the post's streak as a detached black lozenge — the "floating black rectangles"
   // two whole-game passes named in the same breath as the lamp art itself
-  // (`docs/progress/city/r3/n21-highstreet.png` is the same framing without them).
+  //.
   //
   // Half of that artifact was AdAstra's baked `kage_out` quad, and `tiles` already drops it
-  // (`dropBakedShadowDecals`, DECISIONS #44): probing the running page for the old lamp found
+  // (`dropBakedShadowDecals`): probing the running page for the old lamp found
   // one mesh per model, `lamp_h_v4#0`, not the two its groups would give. So the half that
   // remained is this geometry's own entry in the sun's shadow map, and the flag is all of it.
   //
@@ -139,8 +139,7 @@ export async function dressCity(ctx) {
   // moon-cast silhouette of it reads as a mistake before you even measure how black it is.
   // What is given up is the post's own daylight shadow, and the job that shadow does — saying
   // the post meets the ground — is already done by the generated contact quad, which is soft,
-  // is under the base at every hour, and was measured at noon before this line went in:
-  // `docs/progress/city/r3/n12-lampfoot.png` frames two posts standing on open grass, and the
+  // is under the base at every hour, and was measured at noon on two posts standing on open grass: the
   // lawn inside the quad reads `rgb(31,108,28)` against `rgb(88,154,84)` three cells away —
   // about a third off, over a soft-edged disc two and a half cells across. Same trade as
   // `unshadowRoofs` above, taken at construction instead of after it.
@@ -191,7 +190,7 @@ export async function dressCity(ctx) {
   // AdAstra has no stone (see `PAVING`), so the square is laid from `pt-overworld-7`'s
   // `set21` — and, like the buildings, a second tileset means a third instanced world.
   // Solved with `outsideIsFilled` **true**, i.e. centre slots everywhere. The palette's
-  // twelve border slots were tried first (`docs/progress/city/r2/02-plaza.png`) and they
+  // twelve border slots were tried first and they
   // carry a bright green grass fringe, so the square came out ringed in a scalloped green
   // ribbon and read as a bowling green. The square's border course is the gravel rim
   // `PLAZA_STONE` is already inset from — `03-plaza-noedge.png` is the A/B.
@@ -218,7 +217,7 @@ export async function dressCity(ctx) {
   }
 
   // --- practical lights -----------------------------------------------------
-  // `environment` owns the night ramp and the point-light pool (ARCHITECTURE §5.3); the city
+  // `environment` owns the night ramp and the point-light pool (src/environment/index.js); the city
   // only says where the bulbs are. Registering here rather than making our own PointLights
   // is what keeps the lamps off at noon and on at dusk without the city knowing the hour.
   const env = ctx.get('environment');

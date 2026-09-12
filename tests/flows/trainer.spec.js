@@ -1,5 +1,5 @@
 /**
- * The trainer panel (slice 019) at `/?seed=1337`: the level/wins bar tracks `economy.trainer()`
+ * The trainer panel at `/?seed=1337`: the level/wins bar tracks `economy.trainer()`
  * after a real win, and the Upgrades block reflects a real purchase — both read off the live
  * panel's own content model (`window.__CTX__.get('ui')._state.panel.model()`,
  * `hud-windows.spec.js`'s `_state` precedent and `party-bar.spec.js`'s own `.cursor()` read),
@@ -7,7 +7,7 @@
  *
  * `trainerFromWins` is imported directly from `src/economy/trainer.js` for the *expected* side
  * of the level assertion — a literal per its own documented triangular formula, not a second
- * live call to `economy.trainer()` (DECISIONS #35: two live reads reorder identically and agree
+ * live call to `economy.trainer()` (two live reads reorder identically and agree
  * even when both are wrong).
  */
 import { test, expect } from '@playwright/test';

@@ -1,5 +1,5 @@
 /**
- * The save store (ARCHITECTURE §10).
+ * The save store (src/offline/save.js).
  *
  * `localStorage['pokeidle.save']` holds **one** JSON object shaped `{ v: <int>, … }`.
  * Writes are debounced 2 s and also fired on `visibilitychange`, `pagehide` and a slow
@@ -182,7 +182,7 @@ export function makeSaveStore({
     log.warn(`offline: save quarantined to ${BROKEN_KEY} (${reason})`, err ?? '');
   }
 
-  /** Applies migrations one version at a time, never skipping (§10). */
+  /** Applies migrations one version at a time, never skipping (src/offline/save.js). */
   function migrate(save) {
     let out = save;
     const from = out.v;

@@ -4,7 +4,7 @@
  * Same discipline as `callout.js`, for the same reasons: drawn on the HUD canvas rather than
  * in the scene (zero draw calls, the exact orthographic projection, the same bitmap font),
  * lifetime counted in sim steps rather than wall time so a frozen frame is reproducible
- * (DECISIONS #14), and `project` handed in rather than imported so this file stays free of
+ *, and `project` handed in rather than imported so this file stays free of
  * `three`. `ui/index.js` decides *what* a strike is worth showing (a number, `MISS`, a status)
  * and hands this file only the finished record; this file only times and draws it.
  */
@@ -16,7 +16,7 @@ import { C } from './theme.js';
 export const FLOATER_STEPS = 24;
 /** How far it drifts upward over its life, in internal pixels. */
 const RISE_PX = 14;
-/** A critical hit's number is drawn this many times normal size (DECISIONS #90). */
+/** A critical hit's number is drawn this many times normal size. */
 const CRIT_SCALE = 2;
 
 export function makeFloaters() {

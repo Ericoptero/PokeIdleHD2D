@@ -1,5 +1,5 @@
 /**
- * The message box (§5.12 "dialogue boxes").
+ * The message box (src/ui/index.js "dialogue boxes").
  *
  * Nothing in the tree publishes NPC lines yet — `city` spawns its cast with routes and no
  * script — so this is the seam rather than a consumer of one: any module can call

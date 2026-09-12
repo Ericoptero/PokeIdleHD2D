@@ -2,7 +2,7 @@
  * The travel panel's `hidden` filter, wired to the REAL `travel` module rather than a
  * hand-authored destinations array.
  *
- * `src/ui/panels/travel.test.js` (the implementer's own file) proves `rows()` drops a row that
+ * `src/ui/panels/travel.test.js` proves `rows()` drops a row that
  * ALREADY carries `hidden: true` in a literal array it wrote by hand — it never calls the real
  * `travel/index.js`, so it cannot catch the two halves disagreeing with each other (e.g.
  * `travel/index.js`'s `destinations()` forgetting to set `hidden`, or spelling the id
@@ -11,9 +11,9 @@
  * rule 2 — and driven through `init(stubCtx)`, not a deep import of its internals) to the real
  * panel, so what is asserted is the two real pieces of code agreeing.
  *
- * Proven able to fail: on the pre-slice tree `travel.destinations()` carries no `pokecenter`
+ * Proven able to fail: on the previous tree `travel.destinations()` carries no `pokecenter`
  * row at all (hidden or otherwise), so `all.find(...)` is `undefined` and the first assertion
- * throws on `pc?.hidden` — see the slice's tester report for the captured failure.
+ * throws on `pc?.hidden`.
  */
 import { describe, it, expect } from 'vitest';
 import travel from '../../travel/index.js';

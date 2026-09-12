@@ -7,12 +7,12 @@
  * Discovered and run by `tools/seams/run.js` (rule 6). `buildPokecenterMap` is the real
  * function `map.js` ships, run against a stub `tiles` that answers the same
  * category/subcategory/orientation/bounds queries the real `pt-house-indoor` catalog does
- * (verified by direct catalog read — see the slice this module was written from) — so what
+ * (verified by direct catalog read) — so what
  * is checked here is the actual collision the shipped room produces, not a hand-copied
  * expectation of it.
  *
  * `MapDraft` comes off `terrain`'s own published API, not a deep import of
- * `terrain/draft.js` (ARCHITECTURE §5, `tools/seams/run.js` rule 2) — the same guard
+ * `terrain/draft.js` (`tools/seams/run.js` rule 2) — the same guard
  * `hunts/selftest.js` uses.
  */
 

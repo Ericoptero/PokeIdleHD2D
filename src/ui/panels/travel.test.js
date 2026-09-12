@@ -1,6 +1,5 @@
 /**
- * `travel.destinations()` can carry a `hidden` row (§5.16, `pokecenter`'s door-only entry —
- * slice 013) and the T panel must keep showing exactly the rows a player can pick: the city
+ * `travel.destinations()` can carry a `hidden` row (src/travel/index.js, `pokecenter`'s door-only entry) and the T panel must keep showing exactly the rows a player can pick: the city
  * plus every hunt. `rows()` is not part of the panel contract `ui/index.js` drives (`open`,
  * `close`, `key`, `draw`); it is handed back on the returned object purely so this file does
  * not need a canvas to check the filter.

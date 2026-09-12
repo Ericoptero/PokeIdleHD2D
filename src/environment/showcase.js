@@ -23,7 +23,7 @@
  * ── The enclosed stage ───────────────────────────────────────────────────────────────────
  * `biome:cave` and `biome:interior` get a **different stage**, and that is a fix rather than
  * a flourish. Both presets set `enclosed: 1`, which means the sun stops casting and the
- * practicals do the modelling (DECISIONS #43) — and until round 7 the mode changed the
+ * practicals do the modelling — and until round 7 the mode changed the
  * *palette* while leaving the meadow underneath it, so `?showcase=environment&mode=biome:cave`
  * was a lawn, a road and a hedge under a cave grade. It measured **mean 146.07, p50 150,
  * belowL8 0.000** — brighter than the noon city, because the cave preset's key is 5.2 and it
@@ -84,7 +84,7 @@ const TALL_CLIFF_Y = 5;
  *   · **rock over everything the floor does not claim.** `set3 cave_dark_border` is the top
  *     of that rock seen from above, laid first at layer 0 so the chamber's own wall tiles
  *     (`set0`, whose border slots rise through y 0..1) draw over it rather than under it.
- *     This is what stops the sky from showing: DECISIONS #11 paints the dome first with no
+ *     This is what stops the sky from showing: the sky pass paints the dome first with no
  *     depth test, so a hole in the map is a hole to the sky whatever the preset says.
  *   · **two islands of rock inside the chamber.** A room whose floor is one unbroken sheet
  *     reads as a warehouse; a metre of wall in the middle of it has a lit face and a shaded
@@ -100,7 +100,7 @@ const TALL_CLIFF_Y = 5;
  *     `min(4.2, radius * 0.42)` at `min(1, 0.205 * intensity + 0.035)` strength, so
  *     `radius 11, intensity 5` is one full-strength pool and anything dimmer is a smudge.
  *     Two are cold (the mouth), three are warm, because a room lit in one hue is the defect
- *     DECISIONS #46(b) measured and not a cave.
+ *     measured in this framing and not a cave.
  *
  * `estalactita` is deliberately **not** placed, for the reason `hunts/biomes/cave.js`
  * measured: it hangs from y 3.26 to 8.24 expecting a ceiling this camera cannot have, and
@@ -279,7 +279,7 @@ export async function showcaseEnvironment(mode, ctx) {
   }
 
   // --- street lamps ---------------------------------------------------------
-  // A cobra head reaches a full cell sideways off its post (DECISIONS #25), and which way it
+  // A cobra head reaches a full cell sideways off its post, and which way it
   // reaches decides whether its pool lands on the road or on the verge the post stands in.
   // Round 2 registered every bulb at the *cell centre* and the road never got a pool: the
   // critic's own column scan down the middle of the carriageway (x 790) oscillated 66..86,

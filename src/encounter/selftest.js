@@ -1,7 +1,7 @@
 /**
  * The invariants. A screenshot can show that an encounter happened; it cannot show that the
  * *same* encounter happens again from the same seed, and that is the whole contract this
- * module owes `idle` and `offline` (ARCHITECTURE §5.6/§5.7). So the evidence is here.
+ * module owes `idle` and `offline` (src/encounter/index.js and src/idle/index.js). So the evidence is here.
  *
  * Everything below runs against `rolls.js` and `tables.js` with no browser, no `ctx` and no
  * DOM, which is also the proof that those two files carry no hidden state: if they did, the
@@ -47,7 +47,7 @@ const BAND = { min: 3, max: 9 };
  *
  * This file is imported by `index.js`, which Vite bundles for the browser, so a top-level
  * `node:fs` import would externalise into a proxy that throws the moment the module is
- * evaluated — one console error, one failed budget (§7), and a white page. The CLI block at
+ * evaluated — one console error, one failed budget (tools/shots/shoot.js), and a white page. The CLI block at
  * the bottom reads the file and hands it in; the browser hands in `pokemon.all()`. Both get
  * the same check.
  */
@@ -121,11 +121,11 @@ export function runSelfTest({ species = null } = {}) {
     // **`battle/12` is gone from this pin, and that is a deletion rather than a relaxation.**
     // `resolveBattle` was eleven lines comparing two levels; a fight is `src/battle/`'s turn
     // engine now, on `root/battle/<index>/<turn>`, and its own golden transcript is pinned in
-    // `src/battle/selftest.js` (DECISIONS #67). The three streams that still exist are pinned
+    // `src/battle/selftest.js`. The three streams that still exist are pinned
     // exactly as they were — that they did NOT move is the evidence the index space survived
     // the switchover.
-    // `step/0` retired with the grass roll it indexed (DECISIONS #73), the way `battle/12`
-    // retired with `resolveBattle` in #67. The two that remain are the load-bearing ones, and
+    // `step/0` retired with the grass roll it indexed, the way `battle/12`
+    // retired with `resolveBattle` with the turn engine. The two that remain are the load-bearing ones, and
     // that they did NOT move across either switchover is the whole evidence.
     check('every stream still starts where it started',
       Math.abs(s7 - 0.9075717055238783) < 1e-15
@@ -224,7 +224,7 @@ export function runSelfTest({ species = null } = {}) {
       check('every table species exists in the snapshot, with a legal rate and weight',
         bad.length === 0, bad.length ? bad.slice(0, 6).join('; ') : `${rows} rows across ${BIOMES.length} biomes`);
       // The lobby is a lobby: it has a key so `tableFor` cannot fall back to the meadow's
-      // wildlife, and no rows so nothing can spawn there (DECISIONS #73).
+      // wildlife, and no rows so nothing can spawn there.
       check('the city spawns nothing at all', (TABLES.city ?? []).length === 0,
         `${(TABLES.city ?? []).length} rows`);
       check('…and it is still a known biome, so no lookup falls through to the meadow',
@@ -237,7 +237,7 @@ export function runSelfTest({ species = null } = {}) {
     let empty = 0;
     const detail = [];
     // Every biome a HUNT is played in. The city is deliberately not one of them any more, and
-    // the check moved with the rule rather than being loosened around it (DECISIONS #73).
+    // the check moved with the rule rather than being loosened around it.
     for (const biome of BIOMES.filter((b) => b !== 'city')) {
       for (const tod of [0, 5, 8, 12, 16, 19, 22]) {
         const rows = rowsFor(biome, tod);
@@ -307,7 +307,7 @@ export function runSelfTest({ species = null } = {}) {
   }
 
   // --- 15 battles ---------------------------------------------------------------
-  // RETIRED with `resolveBattle` (DECISIONS #67). What this checked — that a battle resolves
+  // RETIRED with `resolveBattle`. What this checked — that a battle resolves
   // the same way twice, that `hpFraction` is a real fraction, and that the win curve stays
   // inside its clamp — was a property of an eleven-line coin flip that no longer exists. The
   // equivalents now live in `src/battle/selftest.js`: a golden transcript at seed 1337, a
@@ -368,7 +368,7 @@ export function runSelfTest({ species = null } = {}) {
 
   // --- 20 RETIRED: grass steps ----------------------------------------------------
   // Three checks on `stepRoll` — that it fires at the rate it is given, that it replays, and
-  // that 0 and 1 clamp — went with the random-encounter system they measured (DECISIONS #73).
+  // that 0 and 1 clamp — went with the random-encounter system they measured.
   // Nothing rolls to decide whether a Pokemon appears any more: a hunt walks to a slot and
   // fights what is standing on it. `stepRoll`/`stepValue` remain in `rolls.js`, unexported from
   // the module API and uncalled, and go the next time that file is touched.
@@ -378,7 +378,7 @@ export function runSelfTest({ species = null } = {}) {
   // The brief asks for a per-species table with an item, a min, a max and a probability. All
   // 1253 of them are derived rather than authored, so what is worth pinning is the derivation:
   // that it produces the shape asked for, that it stays inside its draw budget, and that the
-  // place still leads (DECISIONS #75).
+  // place still leads.
   {
     const by = Array.isArray(species) ? Object.fromEntries(species.map((x) => [x.name, x])) : {};
     if (by.caterpie) {
@@ -435,8 +435,8 @@ export function runSelfTest({ species = null } = {}) {
   // --- 22 every move has a look, and it is derived -------------------------------
   //
   // 721 moves, twenty-one authored pieces: eighteen elemental palettes (`battle.typeColour`,
-  // DECISIONS #90) crossed with three delivery shapes, each shape a four-beat timeline
-  // (`vfx/elements.js`, DECISIONS #91). What is worth pinning here — the colour half moved to
+  // per-type colours) crossed with three delivery shapes, each shape a four-beat timeline
+  // (`vfx/elements.js`). What is worth pinning here — the colour half moved to
   // `battle/selftest.js` #61-66 when `battle/types.js` became the one canonical table — is
   // that the shape/beat/profile crossing is total: a move added to `moves.json` tomorrow, or a
   // type this table has never seen, must not fall through to nothing.
@@ -460,7 +460,7 @@ export function runSelfTest({ species = null } = {}) {
     // The four-beat timeline: charge, deliver, impact, resolve, covering [0,1] with no gap and
     // no overlap for every shape — a strike whose phase fell in a hole between two beats would
     // freeze mid-effect on a showcase and nobody would notice until that exact phase was asked
-    // for (the same class of bug DECISIONS #79 records for a screenshot caught mid-settle).
+    // for (a screenshot caught mid-settle can hide a broken animation).
     for (const shape of ['contact', 'projectile', 'field']) {
       const beats = BEATS[shape];
       check(`${shape}'s beats start at 0`, beats[0].from === 0);
@@ -491,7 +491,7 @@ export function runSelfTest({ species = null } = {}) {
   // Both are constants rather than settings, and both are the kind of thing a later change
   // would quietly relax: a second ball "so a rare one is not lost", a five per cent wipe
   // "because ten feels harsh". Pinning them is what makes relaxing one a decision somebody
-  // has to take on purpose (DECISIONS #72).
+  // has to take on purpose.
   {
     check('one ball per defeated wild, and it is not configurable',
       THROWS_PER_FAINT === 1, `${THROWS_PER_FAINT}`);
@@ -503,7 +503,7 @@ export function runSelfTest({ species = null } = {}) {
       THROWS_PER_FAINT * 7 >= 7, 'a common is seven won fights');
   }
 
-  // --- 24 planBeats: the timeline never lets two actions land in the same tick (DECISIONS #89) ---
+  // --- 24 planBeats: the timeline never lets two actions land in the same tick ---
   {
     const BEATS = { actionSteps: 18, itemSteps: 16, reviveSteps: 100 };
     const strike = (patch) => ({ turn: 1, attacker: 'a', move: 'tackle', cause: null, use: null, ...patch });

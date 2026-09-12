@@ -6,7 +6,7 @@
  * **Total.** Every comparator ends in the same tiebreak chain — catch ordinal, then uid —
  * so no two entries ever compare equal. A comparator that returns 0 for two Pokémon makes
  * the result depend on `Array.prototype.sort`'s implementation, and "same seed, same world"
- * (ARCHITECTURE §2.5) then stops being true across browsers. Ending on the ordinal costs
+ * (src/core/rng.js) then stops being true across browsers. Ending on the ordinal costs
  * one comparison and buys a sort that is identical everywhere.
  *
  * **Direction-safe.** `desc` flips the *primary* key only. Sorting by level descending

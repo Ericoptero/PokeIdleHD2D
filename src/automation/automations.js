@@ -7,7 +7,7 @@
  * engine reads this table; `ui` renders it; `selftest.js` checks that every default rule
  * validates against the schema its own automation declares.
  *
- * ### Nothing is on by default (ARCHITECTURE §5.11)
+ * ### Nothing is on by default (src/automation/index.js)
  *
  * Every automation starts `locked`. Unlocking spends **research (◈)** — the currency
  * `idle` mints and nothing else spends — and is a one-way purchase. Unlocking does not
@@ -53,7 +53,7 @@
  * The brief names it, and it is the cadence `restock` already declared: `everyS`, counted in
  * the engine's own **sim seconds** (`engine.js` `lastRunS`/`due()`/`mark()`), not in wall time.
  * That is what keeps it replayable — a fold has no clock — and keeps it out of the save
- * entirely, which is why this phase needs no document migration for it (DECISIONS #75).
+ * entirely, which is why this phase needs no document migration for it.
  *
  * Named here rather than left as a bare `30` on one automation, so the brief's word points at
  * something a reader can find.
@@ -161,7 +161,7 @@ export const AUTOMATIONS = [
        * Both are *preferences*, not overrides: the first ball on the ladder that is actually in
        * the bag is thrown, and a ladder that is empty or entirely out of stock falls through to
        * the cost-per-catch optimiser below — which is what the brief's "falls back to the best
-       * available option" means (DECISIONS #78).
+       * available option" means.
        */
       { key: 'mode', label: 'Ball choice', type: 'enum', values: ['simple', 'advanced'], default: 'simple' },
       { key: 'ladder', label: 'Preferred balls', type: 'order',
@@ -201,7 +201,7 @@ export const AUTOMATIONS = [
   // a cadence: heal, revive and ether are the `between` hook `battle.stepper` calls before each
   // turn, and lead is asked once, at engagement. On a cadence they would fire against no fight
   // at all — which is the trap `hunt` and `catch` already sit in, declaring an `everyS` nothing
-  // reads (DECISIONS #76). `everyS: 0` says so out loud.
+  // reads. `everyS: 0` says so out loud.
   {
     id: 'heal',
     name: 'Auto-Heal',
@@ -405,7 +405,7 @@ export const AUTOMATIONS = [
         blurb: 'Bought up to this count, budget allowing.' },
       /**
        * Healing, Revival, PP, Balls — and it cannot be `item.category`, because three of those
-       * four ARE `medicine`. `economy.purchaseClass` reads what an item does (DECISIONS #78).
+       * four ARE `medicine`. `economy.purchaseClass` reads what an item does.
        */
       { key: 'categoryOrder', label: 'Budget priority', type: 'order',
         default: ['heal', 'revive', 'pp', 'ball'],
@@ -445,7 +445,7 @@ export function defaultSettings(id) {
   const out = {};
   // Deep-copied for the list types, because a frozen shipped default handed straight to a
   // player's settings record is a default they cannot edit — and one they *could* edit would be
-  // the catalogue itself, shared by every save in the tab (DECISIONS #76).
+  // the catalogue itself, shared by every save in the tab.
   for (const s of def?.settings ?? []) {
     const d = s.default;
     if (Array.isArray(d)) out[s.key] = d.map((v) => (v && typeof v === 'object' ? { ...v } : v));

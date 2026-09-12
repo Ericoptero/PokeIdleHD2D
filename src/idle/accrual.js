@@ -3,7 +3,7 @@
  *
  * `simulate(state, elapsedS, seed)` is a PURE function: no clocks, no ctx, no module
  * lookups, no `Math.random`. `src/offline/` calls the very same function for closed-tab
- * catch-up (ARCHITECTURE §5.7), so if these two ever disagreed the player would see one
+ * catch-up (src/idle/index.js), so if these two ever disagreed the player would see one
  * number while the tab was open and a different one after coming back. There is exactly
  * one implementation, and this is it.
  *
@@ -32,7 +32,7 @@
  * A party member's contribution is `level^0.85 x (BST/300) x slot x affinity x shiny`.
  * Levels matter most, species quality matters, later party slots fall off so a sixth
  * member is a real but diminishing gain, the lead is worth extra (the lead walks in
- * front — ARCHITECTURE §0), and a Pokemon whose type suits the biome earns more there.
+ * front), and a Pokemon whose type suits the biome earns more there.
  * That is the whole reason to think about party composition, which is the point of an
  * idle game's core loop.
  */
@@ -51,9 +51,9 @@ import { makeRng } from '../core/rng.js';
  */
 
 /**
- * **Zero, and zeroed rather than deleted** (DECISIONS #69).
+ * **Zero, and zeroed rather than deleted**.
  *
- * ARCHITECTURE §0: money is earned by selling what a hunt produced and by nothing else. This
+ * Money is earned by selling what a hunt produced and by nothing else. This
  * was the faucet — 0.85 per second at power 1.0, forever, fought or not — and
  * `economy/pacing.js MEASURED` records what it did: ₽218k/h at fifteen minutes and a level-100
  * party by hour eight.
@@ -68,8 +68,7 @@ export const BASE_MONEY = 0;
 /** Experience per second at power 1.0. */
 export const BASE_EXP = 2.4;
 /**
- * **Also zero.** Research was the other per-second faucet, and the rule in §0 is that *nothing*
- * grows with the clock — so it is paid per battle won, in `rollEncounter`, like everything else.
+ * **Also zero.** Research was the other per-second faucet, so it is paid per battle won, in `rollEncounter`, like everything else.
  */
 export const BASE_RESEARCH = 0;
 /** Encounters per second at biome weight 1.0 — one every ~40 s. */
@@ -81,7 +80,7 @@ export const MONEY_POWER_EXP = 0.92;
 
 /** Party slot falloff. Slot 0 is the lead and is boosted separately. */
 export const SLOT_FALLOFF = [1, 0.82, 0.68, 0.56, 0.46, 0.38];
-/** The lead Pokemon leads — ARCHITECTURE §0 — and is paid for it. */
+/** The lead Pokemon leads and is paid for it. */
 export const LEAD_BONUS = 1.25;
 /** A shiny is rare enough to be worth keeping in the party. */
 export const SHINY_BONUS = 1.5;
@@ -104,7 +103,7 @@ export const BIOMES = {
 export const DEFAULT_BIOME = 'meadow';
 
 /**
- * Unlocks. Multiplicative, permanent, and never on by default — ARCHITECTURE §5.11 says
+ * Unlocks. Multiplicative, permanent, and never on by default — src/automation/index.js says
  * automation is something the player unlocks and configures, and the production layer
  * follows the same rule. `automation` and `economy` decide *when* one is granted; `idle`
  * only reads the set it is handed.
@@ -341,11 +340,11 @@ function wildLevelBand(prod) {
  * time was chopped up — that is what makes the whole model chunk-invariant.
  */
 export function rollEncounter(index, seed, prod, opts) {
-  // **`encounter`'s own index space, when it is handed one** (DECISIONS #69).
+  // **`encounter`'s own index space, when it is handed one**.
   //
   // This function used to roll its own species from its own `idle/encounter/N` stream with its
   // own level band and its own win-chance curve, and `encounter/index.js:38-40` filed the
-  // consequence as a core request: §5.6 and §5.7 promise a seed and an index give the same
+  // consequence as a core request: src/encounter/index.js and src/idle/index.js promise a seed and an index give the same
   // encounter live or offline, and they did not — index 400 was a different Pokemon in the two
   // paths. The pure functions come in through `opts` (a deep import is banned by seam rule 2),
   // so `accrual.js` stays `ctx`-free and there is now ONE index space.
@@ -361,7 +360,7 @@ export function rollEncounter(index, seed, prod, opts) {
   const shiny = rolled ? !!rolled.shiny : rng.next() < (prod.flags.charm ? SHINY_RATE_CHARM : SHINY_RATE);
 
   // **The same turn engine the visible fight runs** — one implementation of what a battle is,
-  // the way §5.7 keeps one implementation of what a second is. The old level comparison
+  // the way src/idle/index.js keeps one implementation of what a second is. The old level comparison
   // survives only as the fallback for a quarantined `encounter`, so a broken module costs the
   // idle path its fidelity rather than its output.
   let win;
@@ -384,7 +383,7 @@ export function rollEncounter(index, seed, prod, opts) {
     caught = rng.next() < catchChance;
   }
 
-  // **No money.** §0: it is earned by selling what a hunt produced. What a battle pays is
+  // **No money.** It is earned by selling what a hunt produced. What a battle pays is
   // experience and — from `encounter`'s own drop table, index-addressed so this replays what
   // was watched — loot. Losing still teaches the party something, which keeps a weak party
   // from stalling completely.
@@ -398,7 +397,7 @@ export function rollEncounter(index, seed, prod, opts) {
   if (shiny) rewards.research = +(rewards.research * 4).toFixed(3);
 
   const drops = win && pure?.dropAt
-    // The species goes with it: a drop table is the species' own now (DECISIONS #75), and
+    // The species goes with it: a drop table is the species' own now, and
     // `rolled.species` is a NAME — `encounter.pure().dropAt` resolves it to a record on the
     // other side of the seam, because this file may not reach `pokemon`.
     ? pure.dropAt(index, {
@@ -477,7 +476,7 @@ export function simulate(state, elapsedS, seed = 0) {
       if (e.caught) { catches++; ballsSpent++; }
       if (e.shiny) shinies++;
       if (e.foundBall) ballsFound++;
-      // Loot, banked by id. This is the closed-tab half of the faucet §0 replaced money with:
+      // Loot, banked by id. This is the closed-tab half of the drop system:
       // a hunt run with nobody watching still fills the bag, and selling it is still the only
       // way any of it becomes money.
       for (const d of e.drops ?? []) loot[d.id] = (loot[d.id] ?? 0) + d.n;

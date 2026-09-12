@@ -364,8 +364,8 @@ export function makeAutotiler(rawSets, byId, allModels = []) {
 
     /**
      * PDSMS's smart palette may be laid out bottom-up; if corners come out inverted on
-     * screen, flip once here rather than editing every call site (ARCHITECTURE §5.1).
-     * DECISIONS #2 settled that it should stay unused.
+     * screen, flip once here rather than editing every call site (src/tiles/index.js).
+     * The source orientation is already correct, so this stays unused.
      */
     setFlipped(v) { flipped = !!v; },
     isFlipped: () => flipped,
@@ -404,7 +404,7 @@ export const MASK_BITS = { N, S, W, E, NW, NE, SW, SE };
  * The arms a thin billboard piece actually has, read off its geometry: a vertical quad in
  * the x=0.5 plane that reaches z<0.4 is a north arm, and so on. Horizontal rails and cast
  * shadow decals are excluded by their zero height. This is how the fence sets are solved
- * without trusting names the classifier derived from a palette slot (DECISIONS #6).
+ * without trusting names the classifier derived from a palette slot.
  *
  * @param {Float32Array} view  the interleaved vertex buffer
  * @param {{groups: {offset:number, count:number}[]}} model

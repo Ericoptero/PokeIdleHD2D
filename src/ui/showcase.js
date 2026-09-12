@@ -1,5 +1,5 @@
 /**
- * The `ui` showcase (ARCHITECTURE §6).
+ * The `ui` showcase (src/main.js).
  *
  * Every panel is drawn over the **real lobby**, with real data pulled from the real modules:
  * the shop's prices come from `economy`, the boxes come from `collection` after a scripted
@@ -7,10 +7,10 @@
  * decision for a five-hour absence. Nothing here is mocked, because a UI screenshot of
  * invented numbers proves nothing about the seam it is meant to prove.
  *
- * Determinism (§6.3): the city cast is advanced a fixed number of sim steps and frozen, the
+ * Determinism (tools/shots/shoot.js): the city cast is advanced a fixed number of sim steps and frozen, the
  * seeded catches are a fixed list, toasts do not age in showcase mode, and the away card is
  * asked for a fixed `awayS` rather than a real absence — `offline` is read-only in showcase
- * mode (DECISIONS #15) so nothing is granted or written either way.
+ * mode so nothing is granted or written either way.
  *
  * Modes: `default font hud menu offline shop boxes dex party moves battle travel toasts
  * dialogue input evolution evolution-burst evolution-reveal evolve`
@@ -52,7 +52,7 @@ export async function showcaseUi(mode = 'default', ctx) {
     await city.enter?.();
     city.preset?.(mode === 'shop' ? 'mart' : mode === 'boxes' || mode === 'dex' ? 'pokecenter' : 'plaza');
     // The cast is walked to a fixed point and stopped there, exactly as `city.showcase`
-    // does, so the backdrop is the same picture in every capture (DECISIONS #26d).
+    // does, so the backdrop is the same picture in every capture.
     const sim = ctx.get('simulation');
     if (isLive(sim) && typeof sim.advanceSteps === 'function' && config.timeFrozen) {
       sim.advanceSteps(47);
@@ -116,7 +116,7 @@ export async function showcaseUi(mode = 'default', ctx) {
       // The cutscene, HELD. It is 5.75 s long and the harness spins ninety frames between
       // `__READY__` and the shutter, so a running one is a different picture every time —
       // `freeze(t)` gives the browser's own timeline a negative delay and pauses it, which is
-      // the real animation sampled rather than a second drawing of it (ARCHITECTURE §6.3).
+      // the real animation sampled rather than a second drawing of it (tools/shots/shoot.js).
       const pk = ctx.get('pokemon');
       const at = wanted === 'evolution-burst' ? 3.42 : wanted === 'evolution-reveal' ? 4.35 : 1.70;
       ui.evolution?.freeze({ from: pk.species('oshawott'), to: pk.species('dewott') }, at);
@@ -132,7 +132,7 @@ export async function showcaseUi(mode = 'default', ctx) {
       const lead = pk.party?.()?.[0];
       if (lead && typeof pk.grantExp === 'function') {
         // Enough for the level, granted as a hunt would grant it. It still does not evolve:
-        // that is the point of the mode (DECISIONS #62).
+        // that is the point of the mode.
         pk.grantExp(lead.instanceId, 60000, { source: 'hunt' });
         const need = pk.canEvolve?.(lead.instanceId);
         for (const m of need?.materials ?? []) eco.give?.(m.id, m.n, 'showcase:drop');
@@ -185,7 +185,7 @@ export async function showcaseUi(mode = 'default', ctx) {
  * `economy.throwBall`, which is the only thing in the game that credits the ledger; a mocked
  * meter would be a drawing of a number rather than the number.
  *
- * Deterministic by construction (§6.3): a fixed index, a fixed grant, and a loop whose exit
+ * Deterministic by construction (tools/shots/shoot.js): a fixed index, a fixed grant, and a loop whose exit
  * condition is arithmetic on the species price rather than a count of tries.
  */
 /**
@@ -220,7 +220,7 @@ function stageFight(ctx) {
   if (typeof pk.grantExp === 'function') pk.grantExp(lead.instanceId, 26000, { source: 'hunt' });
 
   // The cave, not the forest: the starter this save leads with is a Water type and a Grass
-  // route beats it three times in four (DECISIONS #68).
+  // route beats it three times in four.
   const makeAlly = () => bt.makeCombatant({
     species: lead.species, level: lead.level, ivs: lead.ivs, shiny: !!lead.shiny,
     moves: (lead.moves ?? []).map((m) => ({ ...m })), hp: lead.hp, instanceId: lead.instanceId,

@@ -18,7 +18,7 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
  * Interpolated value noise on a lattice of `period` cells, in [0,1).
  *
  * The interpolation is the point. Per-cell `noise2` gives neighbours unrelated values and
- * the eye finds the grid instantly (`tiles` measured exactly this — DECISIONS #30e); a
+ * the eye finds the grid instantly (`tiles` measured exactly this); a
  * smoothed lattice gives patches many cells across with no step at any cell edge.
  */
 export function valueNoise(x, z, seed, period = 8) {
@@ -43,7 +43,7 @@ export function fbm2(x, z, seed, period = 12, detail = 0.35) {
  *
  * Round 1 thresholded plain `fbm2` and then ran `ragged` over the boundary, and the meadow's
  * tall grass came out a 15x16 rectangle with a one-cell wobble on it — measured off the
- * field itself, not guessed (DECISIONS #37). Two things conspire: a threshold on a smooth
+ * field itself, not guessed. Two things conspire: a threshold on a smooth
  * lattice gives long axis-aligned level sets wherever the lattice gradient is small, and
  * `ragged` can only ever move the boundary by one cell because it flips *edge* cells. One
  * cell at 35 screen pixels per cell is not a shape.
@@ -547,7 +547,7 @@ export function laneNear(draft, cx, cz, {
 export { clamp01, lerp, smooth };
 
 // ---------------------------------------------------------------------------
-// The hunt loop, and the slots on it (ARCHITECTURE §5.14, DECISIONS #65)
+// The hunt loop, and the slots on it (src/hunts/index.js)
 // ---------------------------------------------------------------------------
 
 /**
@@ -577,7 +577,7 @@ export function findLoop(draft, around, {
 } = {}) {
   // `around` may be one cell or a list of them. A cave is a system of galleries and its
   // showcase marker sits in one of them; searching only there found nothing at all and left
-  // the biome standing still, so every marker on the draft gets a turn (DECISIONS #65).
+  // the biome standing still, so every marker on the draft gets a turn.
   const anchors = (Array.isArray(around) ? around : [around])
     .filter(Boolean)
     .map((a) => ({ cx: Math.round(a.cx ?? draft.w / 2), cz: Math.round(a.cz ?? draft.h / 2) }));
@@ -592,7 +592,7 @@ export function findLoop(draft, around, {
   // `bump` displaces a straight run one cell sideways, which adds four corners and **cannot
   // open the ring**, because it replaces a path between two cells with another path between
   // the same two cells. Every bump is verified against the draft before it is kept, and a map
-  // with no room for any of them keeps the rectangle rather than failing (DECISIONS #66).
+  // with no room for any of them keeps the rectangle rather than failing.
   const cells = growCorners(draft, base.cells, {
     corners, depth, preferTags, rng, margin,
   });
@@ -604,7 +604,7 @@ export function findLoop(draft, around, {
   // `gap` steps all go the same way, which a rectangle gives for free at a corner and a bent
   // circuit does not: the coast at twelve corners started one cell before a turn, put the head
   // off the path, and spent 690 of 800 ticks away from its own loop while `audit` called the
-  // loop clean — because it was. Nobody was standing on it (DECISIONS #65(c), again).
+  // loop clean — because it was. Nobody was standing on it.
   const ordered = rotateToStraight(cells, straightLead);
 
   return {
@@ -664,7 +664,7 @@ function findRectangle(draft, anchors, { min, max, step, margin, preferTags = []
    * size 22 runs before size 21 begins. Measured on the shipped meadow: the circuit came out a
    * 6x17 corridor at x 38-43, fifty cells of a 64x60 map, hugging one edge — with the campfire
    * that is the biome's only night practical **14 cells away** and the marker every showcase
-   * frames 23 away. The party walked a corner of a map it never saw (DECISIONS #74).
+   * frames 23 away. The party walked a corner of a map it never saw.
    *
    * Three things decide it now, and each is there for a reason a picture shows:
    *
@@ -747,7 +747,7 @@ function growCorners(draft, ring, { corners, depth, preferTags, rng, margin }) {
   // **A circuit may not balloon into the whole room.** Without this the same bump wins every
   // pass — the highest-scoring one is always the deepest on the longest run — and it just
   // deepens one notch over and over: a 92-cell rectangle became a 216-cell one, still with six
-  // corners, because deepening a notch adds none after the first (DECISIONS #66).
+  // corners, because deepening a notch adds none after the first.
   const cap = Math.round(ring.length * 1.55);
 
   for (let pass = 0; pass < 64 && cornerCount(cells) < want; pass++) {
@@ -918,7 +918,7 @@ export function routeOf(cells) {
 /**
  * Spawn slots for a loop: cells at Chebyshev distance **exactly 2** from the path.
  *
- * Two, and the arithmetic is the whole reason (§5.14): a tethered wild drifts one tile off its
+ * Two, and the arithmetic is the whole reason (src/hunts/index.js): a tethered wild drifts one tile off its
  * slot and the encounter trigger reaches one tile from the walking head, so two is contact.
  * One closer and the party is permanently in a battle; one further and a lap never meets
  * anything.
@@ -971,7 +971,7 @@ export function slotsForLoop(draft, loopCells, rng, { count = 10, accept } = {})
        * within one cell of the circuit) it is **provably never a loop cell**. That is what
        * makes a detour a queued pair `[step, opposite(step)]` rather than a path search: the
        * head steps off, makes contact, fights, and steps back onto the cell it left, so the
-       * route's index is untouched by construction (DECISIONS #73).
+       * route's index is untouched by construction.
        *
        * A slot you cannot step toward — or, on a one-way `ledge`, cannot step back from — is
        * not a slot. Rejecting it here rather than discovering it at the edge of a lap is what

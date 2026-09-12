@@ -111,7 +111,7 @@ export function pureChecks() {
       bad.length ? bad.slice(0, 3).join('; ') : `${AUTOMATIONS.length} automations, ${AUTOMATIONS.reduce((n, a) => n + a.rules.length, 0)} rules`));
   }
 
-  // 2 ── nothing is on by default (ARCHITECTURE §5.11).
+  // 2 ── nothing is on by default (src/automation/index.js).
   {
     const engine = makeEngine();
     const on = AUTOMATIONS.filter((a) => engine.isActive(a.id) || engine.isUnlocked(a.id) || engine.isEnabled(a.id));
@@ -351,7 +351,7 @@ export function pureChecks() {
   //
   // `BUY_COOLDOWN` is not a new mechanism: it is the cadence `restock` already declared, in
   // the engine's own **sim seconds** (`due()`/`mark()`), not wall time. That is what keeps it
-  // replayable in a fold and out of the save entirely (DECISIONS #75). Naming it is what makes
+  // replayable in a fold and out of the save entirely. Naming it is what makes
   // the brief's word point at something a reader can find.
   results.push(ok('BUY_COOLDOWN is the restock cadence',
     automation('restock').everyS === BUY_COOLDOWN && BUY_COOLDOWN > 0 && BUY_COOLDOWN < 3600,
@@ -360,7 +360,7 @@ export function pureChecks() {
   // 18 ── Sell-Lock cannot be outvoted by a ruleset.
   // It is enforced in `planSell` before the rules run, not in `economy.sell()` — the same
   // discipline auto-release's protective rules use, except the player's own instruction does
-  // not even get to be reordered (DECISIONS #75).
+  // not even get to be reordered.
   results.push(ok('no auto-sell rule reasons about the lock at all',
     defaultRules('sell').every((r) => !/lock/i.test(JSON.stringify(r.when ?? {}))),
     'the lock is a gate, not a rule'));
@@ -496,7 +496,7 @@ export function pureChecks() {
   // purchase the cheapest item first". Rule order alone could not express it — three of those
   // four classes are `category: 'medicine'`, so one medicine rule ordered them by price and a
   // thin wallet bought twenty Potions instead of the Max Potion that keeps a party standing
-  // (DECISIONS #78).
+  //.
   {
     const s2 = defaultSettings('restock');
     results.push(ok('the budget order is the brief\'s own',
@@ -539,7 +539,7 @@ export function pureChecks() {
 
   // 25 ── a move slot carries no type, and the lead rule has to survive that.
   //
-  // **The check that would have caught DECISIONS #80 and did not.** Check 20 above builds its
+  // **Exercise the production wiring as well as the isolated helpers.** Check 20 above builds its
   // party with `moves: [{ id, pp, type }]` — a shape no `pokemon` instance has. A real slot is
   // `{ id, pp, maxPp }`, so `leadChoice` read `undefined` for every type, scored every member at
   // the offensive floor, and fell through to the health tiebreak: against a Grass wild, with a

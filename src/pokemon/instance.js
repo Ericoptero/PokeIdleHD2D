@@ -4,16 +4,16 @@
  * Before this file an instance was `{ instanceId, species, level, shiny, hp: 1, exp: 0, ivs }`
  * and **nothing in the repo ever changed its level**: `idle/index.js:213` called a
  * `pokemon.grantExp` that did not exist, so every point of experience the game has ever
- * produced was thrown away (DECISIONS #61). This is the other half of that seam.
+ * produced was thrown away. This is the other half of that seam.
  *
  * Pure by construction: every dependency is a parameter. `battle` supplies the stat formula,
  * the growth curves and the move table; a species lookup supplies evolutions. Nothing here
- * imports another module (§5), reads a clock, or touches the DOM — so it runs in Node and the
+ * imports another module (src/offline/slices.js), reads a clock, or touches the DOM — so it runs in Node and the
  * selftest can level a Pokemon to 100 without a browser.
  *
  * **`battle` is reached through `ctx.get`, not `needs`.** A quarantined engine has to cost the
  * game its moves, not its sprites: `pokemon` failing would take the overworld down with it, and
- * ARCHITECTURE §2.1's whole point is that one broken module must not cascade.
+ * src/core/registry.js's whole point is that one broken module must not cascade.
  */
 
 /** The registry's null object answers every property with a function — this is the tell. */
@@ -101,13 +101,13 @@ export function refreshMoves(inst, battle) {
 /**
  * What this Pokemon would become, and what it is waiting for.
  *
- * `species.evo` is the requirement **inverted onto the parent** at build time (DECISIONS #61),
+ * `species.evo` is the requirement **inverted onto the parent** at build time,
  * so this is a lookup rather than a search. Four methods reach a level:
  *
  *   - `levelUp`      the level on the row
  *   - `useItem`      the same level gate, plus the stone in the bag
  *   - everything else (`trade`, `levelFriendship`, `levelMove`, …) a **derived** level, so no
- *     line in the game is unreachable from a hunt — which is the point of the rule in §0.
+ *     line in the game is unreachable from a hunt.
  *
  * **Nothing here evolves anything.** `evolutionFor` prices the evolution and says whether the
  * bill can be paid; taking it is `pokemon.evolve()`, and that is only ever called because a
@@ -223,7 +223,7 @@ export function evolveTo(inst, species, battle) {
 /**
  * Heals. `hp: 'full'` restores everything; a number restores that much.
  *
- * **It refuses a fainted Pokemon, and that is a rule rather than a guard.** Until DECISIONS #72
+ * **It refuses a fainted Pokemon, and that is a rule rather than a guard.** Before fainted-state validation
  * this function would happily take a 0 HP Oshawott to 20, which made a ₽200 Potion a working
  * Revive — and it made "fainted Pokemon cannot participate in battles" unenforceable, because
  * the first auto-heal rule would quietly resurrect whatever had just gone down. Raising a
@@ -233,7 +233,7 @@ export function evolveTo(inst, species, battle) {
  * (`pokemon.reviveAll`, full and status cleared), a lap of a hunt circuit (`hunts`, 34 % and
  * status cleared) and a Revive spent inside a fight (`encounter`'s writeBack). All three are
  * recoveries a player earned or paid for; the flag exists so an ordinary Potion cannot become
- * one by accident (DECISIONS #81).
+ * one by accident.
  */
 export function heal(inst, { hp = 'full', status = true, revive = false } = {}) {
   if (inst.hp <= 0 && !revive) return inst.hp;
@@ -281,7 +281,7 @@ export function damage(inst, n) {
   return inst.hp;
 }
 
-/** The save shape. Species is a name; everything derived is rebuilt on load (§5). */
+/** The save shape. Species is a name; everything derived is rebuilt on load (src/offline/slices.js). */
 export function serialize(inst) {
   return {
     instanceId: inst.instanceId,
@@ -298,7 +298,7 @@ export function serialize(inst) {
 /**
  * Rebuilds an instance from a slice.
  *
- * **Derived state is rebuilt, never trusted from the file** (§5): stats and maxHp are
+ * **Derived state is rebuilt, never trusted from the file** (src/offline/slices.js): stats and maxHp are
  * recomputed from base + IVs + level, and the move list is re-derived from the learnset with
  * only the *spent PP* carried over. A save that claimed a Snorlax had 4000 HP would be
  * corrected rather than obeyed.
@@ -312,7 +312,7 @@ export function deserialize(slice, lookup, battle) {
    * `Math.floor(slice.hp ?? maxHp)` looked like a clamp and was not: `??` catches only
    * `null`/`undefined`, `Math.floor('x')` is `NaN`, and `Math.max`/`Math.min` pass `NaN` straight
    * through. A member at `hp = NaN` is neither conscious (`hp > 0` false) nor hurt
-   * (`hp < maxHp` false) — the one combination all three of the recovery nets in DECISIONS #81
+   * (`hp < maxHp` false) — the one combination all three of the recovery paths
    * decline, which made it a fourth way to strand a run for good. A non-number now reads as
    * absent, which for hp means full.
    */

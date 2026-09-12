@@ -4,10 +4,10 @@
  * A `Placement` names a model id and nothing else, and `terrain.load` builds exactly one
  * `InstancedWorld` from exactly one tileset — so a `props` id put through an AdAstra draft
  * draws *AdAstra's* model of the same number, silently, because both ids exist
- * (DECISIONS #26a). Every biome that wants a barrel therefore collects its props here and
+ *. Every biome that wants a barrel therefore collects its props here and
  * `hunts` builds them as a second world, while the draft gets only the collision.
  *
- * The fifteen props are authored geometry (DECISIONS #22, #23): a faceted prism with
+ * The fifteen props are authored geometry: a faceted prism with
  * up-and-outward normals rather than a sprite leaning back at 45 degrees. Two of them are
  * knowingly weaker — `hgss-overworld/water_rock` and `.../rock` carry the surrounding water
  * and grass baked into the sprite — and the coast is the one place the wet one belongs, so

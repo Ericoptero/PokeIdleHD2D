@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The gate. `npm run gate` exiting 0 is what "done" means (CLAUDE.md).
+ * Optional combined checks. Use --only or --skip to select stages for the task.
  *
  *   npm run gate
  *   npm run gate -- --list                # print the stages, in order — the only list there is
@@ -24,8 +24,8 @@
  *              also asserts the build CONTAINS what the game fetches: `assets/` is served
  *              from the project root in dev and copied into `dist/` by a plugin, and when
  *              that plugin did not exist the build shipped with no sprite art and every
- *              other stage stayed green (DECISIONS #72)
- *   coldboot   §7's time-to-__READY__ budget, measured against that build on `vite preview`
+ *              other stage stayed green
+ *   coldboot   tools/shots/shoot.js's time-to-__READY__ budget, measured against that build on `vite preview`
  *   boot       every showcase and every scene draws a real frame, not an empty void
  *   flows      Playwright user flows at `/` (tests/flows), driven through __HOOKS__ and
  *              asserted on bus events and module state — the things a frame cannot show
@@ -100,7 +100,7 @@ mkdirSync(OUT, { recursive: true });
  * project root, so a file that never reached the build is still there for every capture. The one
  * stage that used the build measured time to `__READY__`, and an untextured quad is as fast to
  * draw as a textured one. The result was a production bundle with no Pokemon sprites in it and a
- * gate that passed every stage (DECISIONS #72).
+ * gate that passed every stage.
  *
  * Derived, not listed: the roots come from `vite.config.js` (so the plugin and the check cannot
  * disagree) and the URLs come from grepping `src/` (so a new fetch is covered the day it lands).
@@ -145,9 +145,9 @@ const failures = [];
 const timings = [];
 
 /**
- * §7: time to `__READY__` <= 6 s cold. Measured once, against the production bundle on
+ * tools/shots/shoot.js: time to `__READY__` <= 6 s cold. Measured once, against the production bundle on
  * `vite preview` — never against the dev server, which serves several hundred unbundled
- * modules and compiles them on demand (DECISIONS #71).
+ * modules and compiles them on demand.
  */
 async function coldBoot() {
   const port = PORT + 1;

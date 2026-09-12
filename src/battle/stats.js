@@ -3,7 +3,7 @@
  * Stats, levels and experience — the arithmetic that turns a species plus six IVs plus a level
  * into a body that can take a hit.
  *
- * Mainline formulae, with two deliberate simplifications recorded in DECISIONS #61: **no EVs
+ * Mainline formulae, with two deliberate simplifications: **no EVs
  * and no natures.** Neither is reachable in this game — nothing trains, nothing breeds — and a
  * nature that silently multiplied a stat the player could not see or change would be a number
  * with no story attached to it.
@@ -50,7 +50,7 @@ export function stageMultiplier(stage) {
 /**
  * Cumulative experience at `level`, per growth rate.
  *
- * `species.json` carries PokeAPI's `growth_rate_id` spelled out (DECISIONS #61); the two odd
+ * `species.json` carries PokeAPI's `growth_rate_id` spelled out; the two odd
  * ones are the mainline *erratic* and *fluctuating* curves, whose piecewise definitions are
  * transcribed here rather than approximated — a curve that is nearly right is a level-up that
  * happens at the wrong time forever.

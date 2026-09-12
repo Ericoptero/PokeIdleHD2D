@@ -1,5 +1,5 @@
 /**
- * offline showcase (ARCHITECTURE §6).
+ * offline showcase (src/main.js).
  *
  * A save system has no pixels of its own, so what this stages is the *evidence*: the
  * "while you were away" card exactly as `ui` will receive it, the discount curve it was

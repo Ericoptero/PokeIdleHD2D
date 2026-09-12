@@ -68,7 +68,7 @@ function drive(line, route, ticks, { passable = open() } = {}) {
   eq('walk: and exactly on the next cell', line.cellOf(0), { cx: 10, cz: 18, dir: NORTH });
   check('walk: no fraction of a tile is lost', line.carry === 0, `carry=${line.carry}`);
 
-  // Run was removed from the game (DECISIONS #58). There is one cadence, and a stray
+  // Run was removed from the game. There is one cadence, and a stray
   // `running` left behind by a caller that has not been updated must not resurrect a second.
   const stray = new Line({ gap: 1, members: 2 }).place(1, 10, 20, NORTH, open());
   stray.step(NORTH, { running: true, runSeconds: 0.15, walkSeconds: WALK, passable: open() });
@@ -224,7 +224,7 @@ function drive(line, route, ticks, { passable = open() } = {}) {
   const rest = line.pose(0, 0);
   check('interpolation: a finished step sits on the cell centre',
     Math.abs(rest.x - 10.5) < 1e-12 && Math.abs(rest.z - 22.5) < 1e-12, `${rest.x},${rest.z}`);
-  check('interpolation: DIR_DX/DIR_DZ agree with the axes in ARCHITECTURE §3',
+  check('interpolation: DIR_DX/DIR_DZ agree with the axes in src/core/dir.js',
     DIR_DX[EAST] === 1 && DIR_DZ[SOUTH] === 1 && DIR_DX[WEST] === -1 && DIR_DZ[NORTH] === -1);
 }
 
@@ -233,7 +233,7 @@ function drive(line, route, ticks, { passable = open() } = {}) {
 // The mechanism Phase B rests on, checked against `route.js` itself rather than reasoned about.
 // A hunt walks a closed loop; to reach a creature standing two cells off it the head takes one
 // step out and one back, and the route must owe **exactly** the step it owed before — otherwise
-// every lap after the first fight walks a different circuit (DECISIONS #73).
+// every lap after the first fight walks a different circuit.
 {
   const world = { passable: () => true, tagsAt: () => [] };
   const loop = makeScriptedRoute('e4 s4 w4 n4', { loop: true, strict: true });

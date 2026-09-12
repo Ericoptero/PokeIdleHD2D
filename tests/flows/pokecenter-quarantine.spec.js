@@ -1,7 +1,5 @@
 /**
- * `?break=pokecenter` — the adversarial quarantine check DECISIONS #81 used for the healing
- * nets (commit ef98a4d: "fourteen `?break=` quarantines heal with zero console errors"),
- * applied to this slice's new module. `pokecenter` is reached only through `ctx.get` at
+ * `?break=pokecenter` checks failure isolation. `pokecenter` is reached through `ctx.get` at
  * runtime — nothing declares it in a `needs` array (confirmed by reading every module's
  * `needs` in `src/`) — so failing it on purpose should cost the game exactly its Center: no cascade to
  * `blocked`, no console error, the city and travel otherwise unaffected, and the door tile

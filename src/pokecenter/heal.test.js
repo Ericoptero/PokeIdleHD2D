@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { HEAL_COOLDOWN_MS, remainingCooldownMs } from './heal.js';
 
-describe('remainingCooldownMs — pure, golden literals (DECISIONS #35)', () => {
+describe('remainingCooldownMs — pure, golden literals', () => {
   const t = 1_700_000_000_000; // an arbitrary wall-clock instant, fixed so the case is a literal
 
   it('never healed (null) is no cooldown at all', () => {

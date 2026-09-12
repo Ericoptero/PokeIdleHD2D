@@ -2,15 +2,15 @@
 /**
  * The turn engine.
  *
- * Pure in the strong sense `src/encounter/rolls.js` established (DECISIONS #35(a)): no `ctx`,
+ * Pure in the strong sense `src/encounter/rolls.js` established: no `ctx`,
  * no clock, no module lookups, no `Math.random`. A turn is a function of
  * `(state, seed, encounterIndex, turnNo)` and nothing else, which is what lets the visible
  * fight step one turn per few sim ticks while `offline` runs the identical code in a loop
- * (ARCHITECTURE §5.17).
+ * (src/battle/index.js).
  *
  * ## The draw order is a contract
  *
- * Written out here because it is the thing that must never move (DECISIONS #61(g)):
+ * Written out here because it is the thing that must never move:
  *
  *   1. speed-tie coin
  *   2. per acting side, in speed order:
@@ -44,7 +44,7 @@ export const MAX_BETWEEN = 4;
 /**
  * A combatant: everything the engine needs and nothing it does not.
  *
- * Deliberately **not** a `pokemon` instance (§5.17). It is a plain structured-cloneable record,
+ * Deliberately **not** a `pokemon` instance (src/battle/index.js). It is a plain structured-cloneable record,
  * so `offline` can carry a party through a fold and a selftest can build one by hand.
  */
 /**
@@ -343,7 +343,7 @@ export function turn(state, seed, index) {
     next.winner = next.a.hp > 0 ? 'a' : 'b';
     // `actor` is the side that FELL, and it is not decoration: the meadow table can produce a
     // Caterpie against a Caterpie, and `species` alone cannot say which one went down. Purely
-    // additive — no existing assertion reads it, and no draw moved (DECISIONS #72).
+    // additive — no existing assertion reads it, and no draw moved.
     const fell = next.winner === 'a' ? 'b' : 'a';
     events.push({ turn: next.turn, kind: 'faint', actor: fell, species: next[fell].species });
   }
@@ -357,7 +357,7 @@ export function turn(state, seed, index) {
  * **No Action draws a random number.** An item's effect is arithmetic, so inserting one
  * between two turns cannot move the position of `root/battle/<index>/<turn>` — which is what
  * lets a potion drunk in a watched fight be drunk in the same place by a closed-tab replay
- * (DECISIONS #72).
+ *.
  *
  * @typedef {Object} Action
  * @property {'heal'|'revive'|'pp'} kind
@@ -420,11 +420,11 @@ export function applyAction(state, act) {
 /**
  * A fight, one turn at a time.
  *
- * This is the implementation now, and `resolve()` below is a drain of it — §5.17's "one
+ * This is the implementation now, and `resolve()` below is a drain of it — src/battle/index.js's "one
  * implementation of what a turn is" extended to cover what happens *between* two. The visible
  * fight steps it on a sim cadence so it can be watched and screenshotted; `idle` and `offline`
  * drain it in a loop. Anything else would let a potion drunk on screen not be drunk in the
- * replay, and the two would disagree about encounter N (DECISIONS #72).
+ * replay, and the two would disagree about encounter N.
  *
  * **An ally faint is not the end of the fight.** `turn()` calls it over the instant either
  * side hits zero, which is right for the *turn* and wrong for the *duel*: a revive puts the
@@ -514,7 +514,7 @@ export function stepper(a, b, seed, index, { maxTurns = 60, between = null, next
 
 /**
  * Runs a fight to the end. A drain of `stepper()` — the SAME code the visible battle steps
- * through, which is what §5.17 has always claimed and what DECISIONS #72 finally made true.
+ * through, which is what src/battle/index.js has always claimed and what the current engine implements.
  *
  * `maxTurns` is a stall guard, not a rule of the game: Struggle means a battle cannot deadlock
  * on PP, but two defensive Pokemon that keep missing still can. A draw is scored as a loss for
@@ -530,7 +530,7 @@ export function resolve(a, b, seed, index, { maxTurns = 60, between = null, next
     winner, turns: state.turn, a: state.a, b: state.b,
     // What `economy.catchOdds` wants: the wild's remaining HP as a fraction. A won battle
     // leaves it at 0, which the formula clamps to 0.01 — the maximum HP bonus, and intended
-    // (DECISIONS #61(i)).
+    //.
     hpFraction: state.b.maxHp > 0 ? state.b.hp / state.b.maxHp : 1,
     stalled: !state.over,
     sent: run.sent,

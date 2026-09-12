@@ -1,5 +1,5 @@
 /**
- * ui — the HUD, the panels and the input seam (ARCHITECTURE §5.12).
+ * ui — the HUD, the panels and the input seam (src/ui/index.js).
  *
  * Three decisions shape this module, and all three are visible in every screenshot:
  *
@@ -8,7 +8,7 @@
  *    that a crisp 12 px web panel over a 640×360 world upscaled ×3 is the one thing on
  *    screen not on the pixel grid, and it reads as a debug overlay instead of as the game.
  *    It costs **zero draw calls**: a 2-D canvas is composited by the browser and never
- *    reaches `renderer.info.render.calls`, which is the number §7 budgets.
+ *    reaches `renderer.info.render.calls`, which is the number tools/shots/shoot.js budgets.
  * 2. **Input goes through `simulation.moveIntent` and nowhere else** (`input.js`), so the
  *    walk stays tile-locked and deterministic.
  * 3. **It gets out of the way in someone else's showcase.** `src/main.js` boots `ui` for
@@ -59,9 +59,9 @@ const BALLOON_CLEARANCE = 0.6;
 
 let live = null;
 
-/** Save slice version — window geometry only (§10). `uiScale` is a `config` key, not a save
+/** Save slice version — window geometry only (src/offline/save.js). `uiScale` is a `config` key, not a save
  *  field: it is URL-overridable per session like every other `DEFAULTS` entry, and a save slice
- *  would fight that (DECISIONS #85). */
+ *  would fight that. */
 const SAVE_VERSION = 1;
 
 export default {
@@ -95,7 +95,7 @@ export default {
      * A world point on the HUD canvas, in internal pixels.
      *
      * The UI canvas is exactly the renderer's internal buffer (`screen.js`) and the camera is
-     * orthographic (§2.7), so this is a straight NDC map with **no depth divide** — which is
+     * orthographic (src/core/render.js), so this is a straight NDC map with **no depth divide** — which is
      * what makes a balloon land on the same pixel grid as the sprite it is above rather than
      * drifting a fraction of a pixel per frame the way a perspective projection would.
      * Returns `null` for a point behind the camera, so a caller says nothing rather than
@@ -166,13 +166,13 @@ export default {
        * How many pixels at the top and bottom of the buffer are already spoken for by the
        * wallet/clock (top) and the party bar/button strip (bottom) *this frame* — every
        * `windowFrame` call passes this straight through so a window can never open, default,
-       * or be dragged/resized on top of them (the bug slice 016's own review caught: at
+       * or be dragged/resized on top of them (at
        * `uiScale: 2` a `full` panel's authored size covers nearly the whole halved buffer,
        * including the bars it was supposed to leave visible).
        *
        * Measured from the boxes `draw()` already computed this frame, not from a hard-coded
        * constant — `bars` being false (`hidesHud`) reads back as `{top:0, bottom:0}`, and a
-       * future, taller party bar (slice 017) is reserved for correctly with no change here.
+       * future, taller party bar is reserved for correctly with no change here.
        */
       hudReserved() {
         const top = Math.max(
@@ -215,7 +215,7 @@ export default {
      * Not a panel: it takes no input, dismisses itself, and has to sit over whatever is
      * already open — the button that starts it is IN the party panel, and the previous
      * attempt at this animated the overworld sprite behind that panel where nobody could see
-     * it (DECISIONS #64).
+     * it.
      */
     const evolution = makeEvolutionOverlay(app);
 
@@ -244,7 +244,7 @@ export default {
        * already measured (`encounter.scene().headLift`) rather than a second guess at the same
        * sprite.
        *
-       * The move's name is coloured by its type (`s2.type`, DECISIONS #89/#90) — never the
+       * The move's name is coloured by its type (`s2.type`) — never the
        * balloon itself, which stays the same paper every other panel here uses; a bright type
        * painted over the whole box would be unreadable for exactly the types `battle/types.js`'s
        * `TYPE_INK` had to darken to make legible as text in the first place.
@@ -308,7 +308,7 @@ export default {
       /**
        * The cutscene. Never in a showcase: it is five seconds long and the harness spins
        * ninety frames between `__READY__` and the shutter, so a running one would give a
-       * different capture every time (§6.3). `?showcase=ui&mode=evolution` freezes it instead.
+       * different capture every time (tools/shots/shoot.js). `?showcase=ui&mode=evolution` freezes it instead.
        */
       bus.on('pokemon:evolved', ({ from, to, shiny }) => {
         if (config.showcase) return;
@@ -320,7 +320,7 @@ export default {
         screen.markDirty();
       }),
       /**
-       * The battle card (§5.12).
+       * The battle card (src/ui/index.js).
        *
        * `encounter:started` and not `battle:started`: the engine's event fires from inside
        * `fight()`, *before* `encounter` has assembled the record the card reads, so a card
@@ -330,7 +330,7 @@ export default {
        * Three guards, and each one is a bug that would otherwise be invisible:
        *  - `minimal || config.showcase` — this module is a passenger in every other module's
        *    showcase, and a card painted over `encounter_12` moves a frame in the regression
-       *    gate that nobody asked to move (§6.3).
+       *    gate that nobody asked to move (tools/shots/shoot.js).
        *  - `state.panel` — a hunt starts a battle every few seconds. One that shut the shop
        *    the player was standing in would be unusable.
        *  - `has()` — an encounter with no battle record (a quarantined `battle`) would open an
@@ -349,7 +349,7 @@ export default {
       }),
       bus.on('tod:changed', ({ phase }) => { hud.onPhase(phase); screen.markDirty(); }),
       // The event, never `summary() != null`: in showcase mode `offline` builds a summary
-      // and deliberately does not emit (DECISIONS #15), and a card driven by the getter
+      // and deliberately does not emit, and a card driven by the getter
       // would then cover every other module's showcase.
       bus.on('offline:applied', () => {
         const summary = pullSummary();
@@ -413,7 +413,7 @@ export default {
       const down = (m.modules ?? []).filter((s) => s.status === 'failed' || s.status === 'blocked');
       // **Who is stepping the hunt**, drawn rather than asserted. `encounter` and `idle` were
       // both running the loop at once and nothing said so; a line in the overlay is a claim the
-      // harness photographs on every `?debug=1` capture (DECISIONS #72).
+      // harness photographs on every `?debug=1` capture.
       const idle = ctx.get('idle');
       const driver = isLive(idle) && typeof idle.driver === 'function' ? idle.driver() : null;
       const enc = ctx.get('encounter');
@@ -444,7 +444,7 @@ export default {
       if (applyLight(s.tod)) screen.clearTints();
       // `full` used to also stand the whole HUD down while the panel was open, which is what
       // made opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the
-      // clock and the party bar along with it (DECISIONS #85). It is inert data now — nothing
+      // clock and the party bar along with it. It is inert data now — nothing
       // reads `panel.full` any more, kept on the descriptor only as a note of which panels
       // used to behave this way; `hudReserved()` (below) is what actually keeps a window from
       // covering the bars it no longer stands down. A message box is the one thing that still
@@ -504,7 +504,7 @@ export default {
       }
       // The one moment `panels/common.js`'s `windowFrame` — called from deep inside whichever
       // panel draws next — can see the live gesture `screen.js` is holding, without every one
-      // of its six call sites threading `screen.drag()` through `opts` by hand (slice 016).
+      // of its six call sites threading `screen.drag()` through `opts` by hand.
       setActiveDrag(screen.drag());
       const panelBox = state.panel ? state.panel.draw(g, app) : null;
       // The away card is the one moment the wallet is the *subject*: it is telling the player
@@ -546,7 +546,7 @@ export default {
       // every panel, every toast, the debug overlay — everything this frame just drew. A held
       // drag is `screen.drag()` (`gesture.js`'s state, kept alive across the `paint()` that
       // just reset every hit region), not anything this module owns.
-      // A window's own move/resize drag (slice 016) carries an *object* payload
+      // A window's own move/resize drag carries an *object* payload
       // (`{kind, id}`) and needs no floating tag — the window itself is already following the
       // pointer, drawn above, in real time. The tag is only for a payload meant to be read as
       // a label, which today means a plain string; `typeof` is the whole test.
@@ -573,14 +573,14 @@ export default {
         const prev = state.hud;
         // The party is compared on everything the bar draws, not on the lead's name: a
         // level-up or a second Pokemon of the same species would otherwise leave the HUD
-        // stale until something unrelated dirtied it. `hp`/`maxHp`/`status` (slice 017) are in
+        // stale until something unrelated dirtied it. `hp`/`maxHp`/`status` are in
         // this list for the same reason — a bar that only redrew on name/level/shiny would
         // hold a fainted member's HP bar full until an unrelated event dirtied the screen.
         const party = (p) => JSON.stringify(p.party.map((m) => [m.instanceId, m.name, m.level, m.shiny, m.hp, m.maxHp, m.status]));
         if (next.tod !== prev.tod
           || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
           || party(next) !== party(prev)
-          // The marked slot (slice 017): mid-fight this swaps the instant `nextAlly` sends a
+          // The marked slot: mid-fight this swaps the instant `nextAlly` sends a
           // new member in, on the same 0.2s poll everything else in this snapshot uses.
           || next.activeId !== prev.activeId
           // The badge is drawn from `trainer`, so a level-up has to dirty the screen on its
@@ -599,13 +599,12 @@ export default {
      * (`core/registry.js`'s `lateFrame`, `src/main.js`'s frame loop) — the same reason
      * `pokemon/field.js` poses its sprites there rather than in `frame`: a plate projected
      * against last frame's camera trails a moving sprite by exactly one frame of motion, a
-     * different sub-pixel offset every time, which reads as the plate swimming (DECISIONS #18
-     * for the sprite side of the same bug).
+     * different sub-pixel offset every time, which reads as the plate swimming.
      *
      * A plate follows a sprite that moves every rendered frame, not merely every sim tick, so
      * `screen.dirty`'s tick-driven model does not fit it — this marks the screen dirty
      * whenever there is a plate to draw, which is most of the time a scene has anyone standing
-     * in it. Measured against the render budget (§7) rather than assumed: `npm run gate`'s
+     * in it. Measured against the render budget (tools/shots/shoot.js) rather than assumed: `npm run gate`'s
      * `boot`/`coldboot`/`regress` stages all read `fps`/`p95` off exactly this cost.
      */
     function lateFrame() {
@@ -615,15 +614,15 @@ export default {
     }
 
     live = {
-      /** §4: anything may toast; this is the shorthand `offline` and `idle` already call. */
+      /** src/core/bus.js: anything may toast; this is the shorthand `offline` and `idle` already call. */
       toast: (text, kind = 'info') => { bus.emit('ui:toast', { text, kind }); return true; },
 
       /**
        * The checks a Node run cannot make, because this module needs a canvas to exist.
        *
-       * It reports through `reportSelfTest`, which `console.error`s on failure — §7 budgets zero
+       * It reports through `reportSelfTest`, which `console.error`s on failure — tools/shots/shoot.js budgets zero
        * console errors, and that is what turns a red invariant into a failed capture rather than
-       * red text in a screenshot nobody reads (§8.1).
+       * red text in a screenshot nobody reads.
        */
       selfTest() {
         const results = [];
@@ -645,7 +644,7 @@ export default {
       open: (id, opts) => app.open(id, opts),
       /**
        * The message box. `text` is a string or an array of pages; the player advances it.
-       * This is the seam §5.12 asks for — nothing publishes NPC lines yet, so it is offered
+       * This is the seam src/ui/index.js asks for — nothing publishes NPC lines yet, so it is offered
        * rather than consumed.
        */
       say(text, opts = {}) { return app.open('dialogue', { ...opts, text }); },
@@ -661,7 +660,7 @@ export default {
       /** Screen geometry, so a caller can reason about the UI grid. */
       metrics: () => ({ width: screen.width, height: screen.height, drawCalls: 0 }),
       /**
-       * Every window a player has actually dragged or resized (§10, DECISIONS #85) — a panel
+       * Every window a player has actually dragged or resized (src/offline/save.js) — a panel
        * never touched has no entry and keeps opening at its authored default. `restore()`
        * pushes `loadState`'s own value straight into `panels/common.js`'s module-scope Map;
        * there is no per-window validation beyond `restoreWindows`'s own numeric-field check,
@@ -699,10 +698,10 @@ export default {
      * Hands the save seam to `offline` directly, the same self-registration `travel` uses and
      * for the identical reason: `offline` discovers its native providers once, during its own
      * `init`, and `ui` inits after it in the real boot order (`… simulation, idle, offline,
-     * travel, ui` — slice 014's derived order) — so the ordinary discovery pass never sees it.
+     * travel, ui` — the derived initialization order) — so the ordinary discovery pass never sees it.
      * `order: 55`: after `travel`'s self-registered 45 and the default 50 every adapter and
      * every other native slice takes, since window geometry depends on nothing else restoring
-     * first and nothing else depends on it (DECISIONS #85).
+     * first and nothing else depends on it.
      */
     const offline = ctx.get('offline');
     if (isLive(offline) && typeof offline.store?.register === 'function') {
@@ -726,7 +725,7 @@ export default {
    * would lose its balloons between two `__HOOKS__.step()` calls even though no simulated time
    * had passed, and a screenshot of turn three would be a different picture on a fast machine
    * than on a slow one. Every other beat `encounter` owns is a count of `tick()` calls for
-   * exactly this reason (DECISIONS #14, #72).
+   * exactly this reason.
    */
   tick() { live?._tick?.(); },
 

@@ -53,7 +53,7 @@ export function solarPosition(tod, latDeg = 36, dayOfYear = DAY_OF_YEAR, look = 
   // driven by where the sun really is, so they stay physical.
   const dayFraction = Math.max(0, sinAlt);
 
-  // What gets *drawn*, though, is bent by the two art-direction knobs (see DECISIONS #33).
+  // What gets *drawn*, though, is bent by the two art-direction knobs (altitude and azimuth offsets).
   // The offset rotates the arc off the camera's axis; the elevation is soft-capped by
   // `MAX · (1 − e^(−alt/MAX))`, which is monotone, holds 0 at 0, never reaches the cap and
   // has no plateau at noon — so the sun still climbs and sinks, it just never gets overhead.

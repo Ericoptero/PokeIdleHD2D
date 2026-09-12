@@ -27,7 +27,7 @@ export const CITY_SIZE = 64;
 export const SPAWN = { cx: 31, cz: 40, dir: 2 };
 
 /**
- * Authored buildings (`tiles.load('structures')`, DECISIONS #3 and #12).
+ * Authored buildings (`tiles.load('structures')`).
  *
  * `x`/`z` is the north-west cell of the footprint. The model record carries `w`, `h` and a
  * `door` offset; the *cell* the door stands in is derived from that offset in
@@ -46,7 +46,7 @@ export const PLOTS = [
 /**
  * A plot names a **subcategory**, never a model name. `tiles.find` logs a warning every time
  * anything is selected by name, because a model is named after its dominant texture and that
- * is an implementation detail of the build (DECISIONS #6); a subcategory is the stable handle
+ * is an implementation detail of the build; a subcategory is the stable handle
  * the authored pack carries on purpose. So the query is
  * `tiles.find('structures', { category: 'building', subcategory: plot.kind })`.
  */
@@ -94,17 +94,15 @@ export const PLAZA_STONE = { x: 23, z: 40, w: 20, h: 7 };
  * `pt-overworld-7` ships a real one: **`set21`**, a thirteen-slot blob palette of pale
  * blue-grey paving (`blueglay_lm52`, 16x16 for one cell — the same 16 texels per world unit
  * AdAstra's own roads use). `edged` is false: the palette's transition ring is drawn with a
- * bright green grass fringe, and ringing the square in it reads as a bowling green (it was
- * tried — `docs/progress/city/r2/02-plaza.png` against `03-plaza-noedge.png`). The square's
- * border course is the gravel rim it is already inset from. ARCHITECTURE §9 allows another set
- * where AdAstra lacks the piece, on condition the piece is adapted to AdAstra's silhouette
+ * bright green grass fringe, and ringing the square in it reads as a bowling green. The square's
+ * border course is the gravel rim it is already inset from. Another set fills gaps in AdAstra, with each piece adapted to AdAstra's silhouette
  * language — and every slot here is a **flat two-triangle floor quad at y = 0**, so there is
- * no silhouette to adapt and none of the leaning-sprite problem DECISIONS #22 measured. It
+ * no silhouette to adapt and none of the leaning-sprite problem in the source sprites. It
  * is a floor, and a floor is the one thing that ports.
  *
  * It lives in its own `InstancedWorld` for the same reason the buildings do: a `Placement`
  * names a model id and `buildInstances` resolves it against exactly one tileset
- * (DECISIONS #26a).
+ *.
  */
 export const PAVING = { tileset: 'pt-overworld-7', set: 'set21', y: 0.10, edged: false };
 
@@ -188,13 +186,13 @@ export const TALL_GRASS = [
  * `tiles.find('structures', { category: 'light', subcategory: 'street_lamp' })` is the
  * replacement: 64 triangles of real geometry, a post with cast collar rings and lit/shaded
  * columns, a three-box cobra arm, and a cowled head whose lens is its own material with
- * `Ke 0.9`, so it lights at dusk exactly the way the Centre's windows do (DECISIONS #25d)
+ * `Ke 0.9`, so it lights at dusk exactly the way the Centre's windows do
  * without the city knowing the hour.
  *
  * It ships in **one** flavour — the arm reaching east — so `head` is served by a quarter
  * turn rather than by a fourth model: `lampRotFor()` derives the turn from the model's own
  * `orientation` against the letter asked for here. `'e'` and `'w'` remain the only two
- * letters used, and that half of DECISIONS #25 still holds: the camera's yaw is fixed, so a
+ * letters used, and that camera constraint still holds: the camera's yaw is fixed, so a
  * north- or south-pointing arm foreshortens down its own post and hides the silhouette that
  * is the whole point of the new art.
  *
@@ -202,7 +200,7 @@ export const TALL_GRASS = [
  * worse than the obelisk it replaced: an `'e'` lamp at cx 30 with a `'w'` lamp at cx 33 puts
  * two cantilevered arms three cells apart at the same y reaching towards each other over a
  * four-wide road, and at a fixed 45-degree camera the pair closes into a single rugby
- * goalpost. Every pair in `docs/progress/city/critic/n12-highstreet.png` did it.
+ * goalpost.
  *
  * The rule now: **one lamp per stretch of road, alternating sides as it runs**, with at
  * least four cells of `z` between a lamp and the nearest lamp on the other side. The posts
@@ -211,7 +209,7 @@ export const TALL_GRASS = [
  * road. Count is down from twelve to eleven, which also matters at night: `environment`
  * hands a `PointLight` to only the eight bulbs nearest the camera and a lit shop window is
  * a bulb too, so every lamp that is not in shot is one that is stealing a slot from one
- * that is (DECISIONS #26e, and the plaza framing is the case that failed).
+ * that is (the plaza framing is the case that failed).
  */
 export const LAMPS = [
   // The square. Two on the rim and two standing in the paving itself, so the middle of the
@@ -257,7 +255,7 @@ export const BENCHES = [
 ];
 
 /**
- * Adapted props (`tiles.load('props')`, DECISIONS #22 and #23). Real geometry that casts a
+ * Adapted props (`tiles.load('props')`). Real geometry that casts a
  * real shadow, so they are dressing with weight rather than decals.
  */
 export const PROPS = [
@@ -292,15 +290,14 @@ export const PROPS = [
   { model: 'hgss-overworld__water_rock_small', cx: 46, cz: 21 },
   { model: 'hgss-overworld__water_rock_small', cx: 54, cz: 20 },
   // `sylvan-town__tree_mush` is **not** placed either, for the same reason as the two
-  // hedges. It is one of the two crossed-billboard rebuilds DECISIONS #23 already calls the
+  // hedges. It is one of the two crossed-billboard rebuilds that already form the
   // weakest of the fifteen, and on screen at noon it is a flat near-black leaf standing on
-  // the lawn — `docs/progress/city/r2/12-garden.png` before this line, where it is the dark
-  // shape right of the beds. Reported with the hedges; not used until it is re-cut.
+  // the lawn. It needs to be re-cut before use.
 ];
 
 /**
  * Fence runs, as cells. `tiles` solves a fence by the arms its geometry actually has rather
- * than by a blob slot (DECISIONS #25 / `armsOf`), so a run is just the list of cells it
+ * than by a blob slot (`armsOf`), so a run is just the list of cells it
  * passes through and the corners resolve themselves.
  *
  * Both runs are open on the side that faces their building, so each reads as a yard *of*
@@ -329,7 +326,7 @@ export const FENCES = [
  * Lit doorways, in *model* space, keyed by the plot's `kind`.
  *
  * Deliberately **one per shop and none on the cottages**. The windows light themselves now:
- * `tiles` reads the authored `Ke` out of the MTL and ramps it with the hour (DECISIONS #25d),
+ * `tiles` reads the authored `Ke` out of the MTL and ramps it with the hour,
  * so a Poke Center window is emissive without the city asking. What emissive cannot do is put
  * light on the *ground*, so each shop keeps one warm bulb in its doorway for the pool of light
  * spilling onto the pavement.
@@ -348,7 +345,7 @@ export const WINDOW_GLOWS = {
  * Which quarter turn puts a model's overhang on the compass point asked for.
  *
  * `tiles` derives `model.orientation` from the model's own bounds against its footprint
- * (`overhangOf`, DECISIONS #25a), and `InstancedWorld.composeMatrix` turns a placement by
+ * (`overhangOf`), and `InstancedWorld.composeMatrix` turns a placement by
  * `-rot * 90°` about +Y — which sends **east to south to west to north** as `rot` counts up.
  * So the turn is a subtraction on that cycle, and nothing here has to know that the authored
  * lamp happens to ship arm-east: re-export it pointing north and every lamp still lands the
@@ -431,7 +428,7 @@ export function bulbOf(tileset, model, cx, cz, rot = 0) {
  * The lobby's population. Every entry is either still (a `dir` and nothing else) or walks a
  * scripted loop written in `simulation`'s route language, so the same seed and the same
  * number of sim steps put everybody in exactly the same place — which is what lets a
- * screenshot of a *moving* scene be a regression test (DECISIONS #14).
+ * screenshot of a *moving* scene be a regression test.
  *
  * Cells were chosen against the ground plan above: none is a road a lamp stands in, none is
  * inside a footprint, and every scripted leg stays on paving.
@@ -442,7 +439,7 @@ export const NPCS = [
   // north-facing walker shows the back of a cap and nothing else — every human in the round-1
   // cast was posed that way and the town had no face in it. The trainer still faces north
   // because `cameraLookAhead` is 1.6 and turning the player re-frames every preset the
-  // layout was measured against (DECISIONS #26c); the NPCs carry the front instead.
+  // layout was measured against; the NPCs carry the front instead.
   { name: 'centre-queue', trainer: 'heroine', display: 'Visitor', cx: 26, cz: 41, dir: 0 },
   { name: 'mart-doorman', trainer: 'hero', display: 'Doorman', cx: 37, cz: 41, dir: 0 },
   { name: 'shopper', trainer: 'heroine', display: 'Shopper', cx: 38, cz: 45, dir: 1, route: 'w6 e6' },
@@ -475,7 +472,7 @@ export const NPCS = [
 export const FORMATION = { head: 'trainer', input: true, autopilot: 'none' };
 
 /**
- * Named camera framings the screenshot harness can ask for by name (ARCHITECTURE §8).
+ * Named camera framings the screenshot harness can ask for by name (src/main.js).
  * A preset is a *focus cell*, because the camera has no other degree of freedom.
  */
 export const PRESETS = {

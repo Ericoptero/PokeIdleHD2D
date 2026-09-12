@@ -1,5 +1,5 @@
 /**
- * The balloon's per-type colour and the damage floater (DECISIONS #90), proven against a real
+ * The balloon's per-type colour and the damage floater, proven against a real
  * fight rather than the fake painter `src/ui/callout.test.js`/`floaters.test.js` use — those
  * pin the drawing geometry; this pins that a real `battle:strike` actually reaches both and
  * carries the right content.
@@ -34,7 +34,7 @@ test('a real strike colours the move by its type, and drops a damage number on t
   const log = await events(page);
   const hit = log.find((e) => e.type === 'battle:strike' && e.payload.damage > 0);
   expect(hit, 'a damaging strike is on the bus').toBeTruthy();
-  expect(hit.payload.type, 'the strike carries its element (DECISIONS #89)').toEqual(expect.any(String));
+  expect(hit.payload.type, 'the strike carries its element').toEqual(expect.any(String));
 
   // 1. The balloon: the move's name run should exist, and its ink should be the type's own —
   // never the balloon's own paper colour, and never plain black/ink for a real type.

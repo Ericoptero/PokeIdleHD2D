@@ -1,12 +1,12 @@
 /**
  * The shop. `economy` ships about seventy items, four currencies, eleven upgrade tracks,
- * four shops and a daily deal with a live API (§5.9); this panel is the counter.
+ * four shops and a daily deal with a live API (src/economy/index.js); this panel is the counter.
  *
  * Three columns: the shops down the left with their unlock gates, the shelf in the middle,
  * and what the player is pointing at on the right with the buy buttons under it. The
  * upgrade tracks are a fifth "shop", because from the player's side buying a permanent
  * multiplier is the same decision as buying a stack of balls, and splitting them into two
- * screens would hide the comparison the pacing table (DECISIONS #16) is built around.
+ * screens would hide the comparison the pacing table is built around.
  *
  * Every number is pulled from the module at paint time. Nothing here re-derives a price.
  */
@@ -77,7 +77,7 @@ export function makeShop(app) {
 
   return {
     id: 'shop',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept as a record of which panels used to stand the whole HUD
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */
@@ -260,9 +260,8 @@ export function makeShop(app) {
         // This column was a third empty under five stat lines (round-1 issue 11). The same
         // pane that quotes a price now says what the player is already carrying, which is
         // the question a price provokes. The richer view — every held item, filterable,
-        // with the sell-lock — is `inventory.js` (slice 018); this stays a five-item glance
-        // read off the raw `inventory()` map, on purpose: rewiring this corner onto
-        // `bag()`'s own rows is out of that slice's scope.
+        // with the sell-lock — is `inventory.js`; this stays a five-item glance
+        // read off the raw `inventory()` map; the detailed bag is handled by `inventory.js`.
         const by = detail.y + detail.h - 30;
         const bagTop = y + 5;
         const bagRoom = Math.floor((by - 14 - bagTop - 10) / 9);

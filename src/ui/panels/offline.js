@@ -1,7 +1,7 @@
 /**
  * The "while you were away" card.
  *
- * `offline` does all of the arithmetic and publishes it (§5.8): `summary()` returns the
+ * `offline` does all of the arithmetic and publishes it (src/offline/index.js): `summary()` returns the
  * payload and `offline:applied` announces that a payout actually happened. This module only
  * draws it — and it draws the *whole* payload, including the parts a card usually hides:
  * the cap, the efficiency curve's bands, and the difference between what was banked
@@ -10,7 +10,7 @@
  * claiming the player got something they did not.
  *
  * It is opened by the **event**, never by polling `summary()`: in showcase mode `offline`
- * runs read-only against a copy of the save and still builds a summary (DECISIONS #15), so a
+ * runs read-only against a copy of the save and still builds a summary, so a
  * card driven by `summary() != null` would appear over every other module's showcase.
  */
 
@@ -68,7 +68,7 @@ export function makeOfflineCard(app) {
       panel(g, box, { paper: C.wallBase });
       // Swallows a pointerdown on the card's own paper so it stops here rather than falling
       // through to the scrim above it — the CONTINUE button below registers its own hit region
-      // strictly later and so still wins over this one (DECISIONS #84).
+      // strictly later and so still wins over this one.
       g.hit(box, { swallow: true }, 'window-body');
       const inner = header(g, box, 'WHILE YOU WERE AWAY', {
         bar: C.martBase, edge: C.martDeep, light: C.martLight,
@@ -93,7 +93,7 @@ export function makeOfflineCard(app) {
       y += 11;
 
       // --- the efficiency curve, band by band -------------------------------
-      // `offline` discounts the *time axis*, not the rate (DECISIONS #15), so the honest
+      // `offline` discounts the *time axis*, not the rate, so the honest
       // picture of the discount is a bar of the absence with each band's own efficiency.
       const bar = { x: left, y, w: right - left, h: 9 };
       const bands = s.bands ?? [];

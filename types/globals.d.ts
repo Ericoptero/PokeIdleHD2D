@@ -1,5 +1,5 @@
 /**
- * The window globals src/main.js installs for the harness (ARCHITECTURE §8) and the ones
+ * The window globals src/main.js installs for the harness (src/main.js) and the ones
  * modules hang diagnostics on. Type-checked files touch them through `window.__X__`.
  */
 interface Window {

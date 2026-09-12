@@ -2,7 +2,7 @@
  * What a Pokémon is worth.
  *
  * One number, derived, doing three jobs: the sell value when it is released, the threshold the
- * **pity** counter is measured against (DECISIONS #61), and — through that — how many balls a
+ * **pity** counter is measured against, and — through that — how many balls a
  * species is expected to cost. Deriving it rather than authoring it is the same argument as
  * every other table in this refactor: 1253 species is 1253 numbers to maintain and one of them
  * would always be wrong.

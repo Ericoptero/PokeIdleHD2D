@@ -1,9 +1,7 @@
 /**
  * Every automation is bought with research, and `hunt` is the one that grants `idle` its
  * `auto-battler` flag — the flag that lets a fold encounter be won, which is where research
- * comes from (src/idle/unlock.test.js). Stated here as facts so that if either changes, the
- * expected-fail case in idle's test turns green on its own and seams rule 9 asks for the
- * STATUS entry to be closed.
+ * comes from (src/idle/unlock.test.js), which pins the resulting fresh-save deadlock.
  */
 import { describe, it, expect } from 'vitest';
 import { AUTOMATIONS, automation } from './automations.js';

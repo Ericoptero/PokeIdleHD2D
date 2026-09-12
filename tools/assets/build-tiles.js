@@ -7,8 +7,7 @@
  *   public/generated/tiles/<slug>/catalog.json                     classified model index
  *   public/generated/tiles/<slug>/pack.json + pack.bin             the runtime pack
  *
- * The OBJ files are the artist-facing product (ARCHITECTURE §9: "transform all in .obj
- * files and classify them"); the pack is what the game actually loads, because parsing 260
+ * The OBJ files are the artist-facing product; the pack is what the game actually loads, because parsing 260
  * OBJ files in the browser at boot would blow the 6-second budget on its own.
  *
  * Usage:  node tools/assets/build-tiles.js [--only <slug>] [--list]

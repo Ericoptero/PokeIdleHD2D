@@ -3,12 +3,12 @@
  * until now the HUD reduced to one `TRAINER n` chip and a 1px bar (`hud.js`'s `drawClock`).
  * Level, wins-into-next, lifetime totals, active buffs, the eleven upgrade tracks, the dex
  * summary and a compact party readout, in one scrolling window — the first panel actually
- * built on 015's `scrollArea` (`panels/common.js`), because it is the one most likely to
+ * built on `scrollArea` (`panels/common.js`), because it is the one most likely to
  * overflow a single screen: five sections, one of which (Upgrades) is eleven rows long by
  * itself and never gets shorter.
  *
  * `trainerModel(app)` is the whole content model, exported standalone the way `inventory.js`'s
- * `filterRows(app, tab, category)` is (018's own precedent for a panel whose row-building is
+ * `filterRows(app, tab, category)` is (the precedent for a panel whose row-building is
  * worth testing with no canvas) — a fake `economy` (plus, optionally, `collection`/`pokemon`)
  * off `ctx.get` is all a test needs. `layout(model)` turns that model into block heights with
  * no `g` at all, so the scrollable content's total height is a pure number a test can assert
@@ -55,8 +55,7 @@ function fmtEffect(value, base) {
  * on-screen avatar) is a private local that starts at `'hero'` and nothing in the game ever
  * writes to it — `city/layout.js`'s `heroine` entries are NPCs, not the player — so there is
  * no live "which trainer" to read through `ctx.get` at all yet, and no `simulation`/`pokemon`
- * dependency this panel needs to draw its own portrait (checked against the slice's own
- * Inspected section, which assumed a live selection; corrected here).
+ * dependency this panel needs to draw its own portrait.
  */
 const TRAINER_PORTRAIT_URL = '/assets/trainer/hero.png';
 
@@ -165,7 +164,7 @@ export function trainerModel(app) {
   ] : [];
 
   // --- Party -------------------------------------------------------------------------------
-  // Six rows, always — a compact summary (species, level, HP fraction), distinct from 017's
+  // Six rows, always — a compact summary (species, level, HP fraction), distinct from the party bar's
   // always-on bar: this sits inside a scrollable detail view, not a fixed overlay, and it never
   // needs a sprite (the bar already has one).
   const mon = app.ctx.get('pokemon');
@@ -275,7 +274,7 @@ export function makeTrainer(app) {
   return {
     id: 'trainer',
     // No `full: true` here — that flag is only a record of the six panels that used to stand
-    // the whole HUD down before DECISIONS #85 made it inert; this is a new panel and never did.
+    // the whole HUD down before `full` became inert; this is a new panel and never did.
     open() { top = 0; },
     close() {},
     key() { return false; },

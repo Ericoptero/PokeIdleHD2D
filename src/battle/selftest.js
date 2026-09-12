@@ -8,7 +8,7 @@
  *
  *   1. **Golden values** — literals recorded from seed 1337. Comparing two live calls to each
  *      other cannot catch a reordered draw sequence, because both calls reorder identically
- *      and both agree; only literals can (DECISIONS #35, and #61(g) for the turn's own order).
+ *      and both agree; only literals can.
  *   2. **Landmarks** — thirty type-chart pairs and two damage calculations, so a transcription
  *      slip in a 324-entry table is caught by something other than a player losing a fight
  *      they should have won.
@@ -149,7 +149,7 @@ check('36. sweep: no fight runs long', worstTurns <= 40, `worst was ${worstTurns
 
 // --- the stepper is the implementation, and `resolve` is a drain of it -------
 //
-// Every check below is the evidence DECISIONS #72 rests on: the seam that lets a fight be
+// Every check below covers the seam that lets a fight be
 // watched turn by turn did not disturb the index space. If 24-29 above ever move at the same
 // time as one of these, the between-hook has leaked a draw and the whole replay is wrong.
 {
@@ -261,7 +261,7 @@ check('60. a runaway between is capped rather than obeyed',
   }).betweenCapped === true);
 
 // --- 61-64 TYPE_INK: the one colour table a balloon, a floater and a strike's own effect ----
-// all read (DECISIONS #90). `core`/`edge` are strikes.js's own values, unchanged; `ink` is
+// all read. `core`/`edge` are strikes.js's own values, unchanged; `ink` is
 // derived from `edge` and has to actually clear the contrast floor it was derived to hit, not
 // merely look plausible.
 {

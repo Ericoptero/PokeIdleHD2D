@@ -4,7 +4,7 @@
  * live session. `src/pokecenter/index.test.js` proves the save slice round-trips through a
  * stubbed `ctx.clock.wallMs`; it never drives an actual `page.reload()`, so a real boot's own
  * `offline.boot()` → `pokecenter.loadState()` wiring — including whatever `discoverProviders`
- * actually did at init order, not just what the slice's inspection claims it does — is untested
+ * does at initialization — is untested
  * end to end. This drives it for real: cure once, persist, reload, and confirm the cooldown
  * reads back as "still active" rather than resetting to "never healed" on every fresh boot.
  */
@@ -88,16 +88,9 @@ test('the cure\'s cooldown survives a real page reload instead of resetting to n
   // cure, so pressing Z again at the counter right after boot must refuse, not re-cure —
   // observable as `lastHealMs` staying exactly where it was (a second cure would move it later).
   //
-  // NOTE: `offline`'s own `simulation` slice is *supposed* to restore the exact cell the player
-  // stood on (`src/offline/index.js`'s `restorePlayer`), which would normally mean "still at
-  // the counter" needs no re-walking. Investigating a failure here turned up a real, pre-existing
-  // bug in that restore path — unrelated to this slice (`git diff 0ee4b5e -- src/offline` is
-  // empty) and reproducible with a plain `demo-city` save too — where `restorePlayer` silently
-  // never calls `sim.teleport()` at all (confirmed by instrumenting `simulation.teleport` itself:
-  // zero calls, before or after a manual re-emit of `scene:entered`) and the player lands back on
-  // the scene's spawn instead. That bug is out of scope for this slice's tester round (it predates
-  // it and no acceptance criterion here depends on exact position survival), so this test does not
-  // assert on it and instead walks back to the counter explicitly, the way a real player would.
+  // Known position-restore issue: reload can put the player at the scene spawn
+  // instead of the saved counter cell. This test checks cooldown persistence, so walk
+  // back to the counter explicitly before interacting.
   expect((await call(page, 'travel', 'current'))?.id).toBe('pokecenter');
   await walkUntil(page, 'KeyW', (p) => p.cz <= 3);
   await page.evaluate(() => window.__HOOKS__.pause());

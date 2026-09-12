@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Build `public/generated/species.json` — the committed Gen 1-9 species snapshot
- * (ARCHITECTURE §5.5: "Species data is a committed snapshot; nothing is fetched at
+ * (src/pokemon/index.js: "Species data is a committed snapshot; nothing is fetched at
  * runtime").
  *
  *   node src/pokemon/tools/build-species.js

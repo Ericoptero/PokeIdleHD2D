@@ -27,10 +27,10 @@ import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
 import { fit, margin } from './panels/common.js';
 // `gesture.js` touches no DOM by construction (it is the pointer layer's pure half, pulled out
-// for exactly this reason — slice 015), so its reducer and its scroll clamp run here the same
+// for exactly this reason — the pointer layer), so its reducer and its scroll clamp run here the same
 // way `panels/battle.js`'s transcript formatter already does.
 import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag, clampScroll } from './gesture.js';
-// `window.js` is the same split applied to a window's geometry (slice 016): pure clamp math,
+// `window.js` is the same split applied to a window's geometry: pure clamp math,
 // no DOM, so it runs here the same way `gesture.js`'s reducer does.
 import { MIN_SIZE, minSizeFor, clampMove, clampResize } from './window.js';
 // `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
@@ -100,7 +100,7 @@ const check = (name, ok, detail = '') => {
     EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
 
   /**
-   * The inventory panel's own strings (slice 018) — the category labels it draws as filter
+   * The inventory panel's own strings — the category labels it draws as filter
    * tabs, and one real `desc` per category (`economy/items.js`, copied verbatim as a literal
    * rather than imported: seam rule 2 forbids importing a sibling module's non-`index.js`
    * file, the same reason the battle events above are hand-written rather than pulled from
@@ -202,7 +202,7 @@ const check = (name, ok, detail = '') => {
   check('no panel shortcut steals a movement key', clash.length === 0, clash.join(' '));
   // Derived from `PANEL_IDS`, not from a copy of it kept here: the hand-written list failed
   // the day a panel was added, which is the check being brittle rather than the panel being
-  // wrong (DECISIONS #77).
+  // wrong.
   check('every panel shortcut names a panel this module ships',
     [...PANEL_KEYS.values()].every((id) => PANEL_IDS.includes(id)),
     [...new Set(PANEL_KEYS.values())].filter((id) => !PANEL_IDS.includes(id)).join(' ') || 'all known');
@@ -213,14 +213,14 @@ const check = (name, ok, detail = '') => {
 // invariants that a screenshot proves *slowly* can be pinned here instead.
 {
   // The real internal buffers `render.js` produces, now that `resize()` rounds both
-  // dimensions up to **even** and derives the upscale from the viewport (DECISIONS #60).
+  // dimensions up to **even** and derives the upscale from the viewport.
   // 1920x1080 and 1280x720 both land on 640x360; 1600x900 on 534x300; a 1512x982 laptop on
   // 756x492. The last two are the ones that used to be missing: a 2560x1080 ultrawide is only
   // 270 tall, and a 390 px phone in portrait is 390 wide — both narrower in one axis than any
   // panel this module authors, which is the whole point of the clamp.
   //
   // The five `/2` entries are what `screen.js`'s own `resize()` actually produces from each of
-  // the buffers above once `?uiScale=2` (slice 016, DECISIONS #85) halves the UI canvas's own
+  // the buffers above once `?uiScale=2` halves the UI canvas's own
   // backing store — real produced sizes, not invented ones, matching this array's existing
   // discipline (each halves cleanly; `screen.js` floors regardless).
   const buffers = [
@@ -228,7 +228,7 @@ const check = (name, ok, detail = '') => {
     [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
   ];
   // Every `...fit(g, w, h)` call site across `panels/*.js` — `automation.js`'s 600x300 was
-  // missing here before this slice (a pre-existing gap this check's own purpose, "every
+  // missing here previously (a pre-existing gap this check's own purpose, "every
   // authored panel size", was silently not living up to); `inventory.js`'s 480x264 (slice
   // 018) is added for the same reason a new authored size always belongs in this list.
   const authored = [[560, 288], [540, 278], [502, 264], [424, 250], [600, 300], [480, 264]];
@@ -274,8 +274,7 @@ const check = (name, ok, detail = '') => {
 }
 
 // --- the evolution cutscene's timeline --------------------------------------
-// The cutscene is CSS, so almost all of it has to be judged by looking (the three frozen
-// captures in docs/progress/pokemon/r3/). What can be wrong on its own is the timeline: one
+// The cutscene is CSS, so almost all of it has to be judged by looking at captures. What can be wrong on its own is the timeline: one
 // clock drives every layer, and a keyframe percentage outside 0..100 or out of order silently
 // drops the whole `@keyframes` rule with nothing throwing.
 {
@@ -309,7 +308,7 @@ const check = (name, ok, detail = '') => {
   check('the two sprite tracks are not the same animation', tracks.old !== tracks.neu);
 }
 
-// --- the pointer layer's pure half (slice 015) -------------------------------
+// --- the pointer layer's pure half -------------------------------
 // Proves `gesture.js` has no browser dependency — the same guarantee `battle.js`'s and
 // `evolution.js`'s pure exports already have, checked here rather than only in a browser test
 // so a DOM-shaped regression (an accidental `document.` reference) fails under plain Node too.
@@ -343,7 +342,7 @@ const check = (name, ok, detail = '') => {
   check('clampScroll: an in-range offset passes through unchanged', clampScroll(120, 300, 100) === 120);
 }
 
-// --- a window's geometry (slice 016) -----------------------------------------
+// --- a window's geometry -----------------------------------------
 // `window.test.js` (vitest) already has the full golden set; this is the same invariant run
 // under plain Node, the way `window.test.js`'s own precedent (`gesture.js`'s reducer) already
 // is here too — so a DOM-shaped regression in `window.js` fails a Node run, not only vitest.

@@ -73,7 +73,7 @@ export const ADAPTERS = {
     },
   },
 
-  // NOTE (DECISIONS #61): `pokemon` now ships `saveState`/`loadState`, so the native seam
+  // NOTE: `pokemon` now ships `saveState`/`loadState`, so the native seam
   // wins and this adapter is dead code on every normal boot. It is kept, not deleted, for the
   // one case it still covers: a quarantined `pokemon` whose API is the registry's null object,
   // where `fn(api,'party')` returns undefined and this contributes nothing rather than
@@ -154,7 +154,7 @@ export const ADAPTERS = {
       // `restorePlayer`'s `want.mapId !== mapId` guard does match — the comment that used to sit
       // here, claiming the read was always `null`, was describing a bug that had been fixed.
       // Measured harmless in a hunt: the scene places the party first and the restore lands on a
-      // loop cell (slice 012, probe B).
+      // loop cell.
       const mapId = ctx.get('terrain')?.handle?.()?.id ?? null;
       if (!Number.isFinite(p.cx) || !Number.isFinite(p.cz)) return undefined;
       return { mapId, cx: p.cx, cz: p.cz, dir: num(p.dir, 0) };

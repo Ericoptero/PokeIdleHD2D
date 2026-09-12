@@ -1,6 +1,6 @@
 /**
  * Sprite-sheet geometry and animation tables, measured from the shipped art
- * (ARCHITECTURE §5.5, DECISIONS #4, #17 and #18).
+ * (src/pokemon/index.js).
  *
  * Pokemon `assets/overworld/<slug>/{normal,shiny}.png` — 2 columns x 4 rows, always.
  * 1192 sheets are 64x128 (32 px frames); 61 are 128x256 (64 px frames) — Wailord, Steelix,
@@ -10,7 +10,7 @@
  * screen-left, so row 1 is west.
  *
  * Trainer `assets/trainer/{hero,heroine}.png` — 32x768, 24 frames in one column. The
- * grouping in DECISIONS #4 holds, and both of the items it left open are settled here:
+ * sheet grouping holds, and both of the items it left open are settled here:
  *
  *   (a) sideA = [1,2,3,14,15,16] is WEST. Those frames draw the face, the cap brim and the
  *       shoulder bag on the screen-left side of the sprite; sideB is their exact mirror.
@@ -28,14 +28,12 @@
  *   - the run trio leans into the direction of travel: the alpha centroid of west frames
  *     14,15,16 sits at x 13.8/12.7/14.8 (ahead of centre, facing left) against 16.0/16.2/
  *     16.0 for walk frames 1,2,3, and the run frames are one to two rows shorter.
- *
- * Both answers are proved on screen in docs/progress/pokemon/r1/.
  */
 
 /**
  * Sprite texel density, in texels per world unit.
  *
- * Tiles are authored at 32 px per world unit (DECISIONS #3). The DS overworld sprites are
+ * Tiles are authored at 32 px per world unit. The DS overworld sprites are
  * 32 px frames drawn for a 16 px tile, i.e. two tiles tall — so they belong on screen at
  * *half* the tile density, 16 texels per unit, and a 32 px frame spans two world units.
  * That is also what the reference stills show: the creature pixels in
@@ -76,7 +74,7 @@ export const TRAINER_SHEET = {
   frame: 32,
   cols: 1,
   rows: 24,
-  /** DECISIONS #4's grouping. Identical on hero.png and heroine.png (both checked). */
+  /** Sheet grouping. Identical on hero.png and heroine.png (both checked). */
   framesByDir: {
     north: [0, 7, 8, 9, 10, 20],
     south: [11, 12, 13, 21, 22, 23],

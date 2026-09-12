@@ -1,9 +1,9 @@
 /**
- * Slice 017 — the party bar: six real slots, a click that opens the party panel already
+ * The party bar: six real slots, a click that opens the party panel already
  * selected on the slot clicked, a drag that reorders, and the marked slot following a
  * mid-fight ally swap rather than the party's own resting order.
  *
- * Driven through real `PointerEvent`s at real buffer coordinates (015/016's own pattern,
+ * Driven through real `PointerEvent`s at real buffer coordinates (the gesture test pattern,
  * `tests/flows/hud-windows.spec.js`'s `regions()`/`click()`), never by calling `hud.js`'s
  * functions directly — that would prove nothing about whether the click a player actually
  * makes reaches the party bar's own hit regions rather than, say, the button strip drawn
@@ -173,7 +173,7 @@ test('the marked slot follows a mid-fight ally swap, not the party\'s own order'
 
   const originalLeadId = (await call(page, 'pokemon', 'party'))[0].instanceId;
   // Down to a sliver: the very next hit that lands faints it, which is what forces
-  // `encounter`'s `nextAlly` to send the next party member in mid-duel (DECISIONS #72) —
+  // `encounter`'s `nextAlly` to send the next party member in mid-duel —
   // the exact scenario this rule exists for.
   await page.evaluate((id) => {
     const pk = window.__CTX__.get('pokemon');
@@ -200,12 +200,11 @@ test('the marked slot follows a mid-fight ally swap, not the party\'s own order'
 
   // The window after a fight resolves but before `encounter.resolve()` runs `pokemon.setLead`
   // for the swapped-in finisher (`encounter/index.js`'s own comment: the player gets several
-  // seconds to decide whether to throw a ball) — the exact gap a first draft of this slice got
+  // seconds to decide whether to throw a ball) — the exact gap an earlier version got
   // wrong: it gated the party bar's own read on `win === null`, so for this whole window the
   // bar reverted to the original, fainted lead while `panels/battle.js`'s card kept correctly
   // showing the finisher (`battle.js:125-127` reads `duel.run.state.a` for as long as
-  // `duel.engine` exists, `win` included — no such gate). Found live by this slice's review
-  // pass, not by any test; this is that test.
+  // `duel.engine` exists, `win` included — no such gate).
   const resolved = await stepUntilTrue(page, (_fromId) => {
     const enc = window.__CTX__.get('encounter');
     const active = enc?.active?.();

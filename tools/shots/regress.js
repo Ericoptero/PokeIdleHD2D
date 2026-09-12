@@ -1,17 +1,8 @@
 #!/usr/bin/env node
 /**
- * The regression gate.
- *
- * Three consecutive fix rounds on `hunts` scored 6.5, then 6, then 5.5 — each one fixed
- * what it was asked to fix and broke something it was not looking at, and the break was only
- * found afterwards by a critic. `environment` did the same: it lifted the highlights and
- * made city night worse in the same round. A builder cannot avoid a regression it has no way
- * to see, so this is the way to see it.
- *
- * A fixed matrix of URLs is captured and reduced to numbers, and every number is compared
- * against a stored baseline. Metrics carry a direction — `belowL8Pct` should go down,
- * `p99` should go up — so the gate reports IMPROVED, SAME and REGRESSED rather than merely
- * "different", and a round that trades one for another is visible in one screen.
+ * Optional visual regression measurements against a fixed frame matrix.
+ * Metrics carry a direction: `belowL8Pct` should go down, `p99` should go up.
+ * Reports IMPROVED, SAME and REGRESSED for comparison with docs/baseline.json.
  *
  *   node tools/shots/regress.js                 # compare against docs/baseline.json
  *   node tools/shots/regress.js --accept        # store the current numbers as the baseline
@@ -25,9 +16,7 @@ import { shoot } from './shoot.js';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BASELINE = join(REPO, 'docs', 'baseline.json');
-// Gate artifacts go somewhere ignored. Written under `docs/progress/` they showed up as
-// changed binaries in `git status` after every run, so an agent could not tell its own edits
-// from capture noise. `--out` lets the gate place them; the default keeps a bare run working.
+// Generated captures use an ignored directory; --out selects another destination.
 const DEFAULT_SHOTS = join(REPO, 'shots', 'out', 'regress');
 
 /** The frames that are actually judged, plus the ones that have regressed before. */
@@ -53,10 +42,10 @@ export const MATRIX = [
   // The move effects, at the two hours the grade differs most. A strike is the one thing in
   // this module a still frame can show and a histogram can nearly see: the first cut washed
   // out at noon and the redraw had to be checked again at night, where `environment` lifts the
-  // bloom threshold (DECISIONS #79). Without a row here neither would be noticed again.
+  // bloom threshold. Without a row here neither would be noticed again.
   { id: 'encounter/vfx/12', showcase: 'encounter', mode: 'vfx-contact', tod: 12 },
   { id: 'encounter/vfx/21', showcase: 'encounter', mode: 'vfx-contact', tod: 21 },
-  // The other two deliveries, one row each (slice 019's shader rewrite) — without these, a
+  // The other two deliveries, one row each (shader VFX) — without these, a
   // beam's travel or a ground ring's growth could break and only `vfx-contact`'s own row
   // would ever be re-checked.
   { id: 'encounter/vfx-projectile/12', showcase: 'encounter', mode: 'vfx-projectile', tod: 12 },

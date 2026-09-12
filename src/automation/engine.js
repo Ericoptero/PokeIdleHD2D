@@ -166,7 +166,7 @@ export function makeEngine({ onChange = () => {} } = {}) {
      * The brief's healing priority is an ordered list of `{item, enabled, atPercent}` and its
      * revival and PP priorities are ordered lists of item ids — neither is expressible as a
      * condition tree, because the match depends on what is in the bag and the rules engine
-     * cannot see one (DECISIONS #76). They come through here on restore, so they are coerced
+     * cannot see one. They come through here on restore, so they are coerced
      * here: shape-checked rather than trusted, because a save is a file a player can edit and a
      * malformed rung would be a silent no-op at the moment somebody needed a Max Potion.
      */
@@ -349,7 +349,7 @@ export function makeEngine({ onChange = () => {} } = {}) {
    * is the thing the brief forbids in as many words: *saved automation configurations are merged
    * with current defaults so newly introduced items do not invalidate older saves*. Settings
    * already merged this way (defaults laid down first, then known keys overwritten); this is the
-   * rules half of the same discipline (DECISIONS #76).
+   * rules half of the same discipline.
    *
    * **New builtins are appended, never inserted**, and a saved rule always keeps its place. The
    * engine is first-match-wins, so inserting one would let a shipped default outvote an ordering

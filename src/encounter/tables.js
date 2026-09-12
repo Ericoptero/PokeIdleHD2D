@@ -15,7 +15,7 @@
  * species named `[object Object]`. So the weighted table is **weight-expanded**: a row of
  * weight 20 occupies twenty of the ~120 slots, and a *uniform* pick from that array is
  * exactly the weighted pick. Those three modules get the right distribution for free
- * without knowing anything changed, and §5.6's "weighted species table" is honoured
+ * without knowing anything changed, and src/encounter/index.js's "weighted species table" is honoured
  * literally rather than as a shape nobody could consume.
  *
  * The rows themselves are still reachable — `expand()` hangs `rows`, `biome` and `tod` on
@@ -55,8 +55,8 @@ export const TABLES = {
   /**
    * **The lobby has no wildlife, and the key stays anyway.**
    *
-   * DECISIONS #61(h) kept the city's 23 rows on the argument that a walkable map the player
-   * drives is played differently from a hunt. #73 removed the tall-grass step roll everywhere,
+   * The terrain layout keeps the city's 23 rows on the argument that a walkable map the player
+   * drives is played differently from a hunt. The spawn-slot model removed the tall-grass step roll everywhere,
    * so nothing can read them: the city is a lobby now — a Center, a Mart, a plaza — and the
    * hunt is the only place a wild Pokemon exists.
    *
@@ -128,7 +128,7 @@ export const TABLES = {
 };
 
 /**
- * RETIRED (DECISIONS #73). The per-step chance a cell of tall grass produced a Pokemon, which
+ * RETIRED. The per-step chance a cell of tall grass produced a Pokemon, which
  * was the whole of the random-encounter system: `encounter.roll()` compared `stepValue(seed,
  * steps++)` against it on every `player:enteredTile`. A hunt meets its wildlife where the
  * wildlife is standing now, so nothing rolls and there is no rate to declare. The `step/0`
@@ -203,7 +203,7 @@ export function bumpsFor(rows) {
  * A typo here is invisible at runtime — `pokemon.species('poochyeena')` returns null, the
  * encounter is dropped and the grass just quietly stops working. So this runs once at
  * `init` and once in `selftest.js`, and it is a `warn` in the browser (a handled path must
- * not cost §7's zero-error budget) and a hard failure in the seam suite.
+ * not cost tools/shots/shoot.js's zero-error budget) and a hard failure in the seam suite.
  */
 export function validate(lookup) {
   const bad = [];
@@ -217,7 +217,7 @@ export function validate(lookup) {
       if (!(r.r >= 3 && r.r <= 255)) bad.push(`${key} capture rate ${r.r} out of range`);
       if (!(r.w > 0)) bad.push(`${key} weight ${r.w} is not positive`);
     }
-    // A table with **no rows at all** is a deliberate empty — the city, since DECISIONS #73 —
+    // A table with **no rows at all** is a deliberate empty — as in the city —
     // and asking which hours it covers is asking the wrong question. A table with rows that
     // leave an hour bare is still a bug: a lap at that hour would meet nothing and the player
     // would have no way to tell that from a broken trigger.

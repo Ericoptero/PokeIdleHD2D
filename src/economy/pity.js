@@ -1,7 +1,7 @@
 /**
  * The pity ledger: every ball thrown at a species, remembered, until one of them works.
  *
- * The rule (DECISIONS #61): each throw adds **the ball's price** to a running sum kept per
+ * The rule: each throw adds **the ball's price** to a running sum kept per
  * species. Below 90 % of that species' price the catch chance is exactly what the Gen 3/4
  * formula says. From 90 % it climbs, reaching certainty at 125 %. A successful catch resets the
  * sum to zero.
@@ -38,7 +38,7 @@ export const BP_MONEY_EQUIVALENT = 2500;
 
 const clamp01 = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
 
-/** Save slice version. `restore` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `restore` migrates forward and refuses a newer one (src/offline/slices.js). */
 export const PITY_VERSION = 1;
 
 /**
@@ -79,7 +79,7 @@ export function makePity({ price, item }) {
      * Adds a throw to the ledger and answers the meter **after** it.
      *
      * After, and it matters: the throw that crosses 125 % should be the one that succeeds, not
-     * the one after it (DECISIONS #62 records the same choice for evolution materials).
+     * the one after it (the same choice is used for evolution materials).
      */
     credit(species, ballId) {
       const k = key(species);

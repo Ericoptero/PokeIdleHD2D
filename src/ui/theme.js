@@ -2,7 +2,7 @@
  * The palette and the panel language.
  *
  * The colours are the Black & White 2 building ramps, copied verbatim out of
- * `tools/structures/pixel.js` (`src/` may not import `tools/`, and DECISIONS #3 fixes those
+ * `tools/structures/pixel.js` (`src/` may not import `tools/`, and the asset generator fixes those
  * ramps as the authored buildings' palette — the Pokemon Center roof on screen and the
  * header of the shop panel are the same red on purpose).
  *
@@ -69,7 +69,7 @@ export const CURRENCY_COLOUR = {
  * simple multiply:
  *
  *  - it has to be a **function of `tod` alone**, so the same URL still gives the same pixels
- *    (§6.3). No wall clock, no live sun query.
+ *    (tools/shots/shoot.js). No wall clock, no live sun query.
  *  - it may not eat the panel's own legibility. Scaling paper *and* ink by 0.36 (which is
  *    what matching the ground would need) takes ink-on-paper from 13:1 to 2.4:1 — the panel
  *    would be lit and unreadable. The night factor is therefore 0.65 of luma, measured:
@@ -283,8 +283,7 @@ export function button(g, box, { active = false, disabled = false, danger = fals
 /**
  * The HP ramp — one colour pair per band, shared by the battle card, the party bar, the
  * trainer panel and the world's own nameplates (`plates.js`) so a Pokémon's bar reads the
- * same wherever it is drawn (moved here for slice 017 rather than duplicated a second time —
- * `panels/battle.js` was its only caller and now imports it from here).
+ * same wherever it is drawn (all callers import the same ramp).
  *
  * The mainline goes green → yellow → red and **this palette has no green** (this file is a
  * deliberately warm, desaturated set). Rather than smuggle a foreign hue in for one widget,
@@ -332,9 +331,7 @@ export function pokeball(g, x, y, { red = C.ballRed, white = C.ballWhite, band =
 /**
  * One placeholder mark per item category, 7×7, in `pokeball()`'s own hand-authored bitmap
  * style — no image load, because no item icon asset exists anywhere in the repository
- * (`src/ui/panels/inventory.js`'s own inspection: `find assets public -iname '*item*' …`
- * turns up nothing but screenshot evidence). Explicitly not final art — `docs/STATUS.json`
- * carries an `open` entry for real icons.
+ * These procedural icons are placeholders for dedicated item art.
  *
  * Filled with `def.tier` tinted off this file's own dark-recess ramp (`deepDeep`…`deepLight`,
  * the four-step *background* progression, not the `deepInk`/`deepDim`/`deepFaint` ink group —
@@ -422,7 +419,7 @@ const ITEM_MARKS = {
 /**
  * Draws category `category`'s placeholder mark at `x, y`, tinted for `tier` (1..5, clamped).
  * Falls back to the `held` silhouette for a category this table does not carry (`key`, the one
- * typedef entry with no populated item — DECISIONS-free, just `ITEMS` having nothing in it).
+ * typedef entry with no populated item — `ITEMS` having nothing in it).
  */
 export function itemMark(g, x, y, category, tier = 1, { ink = C.deepInk } = {}) {
   const rows = ITEM_MARKS[category] ?? ITEM_MARKS.held;

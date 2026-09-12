@@ -5,15 +5,15 @@
  * outside the shops and a dozen Pokemon loitering, some still, some walking short loops.
  *
  * `simulation` owns walkers — the grid, the step timing, the collision, the sprite poses and
- * the route language (ARCHITECTURE §5.4) — so this file spawns through `spawnNpc()` and
+ * the route language (src/simulation/index.js) — so this file spawns through `spawnNpc()` and
  * never touches a sprite, a sheet or a frame index. That also means every route is checked
  * against `terrain.passable`, so an NPC cannot walk into the Pokemon Center's wall, and
  * every walk is seeded: `simulation` forks its own stream per NPC and `Math.random` is not
- * reachable from here (ARCHITECTURE §2.5).
+ * reachable from here (src/core/rng.js).
  *
  * **Determinism.** A scripted route is a pure function of how many sim steps have run, and
  * the number of steps between page load and shutter is wall-clock luck. So when the clock is
- * frozen for a screenshot (DECISIONS #14) the cast is advanced by a fixed number of steps and
+ * frozen for a screenshot the cast is advanced by a fixed number of steps and
  * then frozen: the same URL gives the same pixels, and the still shows a mix of walkers
  * mid-stride and standers rather than a rank of statues on cell centres.
  */
@@ -33,7 +33,7 @@ const STAGE_STEPS = 47;
 
 /**
  * Walks the whole cast to a fixed point and stops the clock there, so the city's *own*
- * showcase is reproducible (ARCHITECTURE §6.3). Called from `city.showcase()` and nowhere
+ * showcase is reproducible (tools/shots/shoot.js). Called from `city.showcase()` and nowhere
  * else: `enter()` must leave `simulation`'s frame loop exactly as it found it, or entering
  * the lobby at `/` would freeze the player, and `simulation`'s own `mode=city` showcase —
  * which calls `city.enter()` and then stages its own walk — would inherit a pose it did not

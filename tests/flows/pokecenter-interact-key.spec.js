@@ -10,7 +10,7 @@
  * Independent of `tests/flows/hunt-recovers.spec.js`'s own coverage: that file presses `KeyZ`
  * only, always at the counter, always with no panel open. This file adds `Space`, a press away
  * from the counter, a press with a panel open, and a press on an unwalkable scene — the four
- * gaps named for this slice's tester round.
+ * input cases not exercised by the cure flow.
  */
 import { test, expect } from '@playwright/test';
 import {
@@ -158,7 +158,7 @@ test('a panel already open consumes Z/Space itself — player:interact never fir
 
   // The suppression is scoped to "while a panel is open", not a general breakage of the key:
   // with the dialogue now closed, the SAME KeyZ press must reach player:interact. This is the
-  // assertion that actually distinguishes this slice's code from the pre-slice tree — there,
+  // assertion that actually distinguishes the input forwarding from the previous tree — there,
   // no panel is open here either, and KeyZ still does nothing at all, so this line is the one
   // that turns "the panel swallowed it" into a provable claim rather than a vacuous one.
   before = await mark(page);

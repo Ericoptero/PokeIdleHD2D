@@ -1,5 +1,5 @@
 /**
- * Weather: clear / rain / fog / snow (ARCHITECTURE §5.3).
+ * Weather: clear / rain / fog / snow (src/environment/index.js).
  *
  * Atmosphere is done in presets.js (`applyWeather` bends the whole grade); this file is the
  * part you can see moving. Two meshes, two draw calls, both allocated once at init:

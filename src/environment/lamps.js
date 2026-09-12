@@ -1,5 +1,5 @@
 /**
- * Practical lights — street lamps, windows, camp fires (ARCHITECTURE §5.3).
+ * Practical lights — street lamps, windows, camp fires (src/environment/index.js).
  *
  * Three halves, because "a street lamp at night" is three different problems:
  *
@@ -45,7 +45,7 @@ const POOL_DECAY = 1.5;
  * (1–2 units) and lay a pool on the *paving* below it (3.3 units) — and inverse-square gives
  * the near one 19× the far one. Round 2 tuned for the pool and the post took nothing; tuning
  * for the post instead blew the post, the flowerbed and the hedge in front of it to white
- * (`docs/progress/environment/r3/a4-21.png`). At decay 1.5 the same pool on the ground costs
+ *. At decay 1.5 the same pool on the ground costs
  * 13× at the post instead of 19×, so both can be right at once:
  *
  *   distance                       decay 2 / gain 37     decay 1.5 / gain 20
@@ -84,13 +84,13 @@ const DECAL_LIFT = 0.30;
  * third of a unit across, and the faces of the post it hangs from are lit by the half of
  * that globe pointing back at them. A mathematical point at the emitter cannot do that, and
  * the failure is visible rather than academic — the AdAstra cobra head reaches a full cell
- * sideways off its post (DECISIONS #25), so the post's camera-facing faces have `dot(N, L)`
+ * sideways off its post, so the post's camera-facing faces have `dot(N, L)`
  * slightly *negative* from a bulb directly above and to one side, and take literally none of
  * their own lamp. That is the whole of "the pole is taking moon/fill only": at night it was a
  * cold blue-grey stick standing under an amber glare.
  *
  * Dropping the source a third of a unit and bringing it a half unit toward the camera (yaw is
- * fixed, §2.7, so +z *is* toward the camera) puts it inside the globe rather than at its top
+ * fixed, src/core/render.js, so +z *is* toward the camera) puts it inside the globe rather than at its top
  * edge, and every camera-facing surface within a couple of units — the post, a bench end, the
  * front of a sprite walking past — turns positive. The pool on the ground moves by less than
  * a fifth of a cell, which is under one screen pixel at this camera.

@@ -5,12 +5,12 @@
  * mainline sell prices, no buy price, and **no way to obtain a single one of them**. Its own
  * header says they "exist only to be sold, which is the mainline's oldest money faucet and the
  * one that keeps hunting worthwhile". This is the faucet. It is also what pays for an evolution
- * (DECISIONS #62), which is why the same twelve items are on both sides of that trade: a lap of
+ *, which is why the same twelve items are on both sides of that trade: a lap of
  * a hunt is where the materials come from.
  *
  * Pure and **index-addressed**: `dropsFor(seed, index, …)` is a function of the encounter's
  * number and nothing else, so a hunt replayed by `offline` produces the same loot as the one
- * that was watched (DECISIONS #35(a)). No ctx, no clock, no `Math.random`.
+ * that was watched. No ctx, no clock, no `Math.random`.
  */
 
 import { streamFor } from './rolls.js';
@@ -75,8 +75,7 @@ export function rungFor(catchRate) {
  *
  * **Mirrored from `pokemon/evolution.js`, and policed by `tools/seams/run.js` rule 7.** That
  * module bills an evolution in these items keyed by the child's type; this one hands them out
- * keyed by the defeated wild's. Two views of one small catalogue, deliberately (DECISIONS
- * #68(a)) — and the reason it is worth a copy plus a check rather than a shared file is seam
+ * keyed by the defeated wild's. Two views of one small catalogue, deliberately — and the reason it is worth a copy plus a check rather than a shared file is seam
  * rule 2: `encounter` may not import `pokemon`'s internals, and neither belongs in `core`.
  * Rule 5 sets the precedent, and it exists because exactly this kind of copy drifted once with
  * nothing able to notice.
@@ -110,7 +109,7 @@ export const familyFor = (type) => FAMILY_BY_TYPE[String(type ?? '').toLowerCase
  * a Dragonite consume the same nine numbers from `root/encounter/drop/<index>`. Without that,
  * the stream position would depend on which species a slot happened to be holding — and a slot
  * respawns a different species every time it refills, which would renumber every drop after it
- * (DECISIONS #35(a), #75).
+ *.
  */
 export const MAX_DROP_ROWS = 4;
 
@@ -215,7 +214,7 @@ export function tableFor(species, biome = 'meadow', { shiny = false } = {}) {
  *
  * **Its own stream.** `root/encounter/drop/<index>` — never a continuation of the roll or the
  * battle, so adding a drop cannot renumber a species and a species that is not looked at still
- * costs the same draws (DECISIONS #35(a)).
+ * costs the same draws.
  *
  * Draw order is a contract, like every other roll in this module: **whether, then which, then
  * how many, then the bonus coin.** All four are drawn unconditionally and the unused ones

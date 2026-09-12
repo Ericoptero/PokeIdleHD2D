@@ -72,7 +72,7 @@ export function makeInventory(app) {
 
   return {
     id: 'inventory',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept on the descriptor only as a record of which panels used to
      *  stand the whole HUD down while open (`battle.js`'s own header comment). */
     full: true,

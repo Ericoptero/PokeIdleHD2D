@@ -153,7 +153,7 @@ function lex(list, subject) {
 /**
  * @param {object} tile        parsed tile record
  * @param {object[]} materials tileset materials, indexed by texture id
- * @param {{min:number[],max:number[]}} bounds  world-space bounds after §3.1 conversion
+ * @param {{min:number[],max:number[]}} bounds  world-space bounds after tools/assets/pdsts.js conversion
  * @returns {{category:string, subcategory:string, tags:string[], base:string,
  *            orientation:string|null, collision:string, biomes:string[]}}
  */
@@ -272,7 +272,7 @@ export function orientationSignature(groups, bounds, cellW, cellH) {
  * the neighbour signature below, copied from `SmartGrid.smartUnits` in the Java source:
  * [top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight].
  *
- * SETTLED (DECISIONS #2): PDSMS's "top" is our north (-Z). Proven from the four inner
+ * SETTLED: PDSMS's "top" is our north (-Z). Proven from the four inner
  * corners of the grass/path set: the transition-textured triangle of `cornerinUL` sits at
  * cell (0.67, 0.33) = north-east, which is exactly the corner SMART_UNITS[3] leaves empty,
  * and the other three agree. A vertical flip or a 180-degree rotation would both have

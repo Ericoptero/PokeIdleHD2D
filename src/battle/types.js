@@ -2,7 +2,7 @@
 /**
  * The type chart, and the one question every damaging move asks of it.
  *
- * **This is source, not data** (DECISIONS #61). It is ~324 non-neutral entries that have not
+ * **This is source, not data**. It is ~324 non-neutral entries that have not
  * moved since Gen 6, so fetching and parsing a CSV for it at boot would be cost for nothing —
  * and it would put a network dependency in front of the one part of a battle that can never be
  * allowed to be missing. `selftest.js` pins thirty landmark pairs against it instead.
@@ -79,19 +79,19 @@ export const isType = (t) => T.has(String(t ?? '').toLowerCase());
 /**
  * One colour triple per type — `core`/`edge` for a strike's own effect, `ink` for its name
  * printed over paper (a balloon, a floater). Canonical: this used to be four independent
- * copies (`encounter/strikes.js` — deleted in the shader VFX rewrite, DECISIONS #91 — plus
+ * copies (`encounter/strikes.js` — deleted in the shader VFX rewrite — plus
  * `ui/panels/dex.js`, `idle/panel.js`, `collection/showcase.js`), and the ask that a balloon
  * colour its move name by type is what made the fourth one land here instead of copying the
- * pattern a fifth time; `dex.js`'s own copy has since been retired too (DECISIONS #90), so
+ * pattern a fifth time; `dex.js`'s own copy has since been retired too, so
  * `encounter/vfx/*.js` and `dex.js` both now read `core`/`edge`/`ink` from here.
  *
  * `core`/`edge` are unchanged from `strikes.js`'s own table, carried forward verbatim into
  * `encounter/vfx/play.js`'s shaders — chosen against the mainline's colour language, checked
- * against this renderer's bloom threshold (DECISIONS #79). `ink` is **derived, not chosen**:
+ * against this renderer's bloom threshold. `ink` is **derived, not chosen**:
  * `edge`, darkened in equal steps (RGB scaled together, so
  * the hue does not shift) until its WCAG contrast ratio against `C.wallLight` (the balloon's
  * own paper, `#F5E9CE`) clears 4.5:1 — the same threshold this project already cites for a
- * readable pair elsewhere (DECISIONS #77's "5.2:1 to 2.5:1" collapse). Eight of the eighteen
+ * readable pair elsewhere ("5.2:1 to 2.5:1" collapse). Eight of the eighteen
  * needed no darkening at all; `electric`'s raw edge was 1.39:1 against this paper (a lemon
  * yellow on cream) and needed eight steps. `selftest.js` pins the computed ratio, not the
  * hex, so a future palette change cannot reintroduce an unreadable pair silently.

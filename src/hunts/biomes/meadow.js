@@ -4,17 +4,17 @@
  * The brief asks for "tall-grass patches with ragged edges rather than rectangles, flowers,
  * a fence line or a stream to give the eye somewhere to go". It gets both lines, crossing:
  *
- *  - a **brook** running roughly east-west, cut into the lawn (DECISIONS #28a — a lake
+ *  - a **brook** running roughly east-west, cut into the lawn (a lake
  *    palette digs in to −0.75, so the ground has to be cut out from under it or the whole
  *    thing is buried under its own grass with a clean console and nothing on screen);
  *  - a **fence line** running east-west along the field boundary. East-west is not a taste
  *    call: `fence_side_edge_w`'s rail panel lies in the plane x = 0.5, which is edge-on to
- *    a camera whose yaw never changes, and renders as a bare dark line (DECISIONS #29). The
+ *    a camera whose yaw never changes, and renders as a bare dark line. The
  *    north-south boundaries are hedgerows instead.
  *
  * Trees appear only as a copse on the far northern edge, where they close the top of the
  * frame; the middle of a meadow is meant to be empty, and an isolated AdAstra tree at a
- * 45-degree camera shows the vertical sliver DECISIONS #29 measured.
+ * 45-degree camera shows the vertical sliver visible at this camera angle.
  */
 
 import {
@@ -62,7 +62,7 @@ export const MEADOW = {
   w: 64,
   h: 60,
   /**
-   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   * The trainer level `travel` asks for before it will come here (src/travel/index.js).
    *
    * Authored HERE and not in `travel`, because what a destination *is* stays with the
    * scene that owns it. the softest table in the game and the first place a new save fills a dex.
@@ -191,7 +191,7 @@ export function buildMeadow(draft, ctx, palette, rng, _log) {
    * boundary — and at this camera a cell is 70 screen pixels wide, so the steps read as
    * horizontal bands across the trail. Shot and looked at before this was added: the forest
    * trail carried three visible seams down the top of the judged framing. `mixTint`'s jitter
-   * is the same fix the canopy ramp already uses two hundred lines below (DECISIONS #37).
+   * is the same fix the canopy ramp already uses two hundred lines below.
    */
   const DITHER = (cx, cz) => ({ jitter: 7, cx, cz, seed: seed ^ 0x40b3 });
   const shadeT = (cx, cz) => 1 - lit(cx, cz);
@@ -268,7 +268,7 @@ export function buildMeadow(draft, ctx, palette, rng, _log) {
   // solid 15x16 block whose right edge wobbled by exactly one cell, because `ragged` can only
   // flip *boundary* cells and a period-7 lattice has long straight level sets. One cell at
   // 35 screen pixels is not a shape, so the field shipped as a literal rectangle with a
-  // vertical edge at x=520 (DECISIONS #37). Three changes, in order of effect: the sample
+  // vertical edge at x=520. Three changes, in order of effect: the sample
   // position is domain-warped by up to three cells, so the level set *bends*; the lattice
   // drops from 7 to 5 so a mass is a patch and not a field; and the boundary is fringed with
   // scattered outliers so it ends in speckle instead of in a line.

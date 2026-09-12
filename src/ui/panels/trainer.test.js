@@ -191,10 +191,9 @@ describe('layout(model) — acceptance criterion 4: the Party section is reachab
     expect(last.section.rows).toHaveLength(6);
 
     // Fixed by construction regardless of any fake data: eleven upgrade tracks and six party
-    // rows alone already outrun the body a 320x180 buffer (016's own smallest tested case)
+    // rows alone already outrun the body a 320x180 buffer
     // leaves once the header, the footer and the reserved HUD bands are subtracted — this
-    // panel is the one the slice's own Why section says is "most likely to overflow a single
-    // screen", so this bound holds however the Bonuses/Dex rows happen to vary.
+    // panel can overflow a single screen, so this bound holds however the Bonuses/Dex rows happen to vary.
     expect(total).toBeGreaterThan(160);
   });
 

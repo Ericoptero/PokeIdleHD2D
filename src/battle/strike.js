@@ -16,7 +16,7 @@
  * So the transcript is left exactly as it is — `ui/panels/battle.js` renders thirteen of its
  * kinds directly and `encounter.transcript()` is a published API — and this file derives the
  * spec's shape on top of it. `encounter` emits one `battle:strike` per record as it steps,
- * because `battle` has no `ctx` and must keep none (ARCHITECTURE §5.17, DECISIONS #72).
+ * because `battle` has no `ctx` and must keep none (src/battle/index.js).
  *
  * Pure, Node-runnable, no imports. A strike is a function of a turn's events and the two
  * combatants' names, and of nothing else.

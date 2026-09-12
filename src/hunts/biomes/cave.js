@@ -15,7 +15,7 @@
  *  - `set3 cave_dark_border` — flat, at y 1: the top of that rock, seen from above.
  *  - `set4 d0_miz2` — digs in to −0.5 with `cave_water_center` as its underlay sheet: the
  *    pool. Like every water palette its border slots are partial ramps, so the sheet has to
- *    be laid under the whole region first (DECISIONS #28a).
+ *    be laid under the whole region first.
  *  - `estalactita` hangs from y 3.26 to 8.24, `cave_big_rock` is a 6x6 formation, and
  *    `cave_exit` is the lit mouth.
  */
@@ -30,7 +30,7 @@ export const CAVE = {
   w: 56,
   h: 54,
   /**
-   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   * The trainer level `travel` asks for before it will come here (src/travel/index.js).
    *
    * Authored HERE and not in `travel`, because what a destination *is* stays with the
    * scene that owns it. the hardest table: Gible and Larvitar at weight 1, and 0.70x money to pay for it.
@@ -397,7 +397,7 @@ export function buildCave(draft, ctx, palette, rng, _log) {
   // rounded rectangle the critic measured under the lead Pokemon was the mouth's own
   // daylight geometry seen from above. Proven by removing this one placement and nothing
   // else — the ROI goes from 1.69x its surroundings to 0.93x, i.e. from brighter than the
-  // floor to darker than it (DECISIONS #37b). Round 1's comment had blamed a PointLight.
+  // floor to darker than it. Round 1's comment had blamed a PointLight.
   if (exits.length) {
     draft.place(exits[0], MOUTH[0] - 6, MOUTH[1] - 3, { collision: 'block', layer: 3, claim: false });
   }
@@ -406,11 +406,10 @@ export function buildCave(draft, ctx, palette, rng, _log) {
   //
   // Round 1 shipped a comment here blaming the pale card under a party member on "a
   // `PointLight` close to a walker lighting the sprite billboard's transparent margin". That
-  // is **wrong**, and four A/Bs at one URL say so (DECISIONS #37):
+  // is **wrong**, and four A/Bs at one URL say so:
   //
   //   1. `lights = []` — every placed bulb gone. The card is unchanged: ROI luma 84.0 on a
-  //      floor of 44.6, against 87.2/51.7 with all seven bulbs (docs/progress/hunts/r2/
-  //      ctl-cave-nolights-12.png).
+  //      floor of 44.6, against 87.2/51.7 with all seven bulbs.
   //   2. `--envNoCast 1` on top of that — the planar sprite shadows gone too. 84.0. Not
   //      castShadows either.
   //   3. mud patches removed — byte-identical ROI. Not a floor decal.
@@ -461,7 +460,7 @@ export function buildCave(draft, ctx, palette, rng, _log) {
    * focus and **4.3 south**. The pool marker sat one cell north of the eastern terrace's
    * lip, so those 4.3 cells were a metre-high step: the trainer was cut off at the waist,
    * the lead's feet vanished into the riser, and the bottom third of the frame was the flat
-   * dark top of the rock below (docs/progress/hunts/r4/base/cave-close-12.png). A tight
+   * dark top of the rock below. A tight
    * framing is the one that cannot survive a wall in its near half, so it gets the widest,
    * flattest floor in the map — the middle of the hall, under two of the warm bulbs — and
    * asks `laneNear` for five cells of same-height ground to the south.

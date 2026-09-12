@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Models the buildings the city needs (DECISIONS #3, #12) and writes them as OBJ + MTL +
+ * Models the buildings the city needs and writes them as OBJ + MTL +
  * meta.json into assets/structures/, ready for tools/assets/build-structures.js.
  *
  * Generated rather than sculpted, because the shapes are the shapes: a Black & White 2 town
@@ -392,7 +392,7 @@ function houseA() {
  * A street lamp, authored because the tileset's own is not one: slamp03.png is 16x32 with
  * ten colours, a flat blue-grey swatch with no bulb, no housing and no fixture detail, and
  * two whole-game passes plus a blind judge all named the result as the most obviously wrong
- * object on screen. DECISIONS #3 made exactly this call for the buildings.
+ * object on screen. The buildings use the same authored-geometry approach.
  *
  * A square-section post with a cobra arm and a cowled head, in the BW2 idiom. The post
  * clears a 2.8-unit sprite, the arm reaches out over the pavement, and the head's lens is

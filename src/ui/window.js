@@ -2,7 +2,7 @@
 /**
  * A window's pure geometry — the clamp math, the default (first-open) size, and the minimum a
  * panel may be resized to. Pulled out of `panels/common.js` for the same reason `gesture.js`
- * was in slice 015: it touches no DOM, so `ui/selftest.js` and `window.test.js` can both run it
+ * was: it touches no DOM, so `ui/selftest.js` and `window.test.js` can both run it
  * under plain Node, and a browser-only bug (an accidental `document.` reference) fails there
  * too rather than only in a screenshot.
  *
@@ -31,8 +31,7 @@ export function minSizeFor(id) {
 
 /**
  * The box a panel opens at the first time it is ever shown in a save — centred, at its own
- * authored (`fit()`-clamped) size. Identical to what `windowFrame` always did before this
- * slice, so a fresh save's first `KeyP` looks exactly as it did.
+ * authored (`fit()`-clamped) size. Uses the authored default until the player moves or resizes it.
  * @param {number} w
  * @param {number} h
  * @param {{width:number, height:number}} buffer
@@ -98,11 +97,9 @@ export function clampResize(box, buffer, margin, min) {
  * still overlapping the other.
  *
  * **Avoiding the reserved bands wins over honouring `min`.** A window shrunk below its usual
- * floor is still there and the player can drag it bigger the moment there is room (slice 016
- * already gives them the grip); a window painted over the wallet or the party bar defeats the
+ * floor is still there and the player can drag it bigger the moment there is room (using the resize grip); a window painted over the wallet or the party bar defeats the
  * whole point of this function and the player has no way to fix it themselves. Measured
- * against a real 1080p viewport at `uiScale:2` (320×180 buffer): the reviewer's own finding —
- * this function's first draft floored `h` at `min.h` regardless of how little safe space was
+ * against a real 1080p viewport at `uiScale:2` (320×180 buffer): this function's first draft floored `h` at `min.h` regardless of how little safe space was
  * actually available, and a `full` panel still clipped 11 px into the party bar. `min` is used
  * only in the one case nothing can do better in: the reserved bands leave no safe space at
  * all (`available <= 0`), a screen too small for any window to open on without overlapping

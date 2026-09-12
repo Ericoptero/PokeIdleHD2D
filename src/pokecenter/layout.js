@@ -5,7 +5,7 @@
  * town: the numbers live here, `map.js` paints the base tileset (`pt-house-indoor`) and
  * reserves the footprints the *other* two tilesets fill in, and `dress.js` builds those other
  * two as their own `InstancedWorld`s (a `Placement` names a model id and `buildInstances`
- * resolves it against exactly one tileset, DECISIONS #26a — the same constraint `city`'s
+ * resolves it against exactly one tileset, using one model-id namespace — the same constraint `city`'s
  * buildings and props are under).
  *
  * The room is a **three-walled box**, deliberately. The fixed 45-degree camera looks down
@@ -73,7 +73,7 @@ export const COUNTER = { cx: 5, cz: 2, w: 3 };
  */
 export const NURSE = { cx: COUNTER.cx + 1, cz: COUNTER.cz - 1, dir: SOUTH };
 
-/** `bw2-adastra`'s `bench_e`/`bench_w` (DECISIONS #6 tags: `bench, seat`), flanking the open
+/** `bw2-adastra`'s `bench_e`/`bench_w` (tags: `bench, seat`), flanking the open
  *  floor between the door and the counter. */
 export const BENCHES = [
   { cx: 2, cz: 5, face: 'e' },
@@ -83,7 +83,7 @@ export const BENCHES = [
 /** How the room is played (`simulation.setFormation`) — the trainer drives, same as `city`. */
 export const FORMATION = { head: 'trainer', input: true, autopilot: 'none' };
 
-/** Named camera framings the screenshot harness can request (ARCHITECTURE §8). */
+/** Named camera framings the screenshot harness can request (src/main.js). */
 export const PRESETS = {
   default: { cx: SPAWN.cx, cz: SPAWN.cz },
   counter: { cx: COUNTER.cx + 1, cz: COUNTER.cz + 1 },

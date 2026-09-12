@@ -1,5 +1,5 @@
 /**
- * travel — where the player is, and how they get somewhere else (ARCHITECTURE §5.16).
+ * travel — where the player is, and how they get somewhere else (src/travel/index.js).
  *
  * Before this module the game had two scenes and no way between them: `src/main.js` called
  * `city.enter()` once at boot and `hunts.enter(id)` was reachable only from the screenshot
@@ -23,7 +23,7 @@
 /** The registry's null object answers every property with a function — this is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
 
-/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `loadState` migrates forward and refuses a newer one (src/offline/slices.js). */
 const SAVE_VERSION = 1;
 
 export default {
@@ -59,9 +59,9 @@ export default {
     /**
      * The trainer's level, or `null` when `economy` is not live.
      *
-     * `null` and not 0: a quarantined ledger must **fail open** (§5.16). A gate that defaulted
+     * `null` and not 0: a quarantined ledger must **fail open** (src/travel/index.js). A gate that defaulted
      * to level 1 would lock the player out of every hunt because a module they cannot see is
-     * broken, which is the opposite of what §2.1's isolation is for.
+     * broken, which is the opposite of what src/core/registry.js's isolation is for.
      */
     function trainerLevel() {
       const eco = ctx.get('economy');
@@ -87,7 +87,7 @@ export default {
         out.push({
           id: 'pokecenter', name: 'Pokemon Center', kind: 'Building', module: 'pokecenter', arg: null,
           formation: typeof pc.formation === 'function' ? pc.formation() : null,
-          // Door-only entry (the user's own answer, recorded in slice 013): `ui/panels/
+          // Door-only entry (entered by walking through the door): `ui/panels/
           // travel.js` filters this out, so the T panel still shows exactly the city plus
           // every hunt. `travel.go('pokecenter')` still works — `hidden` hides a row, not a
           // destination — which is what `pokecenter`'s own door listener relies on.
@@ -132,7 +132,7 @@ export default {
       // fresh save, so a gate that applied to them would frame an empty blue void instead of a
       // map. Measured, not reasoned about, and twice: `?showcase=travel&mode=hunt-cave` came
       // back at 9 draw calls, and after that was fixed `?scene=hunt-cave` — which is how
-      // `tools/shots` frames a hunt at `/` — did exactly the same thing (DECISIONS #70). The
+      // `tools/shots` frames a hunt at `/` — did exactly the same thing. The
       // row is still drawn locked, because `destinations()` is untouched; it is only the
       // *refusal* that stands down.
       if (dest.locked && !config.showcase && id !== config.scene) {
@@ -216,7 +216,7 @@ export default {
         return 'demo-city';
       },
 
-      // --- the save seam (§5) ------------------------------------------------
+      // --- the save seam (src/offline/slices.js) ------------------------------------------------
       saveState: () => ({ v: SAVE_VERSION, sceneId: current?.id ?? null }),
       /**
        * Records an intent and nothing else. Restoring at hydrate time is impossible — there
@@ -239,7 +239,7 @@ export default {
      *
      * `encounter` pays the toll and revives the party, then emits `party:wiped` and stops — it
      * cannot hop itself, because it is emitting from inside `tick()` and `go()` is async,
-     * serialised behind `busy`, and calls `encounter.cancel()` on the way in (DECISIONS #72).
+     * serialised behind `busy`, and calls `encounter.cancel()` on the way in.
      * So the hop happens here, one turn of the event loop later, and a failure to hop costs the
      * player a walk home rather than a wedged frame loop.
      *

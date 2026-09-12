@@ -6,7 +6,7 @@
  *
  * This module decides **which scene the game boots into**, and every way that decision can
  * go wrong looks the same from the outside: an empty blue void at nine draw calls. Three
- * such bugs shipped in one commit (DECISIONS #70) and all three were found by re-reading
+ * such bugs shipped in one commit and all three were found by re-reading
  * the code, because nothing here was executable without a browser. It is: `travel` touches
  * no `window`, no `THREE` and no `localStorage`, so `init(ctx)` runs against a stub and the
  * whole boot decision is checkable in milliseconds.
@@ -84,7 +84,7 @@ function makeWorld({ trainerLevel = 1, config = {}, economy = true, enterThrows 
   eq('2. every biome hunts declares becomes a destination, plus the Center', ids.length, 2 + BIOMES.length);
   check('2b. the Pokemon Center is one of them', ids.includes('pokecenter'));
   const pc = api.destinations().find((d) => d.id === 'pokecenter');
-  check('2c. …carrying hidden:true — door-only entry (§5.16)', pc?.hidden === true);
+  check('2c. …carrying hidden:true — door-only entry (src/travel/index.js)', pc?.hidden === true);
   const locked = api.destinations().filter((d) => d.locked).map((d) => d.id);
   eq('3. a biome above the trainer\'s level is drawn locked', locked.join(','),
     'hunt-forest,hunt-coast,hunt-cave');

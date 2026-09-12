@@ -70,10 +70,10 @@ export async function ensureServer({ quiet = false } = {}) {
 
 /**
  * Serves the **production build** on `port`, for the one measurement a dev server cannot
- * make: §7's cold-start budget. Vite's dev server hands the browser several hundred separate
+ * make: tools/shots/shoot.js's cold-start budget. Vite's dev server hands the browser several hundred separate
  * ES modules and compiles them on demand, so time-to-`__READY__` there is 7.5-15 s cold and
  * 3.6-6 s warm for a page whose own boot never moved. `vite preview` serves the bundle a
- * player would actually download (DECISIONS #71).
+ * player would actually download.
  *
  * Assumes `vite build` has already run — the gate runs it two stages earlier.
  */

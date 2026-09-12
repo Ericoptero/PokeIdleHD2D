@@ -1,7 +1,7 @@
 /**
  * The tiles gauntlet.
  *
- * Modes, all deterministic (ARCHITECTURE §6):
+ * Modes, all deterministic (src/main.js):
  *
  *   ?showcase=tiles                  every autotile set as a labelled blob, one glance
  *   ?showcase=tiles&mode=set3        one set: the blob, plus each of its 13 cases stamped
@@ -211,7 +211,7 @@ function stagePlan(tiles, set) {
   const coastal = set.kind === 'surface' && set.categories.includes('cliff');
   return {
     coastal,
-    // byName is the sanctioned escape hatch (DECISIONS #6); this is a specific piece of
+    // byName is the sanctioned escape hatch; this is a specific piece of
     // scenery, not a query for "some water". `sea` itself is avoided on purpose: its top
     // layer is the one translucent material in the whole tileset (alpha 19, depthWrite off)
     // and a horizon-wide sheet of it glazes everything behind it.
@@ -252,7 +252,7 @@ function shortener(names) {
 }
 
 /**
- * Frames a stage on the zoom ladder (DECISIONS #60). The camera is orthographic, so the
+ * Frames a stage on the zoom ladder. The camera is orthographic, so the
  * visible world is the internal buffer over `pixelsPerUnit` — `rig.fitFraming` picks a zoom
  * that still holds the stage, including the 1/sin(pitch) the ground gains in depth.
  */
@@ -276,8 +276,7 @@ function frameStage(ctx, stage, { pad: m = 3, lift = 0, cx = null, cz = null } =
  *
  * `set2` is the `grass_path_corner` palette and its centre, `michi03b`, is a 4-bit indexed
  * PNG whose entire palette is green — `74dc76`, `81db72`, `8bdc74`. Green tiles on a green
- * lawn: `docs/progress/tiles/critic/set2-12.png` proves thirteen cases are placed and shows
- * none of them. `set0` only escaped that by being tan.
+ * lawn: all thirteen cases are placed, but none is distinguishable. `set0` only escaped that by being tan.
  *
  * So every stamp gets a pad: the lawn under and around it is tinted down to a dark, desaturated
  * green-grey, which is a value contrast no palette in the set can collide with. Tinting the
@@ -716,7 +715,7 @@ function treesMode({ ctx, tiles, overlay, lawn }) {
   });
 
   // Row two: the copse. `hunts` packs 2x2 crowns at 1.85 cells with overlap allowed
-  // (DECISIONS #36b), so this is that spacing on a fixed lattice — the mass, not the object.
+  //, so this is that spacing on a fixed lattice — the mass, not the object.
   const copse = trees.slice(0, 3);
   for (let r = 0; r < 3; r++) {
     for (let c = 0; c < 6; c++) {
@@ -742,7 +741,7 @@ function treesMode({ ctx, tiles, overlay, lawn }) {
       + `${m.groups.length} materials`),
     '',
     'an AdAstra tree is two upright cards crossing at the cell centre plus',
-    'horizontal canopy slices, one material per layer (DECISIONS #22). The',
+    'horizontal canopy slices, one material per layer. The',
     'cards carry the whole tree — trunk at the bottom, crown at the top — so',
     'they are the only geometry in the set that can show a V flip.',
   ], { corner: 'bottom-left' });

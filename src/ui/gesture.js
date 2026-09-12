@@ -4,9 +4,7 @@
  *
  * `screen.js` needs a gesture state that survives the `regions = []` reset every `paint()`
  * does, keyed by **what was picked up** rather than by the rectangle it was drawn in — a
- * rectangle is meaningless the instant the next frame moves it (DECISIONS #77(a) named this
- * exact gap: "there is no pointer capture, no drag state, and nothing that survives a repaint
- * mid-gesture"). That state machine is pulled out here, pure and DOM-free, so `ui/selftest.js`
+ * rectangle is meaningless the instant the next frame moves it. That state machine is pulled out here, pure and DOM-free, so `ui/selftest.js`
  * can run it under plain Node the same way it already runs `panels/battle.js`'s transcript
  * formatter (`lineFor`/`STATUS_NAME`) and `evolution.js`'s keyframe generator.
  *

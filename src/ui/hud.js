@@ -68,7 +68,7 @@ export function makeHud(ctx) {
 
     /**
      * Who the party bar marks: the live combatant `panels/battle.js`'s own `read()` already
-     * reads (`st.a`, DECISIONS #72 — HP/PP is only written back to `pokemon` when the fight
+     * reads (`st.a` — HP/PP is only written back to `pokemon` when the fight
      * ends, so `pokemon.party()` is stale for exactly the member being hit) for as long as a
      * duel object exists at all; otherwise `party[0]`, the lead. A second reader of the
      * decision the battle card already made, not a new source of truth — which means copying
@@ -78,9 +78,7 @@ export function makeHud(ctx) {
      * index.js`'s own comment: the player gets several seconds to decide whether to throw).
      * A first draft gated this on `win === null` (mid-fight only) and, for those few seconds
      * after every fight a mid-fight swap happened in, the party bar reverted to the original
-     * (possibly fainted) lead while the battle card still correctly showed the finisher — found
-     * by this slice's own review pass, live, not by either test suite (both only asserted the
-     * strictly-mid-fight window). The marked slot's own hp/maxHp/status are overwritten with
+     * (possibly fainted) lead while the battle card still correctly showed the finisher. The marked slot's own hp/maxHp/status are overwritten with
      * the live combatant's, for the same reason: showing the party record's stale HP under a
      * transcript that says otherwise is the bug this rule exists to avoid.
      */
@@ -110,7 +108,7 @@ export function makeHud(ctx) {
     if (isLive(environment) && typeof environment.phase === 'function') phase = environment.phase();
     const player = isLive(sim) && typeof sim.player === 'function' ? sim.player() : null;
 
-    // The trainer's own level — the number `travel` gates on (§5.16). Read here rather than
+    // The trainer's own level — the number `travel` gates on (src/travel/index.js). Read here rather than
     // in the painter, like everything else in this snapshot.
     let trainer = null;
     if (economy && economy.__missing === undefined && typeof economy.trainer === 'function') {
@@ -157,10 +155,10 @@ export function makeHud(ctx) {
     if (name) g.textCentre(box.x + box.w / 2, y + 13, name, C.stoneShadow);
 
     // **The trainer's level, under the clock.** It is the number that decides where the party
-    // may go (§5.16), so it belongs where the player can see it without opening anything —
+    // may go (src/travel/index.js), so it belongs where the player can see it without opening anything —
     // and the progress to the next one is what makes a locked destination read as a schedule
     // rather than as a wall. Drawn only when there is one: a quarantined `economy` reports
-    // none and the HUD simply does not have a badge (DECISIONS #70).
+    // none and the HUD simply does not have a badge.
     if (s.trainer) {
       const label = `TRAINER ${s.trainer.level}`;
       const tw = Math.max(g.measure(label), 46) + 10;
@@ -192,13 +190,13 @@ export function makeHud(ctx) {
    * status bar shows "three of six" without truncating three names into "Sniv".
    *
    * The slot at `s.activeId` (mid-fight: the live combatant; otherwise the lead — the same
-   * rule `panels/battle.js`'s own card applies, DECISIONS #72) is marked with a glow border,
+   * rule `panels/battle.js`'s own card applies) is marked with a glow border,
    * and the mark moves the instant a mid-fight swap changes who is out, because `s.activeId`
    * is computed in `read()` off the same live duel state the card reads, not off the party's
    * own resting record.
    *
-   * `app` wires the two interactions slice 017 adds — a click opens the party panel already
-   * selected on that slot, and a drag reorders the party — through 015's `g.hit(box, {drag,
+   * `app` wires two interactions — a click opens the party panel already
+   * selected on that slot, and a drag reorders the party — through `g.hit(box, {drag,
    * drop}, tag)` primitives, exactly as `panels/common.js`'s window drag/resize already do; a
    * plate has no `drag` at all when it has nothing in it, so an empty bench slot cannot be
    * picked up or dropped on.
@@ -231,8 +229,7 @@ export function makeHud(ctx) {
       }
 
       // The plate is the same light paper every filled slot gets, active or not — the HP
-      // ramp (`theme.js` `hpRamp`) already spends `C.martBase` on a healthy bar, and round 1
-      // of this slice painted the active slot's own background in that exact blue: a full
+      // ramp (`theme.js` `hpRamp`) already spends `C.martBase` on a healthy bar, and an earlier version painted the active slot's own background in that exact blue: a full
       // bar on the active slot then blended straight into the plate behind it, invisible at
       // the one moment (healthy and in front) a player looks at it most. The glow ring below
       // is the only thing that changes, so it never competes with a bar it sits beside.
@@ -291,7 +288,7 @@ export function makeHud(ctx) {
 
   /**
    * One overworld sprite, south-facing, first walk frame. The sheets are 2 columns × 4 rows
-   * `[north, west, south, east]` (DECISIONS #4) and 61 of them are 64 px frames rather than
+   * `[north, west, south, east]` and 61 of them are 64 px frames rather than
    * 32, so the frame size is measured off the image instead of assumed.
    */
   function drawIcon(g, entry, x, y, size = 32, scale = 1) {
@@ -311,7 +308,7 @@ export function makeHud(ctx) {
     // `drawImage` with smoothing off does not *blend* a fractional scale, it drops rows and
     // columns: at the 29 px cell a 720p buffer gives, k came out 0.906 and every eleventh row
     // of the source frame simply vanished. That is the same class of defect as the world's
-    // own pixel grid (DECISIONS #58), one surface along, and the fix is the same — refuse a
+    // own pixel grid, one surface along, and the fix is the same — refuse a
     // fraction and take the next whole ratio down.
     const raw = Math.min(scale, size / fw, size / fh);
     const k = raw >= 1 ? Math.floor(raw) : 1 / Math.ceil(1 / raw);

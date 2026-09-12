@@ -4,10 +4,10 @@
  * Two rules the project already paid for are enforced here rather than repeated in four
  * map files:
  *
- *  - **Select by category and tag, never by name** (DECISIONS #6). AdAstra reuses one OBJ
+ *  - **Select by category and tag, never by name**. AdAstra reuses one OBJ
  *    name for five different textures and the classifier names a model after its texture,
  *    so a name is an implementation detail of the build.
- *  - **A region that resolves nothing must say so** (DECISIONS #28b). `solveField` returns
+ *  - **A region that resolves nothing must say so**. `solveField` returns
  *    a field of −1 for a set id that is not in the tileset and places nothing, with a clean
  *    console and no missing model anywhere — which is exactly how the city's pond survived
  *    a whole screenshot round as an empty lawn.
@@ -214,19 +214,18 @@ export function makePalette(tiles, slug, log) {
       // lose its *floor*, because something is going to be sunk into it. A pond dug into a
       // cave floor is the case — the water sheet sits at −0.25 and the floor quad at 0, so
       // laying both leaves the water buried under its own room with a clean console
-      // (DECISIONS #28a, the same failure the city's pond had).
+      // (the same failure the city's pond had).
       if (skip && skip(p.cx, p.cz, p.case)) continue;
       // `tint` may be a function of the cell. A cave floor lit by a handful of warm bulbs is
       // not one colour, and an auto-tiled region that can only carry one tint is a region
       // that has to be one colour — which is how the cave came out "essentially every pixel
-      // fully saturated in one hue" (DECISIONS #37).
+      // fully saturated in one hue".
       const t = typeof tint === 'function' ? tint(p.cx, p.cz, p.case) : tint;
       // `rotate` is the caller's chance to turn a solved case a quarter or half turn.
       // It exists for one reason and it is not decoration: every `michi01a` face of
       // bw2-adastra's `set0` samples its texture inverted along its own axis, so the strip of
       // grass the artist drew on the tile's *outer* edge lands on its *inner* one — which
-      // draws a three-cell trail as three tan runs split by two grass ribbons (DECISIONS #49,
-      // #53). The asset fix belongs in the exporter and is filed as a coreRequest; until then
+      // draws a three-cell trail as three tan runs split by two grass ribbons. The asset fix belongs in the exporter and is filed as a coreRequest; until then
       // a biome that knows its set is inverted can say so here, in one place, per case.
       const r = typeof rotate === 'function' ? rotate(p.case, p.cx, p.cz) : rotate;
       draft.place(model, p.cx, p.cz, {
@@ -236,7 +235,7 @@ export function makePalette(tiles, slug, log) {
     }
     if (covered && !placed) {
       log.warn(`hunts: set "${setId}" covered ${covered} cells and resolved none of them — ` +
-        'the region is invisible, not absent (DECISIONS #28b)');
+        'the region is invisible, not absent');
     }
     lastDraw = { setId, covered, placed, recast };
     return placed;

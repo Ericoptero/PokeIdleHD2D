@@ -78,7 +78,7 @@ describe('window: clampResize (golden literal cases)', () => {
 });
 
 describe('window: clampToSafeArea (golden literal cases — the post-review fix for the ' +
-  '`uiScale:2` + `full` panel overlap the reviewer caught)', () => {
+  '`uiScale:2` + `full` panel overlap)', () => {
   it('with nothing reserved, a box already inside the buffer passes through unchanged', () => {
     const box = { x: 50, y: 40, w: 540, h: 278 };
     expect(clampToSafeArea(box, BUFFER, MARGIN)).toEqual(box);
@@ -103,7 +103,7 @@ describe('window: clampToSafeArea (golden literal cases — the post-review fix 
   });
 
   it('shrinks BELOW the supplied minimum rather than overlap the reserved bands — the ' +
-    'reviewer\'s own finding: a first draft floored at `min` regardless, and a real ' +
+    'regression: a first draft floored at `min` regardless, and a real ' +
     '1080p + uiScale:2 shop window still clipped 11px into the party bar', () => {
     const box = { x: 50, y: 0, w: 200, h: 300 };
     const min = { w: 140, h: 120 };

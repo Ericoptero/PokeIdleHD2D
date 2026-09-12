@@ -3,7 +3,7 @@
  *
  * ── Why this is not the shadow map ───────────────────────────────────────────────────────
  * Every character in the game is one quad in an `InstancedMesh`, standing upright and facing
- * the camera (`pokemon/field.js`, DECISIONS #18). Putting that mesh in the shadow pass looks
+ * the camera (`pokemon/field.js`). Putting that mesh in the shadow pass looks
  * like the obvious fix and does not work, for a reason that is geometric rather than a bug:
  *
  *   · leave the card facing the camera and, the moment the sun's azimuth is 90° off the

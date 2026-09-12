@@ -1,5 +1,5 @@
 /**
- * The battle showcase (ARCHITECTURE §6).
+ * The battle showcase (src/main.js).
  *
  * A turn engine cannot prove itself with a pretty frame, so — like `economy`'s — this one
  * proves itself with *evidence*: every line on screen is a real transcript produced by calling

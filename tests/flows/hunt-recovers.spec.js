@@ -157,23 +157,21 @@ test('the city no longer heals — Nurse Joy does, once you walk in and face the
   await goTo(page, 'hunt-meadow');
 
   // `travel.go` calls `encounter.cancel()`, which resolves nothing — this is the route that
-  // writes an unconscious party to the save (STATUS travel-mid-encounter-silent).
+  // writes an unconscious party to the save.
   await stepUntil(page, 'battle:started', { chunk: 10, maxTicks: await lapBound(page) });
   await page.evaluate(() => {
     const pk = window.__CTX__.get('pokemon');
     for (const m of pk.party()) pk.damage(m.instanceId, m.maxHp);
   });
   await goTo(page, 'demo-city');
-  // Inverted from slice 013: `city.enter()`'s free lobby heal is gone (DECISIONS #83, revising
-  // #81's third net) — a fainted party arriving in the lobby is still fainted.
+  // `city.enter()` does not heal: a fainted party arriving in the lobby stays fainted.
   expect(await conscious(page), 'arriving in the city no longer heals the party').toBe(false);
 
   // `encounter.cancel()` (called from inside `travel.go()`) resolves nothing, so `ui`'s battle
   // card — opened on the meadow's `encounter:started` and never told the fight is over — is
-  // still open here (STATUS `travel-mid-encounter-silent`; confirmed live: `ui.openPanel()`
+  // still open here (`ui.openPanel()`
   // reads `'battle'` at this point). `Escape`/`X` closes ANY open panel that does not consume
-  // the key itself (`ui/input.js`'s panel branch) — the same key a player already has for this,
-  // out of scope for this slice to change (the *prompt* itself is untouched).
+  // the key itself (`ui/input.js`'s panel branch) — the same key a player uses here.
   expect(await call(page, 'ui', 'openPanel'), 'the stale battle card is still up').toBe('battle');
   await key(page, 'Escape');
   await key(page, 'Escape', false);

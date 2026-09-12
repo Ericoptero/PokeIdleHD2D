@@ -1,5 +1,5 @@
 /**
- * terrain — maps, heightfield and collision (ARCHITECTURE §5.2).
+ * terrain — maps, heightfield and collision (src/terrain/index.js).
  *
  * Maps are *data*, produced by `city` and `hunts` through the authoring API and then
  * realised as instanced geometry. Nothing hand-places a mesh: if a scene cannot be
@@ -12,7 +12,7 @@ import { MapDraft } from './draft.js';
 export default {
   id: 'terrain',
   needs: ['tiles'],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['tiles'],
 
   init(ctx) {

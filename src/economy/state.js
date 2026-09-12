@@ -131,7 +131,7 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
      * At the old ₽3,000 opening balance counting the start credit was noise; at the brief's
      * `FIELD_START_MONEY` of ₽100,000 it would put a brand-new save two thirds of the way to a
      * gate it is meant to earn. "Total earned" has to mean the player earned it, or the gate is
-     * measuring the wrong thing (DECISIONS #75).
+     * measuring the wrong thing.
      */
     if (applied > 0) { if (opts.earned !== false) stats.earned[id] += applied; } else stats.spent[id] -= applied;
     invalidate();
@@ -194,7 +194,7 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
    * Per save rather than per item definition, because the definition is shared and frozen and
    * the lock is a preference. And it gates the *automatic* sale only: `sell()` by hand still
    * works, because a lock that blocked the shop counter would be a trap — the player is
-   * standing there asking for it (DECISIONS #75).
+   * standing there asking for it.
    */
   const sellLock = new Set();
 
@@ -277,9 +277,9 @@ export function makeEconomyState({ onChange = () => {}, now = () => Date.now() }
     const legacy = clean(Number(s.wallet?.tokens), 0);
     if (legacy > 0 && !Number.isFinite(Number(s.wallet?.research))) wallet.research = legacy;
 
-    // A slice from before DECISIONS #75 has no lock list, and an empty one is the right
+    // An older save slice has no lock list, and an empty one is the right
     // default — nothing was locked, because nothing could be. Slice-level, so the document
-    // version does not move (§5: `loadState` tolerates an older slice).
+    // version does not move (src/offline/slices.js: `loadState` tolerates an older slice).
     sellLock.clear();
     for (const id of Array.isArray(s.sellLock) ? s.sellLock : []) if (item(id)) sellLock.add(id);
 

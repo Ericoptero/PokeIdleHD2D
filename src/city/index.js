@@ -1,5 +1,5 @@
 /**
- * city — the lobby (ARCHITECTURE §5.13).
+ * city — the lobby (src/city/index.js).
  *
  * A composed town rather than a generated one: a paved square with the Pokemon Center and
  * the Mart facing it, a street running north between them, cottages up the road, lamp posts
@@ -31,7 +31,7 @@ export default {
   id: 'city',
   needs: ['terrain', 'environment'],
   /**
-   * Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6): the lobby is
+   * Extra modules the showcase scene needs on top of `needs` (src/main.js): the lobby is
    * judged on its cast, and the cast is `simulation` standing `pokemon`'s sprites on the map.
    */
   showcaseNeeds: ['tiles', 'terrain', 'environment', 'pokemon', 'simulation'],
@@ -137,14 +137,13 @@ export default {
       },
 
       /**
-       * Named camera framings the screenshot harness can request (ARCHITECTURE §8).
+       * Named camera framings the screenshot harness can request (src/main.js).
        *
        * A bare `"cx,cz"` is accepted as well, and that is a **workaround for a dead hook**.
        * `tools/shots/shoot.js --focus x,z` calls `window.__HOOKS__.focus()`, which sets the
        * camera rig and nothing else (`src/main.js`) — and `simulation` re-centres the rig on
        * the trainer on the very next frame, so every `--focus` capture of this scene silently
-       * comes back as the default view. `docs/progress/city/critic/n12-pond-focus.png` is
-       * pixel-identical to the plaza preset for exactly that reason. `preset()` teleports
+       * comes back as the default view, pixel-identical to the plaza preset. `preset()` teleports
        * first (`focusOn`), so `--preset 50,16` frames what `--focus 50,16` promised. The hook
        * itself is `main.js`'s.
        */

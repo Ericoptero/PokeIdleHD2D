@@ -1,5 +1,5 @@
 /**
- * tiles — tileset loading, materials, geometry and auto-tiling (ARCHITECTURE §5.1).
+ * tiles — tileset loading, materials, geometry and auto-tiling (src/tiles/index.js).
  *
  * Loads the build product from `public/generated/tiles/<slug>/` (pack.json + pack.bin),
  * which the browser can turn into BufferGeometry with zero parsing: the .bin is already
@@ -25,7 +25,7 @@ const LAMP_GLOW = 0xffb861;
 /**
  * The default night ramp, in case nothing drives one.
  *
- * `environment` owns the ramp (§5.3) and `setEmissiveScale` is the seam it drives, but a
+ * `environment` owns the ramp (src/environment/index.js) and `setEmissiveScale` is the seam it drives, but a
  * lamp that only lights when another module remembers to ask is a lamp that is dark in
  * every screenshot taken before that module lands. So `tiles` runs this curve off the time
  * of day by default and stands down the moment anyone calls `setEmissiveScale` explicitly.
@@ -45,9 +45,8 @@ function nightRamp(tod) {
  * The seam has to hide this number, not publish it. `environment` knows its dusk curve and
  * nothing about how hot a DS lamp glass has to be to survive AgX and clear the bloom
  * threshold (`core/render.js`), so it passes a ramp in 0..1 and this module turns that into
- * radiance. Measured across `docs/progress/tiles/r1/06-lamps-night-on.png` (gain 1: the glass
- * is a flat pale strip) and `08-lamps-night.png` (gain 3.2: it blooms and reads as a lit lamp
- * from across the plaza).
+ * radiance. At gain 1 the glass is a flat pale strip; at gain 3.2 it blooms and reads
+ * as a lit lamp from across the plaza.
  */
 const EMISSIVE_HDR_GAIN = 3.2;
 
@@ -88,7 +87,7 @@ async function loadTileset(slug, { log }) {
   const lifted = liftNormalsAboveHorizon(wholeBuffer, STRIDE);
   // Third and independent of both: the pack's upright faces carry V top-down (DS/DirectX)
   // and three uploads bottom-up, so every tall card was sampling upside down. Horizontal
-  // faces are left alone — see the function, and DECISIONS #24 for what a global flip costs.
+  // faces are left alone — see the function, a global flip reverses correctly oriented faces.
   const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
   const uvFixed = params.get('uvright') === '0' ? 0 : uprightUvToImageOrder(pack, wholeBuffer, STRIDE);
   // Fourth: half of every crossed billboard pair is edge-on to a camera that never yaws, and
@@ -104,8 +103,8 @@ async function loadTileset(slug, { log }) {
   const foliageMode = params.get('foliage');
   const harmonise = foliageMode !== '0';
   // `?foliage=knee` is the round-3 build exactly: every sheet scale pinned to 1 *and* the
-  // light-side ceiling off, leaving only the per-texel knee #41c shipped. Pinning the scales
-  // alone would have been a flag that says "round 3" and renders something else.
+  // light-side ceiling off, leaving only the per-texel knee. Pinning the scales
+  // alone would have been a flag that says "updated" and renders something else.
   const roundThree = foliageMode === 'knee';
   const sheetScales = harmonise && !roundThree;
   const foliageBand = params.has('foliageBand') ? Number(params.get('foliageBand')) : undefined;
@@ -159,7 +158,7 @@ async function loadTileset(slug, { log }) {
 
   const roles = materialGeometryRoles(pack, wholeBuffer, STRIDE);
   const profiles = textures.map((t) => alphaProfile(t?.image));
-  // One wood, not two (DECISIONS #44a): no foliage sheet's median hue may sit more than a
+  // One wood, not two: no foliage sheet's median hue may sit more than a
   // few degrees above the set's own foliage median. Measured off the decoded texels, so a
   // pack authored bluer than AdAstra is closed against itself.
   // The light-side ceiling is one uniform object shared by every foliage material, so the
@@ -198,7 +197,7 @@ async function loadTileset(slug, { log }) {
         // MeshLambertMaterial's `emissive` defaults to black and *multiplies* the map, so
         // leaving it costs nothing but silently makes every glow zero.
         mat.emissive = new THREE.Color(derived ? LAMP_GLOW : 0xffffff);
-        mat.emissiveIntensity = 0;             // dark until environment ramps it (§5.3)
+        mat.emissiveIntensity = 0;             // dark until environment ramps it (src/environment/index.js)
         mat.userData.emissiveBase = glow;
         mat.userData.ownGlowMap = derived ? map : null;
         emissives.push({ material: mat, base: glow });
@@ -243,7 +242,7 @@ async function loadTileset(slug, { log }) {
       ...m, groups,
       tris: groups.reduce((a, g) => a + g.count / 3, 0),
       // Which sides a thin billboard piece connects to; the fence solver reads this instead
-      // of trusting the palette slot the classifier named it after (DECISIONS #6).
+      // of trusting the palette slot the classifier named it after.
       arms: armsOf(wholeBuffer, m, STRIDE),
       orientation: m.orientation ?? overhangOf(m),
     };
@@ -284,7 +283,7 @@ async function loadTileset(slug, { log }) {
     slug, pack, models, byId, byName, materials, textures, autotile, emissives, clones, scatter,
 
     /**
-     * The night ramp seam (ARCHITECTURE §5.3: environment "owns city window/lamp emissives
+     * The night ramp seam (src/environment/index.js: environment "owns city window/lamp emissives
      * at night"). `k` is 0 at full daylight and 1 at the darkest part of the night; the
      * material's own authored strength scales it, so a `Ke 0.35` door never gets as hot as
      * a `Ke 1.0` lamp glass at the same `k`.
@@ -388,13 +387,13 @@ export default {
        * `find('bw2-adastra', { category:'tree', tags:['tall'], biome:'forest' })`
        *
        * Two guards the map authors depend on:
-       *  - tiles authored on top of a cliff (`baseY >= 0.5`, DECISIONS #7) never come back
+       *  - tiles authored on top of a cliff (`baseY >= 0.5`) never come back
        *    unless asked for by the `raised` tag or an explicit `maxBaseY`, because placed at
        *    ground level they float and leave a hole with sky through it;
        *  - `meta` tiles (the PDSMS separator) are never returned at all.
        *
        * Selecting by `name` still works but is logged once per name: the classifier names a
-       * model after its dominant texture (DECISIONS #6), so a name is an implementation
+       * model after its dominant texture, so a name is an implementation
        * detail of the build, and category + tags are the stable handle.
        */
       find(slug, query = {}) {
@@ -406,7 +405,7 @@ export default {
         } = query;
         if (name && !namedWarned.has(name)) {
           namedWarned.add(name);
-          log.warn(`tiles.find: selecting "${name}" by name — names follow the texture (DECISIONS #6); prefer category + tags`);
+          log.warn(`tiles.find: selecting "${name}" by name — names follow the texture; prefer category + tags`);
         }
         return ts.models.filter((m) => {
           if (name && m.name !== name) return false;
@@ -433,7 +432,7 @@ export default {
        * Poké Center window (`Ke 0.5`), its door (`0.35`) and a street lamp's glass (derived
        * `1.0`) by the right amounts relative to each other.
        *
-       * `environment` owns the ramp itself (§5.3) and drives this from its own dusk curve;
+       * `environment` owns the ramp itself (src/environment/index.js) and drives this from its own dusk curve;
        * `city` and `hunts` never need to call it. Passing a `slug` limits the change to one
        * tileset, which is what a lit interior wants when the street outside is still bright.
        *
@@ -522,7 +521,7 @@ export default {
       },
 
       /**
-       * Builds the InstancedMeshes for a set of placements (ARCHITECTURE §7).
+       * Builds the InstancedMeshes for a set of placements (tools/shots/shoot.js).
        * `?variety=0` turns the per-cell ground variation off for an A/B screenshot; every
        * caller gets it on, because a map author should not have to ask for a lawn that is
        * not wallpaper.
@@ -562,7 +561,7 @@ export default {
       applyEmissive(nightRamp(tod));
     }
 
-    // AdAstra is the house style and is always resident (ARCHITECTURE §9).
+    // AdAstra is the house style and is always resident (tools/assets/build-tiles.js).
     await load('bw2-adastra');
     // A showcase or a critic can dial the night ramp straight off the URL without waiting
     // for `environment` to exist: `?emissive=0.9`.

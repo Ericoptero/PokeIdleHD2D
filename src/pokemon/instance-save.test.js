@@ -6,14 +6,14 @@
  * (instance.js). `??` only catches `null`/`undefined`, and `Math.floor` of anything else
  * non-numeric is `NaN`, which every one of those three operations passes straight through. A
  * member at `hp = NaN` is not conscious (`hp > 0` is false) and not hurt (`hp < maxHp` is
- * false), and that combination was a state the three recovery paths added in slice 012 all
+ * false), and that combination was a state the three recovery paths used for fainted parties all
  * declined — a fourth way to strand a run for good. `deserialize` now reads a non-number as
  * absent, and the cases below pin both halves: what a spoiled slice becomes, and that each net's
  * own predicate answers honestly once it is finite.
  *
  * `battle` is passed as `null` on purpose: `instance.js` falls back to `FLAT` and the arithmetic
  * under test is `Math.floor` on a string, which no engine takes part in. Measured with the real
- * engine in a browser too — see the `repro` on the STATUS entry.
+ * engine in a browser too.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -75,7 +75,7 @@ describe('a spoiled hp can no longer reach the three recovery nets as NaN', () =
 
   /**
    * Why this matters, as the three predicates it used to defeat. Each is transcribed from the
-   * module that owns it, as a literal rather than a second live call (DECISIONS #35): a `NaN`
+   * module that owns it, as a literal rather than a second live call: a `NaN`
    * member answered `false` to every one, so `slotNear` refused the party, `city.heal()` found
    * nobody hurt and the lap rest wrote `NaN + n`. A finite hp answers all three honestly.
    */

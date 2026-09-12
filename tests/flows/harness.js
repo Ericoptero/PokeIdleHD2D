@@ -1,6 +1,6 @@
 /**
  * The few helpers every flow needs. Everything goes through what the page already exposes for
- * the screenshot harness (`window.__HOOKS__`, ARCHITECTURE §8) and the ctx it exposes for
+ * the screenshot harness (`window.__HOOKS__`, src/main.js) and the ctx it exposes for
  * diagnostics (`window.__CTX__`); nothing here adds a hook to the app.
  */
 import { expect } from '@playwright/test';

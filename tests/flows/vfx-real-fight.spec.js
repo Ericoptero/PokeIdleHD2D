@@ -1,6 +1,5 @@
 /**
- * Independent tester coverage for slice 019 (shader-vfx), written from the slice's own
- * "Expected behaviour"/"Acceptance criteria" before reading the implementer's own tests.
+ * Shader VFX exercised during a real battle, including visibility and frame-hook wiring.
  *
  * Two properties nothing else in the suite reaches:
  *
@@ -9,14 +8,13 @@
  *      `profileFor`/`beatAt`/`BEATS` tables — none of them ever boots `three` or calls
  *      `play.js`'s `makeStrikeVfx`, and the showcase's own `stageStrike` tool is a manufactured
  *      call, not a strike the battle engine actually produced. This drives a real duel on
- *      `?scene=hunt-meadow&seed=1337` (the exact scenario the slice's own Result section says
- *      it checked, "a normal-type Tackle produced an appropriately modest burst… zero console
- *      errors") and reads the three meshes by the names `play.js`'s sub-modules give them
+ *      `?scene=hunt-meadow&seed=1337`
+ *      and reads the three meshes by the names `play.js`'s sub-modules give them
  *      (`encounter:vfx:particles`, `encounter:vfx:beam`, `encounter:vfx:ground`) straight off
  *      `ctx.three.scene`, the one seam a flow is allowed to reach into three.js through
- *      (ARCHITECTURE §8 — flows read bus events and module state, and a mesh's own `.visible`
+ *      (src/main.js — flows read bus events and module state, and a mesh's own `.visible`
  *      is state, not a pixel).
- *   2. **The `frame`→`lateFrame` rename (DECISIONS #91) is a real rename, not a duplicate.**
+ *   2. **The `frame`→`lateFrame` rename is a real rename, not a duplicate.**
  *      `src/main.js`'s frame loop runs unconditionally off `requestAnimationFrame` regardless
  *      of `__HOOKS__.pause()` (`tests/flows/plates.spec.js`'s own header notes this: `step()`
  *      only drives `registry.tick`, never `frame`/`lateFrame`) — so if the rename had left a
@@ -41,7 +39,7 @@ test('a real strike in a real fight puts all three named VFX meshes in the scene
   expect(errors).toEqual([]);
 
   // The three meshes are built once, at module init, and simply stay `visible = false` when
-  // nothing is playing (the slice's own "zero draw calls otherwise") — so they must exist in
+  // nothing is playing (zero draw calls while idle) — so they must exist in
   // the graph from the very first frame, before any fight has even started.
   const initial = await vfxVisibility(page);
   for (const n of VFX_NAMES) {
@@ -81,7 +79,7 @@ test('a real strike in a real fight puts all three named VFX meshes in the scene
   expect(errors, 'zero console errors while a real strike drove the VFX system').toEqual([]);
 });
 
-test('the encounter module answers to `lateFrame`, not `frame`, at the registry (DECISIONS #91)', async ({ page }) => {
+test('the encounter module answers to `lateFrame`, not `frame`, at the registry', async ({ page }) => {
   await installEventLog(page);
   const errors = await boot(page, { scene: 'hunt-meadow' });
   expect(errors).toEqual([]);

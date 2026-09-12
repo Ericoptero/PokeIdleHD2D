@@ -1,17 +1,17 @@
 /**
  * elements.js — the personality of a strike, decoupled from its colour.
  *
- * `battle.typeColour(type)` (DECISIONS #90) gives the eighteen types their `core`/`edge`/`ink`
+ * `battle.typeColour(type)` gives the eighteen types their `core`/`edge`/`ink`
  * — that is *what colour* a type is. This file is *how it moves*: without it, fire, water and
  * psychic would read as three recolourings of the same star, which is exactly the defect
- * DECISIONS #79 recorded in the system this replaces (291 contact moves sharing one sprite).
+ * present in the previous system (291 contact moves sharing one sprite).
  * `PROFILE` crosses a **motion law** (how the particle field behaves over a strike) with a
  * **particle role** (what the individual mote looks like) and an **intensity** (how much of
  * it). Pure data and pure functions — no `three`, no `ctx`, so it is testable under plain
  * vitest and reusable by `particles.js`, `beams.js` and `ground.js` alike.
  *
  * `shapeOf` and `STATUS_CATEGORY`/`PHYSICAL_CATEGORY` are moved here unchanged from the system
- * this replaces (`strikes.js`, deleted this slice) — the shape a move is drawn as is a
+ * this replaces (`strikes.js`, replaced by this module) — the shape a move is drawn as is a
  * property of its delivery, not of its look, so it belongs beside the beat timeline that reads
  * it, not beside the colour table.
  */

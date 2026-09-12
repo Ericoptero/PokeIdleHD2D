@@ -2,7 +2,7 @@
  "tileset": "structures",
  "unitsPerCell": 1,
  "axis": "y-up, +x east, +z south",
- "source": "assets/structures (authored — DECISIONS #3, #15)",
+ "source": "assets/structures (authored)",
  "materials": [
   {
    "id": 0,

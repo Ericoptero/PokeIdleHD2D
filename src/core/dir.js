@@ -5,7 +5,7 @@ export const SOUTH = 0, WEST = 1, NORTH = 2, EAST = 3;
 export const DIRS = [SOUTH, WEST, NORTH, EAST];
 export const DIR_NAME = ['south', 'west', 'north', 'east'];
 
-/** Cell delta per direction, in engine axes: +x east, +z south (ARCHITECTURE §3). */
+/** Cell delta per direction, in engine axes: +x east, +z south (src/core/dir.js). */
 export const DIR_DX = [0, -1, 0, 1];
 export const DIR_DZ = [1, 0, -1, 0];
 

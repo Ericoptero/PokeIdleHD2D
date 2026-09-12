@@ -1,5 +1,5 @@
 /**
- * collection — the dex, the boxes, and the organisation on top of them (ARCHITECTURE §5.10).
+ * collection — the dex, the boxes, and the organisation on top of them (src/collection/index.js).
  *
  * Pure data plus events. This module renders nothing: it listens to `encounter:started` and
  * `catch:succeeded`, keeps the record straight, and emits `collection:added`. Everything
@@ -14,7 +14,7 @@
  *
  * **A catch arrives as two events, and often as only one.** `encounter:started` carries the
  * level, the biome and the shiny flag; `catch:succeeded` carries only
- * `{ instanceId, species, shiny }` (ARCHITECTURE §4). So the last started encounter is
+ * `{ instanceId, species, shiny }` (src/core/bus.js). So the last started encounter is
  * remembered and consumed by a matching catch — but a bare `catch:succeeded` with no
  * encounter before it is normal traffic, not an error: `economy`'s showcase emits six of
  * them, and `automation` will too. The unpaired path fills in a default level and is
@@ -24,20 +24,20 @@
  * needs them for the best-IV column, for sorting and for the release rules. They come from
  * `ctx.rng.fork('collection/iv/<species>/<ordinal>')` — a stream keyed to the catch's
  * ordinal, so the same seed and the same event order give the same Pokémon every time, and
- * so *this* module's rolls can never perturb `encounter`'s (§2.5). When the payload already
+ * so *this* module's rolls can never perturb `encounter`'s (src/core/rng.js). When the payload already
  * carries a real instance's `ivs`, those win.
  *
  * **`instanceId` is not unique and cannot be trusted as a key.** `encounter` emits the
  * species' dex number as the instance id, so every Pikachu you ever catch arrives as `25`.
  * Storage is keyed by a `uid` minted here — `<species>#<ordinal>` — which is unique by
  * construction and stable across a save. The bus id is kept alongside it and is still what
- * `collection:added` reports, because that is the contract §4 fixes.
+ * `collection:added` reports, because that is the contract src/core/bus.js fixes.
  *
  * **Releasing pays, but only through the published API.** `economy.release(instance)`
  * appraises and credits money and shards. It is called through `ctx.get`, guarded by a
  * liveness check — the registry's null object answers `typeof api.release === 'function'`
  * with `true` even for a quarantined module, so "does it have the method" is not a question
- * worth asking (§2.1). `economy` is deliberately *not* in `needs`: §5.10 fixes those at
+ * worth asking (src/core/registry.js). `economy` is deliberately *not* in `needs`: src/collection/index.js fixes those at
  * `['pokemon']`, and a Pokédex that refuses to work because the shop is down would be a
  * worse module than one that simply does not pay out.
  */
@@ -62,8 +62,8 @@ export default {
   id: 'collection',
   needs: ['pokemon'],
   /**
-   * Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). `economy`
-   * is here and *not* in `needs` for a reason: §5.10 fixes the dependencies at
+   * Extra modules the showcase scene needs on top of `needs` (src/main.js). `economy`
+   * is here and *not* in `needs` for a reason: src/collection/index.js fixes the dependencies at
    * `['pokemon']`, but the showcase quotes what a release rule would pay, and an appraisal
    * of ₽0 because the ledger was never booted would be a misleading picture rather than an
    * honest one.
@@ -83,7 +83,7 @@ export default {
     const dex = makeDex({
       table,
       // A species name we do not recognise is a data problem worth surfacing, but it is a
-      // *handled* one: the record is kept under the raw key. §7 counts console errors, so
+      // *handled* one: the record is kept under the raw key. tools/shots/shoot.js counts console errors, so
       // behaving correctly must not cost us the budget.
       onUnknown: (key) => log.warn(`collection: unknown species "${key}" — recorded under its raw key`),
     });
@@ -153,7 +153,7 @@ export default {
       return any ? out : null;
     }
 
-    /** A stream per catch, so call order in this module cannot perturb any other (§2.5). */
+    /** A stream per catch, so call order in this module cannot perturb any other (src/core/rng.js). */
     function rollIvs(key, ord) {
       const rng = ctx.rng.fork(`collection/iv/${key}/${ord}`);
       const out = {};
@@ -174,7 +174,7 @@ export default {
       if (!stored) overflow++;
       const { isNewSpecies } = dex.add(entry, { stored });
 
-      // The bus spy keeps only the last 256 events (§2.3), so a bulk import of several
+      // The bus spy keeps only the last 256 events (src/core/bus.js), so a bulk import of several
       // hundred Pokémon would push every other event out of the screenshot log. The normal
       // path always announces; only an explicit bulk import may opt out.
       if (announce) bus.emit('collection:added', { instanceId: entry.instanceId, isNewSpecies });
@@ -345,7 +345,7 @@ export default {
     }
 
     const api = {
-      // --- ARCHITECTURE §5.10 -----------------------------------------------
+      // --- src/collection/index.js -----------------------------------------------
 
       /**
        * The dex. `seen` and `caught` are species-name arrays (the shape the save layer and

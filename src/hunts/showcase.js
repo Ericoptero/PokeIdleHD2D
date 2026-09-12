@@ -12,7 +12,7 @@
  *  - **The same URL gives the same pixels.** A scripted route is a pure function of how many
  *    sim steps have run, and the steps between page load and shutter are wall-clock luck. So
  *    under `config.timeFrozen` — which the screenshot harness sets for every capture
- *    (DECISIONS #14) — the cast is advanced a fixed number of tiles and then frozen.
+ * — the cast is advanced a fixed number of tiles and then frozen.
  *
  * **All of that staging now lives in one place: `stage()` in `index.js`.** It used to live in
  * two, and the second copy silently undid the first. This file froze the party with
@@ -58,7 +58,7 @@ export async function showcaseHunt(mode, ctx, biomes) {
  *
  * Deliberately *not* folded into `enter()`: `/` and other modules' showcases call `enter`,
  * and a scene that stops another module's simulation as a side effect of being entered is
- * the kind of action at a distance that is impossible to find later (DECISIONS #26d).
+ * the kind of action at a distance that is impossible to find later.
  */
 export function stageAtSpawn(ctx, _biome) {
   const sim = ctx.get('simulation');
@@ -66,7 +66,7 @@ export function stageAtSpawn(ctx, _biome) {
   // Walks a few tiles along **the circuit `enter()` already installed**. It used to install
   // `biome.walk.route` instead — an authored string that predates the found loop and survived
   // it — so every showcase photographed a walker on a path the game does not walk, and one
-  // that passes no spawn slot at all (DECISIONS #74). There is one route now.
+  // that passes no spawn slot at all. There is one route now.
   if (!ctx.config.timeFrozen) return true;
   if (typeof sim.advanceTo === 'function') sim.advanceTo(3, 7);
   else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(15);

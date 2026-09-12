@@ -74,7 +74,7 @@ export async function buildCityMap(draft, ctx) {
 
   // Select by category and tag, never by name: this tileset paints several different
   // surfaces onto the same `grass.obj`, so only the texture-derived tags are reliable
-  // (DECISIONS #6).
+  //.
   const grass = tiles.find(slug, { category: 'ground', tags: ['grass'] });
   const grassBase = grass[0] ?? pick(tiles, slug, { category: 'ground' }, log, 'ground');
 
@@ -112,8 +112,7 @@ export async function buildCityMap(draft, ctx) {
   // to the authored heightfield — and it cannot see a placement that lives in another
   // world. Without this line every walker on the square would be planted on the road tile
   // underneath it at 0.07 while the paving they are standing on is at 0.10, which sinks
-  // their contact shadow under an opaque surface (DECISIONS #27 records the same bug from
-  // the other direction). The heightfield is exactly the right seam for it: it is what
+  // their contact shadow under an opaque surface. The heightfield is exactly the right seam for it: it is what
   // `terrain.height()` means, and `surface.js` uses it as the floor.
   for (let cz = PLAZA_STONE.z; cz < PLAZA_STONE.z + PLAZA_STONE.h; cz++) {
     for (let cx = PLAZA_STONE.x; cx < PLAZA_STONE.x + PLAZA_STONE.w; cx++) {
@@ -197,7 +196,7 @@ export async function buildCityMap(draft, ctx) {
   for (const p of PROPS) {
     // `tiles.byName` is the explicit escape hatch and does not warn. A prop's name is the
     // stable handle here, unlike a PDSMS tile's: these fifteen were authored by us into their
-    // own set under names we chose (DECISIONS #23).
+    // own set under names we chose.
     const model = tiles.byName('props', p.model);
     const w = model?.w ?? 1, h = model?.h ?? 1;
     for (let dz = 0; dz < h; dz++) {
@@ -290,7 +289,7 @@ export async function buildCityMap(draft, ctx) {
   // --- the two yards' fences ------------------------------------------------
   // A fence set is a `line`, not a blob: `tiles` reads each piece's real arms off its own
   // geometry and solves 4-way connectivity, so a run is only the cells it passes through and
-  // the corner pieces fall out of it (DECISIONS #25a / `armsOf`). This is what turns four
+  // the corner pieces fall out of it (`armsOf`). This is what turns four
   // barrels on open grass into a delivery yard.
   const fenceCells = new Set(FENCES.map((f) => `${f.cx},${f.cz}`));
   if (fenceCells.size && autotileSet(tiles, slug, 'set9', log, 'fence')) {

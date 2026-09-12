@@ -113,8 +113,8 @@ export function runSelfTest({ seed = 1337, gapS = 3 * 3600 } = {}) {
 
   // 4. Party composition and biome actually move the number.
   //
-  // **Measured on `exp`, not on `money`** (DECISIONS #69). Money is no longer produced per
-  // second by anything — §0 says it is earned by selling what a hunt produced — so a check
+  // **Measured on `exp`, not on `money`**. Money is no longer produced per
+  // second by anything — it is earned by selling what a hunt produced — so a check
   // that compares two biomes' money rates now compares 0 with 0 and passes or fails for no
   // reason. Experience is the channel that still accrues, and it is the one these three
   // properties were ever really about: that the *place* and the *party* matter.

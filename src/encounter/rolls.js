@@ -9,7 +9,7 @@
  *
  * ## Why index-addressed and not stream-continued
  *
- * `idle` resolves encounters **by index** while the tab is closed (DECISIONS #19): encounter
+ * `idle` resolves encounters **by index** while the tab is closed: encounter
  * N is always rolled from its own stream, so a chunk boundary cannot renumber, add or drop
  * one. A live encounter has the same problem in a different shape — the player may reload,
  * a save may be restored mid-hunt, and `offline` may apply a gap between two steps in the
@@ -27,7 +27,7 @@
  * rather than trusting this comment.
  *
  * Sibling streams never interfere, so an encounter roll cannot perturb `collection`'s IV
- * stream, `simulation`'s wander or `idle`'s accrual (ARCHITECTURE §2.5).
+ * stream, `simulation`'s wander or `idle`'s accrual (src/core/rng.js).
  */
 
 import { makeRng } from '../core/rng.js';
@@ -64,7 +64,7 @@ export function streamFor(seed, kind, key) {
  * Caterpie and a Dragonite identical to every ball in the bag.
  *
  * **This is character-for-character the same curve as `automation/fields.js`**, which
- * declared the proxy first. Modules may not import each other's internals (§5), so the two
+ * declared the proxy first. Modules may not import each other's internals (src/offline/slices.js), so the two
  * copies are a mirror in the same sense `economy/pacing.js` mirrors `idle/accrual.js`; a
  * seam test asserting they agree would be worth writing. Meanwhile `tables.js` carries
  * the **real mainline rate** for every species it can actually spawn, so this curve is only
@@ -145,7 +145,7 @@ export function rollAt(seed, index, { table, band, shinyRate = SHINY_RATE, bumps
 }
 
 /**
- * RETIRED (DECISIONS #67). A battle was eleven lines comparing two levels and rolling a coin;
+ * RETIRED. A battle was eleven lines comparing two levels and rolling a coin;
  * it is `src/battle/`'s turn engine now — four moves with PP, the type chart, criticals,
  * statuses and stat stages — on its own `root/battle/<index>/<turn>` streams.
  *
@@ -195,7 +195,7 @@ export function shakesFor(roll, odds, caught) {
  * keyboard is worth the same as one the idle layer resolved while the tab was closed. A
  * catch pays a bonus on top, because spending a ball has to be worth more than walking away.
  *
- * Pure: `economy` applies its own income multipliers at the `add()` boundary (DECISIONS #16),
+ * Pure: `economy` applies its own income multipliers at the `add()` boundary,
  * so these are the pre-multiplier numbers and this file never asks the wallet anything.
  */
 export function rewardsFor(level, { win = false, caught = false, shiny = false } = {}) {

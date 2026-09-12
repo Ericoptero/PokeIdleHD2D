@@ -1,5 +1,5 @@
 /**
- * pokemon — species data, party, and the overworld sprite system (ARCHITECTURE §5.5).
+ * pokemon — species data, party, and the overworld sprite system (src/pokemon/index.js).
  *
  * Species data is a committed snapshot: `public/generated/species.json` holds all 1253
  * sheets in `assets/overworld/` across Gen 1-9, built by `src/pokemon/tools/build-species.js`
@@ -14,7 +14,7 @@ import { SpriteField } from './field.js';
 import * as INST from './instance.js';
 import * as ANIM from './evolve-anim.js';
 
-/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `loadState` migrates forward and refuses a newer one (src/offline/slices.js). */
 const SAVE_VERSION = 1;
 import {
   POKEMON_SHEET, TRAINER_SHEET, TEXELS_PER_UNIT,
@@ -30,7 +30,7 @@ export default {
   id: 'pokemon',
   needs: [],
   /**
-   * The showcase stands its cast on real ground, so it needs the tile world (§6) — and
+   * The showcase stands its cast on real ground, so it needs the tile world (src/main.js) — and
    * `mode=levelup` drives the instance model, which reaches `battle` through `ctx.get`.
    * Without it here that mode gets the registry's null object and mints Pokemon with no
    * moves, which is a correct degradation in the game and a useless picture in a showcase.
@@ -71,13 +71,13 @@ export default {
      *
      * The engine supplies the stat formula, the growth curves and the move table — but a
      * quarantined engine must cost the game its *moves*, not its *sprites*. `pokemon` failing
-     * takes the overworld down with it, and §2.1's whole point is that one broken module does
+     * takes the overworld down with it, and src/core/registry.js's whole point is that one broken module does
      * not cascade. Lazily, because the starters are minted long after init and `battle` may
      * still be loading its 330 KB of data when this module comes up.
      */
     const battle = () => ctx.get('battle');
 
-    /** Monotone, so `instanceId` is unique and is never derived from a level (DECISIONS #61). */
+    /** Monotone, so `instanceId` is unique and is never derived from a level. */
     let ordinal = 0;
 
     /** Ids already toasted "can evolve", so the news is broken once and not once a second. */
@@ -129,7 +129,7 @@ export default {
     const find = (instanceId) => party.find((p) => p.instanceId === instanceId) ?? null;
 
     const api = {
-      // --- data (§5.5) ------------------------------------------------------
+      // --- data (src/pokemon/index.js) ------------------------------------------------------
       species: lookup,
       all: () => table,
       byGen: (n) => table.filter((s) => s.gen === n),
@@ -139,7 +139,7 @@ export default {
       /** Base forms only — 1025 of the 1253 sheets are a distinct species. */
       baseForms: () => table.filter((s) => !s.form),
 
-      // --- sprite description (§5.5) ---------------------------------------
+      // --- sprite description (src/pokemon/index.js) ---------------------------------------
       spriteUrl: (species, { shiny = false } = {}) => spriteUrl(species, shiny),
       /** Kept for callers written against the seed API. */
       spriteSheet: (species, { shiny = false } = {}) => spriteUrl(species, shiny),
@@ -162,7 +162,7 @@ export default {
           return { u: out[0], v: out[1], w: out[2], h: out[3] };
         });
         const frames = [rects(0), rects(1), rects(2), rects(3)];
-        // Indexable by core/dir.js number *and* by name, so both readings of §5.5 work.
+        // Indexable by core/dir.js number *and* by name, so both readings of src/pokemon/index.js work.
         Object.assign(frames, { south: frames[0], west: frames[1], north: frames[2], east: frames[3] });
         return {
           atlas: field.atlas.texture,
@@ -220,7 +220,7 @@ export default {
       trainers: () => Object.keys(TRAINERS),
       sheetLayout,
 
-      // --- party (§5.5) -----------------------------------------------------
+      // --- party (src/pokemon/index.js) -----------------------------------------------------
       party: () => party.slice(),
       lead: () => party[0] ?? null,
       setLead(i) {
@@ -266,12 +266,12 @@ export default {
         return INST.makeInstance({ species: s, level, shiny, ivs, ordinal: ordinal++, rng }, battle());
       },
 
-      // --- levels, moves and evolution (§5.5, DECISIONS #61) ----------------
+      // --- levels, moves and evolution (src/pokemon/index.js) ----------------
 
       /**
        * The seam `idle/index.js:213` has been calling into empty space since it was written.
        *
-       * `source` is what makes "the hunt is the only way to evolve" (§0) enforceable at ONE
+       * `source` is what makes "the hunt is the only way to evolve" enforceable at ONE
        * point: experience is granted everywhere, and only a hunt is allowed to act on the
        * evolution it unlocks.
        */
@@ -336,7 +336,7 @@ export default {
        * Evolves, **and only ever because a player asked**.
        *
        * There is no automatic path into this function any more: `grantExp` reports a pending
-       * evolution and stops (DECISIONS #62). It costs a level and a pile of materials that can
+       * evolution and stops. It costs a level and a pile of materials that can
        * only come out of a hunt, and it spends them through `economy`'s published API — this
        * module owns the creature, the ledger owns the bag, and neither reaches into the other.
        *
@@ -446,10 +446,10 @@ export default {
       conscious: () => party.filter((p) => p.hp > 0),
       instance: (instanceId) => find(instanceId) ?? null,
 
-      // --- the save seam (§5) ------------------------------------------------
+      // --- the save seam (src/offline/slices.js) ------------------------------------------------
       saveState: () => ({ v: SAVE_VERSION, ordinal, party: party.map(INST.serialize) }),
       /**
-       * Silent by contract (§5): no `party:leadChanged`, no toast. Derived state — stats,
+       * Silent by contract (src/offline/slices.js): no `party:leadChanged`, no toast. Derived state — stats,
        * maxHp, the move list — is rebuilt from the species and the level, never trusted.
        */
       loadState(value) {

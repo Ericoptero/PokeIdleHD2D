@@ -114,7 +114,7 @@ export function parsePdsts(path) {
 /**
  * Expands a tile's indexed OBJ data into triangles, grouped per texture slot, and
  * converted from PDSMS's Z-up / Y-south space into the engine's Y-up / Z-south space
- * (ARCHITECTURE §3.1). Each triangle's winding is aligned to the normals the tileset
+ * (tools/assets/pdsts.js). Each triangle's winding is aligned to the normals the tileset
  * author stored, so front faces are reliably counter-clockwise even though the source
  * tiles are not consistently wound.
  *

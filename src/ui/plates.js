@@ -7,7 +7,7 @@
  * wild plates, never a crash), and `draw()` projects and paints what it found. Drawn on the
  * 2-D HUD canvas, like `callout.js` — a plate in the 3-D scene would be one more draw call
  * per entity and its own filtering story; this one costs nothing the renderer's own stats
- * count (ARCHITECTURE §2.7).
+ * count (src/core/render.js).
  *
  * **What gets a level and a bar, and what gets only a name** (the user's own call, not a
  * guess): the trainer, the party's lead and every wild Pokémon in a hunt carry a level; only
@@ -25,10 +25,10 @@ const isLive = (api) => !!api && api.__missing === undefined;
 /**
  * How high above a Pokémon's feet its plate floats, in world units. Exported: `ui/index.js`
  * reuses it to anchor a balloon *above* the plate rather than guessing a second constant for
- * the same head (DECISIONS #90).
+ * the same head.
  *
  * A measured constant, not a computed one — sprite frames vary in texel size per species
- * (ARCHITECTURE §5.5), so no single constant is exact for all of them; 3.1 clears the tallest
+ * (src/pokemon/index.js), so no single constant is exact for all of them; 3.1 clears the tallest
  * ones with air to spare and does not float over the shortest.
  */
 export const POKEMON_LIFT = 3.1;
@@ -37,7 +37,7 @@ export const POKEMON_LIFT = 3.1;
  * `POKEMON_LIFT`.
  *
  * Trainer sheets are one fixed size (32×768, 32-texel frames) — 16 texels/unit stretched by
- * `1/cos(45°)` (DECISIONS #18) is 2 world units tall — so a constant here is exact rather than
+ * `1/cos(45°)` is 2 world units tall — so a constant here is exact rather than
  * measured-to-fit, unlike `POKEMON_LIFT`. A quarter-tile of air above the crown.
  */
 export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
@@ -57,7 +57,7 @@ const MAX_PLATES = 48;
  * into the same few rows near the horizon and reads as a smear rather than nine labels. Real
  * MMORPGs draw the same line for the same reason: a nameplate is for something you could
  * plausibly walk up to next, not an inventory of everything the camera can see. 14 keeps the
- * whole of a slot's tether radius plus the two cells `hunts` stages it at (§5.14) comfortably
+ * whole of a slot's tether radius plus the two cells `hunts` stages it at (src/hunts/index.js) comfortably
  * inside it, so nothing already worth walking toward disappears.
  */
 const MAX_PLATE_TILES = 14;
@@ -77,7 +77,7 @@ export function makePlates(ctx) {
     const active = isLive(enc) && typeof enc.active === 'function' ? enc.active() : null;
     // **The live fight, not the party record** — the same reason `panels/battle.js` reads
     // `active.duel.run.state` instead of `pokemon.lead()` mid-duel: HP is written back to the
-    // instance only when the fight ends (DECISIONS #72), so a plate reading `pokemon.lead()`
+    // instance only when the fight ends, so a plate reading `pokemon.lead()`
     // while a fight is running shows a full bar over a Pokémon that is about to faint.
     const fighting = !!active?.battle && active.battle.win === null;
     const st = fighting && active.duel?.engine ? active.duel.run?.state : null;
@@ -124,7 +124,7 @@ export function makePlates(ctx) {
 
   /**
    * The wild currently being fought, if any — not gated on `hunts.current()`. Engaging a slot
-   * hands the creature to `encounter` (DECISIONS #87), which retires the map NPC the moment
+   * hands the creature to `encounter`, which retires the map NPC the moment
    * its own actor exists, so a slot mid-fight is simply not in `hunts.slots()`'s occupied list
    * any more; this reads `encounter.scene()`/`active()` instead, with the live duel HP
    * `panels/battle.js` already reads. Checked independently of the wandering slots above so a

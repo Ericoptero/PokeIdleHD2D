@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Save versions and the forward migrations between them (ARCHITECTURE §10).
+ * Save versions and the forward migrations between them (src/offline/save.js).
  *
  * Rules that hold forever:
  *   - a migration is `v(n) -> v(n+1)`; they run in order and none is ever skipped,
@@ -88,7 +88,7 @@ export const MIGRATIONS = [
       // and rebuilt the party through `createInstance`, so it never carried moves, PP or a
       // real maxHp. Everything it DID carry is still meaningful, so it is forwarded rather
       // than dropped: `instance.deserialize` rebuilds stats and the move list from the
-      // species and the level anyway, which is §5's "derived state is rebuilt, never trusted".
+      // species and the level anyway, which is src/offline/slices.js's "derived state is rebuilt, never trusted".
       //
       // The one field that cannot survive is `hp`. v3 wrote a literal 1 for every Pokemon
       // (`createInstance` hardcoded it), so carrying it forward would restore a full party at

@@ -1,11 +1,11 @@
 /**
  * The UI surface: one 2-D canvas whose backing store is **the renderer's internal buffer**
- * (640×360 at 1080p) — divided by `config.uiScale` (1 or 2, slice 016) when that HUD-only
+ * (640×360 at 1080p) — divided by `config.uiScale` (1 or 2) when that HUD-only
  * knob is not its default — stretched over the viewport with `image-rendering: pixelated`.
  *
- * Why not DOM, which is what the seed did and what §5.12 assumes: the game is drawn into a
+ * Why not DOM, which is what the seed did and what src/ui/index.js assumes: the game is drawn into a
  * low-resolution buffer and upscaled with NEAREST so geometry and sprites share one pixel
- * grid (ARCHITECTURE §2.7). Text and panels laid out in CSS pixels are the one thing on
+ * grid (src/core/render.js). Text and panels laid out in CSS pixels are the one thing on
  * screen that is *not* on that grid — a 12 px antialiased label over a 3×-blocky world reads
  * as a debug overlay, not as the game's own menu. Taking the size from
  * `ctx.three.view.internalSize` rather than recomputing it from `pixelScale` means the UI
@@ -16,7 +16,7 @@
  * stays off), just a coarser HUD grid than the world's, which is the whole point of the knob.
  *
  * It costs **zero draw calls**: this is a 2-D canvas composited by the browser, not geometry
- * handed to WebGL, and `renderer.info.render.calls` — the number §7 budgets — never sees it.
+ * handed to WebGL, and `renderer.info.render.calls` — the number tools/shots/shoot.js budgets — never sees it.
  * It is repainted only when something marks it dirty.
  */
 
@@ -127,7 +127,7 @@ export function makeScreen({ root, view, log, config }) {
   let regions = [];
   let hovered = null;
   /**
-   * The gesture that survives the `regions = []` reset every `paint()` does (DECISIONS #84):
+   * The gesture that survives the `regions = []` reset every `paint()` does:
    * keyed on what was picked up (a tag and a payload), never on a rectangle, because a
    * rectangle drawn this frame is meaningless the instant the next one moves it.
    * @type {import('./gesture.js').DragState|null}
@@ -150,8 +150,7 @@ export function makeScreen({ root, view, log, config }) {
     // canvas alone — clamped to {1, 2} here rather than trusted from `config`, since a config
     // key can be anything a URL param sets it to. At 2 the UI buffer is half the size, so
     // every glyph and every panel covers twice the screen pixels once it is stretched back
-    // over the same `displayRect` below; the world's own canvas and its pixel grid (DECISIONS
-    // #60) are untouched — this is a different canvas, sized only here.
+    // over the same `displayRect` below; the world's own canvas and its pixel grid are untouched — this is a different canvas, sized only here.
     const scale = Number(config?.uiScale) >= 2 ? 2 : 1;
     const iw = Math.max(1, Math.floor(rawW / scale));
     const ih = Math.max(1, Math.floor(rawH / scale));
@@ -225,7 +224,7 @@ export function makeScreen({ root, view, log, config }) {
     } else if (r.swallow) {
       // Consumes the pointerdown without calling anything — the window-body catcher: it sits
       // over the panel's own paper so a click there stops here rather than falling through to
-      // the full-buffer scrim registered under it (DECISIONS #84).
+      // the full-buffer scrim registered under it.
     } else if (typeof r.on === 'function') {
       try { r.on(r, p); } catch (err) { log?.warn?.('ui: a panel handler threw', err); }
     }
@@ -319,7 +318,7 @@ export function makeScreen({ root, view, log, config }) {
      * and every glyph is already on the internal-pixel grid, so a fractional scale would
      * resample a texel across a fraction of a pixel — precisely the defect `pixelsPerUnit`
      * being 16/32/64 and nothing else exists to prevent everywhere else in this project
-     * (DECISIONS #60).
+     *.
      * @returns {number} the x the next glyph would start at
      */
     textScaled(x, y, str, colour, scale = 2, { shadow = null, max = Infinity } = {}) {
@@ -384,7 +383,7 @@ export function makeScreen({ root, view, log, config }) {
       return box;
     },
     /**
-     * Clips `draw()` to a rectangle: the one primitive `src/` had none of before this slice
+     * Clips `draw()` to a rectangle: the one primitive `src/` had none of previously
      * (`grep -rn 'ctx\.save\|\.clip(' src/` found nothing). `save`/`restore` are paired here
      * so a caller can never forget the `restore` half and leave every later draw call clipped.
      */
@@ -431,9 +430,9 @@ export function makeScreen({ root, view, log, config }) {
      *
      * A diagnostic surface, like `bus.spy()`: it is what lets a capture assert that a control is
      * actually *reachable* rather than merely drawn. A button painted under another panel, or
-     * off the buffer, looks identical in a screenshot to one that works (DECISIONS #77). Also
+     * off the buffer, looks identical in a screenshot to one that works. Also
      * reports `swallow`/`drag`/`drop`/`scroll`, so a test can assert a control exists in one of
-     * these new modes without executing it (DECISIONS #84).
+     * these new modes without executing it.
      */
     regions: () => regions.map((r) => ({
       tag: r.tag, box: { x: r.x, y: r.y, w: r.w, h: r.h },

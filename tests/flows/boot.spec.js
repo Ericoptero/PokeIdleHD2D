@@ -28,7 +28,7 @@ test('the lobby boots with every module ready and a clean console', async ({ pag
   expect(types).toContain('scene:entered');
   const scene = log.find((e) => e.type === 'scene:entered');
   expect(scene.payload.sceneId).toBe('demo-city');
-  // The opening purse is credited, and it is not "earned" (DECISIONS #75).
+  // The opening purse is credited, and it is not "earned".
   const start = log.find((e) => e.type === 'economy:changed' && e.payload.reason === 'start');
   expect(start?.payload.currency).toBe('money');
   expect(start?.payload.total).toBeGreaterThan(0);

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { startDrag, move, drop, cancel, clampScroll } from './gesture.js';
 
 describe('gesture: the drag/drop reducer', () => {
-  it('startDrag -> move -> drop: a golden sequence of literal states (DECISIONS #35)', () => {
+  it('startDrag -> move -> drop: a golden sequence of literal states', () => {
     const s1 = startDrag('mon-3', 'party-row', 10, 20);
     expect(s1).toEqual({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 10, y: 20 });
 

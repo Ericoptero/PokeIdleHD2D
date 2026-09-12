@@ -1,5 +1,5 @@
 /**
- * encounter — spawn tables, catching, resolved battles (ARCHITECTURE §5.6).
+ * encounter — spawn tables, catching, resolved battles (src/encounter/index.js).
  *
  * This is the module that turns walking into a Pokemon game. The lead Pokemon steps into
  * tall grass, something comes out of it, the party beats it down, a ball goes in, and
@@ -10,7 +10,7 @@
  *   rolls.js      every roll, as a pure function of (seed, index). No ctx, no clock.
  *   tables.js     five biomes x three time bands, with mainline capture rates
  *   ball.js       the thrown ball, as authored 16px pixel art
- *   showcase.js   the staged capture (ARCHITECTURE §6)
+ *   showcase.js   the staged capture (src/main.js)
  *   selftest.js   35 checks, run by tools/seams/run.js with no browser
  *
  * ### The four seams, and what each one owes the other side
@@ -24,7 +24,7 @@
  * weight) are asked for, never re-derived. What this module supplies is the half `economy`
  * cannot know: the species' capture rate, the HP left after the battle, and the coin.
  *
- * **`collection` pairs `encounter:started` with `catch:succeeded`.** §4 fixes both payloads;
+ * **`collection` pairs `encounter:started` with `catch:succeeded`.** src/core/bus.js fixes both payloads;
  * a bare catch with no encounter before it is legal but loses the level and the biome, so
  * both are always emitted, in order, for every catch. The catch payload also carries the
  * `ivs` this module rolled — `collection` uses them when they are there and rolls its own
@@ -35,12 +35,12 @@
  * is addressed by `(seed, index)` for exactly that reason, and this module's entire
  * persistent state is two integers: how many cells of grass have been walked, and how many
  * encounters have been started. `idle` still rolls its own encounters from its own
- * `idle/encounter/N` streams (DECISIONS #19) — this module cannot make it delegate without a
+ * `idle/encounter/N` streams — this module cannot make it delegate without a
  * core change, and that is filed rather than pretended. What it *can* do is make
  * `tablesFor()` return a table `idle`'s uniform pick samples correctly from; see `tables.js`.
  *
  * **The registry's null object answers `typeof api.foo === 'function'` with true even for a
- * dead module** (§2.1), so nothing here tests a sibling with `typeof`. `isLive()` reads the
+ * dead module** (src/core/registry.js), so nothing here tests a sibling with `typeof`. `isLive()` reads the
  * `__missing` marker, the way `src/collection/index.js` does.
  */
 
@@ -62,7 +62,7 @@ import { reportSelfTest } from '../core/log.js';
 /**
  * How many balls may be thrown at one defeated wild.
  *
- * **One, and it is a rule rather than a setting** (DECISIONS #72). The pity ledger is what
+ * **One, and it is a rule rather than a setting**. The pity ledger is what
  * closes a grind out — spend 125% of a species' price and the next throw is certain — and that
  * only means anything if a throw costs a *victory*. A configurable number here would let a full
  * bag substitute for the fight, and the ladder `economy/pricing.js` is anchored to would stop
@@ -76,11 +76,11 @@ export const THROWS_PER_FAINT = 1;
  * A tenth, and it is the only way money leaves the game other than the shop — so it is the one
  * thing that makes a hunt a risk rather than a slower clock. Taken from the balance at the
  * moment of the wipe, which is exact: nothing accrues currency, so there is never an amount in
- * flight to disagree with (ARCHITECTURE §0, DECISIONS #72).
+ * flight to disagree with.
  */
 export const WIPE_PENALTY = 0.10;
 
-/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `loadState` migrates forward and refuses a newer one (src/offline/slices.js). */
 const SAVE_VERSION = 1;
 
 /** The registry's null object answers every property with a function — this is the tell. */
@@ -90,7 +90,7 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * The scene's timeline, in fixed sim steps (1/20 s each, `core/clock.js`).
  *
  * Sim steps and not seconds, and certainly not `performance.now()`: the harness freezes the
- * clock for every screenshot (DECISIONS #14) and a showcase has to be able to stop the
+ * clock for every screenshot and a showcase has to be able to stop the
  * animation on an exact frame and get the same pixels twice. Every number below is a count
  * of `tick()` calls.
  */
@@ -98,7 +98,7 @@ const T = {
   /**
    * The breath before the first blow, in sim steps.
    *
-   * **There is no reveal any more** (DECISIONS #87). The creature was already walking the map,
+   * **There is no reveal any more**. The creature was already walking the map,
    * the party walked up to it, and the fight starts where it is standing — so what used to be
    * `APPEAR` (20 steps of leaves, a hop, a scale pop and a "!" balloon) is half a second in
    * which two animals are looking at each other. It is not zero, because the plate over the
@@ -109,11 +109,11 @@ const T = {
   OPEN: 10,
   /**
    * The duel's own beats, in sim steps. How long the engine is asked to hold **one action's**
-   * beat for is `config.actionSteps` (DECISIONS #89), read in `init` as `ACTION_STEPS` — not
+   * beat for is `config.actionSteps`, read in `init` as `ACTION_STEPS` — not
    * a literal here, because it is the one beat a player might reasonably want to tune from a
    * URL, and this table is built before `init` has a `config` to read.
    *
-   * A fight is no longer a number computed before the animation starts (DECISIONS #72): the
+   * A fight is no longer a number computed before the animation starts: the
    * scene drains `battle.stepper`'s turns one strike at a time and these are how long each
    * beat holds. `VICTORY` is the pause on the last blow before the throw window opens, which is
    * what makes the faint read as an ending rather than as a cut.
@@ -126,13 +126,13 @@ const T = {
    * How long the wild waits after that before the party settles it and it leaves.
    *
    * Not decoration — without it the live game deadlocks. Nothing throws a ball at `/`:
-   * `automation` is off by default (§5.11 — "none are on by default") and `ui` has no
+   * `automation` is off by default (src/automation/index.js — "none are on by default") and `ui` has no
    * throw bound yet, so an encounter with `throwAt = Infinity` sat in the `ready` stage
    * forever with `active` never clearing, which meant the first Pokemon a player ever met
    * was also the last. Measured by walking the lobby's own grass: 6 steps, 1 encounter, and
    * then nothing for another 894 sim steps.
    *
-   * What happens instead is the thing §5.6 already says: **battles are resolved, not
+   * What happens instead is the thing src/encounter/index.js already says: **battles are resolved, not
    * turn-by-turn.** `begin()` has already run the exchange, so the unattended encounter pays
    * out that battle and the wild leaves. Walking through grass therefore earns; *catching*
    * still costs a ball and still needs somebody to decide to throw it.
@@ -149,14 +149,14 @@ export default {
   id: 'encounter',
   needs: ['pokemon', 'terrain', 'economy'],
   /**
-   * Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6).
+   * Extra modules the showcase scene needs on top of `needs` (src/main.js).
    *
    * `simulation` walks the party into the grass and `collection` records what comes out of
-   * it — both are the point of the shot. **`battle` joins them in DECISIONS #72**: the fight is
+   * it — both are the point of the shot. **`battle` is also needed**: the fight is
    * stepped on screen now, and without the engine this scene photographed the degraded path and
    * printed "0 turns (no engine)" beside a picture of a duel that never happened. It is in
    * `showcaseNeeds` and still not in `needs`, which is the whole distinction — a quarantined
-   * engine must cost the game its combat and not its encounters (§5.6).
+   * engine must cost the game its combat and not its encounters (src/encounter/index.js).
    *
    * `idle` and `automation` are deliberately absent: `idle`'s heartbeat would bank money into
    * the readout between the settle and the shutter, and `automation` would throw its own ball
@@ -167,14 +167,14 @@ export default {
   init(ctx) {
     const { bus, config, log } = ctx;
     const seed = config.seed;
-    /** One action's beat, in sim steps (DECISIONS #89). Read once; a mid-fight config change
+    /** One action's beat, in sim steps. Read once; a mid-fight config change
      *  finishes the fight it started in, which is the harness's own `?actionSteps=` contract. */
     const ACTION_STEPS = Math.max(1, Math.round(config.actionSteps ?? 18));
 
     // --- the tables ---------------------------------------------------------
     // Checked once, out loud. A typo in a species name is invisible at runtime — the
     // encounter is simply dropped and the grass quietly stops working — and this is a
-    // handled path, so it is a `warn`: §7 counts console errors and behaving correctly must
+    // handled path, so it is a `warn`: tools/shots/shoot.js counts console errors and behaving correctly must
     // not cost the budget.
     {
       const pokemon = ctx.get('pokemon');
@@ -202,7 +202,7 @@ export default {
 
     // --- the on-screen moment -----------------------------------------------
     const sprite = makeBallSprite(ctx.THREE, ctx);
-    /** What a move looks like when it lands (DECISIONS #79). */
+    /** What a move looks like when it lands. */
     const strikeVfx = makeStrikeVfx(ctx.THREE, ctx, { pitch: config.cameraPitch ?? 45 });
     /** @type {{stage:string, step:number, wildActor:number, ...}|null} */
     let scene = null;
@@ -217,7 +217,7 @@ export default {
      * plants two more. A wild Pokemon rearing up in the middle of somebody else's hero frame
      * would be this module vandalising another module's evidence, and it would do it
      * non-reproducibly, because how many sim steps have run by the time the shutter opens is
-     * wall-clock luck. Same reasoning as DECISIONS #15's "?showcase=... is read-only".
+     * wall-clock luck. Showcases are read-only.
      */
     const armed = !config.showcase || config.showcase === 'encounter';
 
@@ -230,7 +230,7 @@ export default {
     };
     const todNow = () => {
       const env = ctx.get('environment');
-      // Liveness on the *value*, never on `typeof` (§2.1).
+      // Liveness on the *value*, never on `typeof` (src/core/registry.js).
       const t = isLive(env) ? env.getTimeOfDay?.() : undefined;
       return Number.isFinite(t) ? t : config.tod;
     };
@@ -352,7 +352,7 @@ export default {
       const DX = [0, -1, 0, 1], DZ = [1, 0, -1, 0];      // core/dir.js order
       const dir = (cell?.dir ?? 0) & 3;
       // **The wild fights where it was standing.** The party walked off its circuit to reach
-      // this creature (DECISIONS #73), so staging it two cells in front of the head — which is
+      // this creature, so staging it two cells in front of the head — which is
       // what a tall-grass encounter wanted — would move it away from the spot the player just
       // walked to. A slot encounter stages on the slot's own cell; everything else keeps the
       // old framing.
@@ -360,7 +360,7 @@ export default {
       const cz = slotCell ? slotCell.cz : (cell?.cz ?? 0) + DZ[dir] * 2;
       // `simulation.surfaceAt` measures the top of the cell off the loaded map's placements;
       // `terrain.height()` reports the authored heightfield, which the demo maps never set
-      // (DECISIONS #27). Prefer the measured one and fall back to the authored one.
+      //. Prefer the measured one and fall back to the authored one.
       const y = isLive(sim) && Number.isFinite(sim.surfaceAt?.(cx, cz))
         ? sim.surfaceAt(cx, cz) : (terrain.height?.(cx, cz) ?? 0);
       // The wild faces the lead, which is the reverse of the lead's own facing.
@@ -459,8 +459,8 @@ export default {
      * and clears whatever the previous strike armed, so a beat with nothing to show is a beat
      * that shows nothing rather than a stale effect still finishing.
      *
-     * `type`/`shape` ride along on the emitted event (DECISIONS #89) — the element and the
-     * delivery shape the move resolves to — so `ui` can colour a balloon by type (slice 018)
+     * `type`/`shape` ride along on the emitted event — the element and the
+     * delivery shape the move resolves to — so `ui` can colour a balloon by type
      * without importing `encounter`'s own tables, which the module boundary forbids.
      */
     function emitStrike(strike, step) {
@@ -470,7 +470,7 @@ export default {
         ? {
           at: step, shape: shapeOf(moveRec), type: moveRec?.t ?? 'normal', toWild: strike.target === 'b',
           // Threaded through so `play.js` can add a super-effective hit's second ring and a
-          // crit's white flash (DECISIONS #91) without `ui`'s own copy of the same fields.
+          // crit's white flash without `ui`'s own copy of the same fields.
           crit: !!strike.crit, effectiveness: strike.effectiveness ?? 1,
         }
         : null;
@@ -495,7 +495,7 @@ export default {
      * One sim step of the live duel — at most one `run.step()` per turn, and at most one
      * `battle:strike` per tick, drained off a plan rather than fired in a block.
      *
-     * **The sequencing this exists for** (DECISIONS #89): `run.step()` resolves a whole turn —
+     * **The sequencing this exists for**: `run.step()` resolves a whole turn —
      * both sides, in the engine's own priority/speed order — synchronously, in one call, the
      * instant it is asked. Emitting straight out of that call's result is what put both sides'
      * `battle:strike` in the same tick, which is the "attacks at the same time" bug the brief
@@ -579,7 +579,7 @@ export default {
         enc.battle.allyMaxHp = st.a.maxHp;
         enc.battle.sent = duel.run.sent;
         // The wild's HP as a fraction, which is what `economy.catchOdds` wants. A won fight
-        // leaves it at 0, which the formula clamps to 0.01 — the maximum HP bonus (#61(i)).
+        // leaves it at 0, which the formula clamps to 0.01 — the maximum HP bonus.
         enc.hpFraction = st.b.maxHp > 0 ? st.b.hp / st.b.maxHp : 1;
         enc.battle.hpFraction = enc.hpFraction;
         // **The status the fight actually inflicted**, which `attempt()` used to throw away by
@@ -611,18 +611,18 @@ export default {
       // 1. **the fight, from step 0.** There is no reveal to wait out.
       //
       // The creature was walking this map and the party walked up to it, so the first thing
-      // this loop ever draws is two animals standing on their own cells (DECISIONS #87). What
+      // this loop ever draws is two animals standing on their own cells. What
       // used to be here — `T.RUSTLE` of leaves with the wild undrawn, then a hop and a scale
       // pop out of the grass — is gone, and with it the one reason the first exchange could
       // not start until step 44.
       if (!Number.isFinite(s.fightEndsAt)) {
-        // one strike drained per due beat, `ACTION_STEPS` apart (DECISIONS #89).
+        // one strike drained per due beat, `ACTION_STEPS` apart.
         //
-        // This is the beat the whole of DECISIONS #72 is about. `begin()` used to resolve the
+        // Resolve only the current turn at this beat. `begin()` used to resolve the
         // battle before the wild had finished coming out of the grass, and the card that
         // followed was a readout of something already over. Now the stepper is driven from
         // here, one exchange at a time, and every blow it produces goes out on the bus as a
-        // `battle:strike`, one per beat and never two in the same tick (DECISIONS #89), so the
+        // `battle:strike`, one per beat and never two in the same tick, so the
         // VFX, the callout and the card all read one seam.
         tickDuel(step);
         // The wild squares up: a slow breath in place, so a fight reads as two creatures and
@@ -670,7 +670,7 @@ export default {
           moveWild({ y: at.y, visible: true, scale: 1 });
           if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
           // **No "!" balloon.** What says "you may throw now" is the beaten wild's own plate,
-          // whose bar is on the floor, and the battle card's throw prompt (DECISIONS #87).
+          // whose bar is on the floor, and the battle card's throw prompt.
           s.stage = 'ready';
         }
       } else if (step < m.land) {
@@ -754,7 +754,7 @@ export default {
     /**
      * The occupied slot the head has just walked up to, or `null`.
      *
-     * Chebyshev, and the reach is the distance a slot is authored at — 2 (§5.14). The
+     * Chebyshev, and the reach is the distance a slot is authored at — 2 (src/hunts/index.js). The
      * tether's ±1 drift is what makes the meeting read as a creature noticing the party; it is
      * not extra reach, and treating it as such left the trigger silent.
      */
@@ -770,7 +770,7 @@ export default {
      * state was silent and battle-free for good. A wipe now always pays and always revives; what
      * is latched is only the nag below.
      *
-     * One of three deliberately overlapping nets (DECISIONS #81) — this, `hunts`' lap rest and
+     * One of three deliberately overlapping nets — this, `hunts`' lap rest and
      * `city.enter()`. Do not drop one as redundant: the redundancy is the decision.
      */
     let faintedNagged = false;
@@ -789,7 +789,7 @@ export default {
       if (!isLive(hunts) || typeof hunts.slots !== 'function') return null;
       // Nothing to fight with: a party that is entirely fainted walks past its wildlife
       // rather than losing to it twenty-three times in a row, which is what it did before
-      // this guard existed (DECISIONS #67).
+      // this guard existed.
       const pokemon = ctx.get('pokemon');
       const canFight = !isLive(pokemon) || typeof pokemon.firstConscious !== 'function'
         || !!pokemon.firstConscious();
@@ -804,7 +804,7 @@ export default {
          * console and nothing on screen — which is precisely how long that bug lived. A lap rest
          * and the city both revive now, so this should be unreachable; the nag is the tripwire
          * that says out loud if it ever is not. `warn`, never `error`: a handled path must not
-         * spend the zero-error budget every capture is measured against (DECISIONS #15).
+         * spend the zero-error budget every capture is measured against.
          */
         if (!faintedNagged) {
           faintedNagged = true;
@@ -828,13 +828,13 @@ export default {
      *
      * `hunts.takeSlot` hands the creature over **without taking its sprite off the map**: the
      * body standing there becomes the body that fights, and this module retires it only once
-     * its own actor is drawn on the same cell (DECISIONS #87). The slot is then scheduled to
+     * its own actor is drawn on the same cell. The slot is then scheduled to
      * refill, which is what makes it a respawn point.
      *
      * The **species, the level and the cell** are the slot's — they are what a plate over the
      * creature's head was already advertising before anybody touched it. The shiny roll and the
      * IVs still come from `rollAt(index)`, so a hunt replayed offline meets the same creature
-     * it met live (DECISIONS #35(a)).
+     * it met live.
      */
     function engage(slot) {
       const hunts = ctx.get('hunts');
@@ -844,7 +844,7 @@ export default {
       const enc = rollIndex(index);
       if (!enc) return null;
       // **The species and the level are the slot's; everything else is the index's.** The level
-      // moved across in DECISIONS #87: it is a property of the creature that walked onto the
+      // owned by the field actor: it is a property of the creature that walked onto the
       // slot, printed over its head before anybody touched it, so rolling a different one at
       // the moment of contact would make that plate a lie.
       const species = taken.species;
@@ -869,7 +869,7 @@ export default {
        *
        * It is asked at engagement rather than on a cadence for the same reason heal and ether
        * are not in `PASSES` — there is nothing to decide when there is no wild in front of you
-       * (DECISIONS #76).
+       *.
        */
       const auto = ctx.get('automation');
       const pokemon = ctx.get('pokemon');
@@ -890,7 +890,7 @@ export default {
     /**
      * Opens a fight and hands back the stepper that runs it, one turn at a time.
      *
-     * This replaced a synchronous `battle.resolve()` (DECISIONS #72). The whole exchange used
+     * This replaced a synchronous `battle.resolve()`. The whole exchange used
      * to be decided inside `begin()`, before a single frame was drawn, and the battle card was
      * a readout of something that had already happened — which is why nothing in the game ever
      * called `battle.turn()`, published and pure though it was. Now the scene steps it on a sim
@@ -934,13 +934,13 @@ export default {
       /**
        * Everyone who has actually stood in the fight, so the writeback covers a swapped-in
        * member and not only the one that started. Keyed by `instanceId`, because that is the
-       * one field on an instance that is minted once and never recomputed (§5.5).
+       * one field on an instance that is minted once and never recomputed (src/pokemon/index.js).
        */
       const fought = [ally];
       const sent = new Set([lead.instanceId]);
 
       /**
-       * The next party member that can still fight. Party order for now; DECISIONS #72 puts
+       * The next party member that can still fight. Party order for now; the API puts
        * the matchup rule behind the same hook, so Auto-Lead replaces this function and nothing
        * else moves.
        */
@@ -953,7 +953,7 @@ export default {
         /**
          * **The matchup decides the swap, not the party order.**
          *
-         * `automation.chooseLead` is asked at engagement (DECISIONS #76), which made the
+         * `automation.chooseLead` is asked at engagement, which made the
          * brief's lead rule true when a fight *started* and false the moment one *turned*: a
          * member that fainted mid-duel was replaced by whoever happened to be next in line,
          * which on a bad matchup is how a party loses three Pokemon to one wild.
@@ -961,7 +961,7 @@ export default {
          * It is asked here rather than in `tickDuel` because `nextAlly` is handed to
          * `battle.stepper` and the stepper is drained by `idle` and `offline` too — so the
          * closed-tab replay swaps by the same rule as the watched fight, which is the whole of
-         * §5.7's one-implementation claim applied to a decision instead of to a turn.
+         * src/idle/index.js's one-implementation claim applied to a decision instead of to a turn.
          */
         const auto = ctx.get('automation');
         let who = bench[0];
@@ -983,7 +983,7 @@ export default {
        * **The item decisions, injected — and this module is what debits the bag.**
        *
        * `automation` decides *what* to use from pure rules; `battle.applyAction` changes the
-       * combatant; neither of them may touch an inventory (§5.17, DECISIONS #72). So the Action
+       * combatant; neither of them may touch an inventory (src/battle/index.js). So the Action
        * comes back naming an item, and the take happens here, against a `stock` snapshot the
        * hook reads so it can never propose what is no longer there.
        *
@@ -1082,7 +1082,7 @@ export default {
       if (!enc) return null;
       // **Nothing to fight with, nothing to fight.** The slot trigger already checks this, but
       // the tall-grass path did not — and a wiped party kept starting encounters and losing
-      // them, thirty-six in a row, one turn each (DECISIONS #67).
+      // them, thirty-six in a row, one turn each.
       const roster = ctx.get('pokemon');
       if (isLive(roster) && typeof roster.firstConscious === 'function' && !roster.firstConscious()) return null;
       if (active) flee();
@@ -1091,7 +1091,7 @@ export default {
       const lead = leadOf();
       // **The fight is opened, not run.** `battle.stepper` is stepped one turn at a time by
       // `advanceScene` below, so the player watches the exchange rather than reading its
-      // result (DECISIONS #72). `win` is `null` until somebody faints, and every reader has to
+      // result. `win` is `null` until somebody faints, and every reader has to
       // treat that as "not decided yet" — `attempt()` in particular refuses on anything that
       // is not `true`.
       const duel = openDuel(lead, enc);
@@ -1126,14 +1126,14 @@ export default {
          * no slot behind it.
          *
          * It is **not** retired here. `hunts.takeSlot` hands the body over rather than deleting
-         * it (DECISIONS #87) and this module removes it only once `showWild` has landed its own
+         * it and this module removes it only once `showWild` has landed its own
          * actor on the same cell, so the creature never blinks out and back in.
          */
         npcId: Number.isFinite(enc.npcId) ? enc.npcId : 0,
         // The duel's clock. `nextTurnAt` is when the next turn may be drawn from the
         // engine; `fightEndsAt` stays `Infinity` until somebody faints, which is what `marks()`
         // reads to know whether the throw window has opened yet. `turnPlan` is the current
-        // turn's strikes timed out by `planBeats` (DECISIONS #89) — `null` between turns, and
+        // turn's strikes timed out by `planBeats` — `null` between turns, and
         // while it holds entries `tickDuel` drains one per due tick rather than asking the
         // engine for a new turn.
         nextTurnAt: T.OPEN, fightEndsAt: Infinity, strikes: [], turnsSeen: 0,
@@ -1153,7 +1153,7 @@ export default {
       // timeline — a scene frozen before the wild exists is a screenshot of empty grass.
       // `if (scene)`: a `cancel()` racing this promise (a travel out mid-fetch) already leaves
       // whatever `showWild` spawns unclaimed — pre-existing, not touched here; a leaked actor
-      // costs a sprite slot, not correctness, and STATUS `cancel-races-spawn-actor` names it.
+      // costs a sprite slot, not correctness; the asynchronous spawn can still race cancellation.
       scene.ready = showWild(active, at).then((id) => {
         if (scene) { scene.wildActor = id; scene.headLift = headLiftOf(id); }
         // The handover, in this order and not the other one: the map's creature leaves the
@@ -1173,7 +1173,7 @@ export default {
 
       bus.emit('encounter:started', {
         species: active.species, level: active.level, shiny: active.shiny, biome: active.biome,
-        // Extras beyond §4's fixed four. `collection` reads none of them and everything
+        // Extras beyond src/core/bus.js's fixed four. `collection` reads none of them and everything
         // ignores what it does not know, but the bus spy is the screenshot log's only record
         // of what happened and an index it cannot see is an index nobody can replay.
         index: active.index, tod: active.tod, ivs: active.ivs, catchRate: active.catchRate,
@@ -1183,7 +1183,7 @@ export default {
       // **No "A wild X appeared!" line.** It was the caption on a cutscene that no longer
       // happens: the creature was on the map, the party walked to it, and a banner announcing
       // an arrival would be describing something the player just watched not happen. What names
-      // it now is the plate over its head (DECISIONS #87).
+      // it now is the plate over its head.
       return active;
     }
 
@@ -1194,14 +1194,14 @@ export default {
      * on `last()`.
      */
     function attempt(ball = null) {
-      // **A ball is illegal until the wild is beaten** (§5.6, DECISIONS #67). It used to be
+      // **A ball is illegal until the wild is beaten** (src/encounter/index.js). It used to be
       // legal on turn one because a battle was a coin flip resolved before the animation
       // started; now the exchange is a real fight and a Pokemon that just won it is the one
       // you get to throw at. `automation` moved onto `battle:ended` for this reason — a
       // subscription still firing on `encounter:started` would get `false` forever and its
       // auto-catch would die with no console error at all.
-      // **A ball is illegal until the wild is beaten** (§5.6, DECISIONS #67). `win` is `null`
-      // while the duel is still being stepped (DECISIONS #72), so the test is `!== true` and
+      // **A ball is illegal until the wild is beaten** (src/encounter/index.js). `win` is `null`
+      // while the duel is still being stepped, so the test is `!== true` and
       // not `=== false`: a fight in progress is not a fight that was won.
       if (!active) return false;
       if (!active.battle || active.battle.win !== true) return false;
@@ -1220,7 +1220,7 @@ export default {
       // `economy` spends the ball and reports the odds; it never rolls them.
       const thrown = economy.throwBall(id, ballContext(enc, turn), {
         // The status the fight actually left it in. This was hard-coded to `'none'` until
-        // DECISIONS #72, which made the 2.5x sleep and 1.5x paralysis bonuses in `catchOdds`
+        // the turn engine, which makes the 2.5x sleep and 1.5x paralysis bonuses in `catchOdds`
         // unreachable from the only place in the game that throws a ball.
         catchRate: enc.catchRate, hpFraction: enc.hpFraction, status: enc.wildStatus ?? 'none',
       });
@@ -1250,7 +1250,7 @@ export default {
       }
 
       if (caught) {
-        // §4's payload plus the level, the ball and the IVs this module rolled. `collection`
+        // src/core/bus.js's payload plus the level, the ball and the IVs this module rolled. `collection`
         // pairs this with the `encounter:started` above and takes the IVs rather than
         // inventing its own.
         bus.emit('catch:succeeded', {
@@ -1258,9 +1258,9 @@ export default {
           level: enc.level, ivs: enc.ivs, ball: id, biome: enc.biome, index: enc.index,
         });
       } else {
-        // NOT in §4's table. Emitted anyway because a failed catch is half of what this
+        // NOT in src/core/bus.js's table. Emitted anyway because a failed catch is half of what this
         // module does and `ui`, `automation` and a future ball-counter all want it; filed in
-        // §4 so the table can catch up. Nothing subscribes today, so nothing breaks.
+        // src/core/bus.js so the table can catch up. Nothing subscribes today, so nothing breaks.
         bus.emit('catch:failed', {
           species: enc.species, shiny: enc.shiny, ball: id, odds: thrown.odds,
           shakes, turn, index: enc.index,
@@ -1281,11 +1281,11 @@ export default {
     /**
      * Nobody threw. The party settles the exchange and the wild leaves.
      *
-     * This is ARCHITECTURE §5.6's "battles are **resolved**, not turn-by-turn" doing the
+     * This is src/encounter/index.js's "battles are **resolved**, not turn-by-turn" doing the
      * work: `begin()` already ran the exchange against the lead's level, so the outcome is
      * decided, paid and reported here — the same numbers `autoResolve` would have given the
      * idle layer for the same index. It is *not* auto-catch: no ball is spent and nothing
-     * enters the dex, because §5.11 puts auto-catch in `automation` and says none of its
+     * enters the dex, because src/automation/index.js puts auto-catch in `automation` and says none of its
      * rules are on by default.
      */
     function resolveUnattended() {
@@ -1316,7 +1316,7 @@ export default {
       // it did not — and that is what `encounter:resolved` carries, because `economy` mints
       // BP off exactly that word. But `last` is what a UI reads to say what happened to the
       // *ball*, and `caught ? 'caught' : outcome` captioned a failed catch on a won exchange
-      // as **win**: `docs/progress/encounter/critic/c04-night-2130.png` prints
+      // as **win**: the readout printed
       // `outcome (decided at the throw): win` directly under `roll 0.865422 >= 0.388403` and
       // `shakes 0`. A ball was thrown and it broke out, so the word is `escaped`; only an
       // encounter nobody threw at reports the battle's verdict, which is all it has.
@@ -1327,7 +1327,7 @@ export default {
 
       // **The experience a won fight is worth, finally paid to the Pokemon that won it.**
       // `source: 'hunt'` is what lets the evolution it may unlock be taken at all — the rule
-      // lives at one point, in `pokemon.grantExp` (§0, DECISIONS #62).
+      // lives at one point, in `pokemon.grantExp`.
       const pokemon = ctx.get('pokemon');
       const bt = ctx.get('battle');
       if (win && isLive(pokemon) && typeof pokemon.grantPartyExp === 'function') {
@@ -1342,7 +1342,7 @@ export default {
       //
       // The duel itself already swapped: `battle.stepper`'s `nextAlly` sends the next conscious
       // member out mid-fight, so by the time this runs the party is either usable or wiped
-      // (DECISIONS #72). What is left here is the bookkeeping — put a conscious member at the
+      //. What is left here is the bookkeeping — put a conscious member at the
       // front for the next engagement — and the consequence, which until now was a single
       // `log.warn` and a toast suggesting a Pokemon Center the game would never take you to.
       if (isLive(pokemon) && typeof pokemon.party === 'function') {
@@ -1355,10 +1355,10 @@ export default {
       // **The loot.** Pure and index-addressed, so a hunt replayed by `offline` produces the
       // same haul as the one that was watched. It is the only way the twelve `treasure` items
       // enter the bag — they have shipped with sell prices and no source since `economy` was
-      // written — and it is what an evolution is paid for with (DECISIONS #62, #68).
+      // written — and it is what an evolution is paid for with.
       if (win) {
         const loot = dropsFor(seed, enc.index, {
-          // The species' own record, so its table is its own (DECISIONS #75). `sheet` is what
+          // The species' own record, so its table is its own. `sheet` is what
           // `rollIndex` already resolved, so this costs no lookup and no new plumbing.
           species: enc.sheet ?? null,
           biome: enc.biome, catchRate: enc.catchRate, level: enc.level, shiny: enc.shiny,
@@ -1374,7 +1374,7 @@ export default {
       }
 
       // The walk resumes wherever it stopped. `pause` and not `halt`, so a scripted loop keeps
-      // its place in the circuit rather than restarting it (§5.4).
+      // its place in the circuit rather than restarting it (src/simulation/index.js).
       const sim = ctx.get('simulation');
       if (isLive(sim) && typeof sim.pause === 'function') sim.pause(false);
 
@@ -1393,7 +1393,7 @@ export default {
      * serialised behind a `busy` flag, and itself calls `encounter.cancel()` and
      * `simulation.halt()`. Re-entering it from inside the encounter it is cancelling is how a
      * deadlock gets written. So this pays, heals, and emits: `travel` listens for
-     * `party:wiped` and does the hop on the next frame (§4, DECISIONS #72).
+     * `party:wiped` and does the hop on the next frame (src/core/bus.js).
      *
      * The money is spent before the heal so the toast can name both, and the ten per cent is of
      * the balance **now** — which is exact rather than approximate, because a closed tab mints
@@ -1447,7 +1447,7 @@ export default {
 
     /**
      * `player:enteredTile` carries the **lead Pokemon's** cell, not the trainer's
-     * (DECISIONS #27) — the Pokemon walks in front, so it is what meets the grass first.
+     * — the Pokemon walks in front, so it is what meets the grass first.
      * That is the entire reason the event exists, and this is its only consumer.
      */
     const off = [
@@ -1456,7 +1456,7 @@ export default {
 
         // **The only way a wild Pokemon is met.** A hunt walks a closed loop past fixed spawn
         // slots, steps off it to reach an occupied one, and fights the creature standing there
-        // (§5.14, DECISIONS #73). There is no second path: the tall-grass step roll that used
+        // (src/hunts/index.js). There is no second path: the tall-grass step roll that used
         // to spawn a Pokemon out of nowhere on any cell tagged `tallgrass` is gone, everywhere,
         // and with it the city's own spawn table. Nothing in this game appears from nothing.
         const slot = slotNear(cx, cz);
@@ -1471,7 +1471,7 @@ export default {
     // ---------------------------------------------------------------- api
 
     const api = {
-      // --- §5.6 -------------------------------------------------------------
+      // --- src/encounter/index.js -------------------------------------------------------------
       /**
        * The weighted species table, **weight-expanded into a plain `string[]`** so a uniform
        * pick from it is the weighted pick. `idle`, `offline` and `automation` all index it
@@ -1483,14 +1483,14 @@ export default {
       flee,
       /**
        * The idle path: a resolved battle with no UI, as a pure function of state and seed
-       * (§5.6). Keyed to the **lead's level** and not to summed party power — DECISIONS #21
+       * (src/encounter/index.js). Keyed to the **lead's level** and not to summed party power — the encounter table
        * measured that a full bench made every encounter a foregone win at 97 %.
        */
       autoResolve(enc, lead = null) {
         if (!enc) return { outcome: 'flee', species: null, rewards: { money: 0, exp: 0 } };
         const index = Number.isFinite(enc.index) ? enc.index : encounters;
         // The SAME engine the visible fight runs, so a battle resolved with nobody watching is
-        // the battle that would have been watched (DECISIONS #67). `fight` degrades to a level
+        // the battle that would have been watched. `fight` degrades to a level
         // comparison when `battle` is quarantined, which is the only place the old
         // `resolveBattle` shape survives — and it survives as a fallback, not as a second
         // model of combat.
@@ -1515,7 +1515,7 @@ export default {
        * `{ steps, encounters }`.
        *
        * `steps` no longer moves: it counted cells of tall grass the lead had walked, and
-       * indexed the "is there one?" roll that DECISIONS #73 deleted. It is kept in the shape,
+       * indexed the "is there one?" roll that the spawn-slot model removed. It is kept in the shape,
        * and in the save slice, so an existing document still loads — reading a number nobody
        * writes is harmless, and a slice key that vanished would need a migration for nothing.
        */
@@ -1548,7 +1548,7 @@ export default {
        * A showcase tool and nothing else — it draws an effect without a fight behind it, which
        * is exactly what makes the eighteen palettes and three deliveries photographable at
        * three times of day rather than only reachable by waiting for the right move
-       * (DECISIONS #79).
+       *.
        */
       stageStrike({ shape = 'contact', type = 'normal', phase = 0.25, crit = false, effectiveness = 1 } = {}) {
         const sim = ctx.get('simulation');
@@ -1566,7 +1566,7 @@ export default {
 
       /** The blows of the exchange being drawn right now — what `battle:strike` just carried. */
       strikes: () => (scene?.strikes ?? []).map((x) => ({ ...x })),
-      /** One ball per defeated wild, and the wipe's toll. Rules, not settings (DECISIONS #72). */
+      /** One ball per defeated wild, and the wipe's toll. Rules, not settings. */
       THROWS_PER_FAINT,
       WIPE_PENALTY,
       /**
@@ -1579,7 +1579,7 @@ export default {
       /**
        * Re-fits the airborne ball to the camera. Driven by the module's `lateFrame` hook; see
        * `ball.js` `refit()` for why it cannot be done once at placement time. `strikeVfx` has
-       * no equivalent method any more (DECISIONS #91): its meshes billboard by construction,
+       * no equivalent method any more: its meshes billboard by construction,
        * adding their local offset in view space rather than copying a camera quaternion, so
        * there is nothing here left for a per-frame call to do.
        */
@@ -1637,7 +1637,7 @@ export default {
        * throw that was never queued, so `advanceToStage('capture')` on an encounter nobody
        * threw at computes an infinite target — and this loop then wedged the browser's main
        * thread so completely that even a CDP evaluate timed out. It was reachable before
-       * DECISIONS #67 and unreachable in practice, because `attempt()` always queued; now that
+       * the queued-attempt implementation and unreachable in practice, because `attempt()` always queued; now that
        * a ball is illegal until the wild is beaten, a lost battle reaches it every time.
        */
       advance(n = 1) {
@@ -1662,7 +1662,7 @@ export default {
        * wobble instead of the click.
        *
        * `'ready'` targets `scene.fightEndsAt + f * T.READY` and not a fixed offset from the
-       * scene's start, because a duel's length is not fixed (DECISIONS #72 — a revive or a
+       * scene's start, because a duel's length is not fixed (a revive or a
        * bench swap can run it well past its first turn) — a constant baseline here was already
        * wrong before this file had a `'meet'` stage, it simply had nothing exercising it to say
        * so: no `STOP` mode and no test calls `advanceToStage('ready', …)` today, and the
@@ -1712,7 +1712,7 @@ export default {
        *
        * **Injected through `state`, never deep-imported** (seam rule 2 bans reaching past a
        * module's index). This is what closes the core request filed at the head of this file:
-       * §5.6 and §5.7 promise a seed and an index give the same encounter live or offline, and
+       * src/encounter/index.js and src/idle/index.js promise a seed and an index give the same encounter live or offline, and
        * before this they did not — `accrual.js` rolled its own species from its own stream with
        * its own level band, so index 400 was a different Pokemon in the two paths.
        *
@@ -1751,12 +1751,12 @@ export default {
       /** The last fight's turn-by-turn transcript, for a battle panel to replay. */
       transcript: () => (last?.battle?.transcript ?? []).map((e) => ({ ...e })),
 
-      // --- persistence (§5, the native seam) --------------------------------
+      // --- persistence (src/offline/slices.js, the native seam) --------------------------------
       saveState: () => ({ v: SAVE_VERSION, steps, encounters, ball: ballId }),
       loadState(value) {
         if (!value || typeof value !== 'object') return false;
         // Refuse a newer slice rather than guess at it, and say so at `warn` — a handled
-        // path must not spend §7's zero-error budget (DECISIONS #15).
+        // path must not spend tools/shots/shoot.js's zero-error budget.
         if (Number(value.v) > SAVE_VERSION) {
           log.warn(`encounter: save slice v${value.v} is newer than v${SAVE_VERSION} — not loaded`);
           return false;
@@ -1801,11 +1801,11 @@ export default {
   },
 
   /**
-   * `lateFrame`, not `frame` (DECISIONS #91): the ball's sprite billboard reads the camera to
+   * `lateFrame`, not `frame`: the ball's sprite billboard reads the camera to
    * face it, and the camera does not move until `rig.update()` has run between `frame` and
    * `lateFrame` (`src/main.js`) — `pokemon/index.js`'s own sprites move here for the same
    * reason. Deliberately not an animation hook either way — the moment is driven by `tick` on
-   * the fixed step so a frozen scene is a frozen picture (DECISIONS #14).
+   * the fixed step so a frozen scene is a frozen picture.
    */
   lateFrame(dt, alpha, ctx) {
     ctx.get('encounter').refit?.();

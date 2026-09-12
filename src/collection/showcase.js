@@ -1,5 +1,5 @@
 /**
- * The collection showcase (ARCHITECTURE §6).
+ * The collection showcase (src/main.js).
  *
  * A dex and a box system cannot prove themselves with a pretty frame, so this proves itself
  * with a *filled* one: a seeded stream of 260 encounters is played through the real bus
@@ -10,9 +10,9 @@
  *
  * **The sprites are the shipped art.** The box screen draws each Pokémon's real 32×32
  * south-facing overworld frame out of `assets/overworld/<species>/{normal,shiny}.png`,
- * nearest-neighbour at an integer 2× — the DECISIONS #4 layout (rows are
+ * nearest-neighbour at an integer 2× — the source sprite layout (rows are
  * `[north, west, south, east]`, so south is row 2). A coloured square standing in for a
- * Pokémon would be exactly the programmer art §0 forbids, so every cell is either the real
+ * Pokémon would be exactly the untextured placeholder art, so every cell is either the real
  * sheet or an empty slot.
  *
  * **Determinism.** The stream comes from `ctx.rng.fork('collection/showcase')`, the IVs from
@@ -69,7 +69,7 @@ const sheetUrl = (species, shiny) => `/assets/overworld/${species}/${shiny ? 'sh
 
 /**
  * One 32×32 frame out of a 64×128 sheet. Row 2 is the south-facing (front) pose — the
- * layout DECISIONS #4 measured out of the shipped art, not a guess.
+ * layout measured from the shipped art, not a guess.
  */
 function spriteStyle(species, shiny, scale) {
   const s = 32 * scale;
@@ -105,7 +105,7 @@ async function preload(urls) {
 function playStream(ctx, col) {
   const rng = ctx.rng.fork('collection/showcase');
   // Toasts are wall-clock timed and would still be fading when the harness captures, which
-  // would make the same URL give different pixels (§6.3). The bus events still fire.
+  // would make the same URL give different pixels (tools/shots/shoot.js). The bus events still fire.
   col.setQuiet?.(true);
   const pokemon = ctx.get('pokemon');
   const table = (typeof pokemon.all === 'function' ? pokemon.all() : []).filter((s) => !s.form);
@@ -131,7 +131,7 @@ function playStream(ctx, col) {
       if (caught) ctx.bus.emit('catch:succeeded', { instanceId: String(s.id), species: s.name, shiny });
       announced++;
     } else {
-      // The bus spy keeps 256 events (§2.3); 500 more would push every other module's
+      // The bus spy keeps 256 events (src/core/bus.js); 500 more would push every other module's
       // events out of the screenshot log, so the rest goes in through importBatch.
       col.sight?.(s.name, { shiny });
       if (caught) bulk.push({ species: s.name, level, shiny, biome, instanceId: String(s.id) });

@@ -4,7 +4,7 @@
  * `terrain.height()` reports the *authored* elevation of a cell, which the demo city never
  * sets — it is a flat map, so every cell reads 0. The tiles standing on those cells are not
  * at 0: AdAstra's grass/path pieces are modelled at baseY 0.07 and its dirt at 0.125
- * (DECISIONS #7). A walker planted at `terrain.height()` therefore sinks its feet into the
+ *. A walker planted at `terrain.height()` therefore sinks its feet into the
  * road and its contact shadow disappears *under* the surface it is supposed to be touching.
  *
  * So the top of each cell is measured the same way `pokemon`'s showcase measures it: over the

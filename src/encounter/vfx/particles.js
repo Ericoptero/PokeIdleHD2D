@@ -10,7 +10,7 @@
  * (wall-clock seconds, gated `if (!config.timeFrozen)` by its caller). This file is driven
  * entirely by `uPhase`, the strike's own `[0,1]` — the same quantity `strikes.js` (this
  * system's predecessor) already used for a frozen screenshot to be reproducible. There is no
- * clock here to gate at all (DECISIONS #14).
+ * clock here to gate at all.
  *
  * **Continuous emission, not a discrete burst call.** Each particle has a birth point spread
  * evenly across `[uTravelStart, uTravelEnd]` (`aSeed.x`), and originates at `mix(uFrom, uTo,

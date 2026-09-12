@@ -7,19 +7,19 @@
  * type (the balloon's paper stays neutral — only the move name takes the colour, so a bright
  * type does not turn the whole balloon into a wash nobody can read). That is *text over a place
  * in the world*, which is a shape this project did not have: `ui` is a HUD anchored to the
- * screen (DECISIONS #34a) and everything in the world is a textured quad.
+ * screen and everything in the world is a textured quad.
  *
  * **It is drawn on the HUD canvas, not in the scene**, and the reason is arithmetic rather than
  * convenience. Text in 3-D would need a second font atlas as a texture, one draw call per
  * balloon, and its own filtering story. Projected onto the 2-D canvas it costs **zero draw
  * calls**, reuses the bitmap font and the panel art the rest of the UI is made of, and — because
  * the camera is orthographic and the UI canvas is exactly the renderer's internal buffer
- * (§2.7, `screen.js`) — the projection is exact and lands on the same pixel grid the world
+ * (src/core/render.js, `screen.js`) — the projection is exact and lands on the same pixel grid the world
  * does. There is no depth divide to make the balloon disagree with the sprite under it.
  *
  * **Its lifetime is counted in sim steps**, like every other beat `encounter` owns, so a frozen
  * frame is reproducible and a screenshot of turn three is the same picture every time
- * (DECISIONS #14).
+ *.
  */
 
 import { C, panel } from './theme.js';
@@ -93,7 +93,7 @@ export function makeCallouts() {
         // the screen still has something to say.
         // **The two sides lean apart, and that is not decoration.** A sprite is 2.83 world
         // units tall, which under the 45-degree camera is exactly two tiles of ground depth
-        // (DECISIONS #18) — and `encounter` stages the wild two cells in front of the party's
+        // — and `encounter` stages the wild two cells in front of the party's
         // Pokemon. So a balloon lifted clear of the wild's head lands precisely where the
         // Pokemon is standing, every time, and no vertical lift can separate them. Leaning the
         // ally's line left and the wild's right does, and it reads the way a fight should — and

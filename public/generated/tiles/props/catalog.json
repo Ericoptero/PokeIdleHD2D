@@ -2,7 +2,7 @@
  "tileset": "props",
  "unitsPerCell": 1,
  "axis": "y-up, +x east, +z south",
- "source": "assets/props (authored — DECISIONS #3, #15)",
+ "source": "assets/props (authored)",
  "materials": [
   {
    "id": 0,

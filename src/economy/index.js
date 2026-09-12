@@ -1,5 +1,5 @@
 /**
- * economy — currency, items and the shop (ARCHITECTURE §5.9).
+ * economy — currency, items and the shop (src/economy/index.js).
  *
  * The contract is six functions — `balance`, `add`, `spend`, `inventory`, `buy`, `sell`,
  * `prices` — and everything else here exists to make those six mean something:
@@ -69,7 +69,7 @@ const IDLE_UNLOCKS = Object.freeze({ shinycharm: 'shiny-charm' });   // idle.gra
 export default {
   id: 'economy',
   needs: [],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['city', 'terrain'],
 
   init(ctx) {
@@ -96,7 +96,7 @@ export default {
 
     const state = makeEconomyState({
       onChange(change) {
-        // §4 lists exactly one economy event, and this is it. Item, upgrade and buff
+        // src/core/bus.js lists exactly one economy event, and this is it. Item, upgrade and buff
         // changes go to local subscribers instead of inventing bus events the contract
         // does not have — see the coreRequest in the round report.
         if (change.kind === 'currency') {
@@ -122,7 +122,7 @@ export default {
     for (const c of CURRENCIES) {
       const start = c.id === 'money' ? (ctx.config?.fieldStartMoney ?? c.start) : c.start;
       // `earned: false` keeps the opening purse out of `totalEarned`, which is what the shop
-      // gates read (DECISIONS #75).
+      // gates read.
       if (start > 0) state.add(c.id, start, { reason: 'start', raw: true, earned: false });
     }
     /**
@@ -239,7 +239,7 @@ export default {
     }
 
     bus.on('catch:succeeded', (payload) => {
-      // A catch clears that species' debt and nobody else's (DECISIONS #61).
+      // A catch clears that species' debt and nobody else's.
       if (payload?.species) pity.reset(resolveSpecies(payload.species));
       sawCatchEvent = true;
       if (payload?.species) seenCaught.add(String(payload.species));
@@ -318,7 +318,7 @@ export default {
       if (unit <= 0) return false;                       // key items and Master Balls
       // **Sell-lock is not checked here, and that is deliberate.** It is an *auto*-sell lock;
       // a player standing at the counter asking to sell something is not the thing it protects
-      // against. `automation`'s pass is where it bites (DECISIONS #75).
+      // against. `automation`'s pass is where it bites.
       if (!state.take(id, qty, `sell:${id}`)) return false;
       state.add('money', unit * qty, `sell:${id}`);
       state.bump('itemsSold', qty);
@@ -367,9 +367,9 @@ export default {
       });
 
       // **The ledger is credited before the odds are read**, so the throw that crosses 125 % is
-      // the one that succeeds rather than the one after it (DECISIONS #61). This module still
+      // the one that succeeds rather than the one after it. This module still
       // does not roll: it spends the ball, remembers what was spent, and reports a number —
-      // `encounter` compares it to a coin from its own stream (#35(d)).
+      // `encounter` compares it to a coin from its own stream.
       const species = context?.species ?? null;
       if (species) pity.credit(species, ballId);
       const floored = species ? pity.apply(p0, species) : { odds: p0, p0, t: 0, sum: 0, price: 0 };
@@ -511,7 +511,7 @@ export default {
     }
 
     const api = {
-      // --- ARCHITECTURE §5.9 ------------------------------------------------
+      // --- src/economy/index.js ------------------------------------------------
       balance: (c = 'money') => state.balance(c),
       add: (c, n, reason) => state.add(c, n, reason),
       spend: (c, n, reason) => state.spend(c, n, reason),
@@ -527,7 +527,7 @@ export default {
        * bag for `passive` items — for no behaviour, and would make a re-categorised item
        * unrecoverable: it would sit in the wrong container in every existing save with no way
        * for a migration to guess. Derived, an item that changes category moves for free
-       * (DECISIONS #75).
+       *.
        *
        * Both return the SAME row shape, so `ui` renders either with one function.
        */
@@ -537,7 +537,7 @@ export default {
       /**
        * What a consumable is **for** — finer than its category, because three of the brief's
        * four purchase classes are all `medicine`. `automation` orders a budget by it and may
-       * not import this module's internals, so it comes through the API (DECISIONS #78).
+       * not import this module's internals, so it comes through the API.
        */
       purchaseClass: (id) => purchaseClass(item(id)),
       purchaseOrder: () => [...PURCHASE_ORDER],
@@ -575,15 +575,15 @@ export default {
       catchMultiplier: (ballId, context) => ballMultiplier(ballId, context),
 
       /**
-       * The trainer's level, `travel`'s gate (§5.16).
+       * The trainer's level, `travel`'s gate (src/travel/index.js).
        *
        * Derived from `battlesWon`, which this module has counted since it was written — so
        * there is no new state, no save slice and no migration, and a level that disagreed with
-       * the battle count is not expressible (DECISIONS #70).
+       * the battle count is not expressible.
        */
       trainer: () => trainerFromWins(progress().battlesWon),
 
-      // --- what a Pokemon is worth, and the pity that follows from it (§5.9) ---
+      // --- what a Pokemon is worth, and the pity that follows from it (src/economy/index.js) ---
       /** Derived from capture rate, base-stat total and whether it is a final form. */
       speciesPrice: (nameOrSpecies, opts) => speciesPrice(resolveSpecies(nameOrSpecies), opts),
       /** The meter a UI draws: how much has been spent on this species against its price. */
@@ -655,7 +655,7 @@ export default {
       incomeModel: () => ({ ...INCOME_MODEL }),
       selfTest,
 
-      /** Item, upgrade and buff changes, which §4 has no bus event for. */
+      /** Item, upgrade and buff changes, which src/core/bus.js has no bus event for. */
       onChange(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
 
       // --- persistence (the native seam src/offline/slices.js prefers) -------

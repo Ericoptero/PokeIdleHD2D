@@ -4,7 +4,5 @@ dist/
 *.log
 .vite/
 
-# Everything the gate writes. A gate run must never dirty the working tree, or the agent
-# that ran it cannot tell its own edits from capture noise. Screenshots worth keeping are
-# committed deliberately, under docs/progress/.
+# Generated validation reports and captures.
 shots/out/

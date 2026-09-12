@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Build `public/generated/moves.json` and `public/generated/learnsets.json` — the committed
- * battle-data snapshot (ARCHITECTURE §5.17; nothing is fetched at runtime).
+ * battle-data snapshot (src/battle/index.js; nothing is fetched at runtime).
  *
  *   node src/pokemon/tools/build-battle-data.js
  *
@@ -140,7 +140,7 @@ function trimMove(id, m) {
     if (sec.self?.boosts) { s.bo = sec.self.boosts; s.sb = 'self'; }
     // A secondary with no modelled effect is not a secondary — dropping it keeps the engine
     // from rolling a coin whose outcome it would then ignore, which would move every
-    // subsequent draw in the turn (see DECISIONS #61 on unconditional draws).
+    // subsequent draw in the turn (unconditional draws keep RNG streams aligned).
     if (s.st || s.sv || s.bo) out.ss = s;
   }
   return out;

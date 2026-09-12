@@ -9,7 +9,7 @@
  * **Why this exists.** Every entry point into this game can fail the same silent way: the
  * page loads, `__READY__` goes true, no error is logged, and the frame is an empty blue void
  * at nine draw calls. `shoot.js` would call that a pass — it budgets a *ceiling* on draw
- * calls and never a floor. Three such bugs shipped in one commit (DECISIONS #70):
+ * calls and never a floor. Three such bugs shipped in one commit:
  * `?scene=hunt-cave` booted into nothing because the trainer-level gate did not stand down
  * for it, and a save naming a now-locked scene did the same but would have reached a player.
  * All three were found by re-reading the code. None of them was found by a test, because

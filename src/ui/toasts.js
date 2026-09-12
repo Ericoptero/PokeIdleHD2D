@@ -1,12 +1,12 @@
 /**
- * Toasts. Several modules already emit `ui:toast` (§4) — `collection` on a new dex entry or
+ * Toasts. Several modules already emit `ui:toast` (src/core/bus.js) — `collection` on a new dex entry or
  * a shiny, `automation` when a rule fires, `economy` on a Wonder Trade voucher, `offline` on
  * a welcome-back — and until now nothing drew them.
  *
  * They stack from the bottom of the screen upward, newest at the bottom, and each carries a
  * coloured spine keyed to `kind` so a warning reads as one before the sentence does. Ageing
  * is driven by the frame delta, and **stops entirely in showcase mode**: a screenshot of the
- * same URL has to give the same pixels (ARCHITECTURE §6.3), and a toast that is 400 ms old
+ * same URL has to give the same pixels (tools/shots/shoot.js), and a toast that is 400 ms old
  * in one capture and 900 ms old in the next is a diff.
  */
 

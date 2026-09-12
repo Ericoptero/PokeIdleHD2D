@@ -1,9 +1,9 @@
 /**
- * preview — a neutral asset viewer (integrator-owned).
+ * preview — a neutral asset viewer.
  *
  * Stages the models of any generated tileset in a labelled grid so an agent can look at raw
  * art without going through a gameplay scene. This exists because "screenshot it and look at
- * it" is the project's only accepted evidence (ARCHITECTURE §8), and an artist working on,
+ * it" is the project's only accepted evidence (src/main.js), and an artist working on,
  * say, the Pokemon Center should not have to wait for the city module to place it.
  *
  *   /?showcase=preview&mode=<tileset-slug>[&filter=building][&cols=6][&pad=2]
@@ -74,7 +74,7 @@ export default {
         staged = models.map((m, i) => ({ ...m, at: [placements[i].cx, placements[i].cz] }));
 
         // The widest rung that still holds the whole sheet of models. Zoom is a three-rung
-        // ladder now, not a solved-for distance (DECISIONS #60), so this fits rather than fills.
+        // ladder now, not a solved-for distance, so this fits rather than fills.
         ctx.three.rig.frame(floorW / 2 - pad, floorH / 2 - pad, 0,
           { ppu: ctx.three.rig.fitFraming(floorW, floorH).ppu });
         ctx.log.info(`preview "${slug}": ${models.length} models, ${cols}x${rows}, ` +

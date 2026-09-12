@@ -3,7 +3,7 @@
  * The move table, the learnsets, and which four moves a Pokemon actually has.
  *
  * Data comes from `public/generated/{moves,learnsets}.json`, built by
- * `src/pokemon/tools/build-battle-data.js` and committed (ARCHITECTURE §5.17). This file never
+ * `src/pokemon/tools/build-battle-data.js` and committed (src/battle/index.js). This file never
  * fetches: it is handed the parsed objects, so the browser can `fetch` them and the Node
  * selftest can read them off disk with the same code underneath.
  *
@@ -82,12 +82,12 @@ export function learnset(species) {
  * **The last four learnable, not the first four**, which is how the games behave once a
  * Pokemon has been levelling for a while — a level-40 Pikachu that still knew Growl and
  * Tail Whip would lose to a Caterpie. `priority` is the player's per-Pokemon preference
- * list (§5.17): anything named there is kept ahead of the recency rule, so a favourite
+ * list (src/battle/index.js): anything named there is kept ahead of the recency rule, so a favourite
  * never falls off the end.
  *
  * Deterministic and RNG-free: two builds of the same species at the same level always agree,
  * which is what lets `encounter/selftest.js`'s golden encounters survive this refactor
- * (DECISIONS #61(g)) — moves are *derived*, never rolled.
+ * — moves are *derived*, never rolled.
  *
  * @returns {{id:string, pp:number, maxPp:number}[]}
  */
@@ -118,7 +118,7 @@ export function movesFor(species, level, { priority = [] } = {}) {
   // moves — while the route wildlife it met had three. Measured against the whole forest
   // table, it won 33% of its fights at level 5 and **22% at level 12**, getting *worse* as it
   // levelled, which is the shape of a Pokemon whose slots are filling up with moves `choose`
-  // will never pick over a damaging one (DECISIONS #68).
+  // will never pick over a damaging one.
   //
   // So the recency rule stands, and then the oldest status slots are traded for the newest
   // damaging moves the species knows and is not already carrying. A species that genuinely has
@@ -157,7 +157,7 @@ export const resolveMove = (id) => (id === STRUGGLE_ID ? STRUGGLE : MOVES[id] ??
 /**
  * What a move is worth against this defender, ignoring the dice.
  *
- * Used to pick a move (§5.17: "the highest expected damage the Pokemon can still pay the PP
+ * Used to pick a move (src/battle/index.js: "the highest expected damage the Pokemon can still pay the PP
  * for"). It is deliberately *not* the damage formula — it does not need the level term or the
  * random band to rank two moves, and keeping it separate means the ranking cannot drift when
  * the formula gains a term.

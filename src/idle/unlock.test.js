@@ -5,12 +5,6 @@
  * (src/economy/currencies.test.js). Three files because the seams forbid a test in one module
  * importing another's internals — the loop is stated one module at a time.
  *
- * The `it.fails` case is this module's half of the deadlock: a fresh save, no unlocks, an hour
- * of folding, and the research it minted. It is red today for the real reason (`accrual.js`
- * sets `win = false` without `flags.battle`; the control case below proves the function
- * itself works), and the STATUS token ties it to the `open` entry that tracks the fix — seams
- * rule 9 refuses either half without the other, so the expected failure cannot outlive the
- * bug and the bug cannot be closed while the test still expects to fail.
  */
 import { describe, it, expect } from 'vitest';
 import { simulate, production, UNLOCKS } from './accrual.js';
@@ -47,7 +41,7 @@ describe('research from the fold', () => {
     expect(gains.wins).toBe(0);
   });
 
-  // STATUS:research-unmintable
+  // Known deadlock: earning research needs auto-battler, but unlocking hunt costs research.
   it.fails('an hour of folding on a fresh save mints some research', () => {
     const gains = simulate(freshSaveState(), HOUR, SEED);
     expect(gains.wholeEncounters).toBeGreaterThan(0);

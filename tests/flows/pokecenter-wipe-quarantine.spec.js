@@ -6,9 +6,7 @@
  * is the one quarantine that forces the failure branch for real (`go('pokecenter')` fails
  * because `pokecenter` never registered a `travel` destination at all — confirmed by reading
  * `travel/index.js`'s `destinations()`, which only pushes the row when `isLive(pokecenterApi())`
- * — not because the destination exists and refuses), and it is the one most specific to this
- * slice's new fallback code, so it earns a persisted test rather than only the manual matrix
- * the slice's Result section re-ran by hand.
+ * — not because the destination exists and refuses), this exercises the fallback when the destination is unavailable.
  */
 import { test, expect } from '@playwright/test';
 import {
@@ -39,11 +37,11 @@ async function forceWipe(page) {
 test('?break=pokecenter: a hunt wipe falls back to the city pavement instead of stranding the party', async ({ page }) => {
   // Every console message, not only errors: the one signal that proves `travel`'s
   // `party:wiped` listener actually TRIED `go('pokecenter')` (and got refused) rather than
-  // jumping straight to the old fallback the way the pre-slice listener always did — the two
-  // are otherwise indistinguishable from the outside, since the pre-slice code landed in
+  // jumping straight to the old fallback the way the previous listener always did — the two
+  // are otherwise indistinguishable from the outside, since the previous code landed in
   // exactly the same place on the pavement unconditionally. `travel/index.js`'s `find()` logs
   // exactly `travel: no destination "pokecenter"` on a failed `go()`; this line does not exist
-  // in any code path the pre-slice listener could reach.
+  // in any code path the previous listener could reach.
   const consoleText = [];
   page.on('console', (m) => consoleText.push(m.text()));
 
@@ -77,7 +75,7 @@ test('?break=pokecenter: a hunt wipe falls back to the city pavement instead of 
   expect(player.dir, 'the fallback teleport faces north (2), toward the (quarantined) door').toBe(2);
 
   // The distinguishing signal: `go('pokecenter')` was really attempted and really refused —
-  // this is the line the pre-slice `party:wiped` listener could never produce, because it
+  // this is the line the previous `party:wiped` listener could never produce, because it
   // never called `go('pokecenter')` at all.
   expect(consoleText.some((t) => t.includes('no destination "pokecenter"')),
     `expected a "no destination \\"pokecenter\\"" warning proving go('pokecenter') was tried and refused; console seen: ${JSON.stringify(consoleText.slice(-40))}`)

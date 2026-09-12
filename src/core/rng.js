@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Seeded RNG. `Math.random()` is banned in src/ (ARCHITECTURE §2.5) — every random
+ * Seeded RNG. `Math.random()` is banned in src/ (src/core/rng.js) — every random
  * decision the game makes must be replayable from a seed and an input log.
  *
  * xoshiro128** : 128 bits of state, fast, and free of the low-bit weakness that makes

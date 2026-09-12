@@ -42,7 +42,7 @@ import { makePalette, set0Outward, SET_CASE_SIG } from './palette.js';
 /**
  * `MapDraft` comes off `terrain`'s **published API**, not off `terrain/draft.js`.
  *
- * A cross-module deep import is banned (ARCHITECTURE §5, and `tools/seams/run.js` fails the
+ * A cross-module deep import is banned (`tools/seams/run.js` fails the
  * build on it), and the ban is right even in a test: a selftest that reaches past a module's
  * index is a second definition of that module's contract, and it goes stale silently. So the
  * descriptor is initialised against a stub context and the class is taken from what it
@@ -109,7 +109,7 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 
 {
   // The whole point of interpolating: neighbours must be close, or a threshold on this
-  // noise draws a checkerboard and the eye finds the grid instantly (DECISIONS #30e).
+  // noise draws a checkerboard and the eye finds the grid instantly.
   let worst = 0;
   for (let z = 0; z < 60; z++) {
     for (let x = 0; x < 60; x++) {
@@ -388,7 +388,7 @@ for (const biome of BIOMES) {
   // How much ground a framing actually covers, in cells, at a given zoom.
   //
   // The camera is orthographic, so the frustum is the internal buffer over `pixelsPerUnit`
-  // (DECISIONS #60) — no distance, no fov. The reference buffer is 640x360, which is what both
+  // — no distance, no fov. The reference buffer is 640x360, which is what both
   // 1920x1080 and the gate's own 1280x720 now produce. A run of L cells in Z covers L*sin(45)
   // of *screen* height under the 45-degree pitch, so the visible depth is the frustum height
   // over sin(45) — about 1.41x what the height alone suggests. `cameraLookAhead` lifts the aim
@@ -407,7 +407,7 @@ for (const biome of BIOMES) {
   };
 
   // Every camera framing has to have somewhere to stand, or `--preset` silently shows the
-  // default view and a whole contact sheet is one picture four times (DECISIONS #28j).
+  // default view and a whole contact sheet is one picture four times.
   for (const [name, spec] of Object.entries(biome.presets ?? {})) {
     const m = a.draft.marker(spec.marker ?? name);
     check(`${biome.id}: preset "${name}" has a marker`, !!m, `wants "${spec.marker ?? name}"`);
@@ -415,7 +415,7 @@ for (const biome of BIOMES) {
       check(`${biome.id}: preset "${name}" is inside the map`,
         m.cx >= 0 && m.cz >= 0 && m.cx < biome.w && m.cz < biome.h, JSON.stringify(m));
       // The framing arithmetic, asserted rather than remembered — and now asserted per
-      // preset, because the zoom is per preset (DECISIONS #60). A marker nearer to an edge
+      // preset, because the zoom is per preset. A marker nearer to an edge
       // than the frame is deep frames the void beyond the map; `cave-mouth` shipped exactly
       // that once, and the bottom third of the frame was black.
       const { wide: mw, north: mn, south: ms } = framingCells(spec.ppu ?? 32);
@@ -618,7 +618,7 @@ function floodFrom(draft, cx, cz) {
 }
 
 // ---------------------------------------------------------------------------
-// The loop and its slots (DECISIONS #65)
+// The loop and its slots
 // ---------------------------------------------------------------------------
 // `findLoop` and `slotsForLoop` are pure functions of a draft, so unlike everything above
 // them they mean exactly the same thing here as they do on the shipped map. What they are
@@ -670,7 +670,7 @@ function floodFrom(draft, cx, cz) {
       slots.every((s2) => room.passable(s2.cx, s2.cz, 0)));
 
     /**
-     * The detour's geometry, asserted rather than reasoned about (DECISIONS #73).
+     * The detour's geometry, asserted rather than reasoned about.
      *
      * Every offset `slotsForLoop` tries is axial, so the midpoint between the path cell and
      * the slot is ONE step off the circuit — Chebyshev 1 from both ends and never a loop cell,

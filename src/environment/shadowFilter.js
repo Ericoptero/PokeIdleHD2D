@@ -3,7 +3,7 @@
  * the distance from the thing that casts it.
  *
  * ── Why this file exists ─────────────────────────────────────────────────────────────────
- * ARCHITECTURE §2.7 asks for `PCFSoftShadowMap`, and `core/render.js` sets exactly that.
+ * src/core/render.js asks for `PCFSoftShadowMap`, and `core/render.js` sets exactly that.
  * three r185 **deprecated that constant**: `WebGLShadowMap.render()` substitutes
  * `PCFShadowMap` on the first shadow pass and moves on (`WebGLShadowMap.js:99`). The
  * substitute is a 5-tap Vogel disk whose radius is `LightShadow.radius * texelSize`, and
@@ -12,7 +12,7 @@
  * One texel of a 2048² map over a 56-unit ortho box is `56 / 2048 = 0.0273` world units.
  * So every shadow in the game had a penumbra a thirty-sixth of a tile wide — a razor edge on
  * a bench, a tree, a roof and a fence alike, at every hour. That is the "HARD-EDGED SHADOWS"
- * three separate module critics filed (DECISIONS #52).
+ * three separate module critics filed.
  *
  * ── What round 7 shipped, and what it cost ───────────────────────────────────────────────
  * Round 7 replaced three's 5-tap kernel with a 24-tap one and rode `LightShadow.radius` on
@@ -31,7 +31,7 @@
  * and PCSS wants a *depth value* out of the shadow map. three's PCF map is a
  * `sampler2DShadow` — `WebGLShadowMap` sets `compareFunction` on the depth texture — and
  * reading a comparison texture through a plain `sampler2D` does not return a number, it
- * **drops the whole draw call silently** (DECISIONS #43 paid a round for that one). We do not
+ * **drops the whole draw call silently**. We do not
  * own `core/render.js` and cannot turn the comparison off without taking the free hardware
  * 2×2 filtering, and `castShadows.js`'s own read of the map, down with it.
  *
@@ -98,12 +98,9 @@
  * that makes `|offset|` small exactly where a contact shadow lives.
  *
  * ── Why a chunk override and not a change to `core/render.js` ────────────────────────────
- * Folder ownership (ARCHITECTURE §1): `src/core/` is the integrator's. §2.7 says the pipeline
- * is "owned by core, **tuned** by environment", and this is a tune written at runtime, exactly
- * like the per-hour `shadow.bias`/`normalBias` pair `index.js` already writes onto the light.
- * **Open:** this belongs in `render.js` rather than here, and it should stop asking for a
- * deprecated constant. Until someone moves it, it lives here, and every part of it is
- * *reversible from a URL* so it can be A/B'd without a code change:
+ * `core/render.js` creates the pipeline; environment installs the runtime shadow tuning,
+ * like the per-hour `shadow.bias`/`normalBias` values in `index.js`. URL controls make
+ * each part reversible for visual comparison:
  *
  *     ?envNoShadowFilter=1   three's own 5-tap kernel, the round-6 rig
  *     ?envNoPcss=1           round 7 exactly: one penumbra width per frame, no blocker search
@@ -141,7 +138,7 @@ function devNum(name, fallback) {
  *
  * The count buys exactly one thing — the dither — because the standard error of a coverage
  * estimate falls as `1/sqrt(n)`: 0.45 at three's 5 taps, 0.29 at 12, 0.20 at 24, 0.18 at 32.
- * Swept in DECISIONS #52(c) over the golden-hour lawn, measuring high-frequency energy:
+ * Swept over the golden-hour lawn, measuring high-frequency energy:
  *
  *      taps      5      12      24      32        radius 1 (the old hard shadow)
  *      hf     2.874   2.440   2.301   2.282       2.804
@@ -159,7 +156,7 @@ const TAPS = Math.max(4, Math.min(64, Math.round(devNum('envShadowTaps', 24))));
  * at 60 fps throughout. Read that for exactly what it is: the frame is **vsync-locked**, so a
  * p95 frame *interval* cannot resolve the GPU cost of a shader — 96 taps reads the same 16.8 as
  * 72. What it does establish is that four times the fetch count does not break the lock, so the
- * §7 budget (≥ 50 fps, p95 ≤ 20 ms) is met with headroom nobody has measured the bottom of. At
+ * tools/shots/shoot.js budget (≥ 50 fps, p95 ≤ 20 ms) is met with headroom nobody has measured the bottom of. At
  * `pixelScale 3` the shadow lookup runs at 640×360, which is why that is unsurprising.
  */
 const SEARCH = Math.max(4, Math.min(32, Math.round(devNum('envPcssSearch', 8))));
@@ -305,7 +302,7 @@ ${searchBlock}
  * Anchoring on a brace scan rather than on the exact text three ships is what makes this
  * survive a patch release. If the anchor is ever gone the install is skipped and the game
  * renders with three's own filter — a hard shadow is a defect, a failed string replace that
- * emits invalid GLSL is a black screen, and the dev server has to stay loadable (§2.1).
+ * emits invalid GLSL is a black screen, and the dev server has to stay loadable (src/core/registry.js).
  */
 function findGetShadow(src) {
   const at = src.indexOf('float getShadow( sampler2DShadow shadowMap');

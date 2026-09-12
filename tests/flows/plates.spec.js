@@ -2,7 +2,7 @@
  * Nameplates (`src/ui/plates.js`) read the live world at paint time, and the one property
  * worth pinning end to end — because `src/ui/plates.test.js`'s vitest suite proves `draw()`'s
  * geometry with a fake painter and cannot reach `read()`'s `ctx.get` chain at all — is the one
- * DECISIONS #72 already warns a UI can get wrong: HP is written back to a party instance only
+ * the fight state a UI can get wrong: HP is written back to a party instance only
  * when a duel *ends*, so a plate reading `pokemon.lead()` mid-fight would show a full bar over
  * a Pokémon about to faint. `panels/battle.js` solved this once already; `plates.js` copies the
  * fix rather than re-deriving it, and this is the flow that keeps them from drifting apart.
@@ -55,7 +55,7 @@ test('a plate over the party tracks the live duel, not the stale party record', 
   expect(lead.bar.hp, "the plate's HP is the live duel's, not the party record's").toBe(Math.max(0, liveState.a.hp));
   expect(lead.bar.maxHp).toBe(Math.max(1, liveState.a.maxHp));
 
-  // And the record itself has NOT been written back yet mid-duel (DECISIONS #72) — the whole
+  // And the record itself has NOT been written back yet mid-duel — the whole
   // reason `plates.js` cannot simply read `pokemon.lead()`.
   const stillFighting = await call(page, 'encounter', 'active');
   expect(stillFighting.battle.win, 'the duel has not ended yet').toBeNull();

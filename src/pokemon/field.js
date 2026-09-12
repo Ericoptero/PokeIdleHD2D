@@ -1,7 +1,7 @@
 /**
  * The overworld sprite field: every creature, trainer and NPC billboard in the scene, in
  * one InstancedMesh, plus one more for their contact shadows. Two draw calls for the whole
- * cast (ARCHITECTURE §7), whatever the cast is.
+ * cast (tools/shots/shoot.js), whatever the cast is.
  *
  * The billboard is an upright quad with its origin at the bottom-centre, so it stands on
  * the ground and is depth-tested against the world like anything else: a tree one cell
@@ -12,7 +12,7 @@
  *
  * Frames come from a shared atlas. Each instance carries the uv rect of the frame it is
  * showing in an `aUvRect` attribute, patched into the material the same way the tile world
- * patches its global-mapping offset (DECISIONS #8), so animating a hundred sprites costs
+ * patches its global-mapping offset, so animating a hundred sprites costs
  * one buffer upload and no extra draw calls.
  */
 
@@ -53,7 +53,7 @@ const UV_CHUNK = 'vMapUv = aUvRect.xy + uv * aUvRect.zw;';
  * (1512x982 gave 504x328, 1600x900 gave 534x301). That needed a `snapTo(v, phase)` here, and
  * it needed `render.js`'s own camera snap to apply the same phase, which it never did — so the
  * world sat on pixel centres while the sprites sat on edges. `resize()` now rounds both
- * internal dimensions up to **even** (DECISIONS #60), which costs one pixel of overscan and
+ * internal dimensions up to **even**, which costs one pixel of overscan and
  * makes the phase zero everywhere. Plain `Math.round` is correct; a phase would now be a bug.
  */
 
@@ -143,12 +143,12 @@ export class SpriteField {
     // `vMapUv` only exists once the material has a map, so the patch has to wait for the
     // atlas. Without this guard an empty scene — the game booting with no sprites spawned
     // yet — compiles a shader that assigns to an undeclared identifier and logs a console
-    // error, which is a budget failure on its own (ARCHITECTURE §7).
+    // error, which is a budget failure on its own (tools/shots/shoot.js).
     this.material.onBeforeCompile = (shader) => {
       // The flat-shadow swap is independent of the atlas, so it is applied either way; the
       // uv-rect patch is not, because `vMapUv` only exists once the material has a map.
       // Without that guard an empty scene compiles a shader that assigns to an undeclared
-      // identifier and logs a console error, which is a budget failure on its own (§7).
+      // identifier and logs a console error, which is a budget failure on its own (tools/shots/shoot.js).
       shader.vertexShader = shader.vertexShader
         .replace('#include <shadowmap_vertex>', FLAT_SHADOW_CHUNK);
       if (!this.material.map) return;
@@ -341,7 +341,7 @@ export class SpriteField {
 
     // --- the pixel grid ----------------------------------------------------
     // Sprites are drawn at a whole number of internal pixels per source texel, on the grid,
-    // whatever the camera distance is (DECISIONS #58). Everything the per-actor maths needs
+    // whatever the camera distance is. Everything the per-actor maths needs
     // is read once here rather than per sprite.
     //
     // The magnification is **one number for the whole cast**, taken at the camera's focus

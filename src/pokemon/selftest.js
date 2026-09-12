@@ -259,7 +259,7 @@ check('23. …and the body was recomputed', charm.maxHp === battle.stats(lookup(
 // Check 25 used to read "a full heal restores maxHp" and heal a Pokemon at 0 HP. That was the
 // behaviour, and the behaviour was wrong: it made a Potion a working Revive and made "fainted
 // Pokemon cannot participate" unenforceable, because the first auto-heal rule would resurrect
-// whatever had just gone down (DECISIONS #72). The check moved with the rule.
+// whatever had just gone down. The check moved with the rule.
 const hurt = mint('pikachu', 30);
 INST.damage(hurt, 1e9);
 eq('24. damage floors at zero, and zero is fainted', hurt.hp, 0);
@@ -296,7 +296,7 @@ eq('28. …the spent PP', round.moves[0].pp, 3);
 eq('29. …and the status', round.status, 'par');
 eq('30. …and rebuilds maxHp rather than trusting it', round.maxHp, saved.maxHp);
 
-// §5: derived state is REBUILT, never trusted from the file.
+// Derived state is REBUILT, never trusted from the file.
 const lying = INST.serialize(saved);
 lying.hp = 99999;
 const corrected = INST.deserialize(lying, lookup, battle);
@@ -342,7 +342,7 @@ async function bootPartyOf(seed, names) {
 
 const SPECIES_POOL = ['oshawott', 'snivy', 'tepig', 'pikachu', 'charmander', 'squirtle', 'bulbasaur', 'eevee'];
 
-// Golden: the exact case the vitest unit test pins too (DECISIONS #35 — a literal, not a
+// Golden: the exact case the vitest unit test pins too (a literal, not a
 // second live call), kept here as well so the property this whole module runs under Node has
 // its own concrete witness, independent of vitest ever running.
 {

@@ -18,7 +18,7 @@
  *     A gap is a replay of time that has already passed; the party that earned it is the
  *     party that existed then, which is also exactly what `offline` does with one call.
  *   - Step size adapts. Anything under `MIN_STEP_S * maxSteps` (about eight minutes at the
- *     default ceiling) runs in the fixed 1-second steps ARCHITECTURE §5.7 asks for. Beyond
+ *     default ceiling) runs in the fixed 1-second steps src/idle/index.js asks for. Beyond
  *     that, 1-second steps would mean 43 200 calls for a twelve-hour gap, so slices widen
  *     just enough to fit the step ceiling — which changes nothing, because the model is
  *     additive. Each trace entry records the slice width actually used.
@@ -26,7 +26,7 @@
 
 import { simulate } from './accrual.js';
 
-/** The step size §5.7 specifies, and the one used whenever the backlog is small. */
+/** The step size src/idle/index.js specifies, and the one used whenever the backlog is small. */
 export const MIN_STEP_S = 1;
 /** Widest slice a big backlog may use. Wide enough to drain 12 h in a few frames. */
 export const MAX_STEP_S = 300;
@@ -153,7 +153,7 @@ export function makeDrain({ seed, snapshotState, now = () => performance.now() }
      * @param {Object} [opts]
      * @param {number} [opts.budgetMs]  wall-clock ceiling for this call
      * @param {number} [opts.maxSteps]  ceiling on `simulate` calls
-     * @param {number} [opts.maxS]      ceiling on simulated seconds (the §5.7 `flush(cap)`)
+     * @param {number} [opts.maxS]      ceiling on simulated seconds (the src/idle/index.js `flush(cap)`)
      * @returns {{appliedS:number, steps:number, ms:number, worstStepMs:number,
      *            gains:Object|null, remainingS:number, finished:boolean, catchup:boolean}}
      */

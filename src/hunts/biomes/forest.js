@@ -13,9 +13,9 @@
  *     open to the south, because the camera sits south of the focus and a closed south edge
  *     puts a 4.5-unit canopy between the viewer and the thing the scene is about.
  *  3. Everything else is **wood**: trees packed at ~2 cells so their crowns overlap. A tree
- *     is 2x2 with a horizontal canopy slice at y 1.6 and 3.7 (DECISIONS #22), and those
+ *     is 2x2 with a horizontal canopy slice at y 1.6 and 3.7, and those
  *     slices are what read at a 45-degree camera — overlapped they make a mass, isolated
- *     they make the vertical sliver DECISIONS #29 measured.
+ *     they make the vertical sliver visible at this camera angle.
  *  4. **Undergrowth** grows in the gap between the two: tall grass thickening away from the
  *     path, hedges at the tree line, and a forest floor tinted down under the canopy.
  */
@@ -36,7 +36,7 @@ import { set0Outward } from '../palette.js';
  * tiles stepped 40.9 luma across one pixel, four times in one row of the frame. The shade is
  * now a ramp over ~4 cells of the same canopy field that decides where the trees stand, so
  * the floor darkens *because* the crowns close over it, and the last of the step is taken
- * out by a per-cell dither (DECISIONS #37).
+ * out by a per-cell dither.
  */
 const FLOOR_SHADE = 0xb9c3ae;
 const CLEARING_SHADE = 0xffffff;
@@ -106,7 +106,7 @@ export const FOREST = {
   w: 64,
   h: 62,
   /**
-   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   * The trainer level `travel` asks for before it will come here (src/travel/index.js).
    *
    * Authored HERE and not in `travel`, because what a destination *is* stays with the
    * scene that owns it. 1.35x encounters and 1.45x experience — the training biome (encounter/tables.js).
@@ -117,7 +117,7 @@ export const FOREST = {
    * Camera framings, one per thing a critic needs to be able to judge on its own.
    *
    * `ppu` is `config.pixelsPerUnit` — internal pixels per world unit, and the only zoom knob
-   * the orthographic camera has (DECISIONS #60). It is a **three-rung ladder**, 16 / 32 / 64,
+   * the orthographic camera has. It is a **three-rung ladder**, 16 / 32 / 64,
    * because those are the only densities at which both 16-texel sprite art and 32-texel tile
    * art land on whole pixels; every intermediate zoom resamples the tileset at a fraction and
    * that fraction moves as the camera follows the player.
@@ -144,7 +144,7 @@ export const FOREST = {
     // it (docs/refs/01 has flowers and a fence either side of the dirt; 03 the same at
     // night). The path runs straight through the clearing, so this framing is the trail with
     // its verges — the `path` marker is the same trail with the wood two cells off it.
-    // Looked at side by side (docs/progress/hunts/r3): the `clearing` framing is mostly
+    // Looked at side by side: the `clearing` framing is mostly
     // opening, and both references are a *trail with the wood closing over it* — so `route`
     // is the ride east of the clearing, one step tighter than `path`.
     route: { marker: 'path', ppu: 32 },
@@ -153,11 +153,11 @@ export const FOREST = {
    * **`path`, because that is where the fire is.**
    *
    * `clearing` framed a part of the wood 13 cells from this biome's only practical, and with
-   * one route (DECISIONS #74) the party now stands on the circuit nearest whatever the default
+   * one route the party now stands on the circuit nearest whatever the default
    * frames — so the campfire ended up raking in from the right edge with half its glare off
    * screen (`hunts/forest/21 over200Pct 0.939 -> 0.349`). The `path` marker is **6 cells from
    * the fire and 1 from the circuit**, so the default framing is the party on its own trail
-   * with its light in shot, which is what every frame that beat its reference had (§0).
+   * with its light in shot, which is what every frame that beat its reference had.
    */
   showcaseDefault: 'path',
   /**
@@ -207,7 +207,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   const hedgeRow = (n) => hedges.filter((m) => m.w === n && m.h === 1);
   const flowers = palette.all({ category: 'plant', tags: ['flower'] });
   // `sunken` is excluded on purpose and not as tidiness: the `michi03b` family is `set2`'s
-  // centre, a 4-bit indexed PNG whose whole palette is green (DECISIONS #30), so dropping one
+  // centre, a 4-bit indexed PNG whose whole palette is green, so dropping one
   // on a dirt track paints a green stripe down the middle of it — which is exactly what
   // round 1 shipped, and it reads as a hole in the path rather than as wear.
   const dirtPatch = palette.all({ category: 'path', tags: ['dirt'] })
@@ -232,7 +232,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
     // the result at this camera is a zigzag of 90-degree corners with the same three-tuft
     // fringe glyph stamped down both shoulders. Round 3's 7.5/4.5 peak at |dz| 0.80; 4.6/2.8
     // peaks at 0.49, so the quantised line steps at most every other row and reads as a
-    // curve. Shot before and after: docs/progress/hunts/r4/wip/forest-default-11.png.
+    // curve.
     const drift = Math.sin(cz * 0.088) * 4.6 + Math.sin(cz * 0.031 + 1.9) * 2.8;
     // Pulled onto the clearing's mouth where the party walks, free at both ends. The sigma is
     // 18 rather than 13 for the same reason: a Gaussian that closes in 13 rows drags the
@@ -298,7 +298,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   // and a sine of that size quantised onto a grid does not read as a curve: it reads as a
   // staircase, `closeCorners` fills the inside of every step, and the result in frame was
   // three parallel dirt bands where there is one trail. Shot and looked at
-  // (`docs/progress/hunts/r3/wip-forest-12.png` before this). ±1.6 keeps the line a line.
+  //. ±1.6 keeps the line a line.
   const rideSAt = (cx) => Math.round(RIDE_S + Math.sin(cx * 0.052 + 0.8) * 1.0 + Math.sin(cx * 0.021 + 2.6) * 0.6);
   const rideNAt = (cx) => Math.round(RIDE_N + Math.sin(cx * 0.045 + 2.2) * 0.9 + Math.sin(cx * 0.017 + 0.4) * 0.6);
   /**
@@ -395,7 +395,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   //
   // One scalar per cell, 0 = sky, 1 = closed crown, and *both* the tree spacing and the
   // floor shade are read off it. That is the whole fix for two of the round's worst faults
-  // at once (DECISIONS #37):
+  // at once:
   //
   //  · **The wood was a plantation.** Poisson disc at one radius is a quasi-lattice, and
   //    the critic measured the pitch — seven crown rows at 118 screen pixels. Driving the
@@ -423,7 +423,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
     if (nearRim(cx, cz)) return 1;
     // How much sky this cell can see. The band is deliberately short — four cells off an
     // opening, two off the trail — because the first cut of this used nine and turned the
-    // whole wood into a field of lollipops, which is the fault DECISIONS #36 was written to
+    // whole wood into a field of lollipops, which is the fault canopy grouping is intended to
     // avoid. The thinning is an *edge* to the wood, not a thinning of the wood.
     const light = Math.max(
       clamp01(1 - (distToOpenings[cz * W + cx] - 1) / 3) * 0.8,
@@ -501,7 +501,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
    * boundary — and at this camera a cell is 70 screen pixels wide, so the steps read as
    * horizontal bands across the trail. Shot and looked at before this was added: the forest
    * trail carried three visible seams down the top of the judged framing. `mixTint`'s jitter
-   * is the same fix the canopy ramp already uses two hundred lines below (DECISIONS #37).
+   * is the same fix the canopy ramp already uses two hundred lines below.
    */
   const DITHER = (cx, cz) => ({ jitter: 7, cx, cz, seed: seed ^ 0x40b2 });
   const shadeT = (cx, cz) => (1 - lit(cx, cz)) * (1 - canopyAt(cx, cz));
@@ -588,7 +588,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   //
   // The threshold is sampled through a domain warp, and the mass is then fringed rather than
   // only frayed. A plain threshold plus `ragged` gives a rectangle with a one-cell wobble —
-  // measured off the field, not eyeballed (DECISIONS #37).
+  // measured off the field, not eyeballed.
   const grassField = new Field(W, H, (cx, cz) => {
     if (!open.get(cx, cz) || trodden.get(cx, cz)) return false;
     const d = Math.min(9, distToPath[cz * W + cx]);
@@ -733,7 +733,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
     // The critic counted "the same crown silhouette at the same scale with no rotation
     // variation", and a crown whose highlight sits top-left is a different silhouette from
     // the same crown with the highlight top-right. A *quarter* turn is not available to us:
-    // these are crossed billboards, and `dropEdgeOnTwins` (DECISIONS #41b) throws away the
+    // these are crossed billboards, and `dropEdgeOnTwins` throws away the
     // X-facing card because this camera's yaw never changes — so `rot 1` and `rot 3` render
     // as a bare trunk with a few leaves on it, which is exactly the sliver
     // `tiles/instanced.js#cameraFacingRot` exists to snap away. `rot 2` keeps the card the
@@ -746,7 +746,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
 
   // Hedges fill the knee-height gap between the trunks and the grass, so the tree line does
   // not stop dead at the ground. `hedge1` is 14 triangles of real sloped box with no
-  // billboard in it (DECISIONS #29), so it survives both this camera and a low sun.
+  // billboard in it, so it survives both this camera and a low sun.
   if (hedge1.length) {
     const rim = wood.clone().subtract(wood.clone().shrink(1));
     /**
@@ -995,7 +995,7 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   // --------------------------------------------------------------- the litter
   //
   // A wood without anything fallen in it reads as a diagram. These are the rebuilt props
-  // (DECISIONS #22/#23) — real faceted geometry, not a card leaning back at 45 degrees —
+  // — real faceted geometry, not a card leaning back at 45 degrees —
   // and they need their own `InstancedWorld` because a placement carries no tileset.
   const yard = makePropYard(draft, ctx.get('tiles'));
   // One cell only. The 2x2 pieces (`fat_log`, `pile_of_logs`) are half the width of the
@@ -1003,10 +1003,9 @@ export function buildForest(draft, ctx, palette, rng, _log) {
   // fallen tree, so the litter is the single-cell rocks and the one single-cell log.
   const logs = yard.find({ category: 'prop', tags: ['rustic'] })
     .filter((m) => /log/.test(m.name) && m.w === 1 && m.h === 1);
-  // `hgss-overworld/*` is excluded for the reason DECISIONS #23 already gives: its two rocks
+  // `hgss-overworld/*` is excluded because its two rocks
   // carry the water and grass they were cut from, and on a lawn they read as baskets.
-  // `sylvan-town__rock_*` joins `hgss-overworld__*` on the excluded list this round: STATUS
-  // already filed both as reading like woven baskets or hay bales at this camera, and the
+  // `sylvan-town__rock_*` joins `hgss-overworld__*` on the excluded list: both read like woven baskets or hay bales at this camera, and the
   // critic read them the same way on the coast. One boulder model survives, and the litter
   // leans on the logs instead.
   const rocks = yard.find({ category: 'prop', tags: ['rock'] })

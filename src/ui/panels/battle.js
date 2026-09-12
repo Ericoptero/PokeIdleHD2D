@@ -5,7 +5,7 @@
  *
  * Every other panel here is `full: true`: a window over a dimmed scene, opened because the
  * player asked for it. A fight is neither. It is *started by the world* — the party walks up
- * to a slot and a battle begins (§5.6) — and in a hunt that happens every few seconds. A
+ * to a slot and a battle begins (src/encounter/index.js) — and in a hunt that happens every few seconds. A
  * full-screen window on that trigger would black out the loop the player is watching, dozens
  * of times a lap, uninvited.
  *
@@ -18,14 +18,14 @@
  * ## Why it reads a finished fight
  *
  * `encounter.begin()` resolves the whole battle synchronously and keeps the transcript
- * (§5.17: one implementation of what a turn is, looped by `resolve`). The scene that follows
+ * (src/battle/index.js: one implementation of what a turn is, looped by `resolve`). The scene that follows
  * — appear, throw, shake, capture — is the *animation* of an outcome that already exists. So
  * this card is a readout of that record and not a live scoreboard: both HP bars where they
  * ended, the turns it took, the last few lines of the transcript, and the pity meter that
  * decides what the ball about to be thrown is worth.
  *
  * That last part is the point of putting the meter here rather than in the shop. The pity sum
- * is per species (DECISIONS #68) and the only moment it matters is the moment a ball is about
+ * is per species and the only moment it matters is the moment a ball is about
  * to be thrown at that species.
  */
 
@@ -53,7 +53,7 @@ export const STATUS_NAME = {
  */
 export function lineFor(ev, names) {
   // **The event's own species wins over the side's name.** A duel swaps a fainted member out
-  // mid-fight now (DECISIONS #72), so `names.a` is whoever is standing there *at paint time* —
+  // mid-fight now, so `names.a` is whoever is standing there *at paint time* —
   // and reading it for a move made three turns ago credited Oshawott's Tackle to the Snivy that
   // replaced it. Every event that uses `who` carries the actor in `species`; every event that
   // uses `foe` carries the victim in it. `names` stays as the fallback for a staged record that
@@ -116,7 +116,7 @@ export function makeBattle(app) {
     /**
      * **The card reads the live fight, not the party record.**
      *
-     * A duel is stepped one turn at a time now (DECISIONS #72), and the HP and PP it costs are
+     * A duel is stepped one turn at a time now, and the HP and PP it costs are
      * written back through `pokemon` only when the last blow lands — so reading `pokemon.lead()`
      * mid-fight draws two full bars under a transcript that says somebody fainted. The stepper's
      * own state is the authority while the fight is running, and it also knows which member is
@@ -175,8 +175,8 @@ export function makeBattle(app) {
    * The throw, and the run.
    *
    * **This is what closes the oldest open core request on this module**: `encounter.attempt`
-   * has existed since DECISIONS #35 and until now nothing in the game called it — `automation`
-   * is off by default (§5.11) and there was no input path, so a player at the keyboard could
+   * was previously unused by the game — `automation`
+   * is off by default (src/automation/index.js) and there was no input path, so a player at the keyboard could
    * not catch anything by hand. `attempt()` queues the throw on the scene's own timeline; the
    * card stays up and `encounter:resolved` takes it down.
    */
@@ -335,7 +335,7 @@ export function makeBattle(app) {
       y += 3;
       // **Three verdicts, not two.** A duel is stepped now, so `won` is `null` until somebody
       // faints — and rendering that as "Lost after 3" put a defeat on screen in the middle of a
-      // fight the party went on to win (DECISIONS #72).
+      // fight the party went on to win.
       g.text(x, y,
         b.won === null ? `Turn ${Math.max(1, b.turns)}`
           : b.won ? `Won in ${b.turns} turn${b.turns === 1 ? '' : 's'}` : `Lost after ${b.turns}`,
@@ -376,7 +376,7 @@ export function makeBattle(app) {
         y += 7;
         g.text(x, y, `₽${fmt(Math.round(pity.sum))} / ₽${fmt(pity.price)}`, C.stoneShadow, { max: barW - 40 });
         // The odds only on a win. `attempt()` refuses to throw at a fight that was lost
-        // (DECISIONS #67), so a catch percentage under "Lost after 1" is a number for a throw
+        //, so a catch percentage under "Lost after 1" is a number for a throw
         // the game will not accept. The meter itself stays: what has been spent on this
         // species is true either way.
         if (b.won === true && b.odds > 0) g.textRight(right, y, `${Math.round(b.odds * 100)}%`, C.ink);
@@ -386,7 +386,7 @@ export function makeBattle(app) {
       // --- the two decisions a won fight leaves ------------------------------
       //
       // The throw is the whole reason this card exists: `encounter.attempt` has been published
-      // since DECISIONS #35 and nothing in the game ever called it. `automation` can still do
+      // for some time without a game caller. `automation` can still do
       // it for you, and it is off by default, so without these buttons a player at the keyboard
       // watches every Pokemon they beat walk away.
       if (buttons && y + 13 <= box.y + box.h) {

@@ -2,8 +2,8 @@
  * The bridge from grid state to pixels.
  *
  * `simulation` owns *where* everyone is; `pokemon` owns *how a sprite is drawn* — the atlas,
- * the sheet layouts settled in DECISIONS #17, the 16-texels-per-unit density and the
- * 1/cos(pitch) stretch of #18, and the contact shadow under each body. So nothing here
+ * the measured sprite sheet layouts, the 16-texels-per-unit density and the
+ * 1/cos(pitch) stretch, and the contact shadow under each body. So nothing here
  * touches a sheet, a frame index or a quad: it reaches `pokemon` through `ctx.get` and asks
  * for actors.
  *

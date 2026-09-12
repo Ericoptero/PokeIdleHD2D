@@ -65,7 +65,7 @@ const c = (hex) => new THREE.Color(hex);
  *   sun       – directional intensity; `sunTint` its colour; `sunSize` the disc
  *   hemi*     – the fill. `hemiSky` lights up-facing surfaces, `hemiGround` down-facing.
  *   ambient   – flat term; keep it tiny outdoors or shadows go grey
- *   bounce/bounceColor – the *anti-sun* fill (§ "why two fills" below)
+ *   bounce/bounceColor – the *anti-sun* fill (see "why two fills" below)
  *   camFill/camFillColor – the camera-axis fill
  *   fog/fogDensity/fogBoost – see the header
  *   exposure/contrast/saturation/bloom/bloomThreshold/vignette/grain – the grade
@@ -84,12 +84,12 @@ const c = (hex) => new THREE.Color(hex);
  *             near-black — the "hard-edged black polygon slashed across the roof" that reads
  *             as a shadow bug but is fill starvation (it *does* swap sides with the sun).
  *   `camFill` sits on the **camera axis**, 38° up. Every sprite in the game is an upright card
- *             whose normal points at the camera (DECISIONS #18), so when the sun is due west
+ *             whose normal points at the camera, so when the sun is due west
  *             the trainer's front takes `dot(N,L) = 0` and goes black whatever the hemisphere
  *             does. This is the fill that keeps a subject off the road behind it.
  *
  * Neither casts a shadow, so the frame keeps exactly one shadow-casting light (ARCHITECTURE
- * §2.7) and they cost no draw call — only two more terms in the Lambert loop.
+ * src/core/render.js) and they cost no draw call — only two more terms in the Lambert loop.
  */
 function key(hour, o) {
   return {
@@ -255,7 +255,7 @@ const OUTDOOR = [
     camFill: 1.15, camFillColor: 0xe0dae0,
     fog: 0xc08a62, fogDensity: 0.0070, fogBoost: 0.90,
     // Round 6: the warm `lift 0x120d07` was the golden hour's own version of the cave's
-    // one-hue bug (#46b). It delivered (0.0060, 0.0040, 0.0021) against a crush point of
+    // one-hue bug. It delivered (0.0060, 0.0040, 0.0021) against a crush point of
     // 0.1183, so every shadow in the frame had blue clamped to zero and red held up by the
     // lift: a golden hour whose shade could only be orange. The lift is cool and above the
     // crush now, `exposure` pays for the midtones it would otherwise have raised, and
@@ -402,7 +402,7 @@ export const PRESETS = {
    *     `pureBlack 0.00` and `belowL8 0.00`: no pixel in a cave could be dark, or neutral.
    *   `saturation 1.30` on top of all of that.
    *
-   * `sun` stays high and warm and still does not cast (`enclosed: 1`, DECISIONS #43) — it
+   * `sun` stays high and warm and still does not cast (`enclosed: 1`) — it
    * is the shaft from the openings, and it is the only thing separating a floor from a wall
    * in here, so cutting it was tried and measured *flatter*, not less muddy.
    */
@@ -529,7 +529,7 @@ export function blendPreset(tod, keys) {
 }
 
 /**
- * Weather rewrites the look on top of the blended keyframe (ARCHITECTURE §5.3).
+ * Weather rewrites the look on top of the blended keyframe (src/environment/index.js).
  *
  * Everything here is a multiplier or a colour pull so a storm at dawn stays a dawn: the
  * hour still decides the palette, the weather decides how much air is in front of it.

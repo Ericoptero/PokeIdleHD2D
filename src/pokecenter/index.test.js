@@ -1,7 +1,7 @@
 /**
  * `pokecenter`'s own state — the save slice and the cure's cooldown gate — driven against the
  * real module (`init(stubCtx)`), not re-derived from `heal.js`'s pure unit test alone
- * (DECISIONS #35: two calls into the same pure function would agree even if both were wrong;
+ * (two calls into the same pure function would agree even if both were wrong;
  * this exercises the actual `bus.on('player:interact', …)` listener and the actual
  * `pokemon.reviveAll()` + `restorePp()` calls it makes).
  */

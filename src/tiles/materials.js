@@ -16,7 +16,7 @@
  * Loading all of them with `transparent:false` and a 0.35 alpha test — which is what the
  * first cut did — discards every texel below 0.35 and draws every texel above it fully
  * opaque. A soft shadow becomes a hard black slab with a ragged edge; that slab is the
- * black rectangle at the foot of every lamp in `docs/progress/_boot/wave-a-end.png`.
+ * black rectangle at the foot of every lamp.
  *
  * So the texture is decoded once at load and classified from its own alpha histogram.
  */
@@ -33,7 +33,7 @@ const FLAT_Y = 0.06;
  * How high a paper-thin group may sit and still be a *ground* decal.
  *
  * Thinness alone is not the test. A tree's canopy is built out of horizontal slices
- * (DECISIONS #22) and every one of them is paper-thin, so `flatOnly` catches a leaf layer
+ * and every one of them is paper-thin, so `flatOnly` catches a leaf layer
  * three metres in the air exactly as it catches the shadow blob under the trunk — and a
  * canopy slice that does not write depth stops occluding anything behind it. AdAstra's
  * real ground decals top out at 0.13 (`kage_out`) and the lowest canopy slice a tree owns
@@ -44,7 +44,7 @@ const GROUND_DECAL_Y = 0.35;
 /**
  * The minimum elevation, in degrees above the horizon, a shaded normal may have.
  *
- * DECISIONS #25c lifted every below-horizon normal *to* the horizon and stopped there. That
+ * The earlier normal correction lifted every below-horizon normal *to* the horizon and stopped there. That
  * trades a black silhouette for a black shaft: a normal at exactly 0 elevation takes
  * `max(dot(N, L), 0) = 0` from a sun overhead, so at noon every vertical face in the set —
  * a lamp post, a tree trunk, the edge-on leaf cards, a bench's flank — is lit by the
@@ -58,7 +58,7 @@ const GROUND_DECAL_Y = 0.35;
  * tilted 22 degrees up". At the noon sun altitude that floor is worth ~0.37 of the key on a
  * face that would otherwise have had none, while a face that already points up keeps every
  * bit of its own shading — the up-and-outward normals AdAstra's props are built on
- * (DECISIONS #22) sit at 35 degrees and are untouched.
+ * sit at 35 degrees and are untouched.
  */
 export const NORMAL_MIN_ELEVATION_DEG = 22;
 const NLIFT_SIN = Math.sin(NORMAL_MIN_ELEVATION_DEG * Math.PI / 180);
@@ -215,7 +215,7 @@ export const FOLIAGE_BAND_DEG = 8;
  *
  * With the per-sheet ceiling in, `darker_pine`'s crown still measured 155.6 against
  * `round_tree`'s 137.5, and pushing the ceiling further stopped helping — band 8, band 0 and
- * band -8 are three shots that look the same (`docs/progress/tiles/r4/ab/trees-band*.png`).
+ * band -8 are three shots that look the same.
  * Bucketing the same crowns by brightness says why. Both trees ride the *same* curve:
  *
  *              darkest 15%      mid          brightest 15%
@@ -323,7 +323,7 @@ const FOLIAGE_LIT_GLSL = `
  * `customProgramCacheKey` answers the identical `'foliage'`, so three links one program and
  * each material keeps its own `uFoliageScale`. Baking the number into the GLSL instead would
  * have cost one program per distinct sheet — six more in `bw2-adastra` alone, against the
- * 60 ARCHITECTURE §7 budgets.
+ * 60 tools/shots/shoot.js budgets.
  *
  * `onBeforeCompile` runs *before* three resolves `#include`, so the hook is always the
  * include line and not the body behind it — the first cut of this patched
@@ -444,7 +444,7 @@ export function foliageHueScales(profiles, roles, { band = FOLIAGE_BAND_DEG } = 
  * `instanced.js` clones a material to hang the global-UV attribute on it — so the two
  * patches have to be applied together, from a list, rather than each overwriting the other.
  * The cache key is the patch names joined, which keeps every material carrying the same set
- * on one program (ARCHITECTURE §7 budgets 60).
+ * on one program (tools/shots/shoot.js budgets 60).
  */
 export function applyShaderPatches(mat, patches) {
   if (!patches.length) return mat;
@@ -527,13 +527,13 @@ export function materialGeometryRoles(pack, floats, stride) {
  * horizon, so they are simply holes.
  *
  * PDSMS itself draws with backface culling off, which is why a DS artist has no reason to
- * keep a consistent winding (DECISIONS #5). The exporter rewinds each triangle to agree with
+ * keep a consistent winding. The exporter rewinds each triangle to agree with
  * the *artist's stored normals*, and where those normals point down the rewind faithfully
  * reproduces a face that cannot be seen. `forest_entrance_front`'s top canopy slice is
  * exactly this: eight of its sixteen triangles are wound face-down and they are the eight
  * covering the model's northern half, so the whole north half of the canopy roof is missing
  * and the lawn 3.7 m below shows through it. That is the pale diamond in the middle of the
- * tree in `docs/progress/tiles/critic/tree-close-12.png`.
+ * tree.
  *
  * 46 triangles of AdAstra's 2402 are in this state and every one of them is on a forest
  * entrance. Flipping their winding (and the normals with it, so the shading agrees) costs
@@ -598,7 +598,7 @@ export function rewindDownwardFaces(pack, floats, stride) {
  * in the other axis — `ki02c`'s root decal has `v` largest at `z = 0`, so under `flipY = true`
  * the image's top row lands to the **north**, which is correct and is why every auto-tiled
  * edge in the game has passed round after round. Flipping the upload inverts all of those
- * north-for-south; that is exactly the export-side flip DECISIONS #24 had to take back.
+ * north-for-south; that is exactly the export-side flip that had to be reverted.
  *
  * So it is done per triangle, at load, and only where the sign says so:
  *
@@ -614,8 +614,7 @@ export function rewindDownwardFaces(pack, floats, stride) {
  *
  * Measured over `bw2-adastra`: 608 of its 2402 triangles; 154 of `structures`' 236; and it
  * fires in all fifteen shipped packs, because every one of them came through the same
- * exporter. `tools/seams/` has no eye, so the proof is the pair
- * `docs/progress/tiles/r3/02-trees-before.png` / `12-trees-after-vfix.png`.
+ * exporter.
  *
  * @returns {number} triangles corrected
  */
@@ -662,9 +661,9 @@ export function uprightUvToImageOrder(pack, floats, stride) {
  * One of a crossed billboard pair is permanently edge-on, and it is the one facing X.
  *
  * An AdAstra tree is two upright cards crossing at the cell centre plus horizontal canopy
- * slices (DECISIONS #22): for `tree` those are the plane `x = 1` (normal -X) and the plane
+ * slices: for `tree` those are the plane `x = 1` (normal -X) and the plane
  * `z = 1` (normal -Z), both carrying the *same* material and the *same* whole-tree picture.
- * The camera's yaw is fixed forever (ARCHITECTURE §2.7), so the X-facing card is
+ * The camera's yaw is fixed forever (src/core/render.js), so the X-facing card is
  * perpendicular to the view in every frame this game will ever draw. It contributes three
  * things and all of them are damage:
  *
@@ -672,9 +671,9 @@ export function uprightUvToImageOrder(pack, floats, stride) {
  *     *below* the roots — the "conifer spires poke through as thin pale vertical poles" a
  *     blind panel named;
  *   - it is lit off a normal pointing east while its twin is lit off one pointing south, so
- *     the smear stays a different colour from the tree it is standing in (DECISIONS #29);
+ *     the smear stays a different colour from the tree it is standing in;
  *   - and it casts a full-height shadow across its own twin, which is the hard black wedge
- *     down the middle of every crown in `docs/progress/tiles/r3/12-trees-after-vfix.png`.
+ *     down the middle of every crown.
  *
  * Dropping it is not a general "remove X-facing cards" rule, which would delete every
  * north-south fence panel, every house wall and every hedge side in the set — a first cut of
@@ -803,7 +802,7 @@ export function makeGlowTexture(profile, { threshold = 0.9, name = 'glow' } = {}
   let lit = 0;
   // Row order is *not* flipped, and that was settled on screen rather than reasoned about:
   // written in reading order the glow lands along the lamp's glass strip
-  // (`docs/progress/tiles/r1/08-lamps-night.png`); written bottom-row-first it lands on the
+  //; written bottom-row-first it lands on the
   // elbow where the arm meets the shade (`07-lamps-night-on.png`). Whatever three and the
   // driver do with `flipY` between an <img> upload and a DataTexture upload, these two land
   // in the same orientation as they stand, and the picture is the authority.
@@ -839,7 +838,7 @@ export function makeGlowTexture(profile, { threshold = 0.9, name = 'glow' } = {}
  * DS normals point wherever the tile artist left them, and 382 of AdAstra's 7206 vertices
  * (5.3 %) point *below* the horizon — 19 of the 30 on a lamp, 45 of 162 on a forest
  * entrance, 9 of 48 on a hedge. Nothing in this game is ever seen from underneath (the
- * camera is locked 45 degrees above the horizontal, ARCHITECTURE §2.7), so a downward
+ * camera is locked 45 degrees above the horizontal, src/core/render.js), so a downward
  * normal is not an underside anyone will look at: it is a face that takes no sun and reads
  * as a black silhouette. The four lamp variants are the proof — the two whose posts happen
  * to carry the downward normals render as black sticks while the two mirrored ones, same
@@ -847,7 +846,7 @@ export function makeGlowTexture(profile, { threshold = 0.9, name = 'glow' } = {}
  *
  * Normals are lifted to the horizon and no further. A face pointing straight down becomes
  * `+Y`; a face pointing down-and-north keeps its northness and grazes. This preserves the
- * up-and-outward shading AdAstra's props are built on (DECISIONS #22) and only touches
+ * up-and-outward shading AdAstra's props are built on and only touches
  * normals that were pointing into the ground.
  *
  * @returns {number} how many vertices were lifted, for the log
@@ -882,7 +881,7 @@ export function makeMaterial(spec, map, profile, role, index) {
   // punch a hole in each other), and must not cast.
   //
   // Height is the other half of the test. A tree's canopy is built out of horizontal slices
-  // (DECISIONS #22) and every one of them is paper-thin too, so thinness alone would classify
+  // and every one of them is paper-thin too, so thinness alone would classify
   // a leaf layer three metres up as a decal and stop it occluding anything behind it.
   const decal = soft && role.flatOnly && role.maxY <= GROUND_DECAL_Y;
   const translucent = spec.translucent;
@@ -917,7 +916,7 @@ export function makeMaterial(spec, map, profile, role, index) {
   // A *shadow* decal, specifically, and not every soft flat thing in the set. `kusa_ec3`
   // (the soft outer fringe of a grass border), `mori01s` (the forest-floor wash) and
   // `dansa01a` (the shading on a step) all classify as decals too, and all three are
-  // artwork the tile is supposed to have. The romaji is the discriminator ARCHITECTURE §9.1
+  // artwork the tile is supposed to have. The romaji is the discriminator tools/assets/classify.js
   // already blesses and `tools/assets/classify.js` already keys on: `kage` = shadow.
   mat.userData.shadowDecal = decal && /kage/i.test(spec.image ?? spec.name ?? '');
   mat.userData.alphaClass = profile.cls;
@@ -930,8 +929,8 @@ export function makeMaterial(spec, map, profile, role, index) {
  * The reference frames carry most of their depth in ground shading —
  * `docs/refs/01-forest-tilemap-frame.png` is largely soft darkening around the bases of
  * things — and at noon the sun is nearly overhead, so the shadow it casts lands *under* the
- * object and the object stands on top of it: `docs/progress/tiles/critic/hedge-close-12.png`
- * has a perfectly working shadow map and a hedge that still meets the lawn with no darkening
+ * object and the object stands on top of it. A working shadow map can leave a hedge
+ * meeting the lawn with no darkening
  * whatever, which is what makes it read as pasted on rather than planted.
  *
  * AdAstra's artists agreed the piece is needed and painted `kage_out` / `h_kage` blobs under
@@ -987,7 +986,7 @@ contactShadowPatch.key = 'contactShadow';
  * that is wrong on V for every global-mapped model in every shipped pack: fitting
  * `u = a·x + b·z` and `v = c·x + d·z` by least squares over the vertices of `bw2-adastra`'s
  * eleven global tiles gives `du/dx = +s` and **`dv/dz = −s`** on all of them (PDSMS is Y-south
- * and the exporter swaps two axes, DECISIONS #5), so a `+s` step ran V backwards against the
+ * and the exporter swaps two axes), so a `+s` step ran V backwards against the
  * geometry and dropped **half a texture** at every cell boundary along Z. It survived four
  * rounds unseen because the jump is 32 texels of a 64-texel sheet whose own horizontal band
  * period is 16, so the bands re-aligned across the tear even though the picture did not.
@@ -1090,11 +1089,11 @@ export function makeGroundScatterPatch(u) {
 /**
  * Hash and offset. Every number that varies between materials is a **uniform**, never a baked
  * constant, so all four ground materials compile identical source with an identical cache key
- * and share one program — the same discipline DECISIONS #44 records for the foliage scale,
+ * and share one program — the same discipline used for the foliage scale,
  * where baking would have cost six extra links in `bw2-adastra` alone.
  *
  * The jitter hashes `floor(uv · size)`, the texel the fragment is inside, so it is constant
- * across a texel and identical on every replay of a URL (DECISIONS #14). `gl_FragCoord` would
+ * across a texel and identical on every replay of a URL. `gl_FragCoord` would
  * have been cheaper and would have shimmered the instant anything moved.
  */
 const SCATTER_FN_GLSL = `
@@ -1142,8 +1141,8 @@ const CROWN_MAJORITY = 0.6;
  *
  * The blind panels, twice: "at tod 17.5 the four solo trees stand in identical light on flat
  * lawn and the two populations still read as two tilesets." Round 4 closed the *hue* gap to
- * 9.0 degrees at noon (DECISIONS #44a–c) and the split came back at 17.30 anyway, so it was
- * never only hue. Measured on `docs/progress/tiles/r5/trees-17.5.png`, the crowns' median
+ * 9.0 degrees at noon and the split came back at 17.30 anyway, so it was
+ * never only hue. Measured at 17.5, the crowns' median
  * value is `tree` 0.310 and `darker_pine` 0.369 against `round_tree` 0.471 and
  * `big_tree_dark` 0.478 — one pair is half-lit, the other is fully lit, on flat lawn under one
  * sun. It is not the shadow map: with `?envNoShadow=1` the same four measure 0.278 / 0.310 /

@@ -59,7 +59,7 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
     expect(over.hit.payload.index).toBe(enc.index);
   }
 
-  // What actually happened, for the record the slice keeps — a flow that passes in a second
+  // Observed flow outcome — a flow that passes in a second
   // should say which branch it took and how far it walked.
   test.info().annotations.push({ type: 'path', description:
     `encounter after ${started.ticks} ticks: ${enc.species} L${enc.level}; fight ${outcome.won ? 'won' : 'lost'} in ${outcome.turns} turns, ${strikes.length} strikes, ${ended.ticks} ticks` });
@@ -71,7 +71,7 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   expect(after.length, 'the party is walking again').toBeGreaterThan(0);
 
   // 5. No cutscene caption. The wild was already on the map; nothing announced its arrival
-  // (DECISIONS #87 — see tests/flows/field-encounter.spec.js for the handover itself).
+  // (see tests/flows/field-encounter.spec.js for the handover itself).
   const allEvents = await events(page);
   const toasts = allEvents.filter((e) => e.type === 'ui:toast').map((e) => String(e.payload?.text ?? ''));
   expect(toasts.filter((t) => /appeared/i.test(t)), 'no "a wild X appeared" banner anywhere in the flow').toEqual([]);

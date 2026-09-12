@@ -1,5 +1,5 @@
 /**
- * showcase.js — the idle core, proving itself on screen (ARCHITECTURE §6).
+ * showcase.js — the idle core, proving itself on screen (src/main.js).
  *
  * A systems module cannot be judged from a pretty picture, so this stages three things a
  * critic can check by eye instead of taking on trust:
@@ -45,7 +45,7 @@ const DEMO_UPGRADES = { 'wage-tier': 3, 'search-tier': 2 };
 const LIVE_WINDOW_MS = 1700;
 
 /**
- * The API a critic is checking against ARCHITECTURE §5.7. The four contract methods come
+ * The API a critic is checking against src/idle/index.js. The four contract methods come
  * first; everything below them is depth this module chose to add, and each is checked for
  * existence at render time rather than asserted in prose.
  */
@@ -240,7 +240,7 @@ export async function showcaseIdle(mode = 'default', ctx) {
   );
 
   // A bounded refresh: the panel keeps up with live accrual for the first two seconds and
-  // then holds still, so the same URL still yields the same picture (§6 rule 3).
+  // then holds still, so the same URL still yields the same picture (src/main.js rule 3).
   let frames = 0;
   const tick = () => {
     if (++frames > 150) return;

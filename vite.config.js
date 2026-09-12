@@ -7,7 +7,7 @@ import { defineConfig } from 'vite';
  *
  * `publicDir` only copies `public/`, and `assets/` is served in dev because Vite serves the
  * project root — which is how `dist/` once shipped with no sprite art while every gate stage
- * stayed green (DECISIONS #72; `tools/gate.js builtAssets()` is the check that came out of it).
+ * stayed green (`tools/gate.js builtAssets()` checks for missing runtime art).
  *
  * Listed rather than copying `assets/` wholesale: `props/` and `structures/` are OBJ + MTL
  * source that `tools/assets/build-structures.js` bakes into `public/generated/tiles/`, and

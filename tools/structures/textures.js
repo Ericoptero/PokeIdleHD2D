@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Authors the pixel textures for the buildings we model ourselves (DECISIONS #3, #12).
+ * Authors the pixel textures for the buildings we model ourselves.
  *
  * Texel density is fixed at 32 px per world unit, matching the mode of the AdAstra tileset,
  * so a wall painted here sits on the same pixel grid as the grass it stands on. Every

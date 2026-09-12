@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * The cure's cooldown arithmetic — pure, no `ctx`, testable under plain vitest/Node the way
- * `battle/engine.js` is (DECISIONS #35: pin against literals, never a second live call).
+ * `battle/engine.js` is (pin against literals, never a second live call).
  *
  * `src/pokecenter/index.js` is the one caller: it stamps `lastHealMs` to `ctx.clock.wallMs()`
  * every time Nurse Joy actually cures the party, and asks `remainingCooldownMs` before every

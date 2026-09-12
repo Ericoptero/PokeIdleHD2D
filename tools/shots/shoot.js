@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 /**
- * The verification loop (ARCHITECTURE §8). Loads the running dev server in headless Chrome,
+ * The verification loop (src/main.js). Loads the running dev server in headless Chrome,
  * waits for the app to say it is ready, sets a camera preset and a time of day, lets the
  * scene settle, then writes a PNG next to a JSON log of fps, draw calls, module status and
  * every console error.
  *
- * No agent may claim a module works without one of these PNGs and having looked at it.
- *
- *   node tools/shots/shoot.js --out docs/progress/city/r0/noon.png \
+ *   node tools/shots/shoot.js --out shots/out/city/noon.png \
  *        --showcase city --preset plaza --tod 12 --size 1920x1080
  */
 
@@ -93,7 +91,7 @@ async function shootOnce(opts) {
   if (a.seed != null) params.set('seed', a.seed);
   if (a.pixelScale != null) params.set('pixelScale', a.pixelScale);
   // Freeze the clock by default: environment advances the time of day every sim step, so
-  // without this the same URL does not give the same pixels and ARCHITECTURE §6.3 is a lie.
+  // without this the same URL does not give the same pixels and tools/shots/shoot.js is a lie.
   if (a.extra?.timeFrozen === undefined) params.set('timeFrozen', '1');
   params.set('debug', a.debug ? '1' : '0');
   for (const [k, v] of Object.entries(a.extra ?? {})) params.set(k, v);
@@ -105,7 +103,7 @@ async function shootOnce(opts) {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: Number(a.timeout) });
     await page.waitForFunction('window.__READY__ === true', { timeout: Number(a.timeout), polling: 100 });
-    // §7 budgets a 6 s cold start. It was collected by nobody, so a boot that crept from 2 s
+    // tools/shots/shoot.js budgets a 6 s cold start. It was collected by nobody, so a boot that crept from 2 s
     // to 5.9 s was invisible until it crossed the timeout and became a hard failure instead.
     log.readyMs = Date.now() - t0;
 
@@ -196,7 +194,7 @@ async function shootOnce(opts) {
   return log;
 }
 
-/** Budget check (ARCHITECTURE §7), so a passing screenshot is a passing *measurement*. */
+/** Budget check (tools/shots/shoot.js), so a passing screenshot is a passing *measurement*. */
 export function checkBudgets(log, a = {}) {
   const fails = [];
   if (log.consoleErrors?.length) fails.push(`${log.consoleErrors.length} console errors`);
@@ -204,17 +202,17 @@ export function checkBudgets(log, a = {}) {
   if (log.error) fails.push(`harness: ${log.error}`);
   if (log.fps && log.fps.mean < 50) fails.push(`fps ${log.fps.mean} < 50`);
   // The mean hides a stutter: 58 fps mean with one 40 ms frame per second reads fine and
-  // feels wrong. §7 budgets the p95 for exactly that, and it has been in every metrics
+  // feels wrong. tools/shots/shoot.js budgets the p95 for exactly that, and it has been in every metrics
   // payload since the harness was written without anything reading it.
   if (log.fps && log.fps.p95ms > 20) fails.push(`p95 frame ${log.fps.p95ms}ms > 20ms`);
   if (log.drawCalls > 1500) fails.push(`drawCalls ${log.drawCalls} > 1500`);
   if (log.triangles > 900000) fails.push(`triangles ${log.triangles} > 900k`);
   if (log.programs > 60) fails.push(`programs ${log.programs} > 60`);
-  // §7's cold-start budget is deliberately NOT asserted here. Against the dev server
+  // tools/shots/shoot.js's cold-start budget is deliberately NOT asserted here. Against the dev server
   // `readyMs` measures Vite compiling several hundred unbundled ES modules on first request
   // — 7.5-15 s cold, 3.6-6 s warm, for a page whose own boot never changed. It is the
   // bundler's number, not the game's. `tools/gate.js` measures it where it means something:
-  // once, against `vite preview` on the production build (DECISIONS #71). The field is still
+  // once, against `vite preview` on the production build. The field is still
   // recorded in every shot's JSON, because it is useful data even when it is not a budget.
   if (a?.readyBudget && log.readyMs > a.readyBudget) {
     fails.push(`ready in ${(log.readyMs / 1000).toFixed(1)}s > ${a.readyBudget / 1000}s`);

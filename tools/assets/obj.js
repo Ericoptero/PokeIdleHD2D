@@ -36,7 +36,7 @@ export function parseMtl(path) {
 /**
  * @param {string} path
  * @param {{scale?:number, swapYZ?:boolean}} [opts] `swapYZ` converts a Z-up export
- *   (Blender's default) into the engine's Y-up space, matching ARCHITECTURE §3.1.
+ *   (Blender's default) into the engine's Y-up space, matching tools/assets/pdsts.js.
  * @returns {{objects: Array<{name:string, groups: Array<{material:string,
  *            position:number[], normal:number[], uv:number[], color:number[]}>}>,
  *           materials: Map<string, object>, bounds:{min:number[], max:number[]}}}

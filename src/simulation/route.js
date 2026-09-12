@@ -65,7 +65,7 @@ export function makeScriptedRoute(spec, { loop = true, strict = false, onStall }
       // blocked step and carries on with the next heading — which silently walks a route off
       // its own path, and is a defect three separate places in `hunts` have had to document
       // (`compose.js`, `hunts/selftest.js`). A hunt's loop must close, so it asks for `strict`
-      // and stands still instead, once, loudly (DECISIONS #65).
+      // and stands still instead, once, loudly.
       if (strict) {
         if (!stalled) { stalled = true; onStall?.({ cx: head.cx, cz: head.cz, dir, index: i }); }
         return null;
@@ -84,7 +84,7 @@ export function makeScriptedRoute(spec, { loop = true, strict = false, onStall }
 /**
  * A wild Pokemon that stays where it was put.
  *
- * A spawn slot is a fixed cell (§5.14) and the creature standing on it may drift **one tile**
+ * A spawn slot is a fixed cell (src/hunts/index.js) and the creature standing on it may drift **one tile**
  * around it and no further — far enough that the map is alive, near enough that the slot is
  * still where the player learned it was. Chebyshev, not Manhattan, so a diagonal drift is
  * inside the box rather than being two steps out of it.

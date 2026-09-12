@@ -3,7 +3,7 @@
  *
  * Movement goes through `simulation.moveIntent(dir)` and nowhere else, which is what keeps
  * the walk tile-locked and deterministic: `moveIntent` queues **one** step, taken on the next
- * fixed tick where the queue is standing still (DECISIONS #27), so holding a key is expressed
+ * fixed tick where the queue is standing still, so holding a key is expressed
  * as re-issuing the intent every frame rather than as a velocity. Releasing calls `stop()`,
  * and the walker finishes the tile it is on instead of stopping between two.
  *
@@ -16,7 +16,7 @@
  *
  * ```
  *   ← ↑ → ↓  /  W A S D     walk (walkable maps only)
- *   Z / Space                interact — the faced cell's tags, `player:interact` (§4)
+ *   Z / Space                interact — the faced cell's tags, `player:interact` (src/core/bus.js)
  *   Enter                    confirm / menu   X / Escape     back, or open the menu
  *   T travel  P party   B shop   C boxes   I bag   4 dex   R trainer   M menu   `  debug overlay
  * ```
@@ -26,7 +26,7 @@
  * only ever fires with no panel open, so the two never race for the same press.
  *
  * The event is generic — the faced cell's tags, not a fixed list of "things you can talk to" —
- * on purpose: DECISIONS #83 is why `pokecenter` gets to react to it without this file knowing
+ * on purpose: the input bus lets `pokecenter` gets to react to it without this file knowing
  * the Pokemon Center exists, and why a future NPC anywhere else needs no new key of its own.
  *
  * A touch device gets an on-screen pad instead, drawn on the same canvas — but only on a
@@ -55,7 +55,7 @@ export const MOVE_KEYS = new Map([
  * It lives here rather than in `index.js` because `index.js` is not importable under Node — it
  * reaches a canvas at init — and `selftest.js` has to be able to check that no shortcut names a
  * panel that does not exist. `ui.selfTest()` asserts the live `PANELS` map matches this list, so
- * the two cannot drift; before DECISIONS #77 the Node check carried its own hand-written copy
+ * the two cannot drift; before sharing this reducer the Node check carried its own hand-written copy
  * and adding a panel failed it.
  */
 export const PANEL_IDS = Object.freeze([
@@ -126,10 +126,10 @@ export function makeInput({ ctx, app }) {
   }
 
   /**
-   * `player:interact` (ARCHITECTURE §4): a generic "the player faced a cell and pressed the
+   * `player:interact` (src/core/bus.js): a generic "the player faced a cell and pressed the
    * button" event, not a Center-specific one — any tagged cell in any scene can react to it
    * without a new key of its own. `terrain.tagsAt` is the same accessor `simulation`'s own
-   * `announce()` uses to build `player:enteredTile`'s payload (§5.4), so this reuses an
+   * `announce()` uses to build `player:enteredTile`'s payload (src/simulation/index.js), so this reuses an
    * existing, cheap read rather than inventing a second way to ask the question.
    */
   function interact() {
@@ -199,7 +199,7 @@ export function makeInput({ ctx, app }) {
    * step only.
    *
    * There used to be a "the first real input halts the autopilot for good" seam here, because
-   * `city.enter()` left the player on a wander (DECISIONS #34c). A walkable map no longer
+   * `city.enter()` left the player on a wander. A walkable map no longer
    * installs one, and a hunt's wander is the whole point of a hunt, so the seam could only
    * ever do the wrong thing now and is gone.
    */

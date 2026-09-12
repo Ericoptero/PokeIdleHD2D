@@ -1,6 +1,6 @@
 /**
  * The party — and in this game that is not a bookkeeping screen. The **active Pokemon
- * leads** and the trainer follows it (DECISIONS #27), so the first slot here is the sprite
+ * leads** and the trainer follows it, so the first slot here is the sprite
  * walking around the city, and changing it changes the picture.
  *
  * `pokemon.setLead(i)` emits `party:leadChanged`; `simulation` listens for it, rebuilds the
@@ -58,7 +58,7 @@ export function makeParty(app) {
 
   /**
    * Presses it. **This is the only path into an evolution in the whole game** — nothing
-   * evolves on its own any more (DECISIONS #62), so the refusal has to be legible: `evolve()`
+   * evolves on its own any more, so the refusal has to be legible: `evolve()`
    * answers with the reason, and it is shown rather than swallowed.
    */
   function evolve(i) {
@@ -204,7 +204,7 @@ export function makeParty(app) {
 
   return {
     id: 'party',
-    /** Inert data since slice 016 (DECISIONS #85): nothing reads `panel.full` for sizing or
+    /** Inert data: nothing reads `panel.full` for sizing or
      *  anything else any more. Kept as a record of which panels used to stand the whole HUD
      *  down while open — only `dialogue`'s `hidesHud` still does that — and for `battle.js`'s
      *  own header comment, which contrasts its `full: false` against every panel here. */
@@ -214,8 +214,8 @@ export function makeParty(app) {
      *  off `ui`'s own `_state`, which is already exposed for exactly this). */
     cursor: () => cursor,
     /**
-     * `view: 'moves'` opens straight on the move list — the showcase's way in (§6.3).
-     * `select: i` (slice 017) opens with slot `i` already highlighted — the party bar's own
+     * `view: 'moves'` opens straight on the move list — the showcase's way in (tools/shots/shoot.js).
+     * `select: i` opens with slot `i` already highlighted — the party bar's own
      * click, `ui.open('party', { select: i })` — and falls back to today's default of slot 0
      * when no `select` is given, so every existing caller (the keyboard shortcut, the menu)
      * is unaffected.
@@ -403,7 +403,7 @@ export function makeParty(app) {
         y += 2;
         // Ink when it is ready, muted when it is not. Deliberately NOT the red accent: red is
         // what the unmet rows below use, and a heading in the same colour as the failures read
-        // as another failure (looked at, in docs/progress/pokemon/r3/evolve-ready.png).
+        // as another failure.
         g.text(detail.x + 5, y, `EVOLVES INTO ${String(evo.display ?? evo.to).toUpperCase()}`,
           evo.ready ? C.ink : C.shadowInk, { max: detail.w - 10 });
         y += 9;

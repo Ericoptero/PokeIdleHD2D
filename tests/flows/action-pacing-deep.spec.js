@@ -1,5 +1,5 @@
 /**
- * The deeper pacing properties `action-pacing.spec.js` does not reach (DECISIONS #89) — that
+ * The deeper pacing properties `action-pacing.spec.js` does not reach — that
  * file proves the first two-strike turn it finds is spaced correctly and stops there. This
  * file goes further, against a real fight and real automation, not a synthetic scenario:
  *

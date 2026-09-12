@@ -1,17 +1,16 @@
 /**
- * Three things `tests/flows/pokecenter.spec.js` (the implementer's own flow) never checks
+ * Three things `tests/flows/pokecenter.spec.js` never checks
  * because it only ever walks through the door once, in one direction at a time:
  *
  *  1. `terrain.handle().biome === 'city'` and `encounter.tablesFor('city', 12)` is `[]` — read
  *     live off a real boot standing inside the room, not asserted only by reading
- *     `pokecenter/index.js`'s `enter()` and `encounter/tables.js` (the slice's own Result
- *     section says exactly that was its justification for skipping a standalone test here).
+ *     `pokecenter/index.js`'s `enter()` and `encounter/tables.js`.
  *  2. `travel.go()` racing itself from the console — the shape a rapid double-step on the
  *     door tile produces (`pokecenter/index.js`'s door listener fires `nav.go()` off
  *     `player:enteredTile`, which is not debounced) — never wedges `travel` and never builds
  *     the room twice.
  *  3. A save whose last scene was `pokecenter` survives a real page reload: `travel`'s own
- *     `sceneId` slice puts the player back in the room. (Slice 014 gave `pokecenter` its own
+ *     `sceneId` slice puts the player back in the room. (`pokecenter` has its own
  *     save slice too, but it carries only the cure's cooldown timestamp — not scene state —
  *     so this is still `travel`'s own `sceneId` doing the work here.)
  */
@@ -32,7 +31,7 @@ test('terrain.handle().biome and encounter.tablesFor(), read live from inside th
 
   const handle = await call(page, 'terrain', 'handle');
   expect(handle?.id).toBe('pokecenter');
-  // The landmine the slice's own inspection named: 'interior' is not in encounter's BIOMES
+  // The regression: 'interior' is not in encounter's BIOMES
   // list and silently falls back to the meadow table — this is the regression guard for it,
   // exercised against the actual live `terrain`/`encounter` modules, not just read from source.
   expect(handle?.biome, 'the room reports the city biome, not "interior"').toBe('city');

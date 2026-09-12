@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * battle — the turn engine (ARCHITECTURE §5.17).
+ * battle — the turn engine (src/battle/index.js).
  *
  * Everything about a fight that is arithmetic. It holds no `pokemon` instance, touches no
  * `three`, reads no clock and has no DOM: it takes two plain **combatant records** and returns
@@ -9,14 +9,14 @@
  *
  * **Why this is not part of `encounter`.** `encounter/index.js` is already a thousand lines and
  * owns a five-stage animation; the engine has to run where there is no animation at all. And
- * the split is the one DECISIONS #61 records: `encounter` supplies the capture rate, the HP
+ * the split is explicit: `encounter` supplies the capture rate, the HP
  * left and the coin, `economy` owns the ball and the pity, and combat is here.
  *
  * **Why this fetches its own data.** `pokemon` already awaits `species.json` on the boot
- * critical path against §7's 6-second cold budget. Loading 330 KB more there would delay
+ * critical path against tools/shots/shoot.js's 6-second cold budget. Loading 330 KB more there would delay
  * `__READY__` for everyone, and a move table that 404'd would cost the overworld its sprites.
  * Here, a failure quarantines `battle` alone and the registry's null-object keeps the rest of
- * the game running (§2.1).
+ * the game running (src/core/registry.js).
  */
 
 import * as MOVES from './moves.js';
@@ -29,13 +29,13 @@ import {
 import { strikesOf, describeStrike } from './strike.js';
 import { reportSelfTest } from '../core/log.js';
 
-/** Save slice version. `loadState` migrates forward and refuses a newer one (§5). */
+/** Save slice version. `loadState` migrates forward and refuses a newer one (src/offline/slices.js). */
 const SAVE_VERSION = 1;
 
 export default {
   id: 'battle',
   needs: [],
-  /** The showcase names real species, so it wants the species table beside it (§6). */
+  /** The showcase names real species, so it wants the species table beside it (src/main.js). */
   showcaseNeeds: ['pokemon'],
 
   async init(ctx) {
@@ -52,11 +52,10 @@ export default {
         fetch('/generated/learnsets.json').then((r) => (r.ok ? r.json() : null)),
       ]);
       moves = m; learnsets = l;
-    } catch { /* handled below, at warn — a handled path must not cost §7's error budget */ }
+    } catch { /* handled below, at warn — a handled path must not cost tools/shots/shoot.js's error budget */ }
 
     if (!moves || !learnsets) {
-      // `log.warn`, never `log.error`: §7 budgets zero console errors and DECISIONS #15 is
-      // explicit that a handled path must not spend that budget.
+      // `log.warn`, never `log.error`: capture budgets count real faults, not handled recovery.
       log.warn('battle: /generated/{moves,learnsets}.json missing — no battle can be fought. '
         + 'Run `node src/pokemon/tools/build-battle-data.js`.');
     } else {
@@ -103,7 +102,7 @@ export default {
        * The visible fight steps this on a sim cadence so it can be watched and screenshotted;
        * `idle` and `offline` drain it. `between` lands heals, ethers and revives between two
        * turns and `nextAlly` sends out the next party member when one falls, so an ally faint
-       * is not the end of a duel. Neither hook may draw randomness (DECISIONS #72).
+       * is not the end of a duel. Neither hook may draw randomness.
        */
       stepper,
       applyAction,
@@ -154,7 +153,7 @@ export default {
         return { ok: results.every((r) => r.ok), results };
       },
 
-      // --- the save seam (§5) ----------------------------------------------
+      // --- the save seam (src/offline/slices.js) ----------------------------------------------
       saveState: () => ({ v: SAVE_VERSION, priority: Object.fromEntries(priority) }),
       loadState(value) {
         if (!value || typeof value !== 'object') return false;

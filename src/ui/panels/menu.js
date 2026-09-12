@@ -58,7 +58,7 @@ export function makeMenu(app) {
       panel(g, box, { paper: C.wallBase });
       // Swallows a pointerdown on the column's own paper so it stops here rather than falling
       // through to the scrim above it — every row registers its own hit region strictly later,
-      // in the `forEach` below, and so still wins over this one (DECISIONS #84).
+      // in the `forEach` below, and so still wins over this one.
       g.hit(box, { swallow: true }, 'window-body');
 
       // The header is the Poké Ball mark rather than a word: it is the game's own bullet.

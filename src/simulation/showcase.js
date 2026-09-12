@@ -6,7 +6,7 @@
  * time. Two sprites walking in a straight line are indistinguishable from two sprites
  * standing in a row; two sprites rounding a corner are not — so the default shot is the
  * corner. The queue is a **pair**, not the old four: only the active Pokemon is in the field
- * (DECISIONS #58), and this showcase never calls `setFormation`, so it keeps the default
+ *, and this showcase never calls `setFormation`, so it keeps the default
  * hunt arrangement — the Pokemon at the head, the trainer behind it.
  *
  * Modes (`?showcase=simulation&mode=…`):
@@ -19,7 +19,7 @@
  *   city              the party on the lobby's paving, the lobby's own cast around them
  *
  * Every mode walks the party to an exact step and then freezes the simulation, so the same
- * URL gives the same pixels (ARCHITECTURE §6.3) even though the subject is a walk.
+ * URL gives the same pixels (tools/shots/shoot.js) even though the subject is a walk.
  */
 
 import { SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ } from '../core/dir.js';
@@ -92,7 +92,7 @@ function routeFor(gap) {
  * happened to put one sprite texel on `k` whole internal pixels *at the window it was measured
  * at* — the density fell out of `fov`, distance and buffer height, so the number had to be
  * recomputed per shot and was only ever right for one screen. It is a config key now
- * (DECISIONS #60) and the ladder has three rungs, because those are the only densities at
+ * and the ladder has three rungs, because those are the only densities at
  * which both 16-texel sprite art and 32-texel tile art land on whole pixels: 16 (wide), 32
  * (one sprite texel = 2 px, the game's own zoom) and 64 (close).
  */
@@ -182,7 +182,7 @@ function buildWalkMap(draft, ctx) {
   //   ki02ax  z=1 plane, normal (0,0,-1), y 0.19..4.5     <- the one you are meant to see
   //   ki02bx  horizontal quad, y=1.625, normal (0,1,0)
   //   ki02dx  horizontal quad, y=3.719, normal (0,1,0)
-  // Our camera never yaws (ARCHITECTURE 2.7), so the x=1 plane is permanently edge-on and
+  // Our camera never yaws (src/core/render.js), so the x=1 plane is permanently edge-on and
   // rasterises as the full-height bright column the critic photographed, and the two
   // horizontal slices read as the brown lintel above the canopy. Both are lit off normals
   // that point nowhere near the surface they stand for, which is why the column stays green
@@ -283,12 +283,12 @@ const STOPS = {
   // frozen on the walk's stride frame.
   //
   // There was a `run` mode here, pairing this framing at 0.15 s/tile so the trainer's leaning
-  // run trio could be cropped against the walk. Run is gone from the game (DECISIONS #58),
+  // run trio could be cropped against the walk. Run is gone from the game,
   // so the mode went with it.
   south: { after: LEG.west + 6, sub: 3, ppu: PPU.normal },
   // Pulled back so the road, the fields and the grass read as a place. `k` is 1.5 rather than
   // 1: at k=1 a tile texel lands on half an internal pixel and the ground goes to mush, and
-  // the queue — the point of the shot — was 4% of the frame height. See DECISIONS.
+  // the queue — the point of the shot — was 4% of the frame height.
   wide: { after: 1, sub: 3, ppu: PPU.wide },
 };
 
@@ -306,12 +306,12 @@ const STOPS = {
  * size in texels, i.e. by up to the WHOLE texture. Neighbouring cells therefore land on
  * unrelated regions of a strongly mottled source and every cell edge becomes a value step.
  * A quarter turn per cell compounds it. `?variety=0` removes both and the lawn comes back
- * organic (A/B: docs/progress/simulation/r2/ab-variety1.png vs ab-variety0.png).
+ * organic.
  *
  * The bound belongs in tiles and is filed as a coreRequest. Meanwhile the only knob is a URL
  * parameter the critic will not pass, so this rebuilds the same placements through the same
  * public `tiles.buildInstances` with `variety: 0` and hides terrain's copy. It costs a second
- * set of instanced meshes — measured, and reported in STATUS — and it is skipped entirely if
+ * set of instanced meshes — measured — and it is skipped entirely if
  * the URL pinned `variety`, so an A/B still works.
  */
 function reground(ctx) {

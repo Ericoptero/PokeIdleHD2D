@@ -167,7 +167,7 @@ export const ITEMS = [
     heal: { revive: 0.5 }, desc: 'Revives a fainted Pokémon at half HP.' },
   { id: 'maxrevive', name: 'Max Revive', category: 'medicine', tier: 4, price: 4000, sell: 2000,
     heal: { revive: 1 }, desc: 'Revives a fainted Pokémon at full HP.' },
-  // PP restoration. **These are new** (DECISIONS #72): the game has modelled per-move PP since
+  // PP restoration. **These are new**: the game has modelled per-move PP since
   // the turn engine landed, and Struggle since with it, and there has never been anything in the
   // shop that put PP back — so a long hunt ended in a Pokemon flailing at 50 power with recoil,
   // with no purchasable answer. Auto-Ether is the automation the brief asks for, and this is
@@ -282,7 +282,7 @@ Object.freeze(ITEMS);
 /**
  * Which categories are **loot** rather than consumables.
  *
- * The whole of the Stash/Bag split, in one set (DECISIONS #75). `treasure` items have no buy
+ * The whole of the Stash/Bag split, in one set. `treasure` items have no buy
  * price and exist only to be sold; everything else is something a hunt spends.
  */
 /**
@@ -292,7 +292,7 @@ Object.freeze(ITEMS);
  * three of those four are `category: 'medicine'`, so the category cannot express the order. The
  * payload can: an item that restores HP heals, one that raises a fainted Pokémon revives, one
  * that restores PP is PP. Derived rather than authored, so an item added tomorrow is classed
- * the day it lands (DECISIONS #78).
+ * the day it lands.
  */
 export function purchaseClass(def) {
   if (!def) return 'other';

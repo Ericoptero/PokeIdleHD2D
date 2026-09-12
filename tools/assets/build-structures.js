@@ -3,7 +3,7 @@
  * Builds the `structures` tileset out of the buildings we author ourselves.
  *
  * No PDSMS tileset contains a Pokemon Center, a Mart, or any complete building
- * (DECISIONS #3), so those are modelled here and shipped in exactly the same pack shape a
+ *, so those are modelled here and shipped in exactly the same pack shape a
  * .pdsts produces. That means `tiles.load('structures')` needs no new code and a map author
  * places a Pokemon Center with the same call that places a tree:
  *
@@ -13,7 +13,7 @@
  * meta.json giving the footprint, collision and door cell. Output goes to
  * public/generated/tiles/structures/.
  *
- * The same code builds the adapted props (DECISIONS #22): they are authored art in exactly
+ * The same code builds the adapted props: they are authored art in exactly
  * the same folder shape, so they are a source directory and a slug, not a second builder.
  *
  *   node tools/assets/build-structures.js
@@ -167,7 +167,7 @@ function build() {
   writeFileSync(join(OUT, 'pack.bin'), Buffer.concat(chunks));
   writeFileSync(join(OUT, 'catalog.json'), JSON.stringify({
     tileset: SLUG, unitsPerCell: 1, axis: 'y-up, +x east, +z south',
-    source: `${ARGS.src} (authored — DECISIONS #3, #15)`,
+    source: `${ARGS.src} (authored)`,
     materials, models,
   }, null, 1));
 

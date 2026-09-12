@@ -2,9 +2,7 @@
  * ball.js — the thrown ball, as authored pixel art.
  *
  * A capture is the one moment this module has that is genuinely a *picture* rather than a
- * number, so it gets drawn properly. ARCHITECTURE §9 is explicit that a coloured primitive
- * standing in for art is a bug and not a milestone, and a `SphereGeometry` with a red
- * material is exactly that — so the ball is a **16x16 pixel sprite**, authored below one
+ * number, so it uses authored art. The ball is a **16x16 pixel sprite**, authored below one
  * character at a time, blown up through the same nearest-filter path everything else in the
  * frame goes through.
  *
@@ -19,7 +17,7 @@
  *
  * ## Scale, and why the quad is stretched
  *
- * DECISIONS #18: sprites are 16 texels per world unit and their quads are multiplied by
+ * Sprites are 16 texels per world unit and their quads are multiplied by
  * `1/cos(cameraPitch)` because a vertical world unit only covers `cos(45°)` of the screen
  * height it would cover face-on. So the 16 px frame is exactly one world unit across and
  * `1/cos(45°) = 1.414` units tall, which lands as a square block of pixels on screen, and
@@ -29,14 +27,14 @@
  *
  * Every method takes a phase in `[0,1]`, or a shake index. The caller owns the timeline and
  * drives it off `simTime`/sim steps, so a frozen scene renders the same frame every time
- * and a screenshot of the moment the ball is in the air is reproducible (DECISIONS #14).
+ * and a screenshot of the moment the ball is in the air is reproducible.
  */
 
 /**
  * The ball, drawn as a **12 px circle inside a 16 px frame**.
  *
  * The frame size is what fixes the world scale: sprites are 16 texels per world unit
- * (DECISIONS #18), so a 16 px quad is exactly one tile and every texel lands on the pixel
+ *, so a 16 px quad is exactly one tile and every texel lands on the pixel
  * grid — but a ball a whole tile across reads as a boulder next to a two-tile-tall Pokemon.
  * Padding the art instead of shrinking the quad gives a ball 0.75 tiles wide *and* keeps the
  * texels square, which shrinking the mesh would not.
@@ -67,7 +65,7 @@ const BALL_ART = [
  * The **"!" bubble is gone**, and so is the grass that used to part under it.
  *
  * Both were the vocabulary of a reveal: 16 px of balloon that said *something is happening
- * here, to that one*, and nine leaves that said *it came out of there*. DECISIONS #87 removed
+ * here, to that one*, and nine leaves that said *it came out of there*. The field encounter implementation removed
  * the thing they were describing — the creature was already walking the map and the party
  * walked up to it, so there is no arrival to caption. What names the wild now is the plate over
  * its head, and what says "you may throw" is that plate's empty HP bar.
@@ -134,7 +132,7 @@ const PALETTES = {
  * `#2a2a33` — three names for the same colour. Pushed through this scene's grade (AgX at
  * `exposure 0.355`, then `contrast 1.32`) all three land on literal (0,0,0), and with a
  * **two**-row band plus a two-row ring on a ball only twelve texels tall that was 56 of the
- * 112 filled texels: measured on `docs/progress/encounter/critic/c01-throw-noon.png`,
+ * 112 filled texels: measured at noon,
  * 50.4 % of the ball's own pixels were exactly black. A Great Ball read as a blue cap over
  * a domino mask.
  *
@@ -147,9 +145,8 @@ export const SHARED = { o: '#2b2b36', B: '#4d4d5c', k: '#74747f', W: '#ffffff', 
 
 /** Draws one 16x16 grid into a canvas at 1 texel per pixel. */
 /**
- * Pixel art to a canvas — one grid, one palette swap, one nearest-filtered texture (#78). Once
- * shared with `encounter/strikes.js`'s own move effects too; that file is gone (DECISIONS #91,
- * a deliberate shader rewrite for that system only), so this is the ball's own helper again.
+ * Pixel art to a canvas — one grid, one palette swap, one nearest-filtered texture . Once
+ * shared with `encounter/strikes.js`'s own move effects too; that file is gone (replaced by shader VFX), so this is the ball's own helper again.
  */
 export function paint(art, palette, size) {
   const canvas = document.createElement('canvas');
@@ -317,7 +314,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
    * ground — the arc's half of `pixelExactDistance()`.
    *
    * The showcase frames at the distance where one sprite texel is exactly two internal
-   * pixels (DECISIONS #18), and that is only true at one distance. A perspective camera
+   * pixels, and that is only true at one distance. A perspective camera
    * scales as `1/d`, and this camera is pitched 45 degrees down, so lifting the ball 1.8
    * units up the arc walks it 1.27 units *closer* — about 6 % nearer at the framing this
    * module shoots. Measured on round 1's `c01`: ground sprites ran a constant 6 screen px
@@ -326,7 +323,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
    *
    * `d / d0` is exactly the factor that cancels it. Six per cent of size is invisible; six
    * per cent of a *texel* is the difference between a pixel-art sprite and a resampled one,
-   * which is the same trade DECISIONS #29 recorded for `wide`, made the other way because
+   * which is the same trade used for `wide`, made the other way because
    * here it costs nothing to read.
    */
   function gridScale(x, y, z, groundY) {
@@ -406,7 +403,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
       // resampled off its own grid. Measured on screen at 6x: the first cut of this file
       // spun the ball three times on the way over and the shutter caught it at 90 degrees,
       // where it read as an unidentifiable black lump with a blue corner. Every other sprite
-      // in this game is axis-aligned for exactly that reason (DECISIONS #18), and an arc
+      // in this game is axis-aligned for exactly that reason, and an arc
       // alone carries the throw perfectly well.
       airborne = { x, y, z, groundY };
       place(x, y, z, 0, gridScale(x, y, z, groundY));
@@ -433,7 +430,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
       // ball is 12 texels across drawn at two internal pixels per texel, so the 19-degree
       // roll this started as resampled every texel off its own grid and came out as a smeared
       // lump at 5x. Sliding it two whole texels left and right instead keeps every
-      // pixel square — which is the same reason DECISIONS #18 keeps sprites axis-aligned —
+      // pixel square — which is the same reason we keep sprites axis-aligned —
       // and still reads unmistakably as a ball fighting to stay shut.
       // Three texels, not two. At two the extreme of the sweep is 2/16 of a world unit —
       // 27 screen px at the framing this module now shoots — against a ball 116 px wide, so a
@@ -525,7 +522,7 @@ export function makeBallSprite(THREE, ctx, { sparks = 10 } = {}) {
     /**
      * Re-apply the airborne pixel-grid scale against the camera as it is *now*.
      *
-     * Called once per rendered frame from the module's `lateFrame` hook (DECISIONS #91 — moved
+     * Called once per rendered frame from the module's `lateFrame` hook (moved
      * from `frame` so this runs after the camera rig has actually updated). It is a no-op unless the
      * ball is in the air, and it reads nothing but the camera — so a frozen scene stays
      * deterministic (the camera spring converges to the same place from the same URL) while a

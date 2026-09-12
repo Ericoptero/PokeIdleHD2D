@@ -17,7 +17,7 @@
  * `city:lamps`. Everything else tall enough to matter was already casting.
  *
  * ── Why the lamp was taken out, and why this does not simply put it back ────────────────
- * DECISIONS #48 removed it on purpose, and priced it: *"at 21:00 the post drew a hard streak
+ * The post stops casting at night because *"at 21:00 the post drew a hard streak
  * across the grass and the head, hanging a cell out on the arm, dropped a **detached** black
  * lozenge clear of it."* `city` gave the lamps their own `InstancedWorld` purely so they could
  * carry `castShadow: false`, and `city/high-street/21` measured `belowL8` 23.20 → 22.68 and
@@ -32,18 +32,18 @@
  * So the override is **gated on the sun still being the key**, and the gate is the same pair
  * of facts `index.js` already computes for everything else it does:
  *
- *   · `night` — the moon has taken over as the key light. #48's frame, unchanged.
+ *   · `night` — the moon has taken over as the key light. the original night frame, unchanged.
  *   · `lampsOn` — the preset's own dusk ramp, the number that lights the lens. A fixture that
  *     is emitting light should not also be throwing a hard shadow of its own head; that is the
  *     "two incompatible lighting models" defect wearing the other hat.
  *
- * Under that gate `city/high-street/21` renders byte-for-byte what #48 shipped, and nothing
+ * Under that gate `city/high-street/21` renders byte-for-byte the original night frame, and nothing
  * this module does can re-open a decision that was made with numbers attached.
  *
  * ── Why the rule only ever ADDS ─────────────────────────────────────────────────────────
  * It never clears a `castShadow` another module set. `src/tiles/instanced.js` deliberately
  * keeps flat and decal tiles out of the shadow pass (that is why open ground cannot
- * self-shadow at any kernel radius — DECISIONS #52(b)), and that exclusion is load-bearing.
+ * self-shadow at any kernel radius), and that exclusion is load-bearing.
  * A policy that could switch casters off would be able to undo it by accident; one that can
  * only switch them on cannot.
  *

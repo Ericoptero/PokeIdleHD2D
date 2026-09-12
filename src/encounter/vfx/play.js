@@ -1,7 +1,7 @@
 /**
  * play.js — the strike's own timeline, and the API `encounter/index.js` actually calls.
  *
- * Keeps the exact contract `strikes.js` (deleted this slice) already offered —
+ * Keeps the exact contract `strikes.js` (replaced by this module) already offered —
  * `play({shape,type,from,to})` / `phase(p)` / `hide()` / `playing()` / `dispose()` — so the
  * caller's own changes are an import swap, not a rewrite. One exception: **no `refit()`**.
  * The old system billboarded by copying the camera's quaternion onto each mesh once a
@@ -11,7 +11,7 @@
  * frame, with nothing to repeat. `ground.js`'s ring lies flat and never billboarded even in
  * the old system. `encounter/index.js`'s own `refit()` still exists, for `ball.js`'s sprite.
  *
- * Colour comes from `battle.typeColour(type)` (DECISIONS #90) — `core`/`edge`, read live and
+ * Colour comes from `battle.typeColour(type)` — `core`/`edge`, read live and
  * `isLive`-guarded exactly like `emitStrike` already reads `battle` for the same strike, with
  * a neutral fallback for the moment `battle` itself is quarantined. Movement personality comes
  * from `elements.js`'s `profileFor(type)`. Neither file needs to know about the other.
@@ -42,7 +42,7 @@ function localK(beat, p) {
  * `pitch`/`_opts` are accepted for call-site compatibility with the system this replaces
  * (`makeStrikeVfx(ctx.THREE, ctx, { pitch: config.cameraPitch ?? 45 })`) but unused: nothing
  * here paints a pixel-art texture at a texel density that would need the sprite stretch
- * DECISIONS #18 exists for, so there is no pitch-dependent geometry left to compute.
+ * axis-aligned sprites avoid, so there is no pitch-dependent geometry left to compute.
  */
 export function makeStrikeVfx(THREE, ctx, _opts = {}) {
   const scene = ctx.three.scene;
@@ -77,7 +77,7 @@ export function makeStrikeVfx(THREE, ctx, _opts = {}) {
     },
 
     /** Draws the strike at `p` in `[0,1]`. Pure: the same `p` gives the same pixels, so a
-     *  frozen showcase frame is reproducible (DECISIONS #14). */
+     *  frozen showcase frame is reproducible. */
     phase(pRaw) {
       if (!live) { hideAll(); return; }
       const { shape, type, from, to, crit, effectiveness } = live;

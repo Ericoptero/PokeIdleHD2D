@@ -1,5 +1,5 @@
 """
-Rebuilds the leaning 45-degree sprites as real geometry, in the AdAstra style (DECISIONS #22).
+Rebuilds the leaning 45-degree sprites as real geometry, in the AdAstra style.
 
 Run inside Blender:
 
@@ -31,7 +31,7 @@ OUT = os.path.join(REPO, "assets", "props")
 
 # Everything here is built in **Blender's own Z-up space**, and exported that way, because
 # tools/assets/obj.js already converts a Z-up export with `swapYZ` -- the same path the
-# authored structures take. Mapping to ARCHITECTURE 3.1: Blender X is east, Blender Y is
+# authored structures take. Mapping to tools/assets/pdsts.js: Blender X is east, Blender Y is
 # south, Blender Z is up.
 UP = Vector((0.0, 0.0, 1.0))
 SOUTH = Vector((0.0, 1.0, 0.0))
@@ -507,7 +507,7 @@ def export_one(ob, entry, uv_used):
     step is shared.
 
     The OBJ is written Z-up, unconverted, because tools/assets/obj.js already reads that with
-    `swapYZ` -- the same path the authored buildings take (DECISIONS #12).
+    `swapYZ` -- the same path the authored buildings take.
     """
     slug, name = entry["slug"], entry["name"]
     folder = os.path.join(OUT, f"{slug}__{name}")

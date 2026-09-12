@@ -4,7 +4,7 @@
  * Modes (`?showcase=pokemon&mode=…`):
  *   default   a rank of species, one per generation, in all four directions, with the
  *             trainer's four directions and his west walk cycle in front of them.
- *   trainer   the trainer rows close in. This is the shot that settles DECISIONS #17: the
+ *   trainer   the trainer rows close in. This shot shows the
  *             west sprite must face screen-left, and the four walk phases must read as
  *             contact / stride / contact / opposite stride.
  *   depth     sprites in front of, level with and behind a tree line, plus a giant, to show
@@ -38,7 +38,7 @@ const GIANTS = ['steelix', 'lugia', 'dondozo'];
  * `ppu / 16` is the internal pixels one sprite texel covers: 32 gives two, 16 gives one. There
  * used to be a `pixelExactDistance()` here solving for a camera distance that happened to land
  * on the grid, because the density fell out of the window size; it is a config key now
- * (DECISIONS #60) and the same two numbers are exact on every screen instead of at 1080p.
+ * and the same two numbers are exact on every screen instead of at 1080p.
  */
 const PPU_2PX = 32;   // one sprite texel = two internal pixels, one tile texel = one
 const PPU_1PX = 16;   // one sprite texel = one internal pixel — the whole sheet in frame
@@ -73,7 +73,7 @@ async function ground(ctx, { w, h, pathBand = null, trees = 0, plants = 0 } = {}
       { collision: 'walk', layer: 1, outsideIsFilled: false });
     if (!placed) {
       // Fall back to the one path model that carries PDSMS global mapping, so a flat band
-      // still reads as a road rather than as the same stamp in every square (DECISIONS #8).
+      // still reads as a road rather than as the same stamp in every square.
       const center = tiles.find(SLUG, { category: 'path' }).filter((m) => m.globalUv)[0];
       if (center) draft.fill({ x: 0, z: pathBand.z, w, h: pathBand.h }, center, { collision: 'walk', layer: 1 });
     }
@@ -96,7 +96,7 @@ async function ground(ctx, { w, h, pathBand = null, trees = 0, plants = 0 } = {}
   tiles.buildInstances(ctx.three.scene, SLUG, draft.placements, { name: 'showcase:pokemon' });
 
   // The walkable surface is not always y = 0: AdAstra's grass/path tiles are authored at
-  // baseY 0.07 and its dirt at 0.125 (DECISIONS #7). A sprite dropped at 0 sinks its feet
+  // baseY 0.07 and its dirt at 0.125. A sprite dropped at 0 sinks its feet
   // into the path and its contact shadow disappears *under* the road, so the staging asks
   // the map how high the ground is, exactly as `simulation` will ask `terrain.height()`.
   const top = new Float32Array(w * h);
@@ -134,7 +134,7 @@ async function row(pokemon, map, { trainer = 'hero', z, cx, gap = 3.0, dirs = nu
 }
 
 /**
- * Exercises the §5.5 API in the scene itself. Anything that throws here shows up as a
+ * Exercises the src/pokemon/index.js API in the scene itself. Anything that throws here shows up as a
  * console error in the shot's JSON, which is a budget failure — so the contract is checked
  * on every screenshot instead of only when someone remembers to.
  */
@@ -153,7 +153,7 @@ function selfCheck(pokemon, log) {
 /**
  * The instance model, driven live.
  *
- * A rank of sprites cannot show a level-up, and the level-up is what DECISIONS #61 added — so
+ * A rank of sprites cannot show a level-up, and the level-up changes several visible fields — so
  * this mode is a transcript, in the idiom `economy` and `battle` already use. Deterministic:
  * one instance, minted from a fixed stream, given fixed amounts of experience in a fixed order.
  */
@@ -187,7 +187,7 @@ async function levelUpTranscript(ctx) {
   }
   say('spent PP survived every level-up', `${inst.moves.map((m) => `${m.pp}/${m.maxPp}`).join(' ')} — a level-up is not a free heal`);
 
-  // The rule the whole of DECISIONS #62 is about: it is long past its level and it has NOT
+  // Evolution is manual: it is long past its level and it has NOT
   // evolved, because nothing evolves without being asked to.
   const bill = pk.canEvolve(id);
   say('… and it has NOT evolved',
@@ -212,7 +212,7 @@ async function levelUpTranscript(ctx) {
 
   const slice = pk.saveState();
   say('saveState()', `v${slice.v}, ${slice.party.length} in party, ${JSON.stringify(slice.party[0]).length} bytes for the lead`);
-  say('loadState(slice)', `${pk.loadState(slice)} — stats and the move list are REBUILT from the species, never trusted (§5)`);
+  say('loadState(slice)', `${pk.loadState(slice)} — stats and the move list are REBUILT from the species, never trusted (src/offline/slices.js)`);
   return { log, inst: pk.instance(id) ?? inst };
 }
 
@@ -250,7 +250,7 @@ export async function showcasePokemon(mode, ctx) {
     await pokemon.sprites.prepare([{ trainer: 'hero' }, { trainer: 'heroine' }]);
     const map = await ground(ctx, { w: 40, h: 40, pathBand: { z: 21, h: 4 } });
     // Front to back: the hero's four directions on the path, the heroine's four directions
-    // (her east cycle mirrors differently — DECISIONS #17), then the west walk cycle and the
+    // (her east cycle mirrors differently), then the west walk cycle and the
     // west run cycle. Rows are 3.9 tiles apart because a 2.83-unit sprite covers 2.0 tiles of
     // screen height at a 45-degree camera, and anything tighter puts the back row's feet
     // inside the front row's head.

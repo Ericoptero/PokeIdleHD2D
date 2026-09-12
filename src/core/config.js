@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Every tunable a critic might ask us to change lives here, not in a module constant
- * (ARCHITECTURE §2.6). Overridable per-session by query string and by localStorage, so a
+ * (src/core/config.js). Overridable per-session by query string and by localStorage, so a
  * screenshot can be requested at an exact time of day, seed and pixel scale.
  */
 
@@ -12,7 +12,7 @@ export const DEFAULTS = {
   /**
    * **Internal pixels per world unit. This is the pixel grid, and it is the primitive.**
    *
-   * Everything else about the camera is derived from it (DECISIONS #60). It used to be the
+   * Everything else about the camera is derived from it. It used to be the
    * other way round -- `unitsPerPixel` fell out of `fov` and `cameraDistance` and the internal
    * buffer height, so it changed with the size of the window: 26.0 px/unit at 1080p, 23.7 on a
    * 1512-wide MacBook, 17.4 at the gate's own 1280x720. Sprites are magnified by a whole
@@ -52,7 +52,7 @@ export const DEFAULTS = {
   /**
    * How far back along the view ray the camera stands, in tiles.
    *
-   * **Not a zoom.** The camera is orthographic (DECISIONS #60), so this changes nothing about
+   * **Not a zoom.** The camera is orthographic, so this changes nothing about
    * the size of anything -- it only decides how much headroom there is between `near` and
    * `far` for tall geometry in front of the focus. Zoom is `pixelsPerUnit`.
    */
@@ -65,7 +65,7 @@ export const DEFAULTS = {
   shadowBias: -0.0006,
   shadowNormalBias: 0.035,
   /**
-   * Land each sprite's anchor on a whole internal pixel (DECISIONS #58, #60).
+   * Land each sprite's anchor on a whole internal pixel.
    *
    * The *size* is no longer in question: under the orthographic camera a sprite texel is
    * `pixelsPerUnit / 16` internal pixels at every depth on every device, which is why that key
@@ -98,7 +98,7 @@ export const DEFAULTS = {
    * covers twice the screen pixels for the same buffer pixel — readability for a bigger
    * monitor or a player who wants larger text — with no change to a tile or a sprite, because
    * the two canvases are separate layers (`screen.js`'s own top-of-file comment) and nothing
-   * about the world's pixel grid (DECISIONS #60) is touched.
+   * about the world's pixel grid is touched.
    *
    * **1 or 2, and nothing else** — not the `pixelsPerUnit` ladder, a different ladder for a
    * different surface. `screen.js` clamps anything else down to the nearer of the two.
@@ -138,7 +138,7 @@ export const DEFAULTS = {
   latitude: 36,
   /**
    * Two knobs that bend the *rendered* sun away from the real one, for a reason four blind
-   * judges found independently (docs/STATUS-ARCHIVE.json → gate.blindJudging): at 36N the noon sun sits at 60 degrees of
+   * judges found independently: at 36N the noon sun sits at 60 degrees of
    * elevation on an azimuth of 180 — due south — and this camera looks north and never
    * yaws. So at midday the key is directly behind the viewer and every shadow hides behind
    * the object that casts it: `--envNoShadow 1` at tod 12 changes 0.07% of the frame. The
@@ -162,7 +162,7 @@ export const DEFAULTS = {
   walkSecondsPerTile: 0.25,
 
   /**
-   * How many corners a hunt's circuit is bent to (ARCHITECTURE §5.14, DECISIONS #66).
+   * How many corners a hunt's circuit is bent to (src/hunts/index.js).
    *
    * A hunt is walked on a closed loop found on the map, and the guaranteed shape is a
    * rectangle — four corners, and it reads like one. Each extra pair comes from displacing a
@@ -192,14 +192,14 @@ export const DEFAULTS = {
    * is exactly one step away — and a fight that begins because the trainer's Pokemon *reached*
    * the creature is what the brief asks for, rather than one that begins because it came within
    * shouting distance. At 2 the encounter would fire from the path before the detour was ever
-   * taken, and the party would never leave the circuit at all (DECISIONS #73).
+   * taken, and the party would never leave the circuit at all.
    */
   slotEngageTiles: 1,
 
   /**
    * How many fixed sim steps one **action** takes — one side's blow, its balloon, its effect.
    *
-   * Replaces `turnSteps` (DECISIONS #89): a turn used to be staged as one 24-step block for
+   * Replaces `turnSteps`: a turn used to be staged as one 24-step block for
    * *both* sides together, which is exactly the "attacks at the same time" the brief asks
    * against — one `battle:strike` fired for each side in the same tick, so their balloons and
    * their effects always landed on top of each other. Now each strike a turn produces gets its
@@ -209,8 +209,7 @@ export const DEFAULTS = {
    * effect finish before the next starts (`T.STRIKE`, `encounter/index.js`, is always shorter
    * than this), short enough that an eight-turn fight is still under it running twice as many
    * beats. Counted in **sim steps and not seconds** because the screenshot harness freezes the
-   * clock, and a beat measured in wall time cannot be stopped on an exact frame (DECISIONS #14,
-   * #72).
+   * clock, and a beat measured in wall time cannot be stopped on an exact frame.
    */
   actionSteps: 18,
   /**
@@ -218,7 +217,7 @@ export const DEFAULTS = {
    *
    * Enough for one complete hunt kit before any loot income. It is credited as **not earned**,
    * so it does not move `progress().totalEarned` — the number every money-priced shop gate is
-   * unlocked against (DECISIONS #75).
+   * unlocked against.
    */
   fieldStartMoney: 100000,
   /**
@@ -227,7 +226,7 @@ export const DEFAULTS = {
    * **Presentation, not a rule.** It is multiplied by 20 into sim steps for the watched fight
    * and is exactly zero in a fold, because `idle` and `offline` have no wall clock — a revive
    * costs the item and nothing else, in both paths, which is what keeps a replayed fight the
-   * same fight as the one that was watched (DECISIONS #72). `?reviveSeconds=0` gives the
+   * same fight as the one that was watched. `?reviveSeconds=0` gives the
    * harness an instant one.
    */
   reviveSeconds: 5,
@@ -245,11 +244,11 @@ export const DEFAULTS = {
    * Tiles between one walker in the conga line and the next.
    *
    * 2, not the Black & White 1, and the number is measured rather than preferred: a sprite
-   * is 16 texels per world unit stretched by 1/cos(45°) (DECISIONS #18), so a 32 px frame is
+   * is 16 texels per world unit stretched by 1/cos(45°), so a 32 px frame is
    * an upright quad 2.83 units tall, which under a 45° pitch covers 2.83·sin(45°) = 2.0
    * tiles of ground depth on screen. At a gap of 1 the walker in front covers the one behind
    * it completely — and the one behind is the lead Pokémon, which is the thing the brief is
-   * about (docs/progress/simulation/r1/00-gap1-lead-hidden.png). BW could use 1 because its
+   * about. BW could use 1 because its
    * camera is nearly top-down; ours is not.
    */
   followerGapTiles: 2,
@@ -283,11 +282,11 @@ export const DEFAULTS = {
   /**
    * Quarantine a module on purpose: `?break=economy`.
    *
-   * §2.1's load-bearing rule — one broken module costs a feature and never the game — was the
+   * src/core/registry.js's load-bearing rule — one broken module costs a feature and never the game — was the
    * only claim in this document with no way to *photograph* it. Now there is one: the named
    * module is failed before `init` runs, its dependents block exactly as they would after a
    * real throw, and the rest of the game keeps its frame loop. Comma-separated for more than
-   * one. Never set outside a diagnostic URL (DECISIONS #70).
+   * one. Never set outside a diagnostic URL.
    */
   break: null,
 };

@@ -10,7 +10,7 @@
  *   page  — the offline showcase renders the results, so a screenshot proves them.
  *
  * Everything imported here is `src/offline/`'s own; `idle.simulate` arrives as an
- * argument, because a deep import across module folders is a seam violation (§5) and
+ * argument, because a deep import across module folders is a seam violation (tools/seams/run.js) and
  * because a test that depends on another builder's in-flight file is not a test.
  */
 
@@ -173,7 +173,7 @@ const CASES = [
   ['a v3 save carries its party into the v4 pokemon slice', () => {
     // The v3 adapter shape: no moves, no PP, no maxHp, and `hp` hardcoded to 1 by the old
     // `createInstance`. The migration must forward the identity and the level and DROP the
-    // hp, or every existing save restores a full party at one hit point (DECISIONS #61).
+    // hp, or every existing save restores a full party at one hit point.
     const storage = makeMemoryStorage({
       [KEY]: JSON.stringify({
         v: 3, createdMs: T0 - 99, lastSeenMs: T0 - 50, savedAtMs: T0 - 50,

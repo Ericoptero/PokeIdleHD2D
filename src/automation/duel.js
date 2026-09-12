@@ -9,7 +9,7 @@
  *   - `idle` and `offline` drain the same stepper and call the same functions;
  *
  * so anything that made a different decision in one path than the other would make a replayed
- * fight a different fight (DECISIONS #72). **No function here draws a random number**, reads a
+ * fight a different fight. **No function here draws a random number**, reads a
  * clock, or reaches a module. Items are named, never spent — `applyAction` in `battle` changes
  * the combatant and the *caller* debits the bag, which is what lets one implementation serve a
  * live `economy.take()` and an offline carry.
@@ -129,7 +129,7 @@ export function etherChoice(cfg, self, stock, itemOf) {
  *
  * The brief's weighting, in its own order: **offence first**, then how well it survives what
  * the wild throws back, then current HP as a tiebreak. Fainted members are never eligible —
- * which is the rule a Potion used to be able to break (DECISIONS #72).
+ * which is the rule a Potion used to be able to break.
  *
  * Everything it needs is injected: `effectiveness(atkType, defTypes)` and `movesOf(member)` come
  * from `battle` through `ctx.get`, so this file stays importable under Node with two stubs and

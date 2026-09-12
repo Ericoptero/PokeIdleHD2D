@@ -30,7 +30,7 @@ export const COAST = {
   w: 66,
   h: 54,
   /**
-   * The trainer level `travel` asks for before it will come here (ARCHITECTURE §5.16).
+   * The trainer level `travel` asks for before it will come here (src/travel/index.js).
    *
    * Authored HERE and not in `travel`, because what a destination *is* stays with the
    * scene that owns it. deeper water rows and a table that starts to bite.
@@ -41,7 +41,7 @@ export const COAST = {
     // Three cells of camera toward the sea. The marker stands eight cells inland of
     // `shoreAt(cx)`, which put the shoreline and the water in the top third of the frame when
     // the perspective camera showed 20.7 cells of ground depth; the orthographic one shows
-    // 15.9 (DECISIONS #60), which left the biome named for the sea with a sliver of it against
+    // 15.9, which left the biome named for the sea with a sliver of it against
     // the top edge. The zoom is not the lever here — 16 would halve the detail of a shot that
     // exists to show shoreline autotiles — so the camera moves instead.
     shore: { marker: 'shore', ppu: 32, offset: [0, -3] },
@@ -150,8 +150,8 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
   // pond. `lake_water_center` is an opaque `ike01` quad at −0.5; the shallows sheet is at
   // −0.65 and `sea`'s surface lands at −0.65 too, so drawing the lake's centre puts a pond
   // over every interior water cell and buries all of it. Everything below was in the
-  // placement list, cost draw calls, and was invisible — DECISIONS #28a again, and this time
-  // in the module that wrote #28a down. Traced out of `solvePlacements`, not guessed.
+  // placement list, cost draw calls, and was invisible — another occluded-water case, this time
+  // in the module that builds the water surface. Traced out of `solvePlacements`, not guessed.
   palette.draw(draft, 'set1', water, {
     underlay: false, collision: 'water', layer: 1, tags: ['water'],
     skip: (cx, cz, kase) => kase === 'center',
@@ -177,7 +177,7 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
   // palette needs to resolve an inside and an outside on the same cell.
   //
   // The underlay still goes down over the whole annulus so no border slot's partial ramp
-  // leaves a hole with the sky showing through (DECISIONS #28a).
+  // leaves a hole with the sky showing through.
   //
   // **The surf is tinted apart from the water it sits in, because the art is quiet.**
   // `sea_zanami2` — the texture on all twelve border slots — is not a white breaker: it is a
@@ -263,7 +263,7 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
     const d = distToSea[cz * W + cx];
     if (d < 5) return false;
     const want = 0.68 - clamp01((d - 5) / 12) * 0.14;
-    // Domain-warped for the same reason the meadow's is (DECISIONS #37): a plain threshold
+    // Domain-warped for the same reason the meadow's is: a plain threshold
     // on a period-7 lattice gives axis-aligned level sets, and `ragged` can only move them
     // one cell, so the dune grass shipped as a rectangle with a vertical edge.
     return warpedFbm(cx, cz, seed ^ 0x3c19, { period: 5, detail: 0.42, amp: 3, warpPeriod: 6 }) > want;
@@ -311,14 +311,14 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
   // ------------------------------------------------------------- rocks and wrack
   //
   // The rebuilt props are real geometry rather than a card leaning back at 45 degrees
-  // (DECISIONS #22), and a shore without anything washed up on it reads as a diagram.
+  //, and a shore without anything washed up on it reads as a diagram.
   // The two `hgss-overworld` rocks are excluded by name, and the name is the right handle
-  // here because DECISIONS #23 names them: both have the surrounding water and grass baked
+  // here because they share this defect: both have the surrounding water and grass baked
   // into their source sprite, so the cylindrical wrap carries ripples up the body. On the
   // strand they read as woven baskets rather than boulders — shot and looked at
-  // (`docs/progress/hunts/r1/coast-sea.png` before this filter).
+  //.
   // **Two more names are excluded than in round 1, and the critic is why.** `sylvan-town__
-  // rock_tall` and `__rock_small` were already filed in STATUS as reading like woven baskets
+  // rock_tall` and `__rock_small` read like woven baskets
   // or hay bales at this camera — the cylindrical wrap of a front-projected sprite — and on a
   // wild beach eight of them strewn over open grass read as an asset dump, not as a place.
   // The one boulder that survives is `bw2-twist__small_rock`, and it is used *sparingly and
@@ -331,7 +331,7 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
     .filter((m) => m.name.includes('log') && usable(m));
   // A `Placement` names a model id and nothing else, and `InstancedWorld` resolves that id
   // against **one** tileset — put a props id through an AdAstra draft and you draw AdAstra's
-  // model of the same number, silently (DECISIONS #26a). So the props are collected here and
+  // model of the same number, silently. So the props are collected here and
   // built as their own world by `hunts`; only their collision goes into the draft.
   const propPlacements = [];
   const addProp = (model, cx, cz) => {
@@ -355,7 +355,7 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
       && fbm2(cx, cz, seed ^ 0x9f2, 6, 0.4) > 0.46,
   })) addProp(dryRocks[Math.floor(valueNoise(cx, cz, seed, 3) * dryRocks.length)], cx, cz);
 
-  // `hgss-overworld/water_rock` is deliberately **not** used. DECISIONS #23 names it one of
+  // `hgss-overworld/water_rock` is deliberately **not** used. It is one of
   // the two weakest of the fifteen rebuilt props — the surrounding water is baked into its
   // sprite, so the cylindrical wrap carries ripples up the body — and on screen in the
   // shallows it reads as a clam shell rather than as a rock. The dry boulders stand on the

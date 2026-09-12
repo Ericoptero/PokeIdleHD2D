@@ -1,5 +1,5 @@
 /**
- * Slice 018 — the inventory panel: a grid of every held item, split BAG / STASH, built on
+ * The inventory panel: a grid of every held item, split BAG / STASH, built on
  * `economy.bag()`/`stash()` and the window/pointer primitives 015/016 landed.
  *
  * Driven through real `PointerEvent`s at real buffer coordinates (`tests/flows/hud-windows.spec.js`'s
@@ -71,7 +71,7 @@ test('a purchase updates the panel\'s count while it stays open, with no reopen'
 
   expect(await call(page, 'economy', 'buy', 'potion', 1)).toBe(true);
 
-  // `economy` has no bus event for a bare item-count change (§ its own `economy:changed` is
+  // `economy` has no bus event for a bare item-count change (see its own `economy:changed` is
   // currency-only) — this is `economy.onChange(fn)` marking the screen dirty with the panel
   // still the one open, never a fresh `open()` call.
   expect(await page.evaluate(() => window.__CTX__.get('ui')._screen.dirty),
@@ -89,7 +89,7 @@ test('the sell-lock toggle, clicked in the panel, reaches automation\'s own sell
 
   // `automation.unlock('sell')` costs 200 research and requires 10 species caught
   // (`automation/automations.js`) — research cannot be minted from a fresh save
-  // (`docs/STATUS.json`'s `research-unmintable`), so it is granted directly, the same
+  // (see `src/idle/unlock.test.js`), so it is granted directly, the same
   // workaround `src/automation/showcase.js` uses (`eco.add('research', …, 'grant')`).
   const SPECIES = ['zubat', 'geodude', 'rattata', 'pidgey', 'magikarp', 'caterpie', 'weedle',
     'psyduck', 'machop', 'tentacool', 'gastly', 'onix'];

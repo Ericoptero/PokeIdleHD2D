@@ -1,5 +1,5 @@
 /**
- * environment — sky, sun, weather and the per-time-of-day grade (ARCHITECTURE §5.3).
+ * environment — sky, sun, weather and the per-time-of-day grade (src/environment/index.js).
  *
  * The sun is placed from a real solar-position formula at a fictional latitude, so its
  * direction and the length of every shadow change through the day the way they do outdoors.
@@ -17,7 +17,7 @@
  *   config                   exposure, contrast, saturation, bloom, vignette, grain
  *
  * ── Why fog carries the atmosphere ───────────────────────────────────────────────────────
- * The camera is locked at 45° below horizontal with a 26° fov (§2.7), so the horizon is
+ * The camera is locked at 45° below horizontal with a 26° fov (src/core/render.js), so the horizon is
  * *never* in frame: from 32° to 58° below level, every ray hits ground. The sky dome only
  * ever shows through gaps. All perceived distance and all "air" therefore has to come from
  * `FogExp2`, whose colour we allow to exceed 1.0 in linear space (`fogBoost`) so that far
@@ -99,14 +99,14 @@ void main() {
  * Verification toggles, read once from the URL.
  *
  * These exist so an A/B is a *URL* change and not a code change: the harness freezes the
- * clock and disables the cache (#24), so two captures one flag apart are the same frame with
+ * clock and disables the cache, so two captures one flag apart are the same frame with
  * exactly one thing moved, and a claim about what a light is doing can be *shown*. They are
  * read straight from `location.search` because `core/config.js` only accepts keys it
  * declares, and none of these belong in the shipped tunables.
  *
  *   ?envNoShadow=1   the sun/moon stops casting — is that dark quad a shadow or a decal?
  *   ?envNoConeBend=1 the night key goes back on the moon's raw antipode azimuth, so the
- *                    shadow is behind its caster again — the control for DECISIONS #46a.
+ *                    shadow is behind its caster again — the contact-shadow control.
  *   ?envNoPool=1     lamp point lights off
  *   ?envNoDecal=1    lamp ground pools off
  *   ?envNoFills=1    bounce + camFill off
@@ -120,16 +120,16 @@ void main() {
  *                    answers "what casts that slab?" (round 6: it is the trees).
  *   ?envBiasMul=N / ?envNormalBiasMul=N   sweep the shadow bias pair.
  *   ?envMinElevDeg=N  raise the key's elevation floor, so the shadow run is capped at
- *                    `cot(N)` caster-heights. Measured and NOT shipped — see DECISIONS #48.
+ *                    `cot(N)` caster-heights. Measured and NOT shipped.
  *   ?envShadowIntensity=N  how much of the shadow map's shadow is applied (three's
  *                    `LightShadow.intensity`). Also measured and not shipped.
  *   ?envTune=contrast:1.12,lift:0x2a2f3c   the grade, from the URL.
  *   ?envNoCasterFix=1  the caster policy off, so an object `city` or `hunts` kept out of the
- *                    shadow map stays out — the A/B for DECISIONS #54(e), and the control
- *                    that proves `city/high-street/21` is byte-identical to #48's frame.
+ *                    shadow map stays out — the shadow-map comparison, and the control
+ *                    that proves `city/high-street/21` is byte-identical to the original night frame.
  *   ?envNoPcss=1     the penumbra goes back to one width per frame — round 7 exactly. With
  *                    `&envNoCasterFix=1&envRpdbSlope=0.004` it is the whole of round 8's
- *                    control, which is how #54's matrix A/B was taken.
+ *                    control, which isolates the shadow-filter changes.
  *   ?envShadowTaps=N / ?envPcssSearch=N / ?envPcssRungs=K / ?envPcssMin=T / ?envPcssSlope=T
  *   ?envRpdbSlope=S / ?envNoRpdb=1        the whole shadow filter, swept from the URL — see
  *                    shadowFilter.js for what each one buys and what it was measured at.
@@ -159,7 +159,7 @@ function devNum(name, fallback) {
 /**
  * `?envTune=contrast:1.12,lift:0x2a2f3c` — the whole grade, from the URL.
  *
- * `environment.tune()` already exists for this (ARCHITECTURE §5.3), but the screenshot
+ * `environment.tune()` already exists for this (src/environment/index.js), but the screenshot
  * harness has no hook that reaches a module API, so tuning by hand meant editing
  * `presets.js` once per variant — which is a code change per data point, and a code change
  * cannot be A/B'd against itself in the same minute. Values starting `0x` are colours; the
@@ -190,7 +190,7 @@ const NORMAL_BIAS_MUL = devNum('envNormalBiasMul', 1);
  * `LightShadow.radius` defaults to **1**, and nothing in this project had ever set it — which
  * is the whole of "the shadows are hard". One texel of a 2048 map over a 56-unit ortho box is
  * `56 / 2048 = 0.0273` world units, a thirty-sixth of a tile, so every shadow in the game had
- * an edge one screen pixel wide at any zoom a player will ever see. `ARCHITECTURE` §2.7 asks
+ * an edge one screen pixel wide at any zoom a player will ever see. `ARCHITECTURE` src/core/render.js asks
  * for `PCFSoftShadowMap` and `core/render.js` sets it, but three r185 deprecated that constant
  * and silently substitutes `PCFShadowMap` (`WebGLShadowMap.js:99`), whose kernel is
  * `shadowRadius * texelSize` — so the requested soft filter has been a one-texel one all along.
@@ -204,7 +204,7 @@ const SHADOW_RADIUS = devNum('envShadowRadius', NaN);
  * this game that distance is set almost entirely by the hour: at noon a bench's shadow lies
  * at its own feet, at 17:30 the same 8.6-degree sun throws a tree 6.6 caster-heights across
  * the lawn. One constant radius therefore cannot serve both, and both failures were shot
- * (`docs/progress/environment/r7/sweep/`):
+ *:
  *
  *   · at 12 texels the *golden hour* is right — `crop-f-lawn-r12.png` — and noon is wrong:
  *     `crop-bench-f12.png` has the bench's shadow blurred down to a faint smudge, because
@@ -237,7 +237,7 @@ function shadowRadiusFor(sunY) {
 let activeFx = null;
 
 /**
- * Camera-axis fill direction (§2.7 pins the camera at 45° south of the focus).
+ * Camera-axis fill direction (src/core/render.js pins the camera at 45° south of the focus).
  *
  * Deliberately far *shallower* than the camera, and the number is chosen by a ratio rather
  * than by where light comes from. This fill has exactly one job: the front of an upright
@@ -276,9 +276,8 @@ const CAM_FILL_DIR = { y: 0.180, z: 0.9837 };
  * A bounce is warm, and at 2.80 it was the largest single term in the shadowed ground — 59%
  * of the red in it — which is why a frame with a warm key also had warm shadows and every
  * hue in it collapsed onto the sun's. The blue hemisphere is the shadow's colour now and the
- * bounce only rescues the facets that have no key at all; `docs/progress/environment/r3/
- * ab-nofills-17.5.png` is the same frame with both fills off, and what goes black in it is
- * exactly what the bounce is for.
+ * bounce only rescues the facets that have no key at all. Turning both fills off at 17.5
+ * makes those facets black, demonstrating what the bounce is for.
  */
 const BOUNCE_ELEVATION = 0.18;
 /**
@@ -286,12 +285,12 @@ const BOUNCE_ELEVATION = 0.18;
  * the horizon takes zero diffuse off every up-facing surface, which is a black world; 0.06
  * is 3.4°, low enough that shadows still run 17× the caster's height.
  */
-/** Ceiling on the brightness the elevation soft-cap is allowed to hand back (DECISIONS #40). */
+/** Ceiling on the brightness the elevation soft-cap is allowed to hand back. */
 const TILT_GAIN_MAX = 1.9;
 /**
  * Floor on the same ratio, and it is 1 unless `?envMinElevDeg` is raising the key.
  *
- * #40's rule is `key *= sin(trueAltitude) / sin(shownAltitude)`: whatever the tilt does to
+ * The irradiance rule is `key *= sin(trueAltitude) / sin(shownAltitude)`: whatever the tilt does to
  * `dot(N, L)` on a horizontal surface, the key intensity undoes. It was clamped at 1 because
  * the only thing that had ever moved `shownAltitude` was the soft *cap*, which lowers it, so
  * the ratio was never below 1 and the clamp cost nothing. The `envMinElevDeg` sweep moves it
@@ -306,7 +305,7 @@ const TILT_GAIN_MIN = MIN_ELEV_DEG > 0 ? 0.35 : 1;
 
 /**
  * Half-angle of the cone, measured from due north, in which a shadow is hidden behind the
- * card that casts it (DECISIONS #46a). It is the same 38 degrees `config.sunAzimuthOffset`
+ * card that casts it. It is the same 38 degrees `config.sunAzimuthOffset`
  * bends the sun by, because it is the same fact: this camera looks north, so a shadow that
  * runs due north runs straight up-screen behind its own caster.
  */
@@ -314,7 +313,7 @@ const TILT_GAIN_MIN = MIN_ELEV_DEG > 0 ? 0.35 : 1;
 /**
  * Pushes the *night* key's azimuth out of that cone.
  *
- * DECISIONS #40 bent the sun by a constant +38 degrees, which clears the cone at the two
+ * The earlier sun model bent the sun by a constant +38 degrees, which clears the cone at the two
  * moments the source crosses the meridian — solar noon and solar midnight — and nowhere
  * else. The shadow azimuth sweeps continuously through the whole day, so it still passes
  * through due north twice: around 10:30 for the sun and around 22:00 for the moon. The
@@ -332,7 +331,7 @@ const TILT_GAIN_MIN = MIN_ELEV_DEG > 0 ? 0.35 : 1;
  * from about 4.7 game-hours to about 1.0 (computed, not shot: `|a| < 38 deg` becomes
  * `|a| < 7.7`; the shot is the `?envNoConeBend=1` A/B at tod 21).
  *
- * The **day is deliberately untouched**. Its arc is the one DECISIONS #40 paid for with a
+ * The **day is deliberately untouched**. Its arc is the one tuned with a
  * blind round, and noon, 08:00 and 17:30 are the frames every other module has tuned
  * against; re-bending them to fix a night defect is a trade nobody asked for.
  */
@@ -372,7 +371,7 @@ function pushOutOfCone(x, z) {
  */
 const PRACTICAL_KEY_RATIO = 0.95;
 
-/** Phase names carried on `tod:changed` (ARCHITECTURE §4). Pinned to the solar events. */
+/** Phase names carried on `tod:changed` (src/core/bus.js). Pinned to the solar events. */
 function phaseOf(t) {
   if (t < 4.6 || t >= 19.6) return 'night';
   if (t < 6.3) return 'dawn';
@@ -385,7 +384,7 @@ function phaseOf(t) {
 export default {
   id: 'environment',
   needs: [],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['tiles', 'terrain'],
 
   init(ctx) {
@@ -521,7 +520,7 @@ export default {
         vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, uniforms: skyUniforms,
         // Painted first with no depth interaction at all: a sky pinned to the far plane
         // fails a LESS depth test against a cleared buffer and silently disappears
-        // (DECISIONS #11).
+        //.
         side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false, toneMapped: false,
       }),
     );
@@ -540,7 +539,7 @@ export default {
     scene.add(ambient);
 
     // Two directional fills, neither of which casts a shadow, so `three.sun` remains the one
-    // shadow-casting light in the frame (ARCHITECTURE §2.7). See presets.js "why two fills":
+    // shadow-casting light in the frame (src/core/render.js). See presets.js "why two fills":
     // a hemisphere is a function of `normal.y` and cannot tell a face turned *into* the key
     // from one turned away, which is why raising it only ever produced milk.
     //
@@ -554,7 +553,7 @@ export default {
     const camFill = new THREE.DirectionalLight(0xffffff, 0);
     camFill.name = 'env:camFill';
     camFill.castShadow = false;
-    // The camera is locked at 45° below horizontal and never yaws (§2.7), so this direction
+    // The camera is locked at 45° below horizontal and never yaws (src/core/render.js), so this direction
     // is a constant: from the south, a little steeper than the camera itself so a flat floor
     // still takes some of it and a sprite's front takes most of it.
     camFill.position.set(0, CAM_FILL_DIR.y, CAM_FILL_DIR.z);
@@ -625,7 +624,7 @@ export default {
     /**
      * Whether the moon rather than the sun is the key, written by `apply()` and read by the
      * frame step. `casters.js` needs it to know whether a street lamp is an occluder or a
-     * light this hour — see DECISIONS #48, which measured the night case and kept it.
+     * light this hour; the night case was measured and retained.
      */
     let keyIsMoon = false;
 
@@ -829,7 +828,7 @@ export default {
     apply();
 
     const api = {
-      // --- ARCHITECTURE §5.3 ----------------------------------------------
+      // --- src/environment/index.js ----------------------------------------------
       setTimeOfDay(t) {
         const n = Number(t);
         if (!Number.isFinite(n)) return;
@@ -862,7 +861,7 @@ export default {
         };
       },
       /**
-       * Live-tune (ARCHITECTURE §5.3). Keys that name part of the *look* become overrides
+       * Live-tune (src/environment/index.js). Keys that name part of the *look* become overrides
        * that survive the clock moving on — otherwise the next `apply()` would immediately
        * put the preset value back and tuning would look broken. Everything else is a plain
        * config tunable (`pixelScale`, `cameraDistance`, …) and goes straight to config.
@@ -887,7 +886,7 @@ export default {
       weather: () => ({ ...weather }),
       phase: () => phaseOf(tod),
       /**
-       * Declare that the camera is under a roof (ARCHITECTURE §5.3 — environment owns the
+       * Declare that the camera is under a roof (src/environment/index.js — environment owns the
        * sun). A scene that builds its own cave mouth or a shop interior calls this; it does
        * not have to be a whole biome and environment never has to know a biome's name. The
        * preset supplies the default (`cave` and `interior` are 1, everything outdoors 0), so
@@ -927,7 +926,7 @@ export default {
       /**
        * Practical lights. `city` and `hunts` register their lamp bulbs here rather than
        * making their own point lights, so the night ramp and the pool budget stay in one
-       * place (ARCHITECTURE §5.3 — environment owns lamp emissives at night).
+       * place (src/environment/index.js — environment owns lamp emissives at night).
        */
       lamps: {
         add: (spec) => lamps.add(spec),

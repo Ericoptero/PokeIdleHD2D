@@ -27,7 +27,7 @@ function pick(tiles, slug, query, log, label) {
  * (a flush slab has no overhang to measure: its far face sits exactly on its own footprint
  * edge). Their *bounds* still do — one slab's plane sits at local x=0, the other's at x=1,
  * confirmed by direct catalog read. Bounds are a derived property of the geometry, not a
- * name, so this keeps DECISIONS #6's rule rather than reaching for `tiles.byName` — that
+ * name, so this keeps category/tag selection rather than reaching for `tiles.byName` — that
  * escape hatch is for the authored `structures`/`props` sets, not a PDSMS pack (CLAUDE.md).
  *
  * Which one goes on which side follows the same face-normal arithmetic as the north wall's
@@ -37,12 +37,11 @@ function pick(tiles, slug, query, log, label) {
  * `-x` — `house_wall_side_v2` (`x:0`). Screenshotted either way round, though, and it barely
  * matters: this room's camera sits at `x ≈` the trainer's own x, so a wall running
  * north-south is seen almost end-on (the camera's offset from it is nearly all height and
- * depth, almost none of the sideways distance the face's normal needs). `docs/progress/city/
- * critic/n12-pokecenter.png` shows the same thing on the authored building next door — the
+ * depth, almost none of the sideways distance the face's normal needs). On the building next door, the
  * roof and the front wall read, the side walls do not, and nobody has ever added one for it.
  * Placed correctly anyway, because the geometry is real and the collision needs a model to
  * hang off; it is a minor line in a room whose window wall is what a camera on this project
- * can actually show. DECISIONS #82 is this fact written down for the next room, so it does
+ * can actually show. Keep this camera constraint in mind for other rooms so it does
  * not have to be re-discovered by screenshot.
  */
 function sideWall(tiles, slug, face) {

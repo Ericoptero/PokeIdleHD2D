@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * The HD2D render pipeline (ARCHITECTURE §2.7). Owned by core, tuned by `environment`.
+ * The HD2D render pipeline (src/core/render.js). Owned by core, tuned by `environment`.
  *
  * The whole look rests on one decision: the 3D scene is rendered into a *small* HDR buffer
  * (640x360 at 1080p) and then blown up with NEAREST. Geometry pixels stay chunky and sit on
@@ -172,7 +172,7 @@ export function makeRenderer({ container, config, log }) {
   renderer.setClearColor(0x000000, 1);
 
   const scene = new THREE.Scene();
-  // Orthographic, and that is the whole of the pixel story (DECISIONS #60).
+  // Orthographic, and that is the whole of the pixel story.
   //
   // Under perspective one world unit covers a different number of pixels at every depth: at
   // the shipped pitch of 45 degrees and a 26-degree fov the ground plane alone ran from 0.75x
@@ -262,7 +262,7 @@ export function makeRenderer({ container, config, log }) {
    * Overscan costs the outermost pixels of the frame instead, which nothing is composed
    * against.
    *
-   * Two things changed with DECISIONS #60:
+   * Two properties of the orthographic pixel grid:
    *
    * **Both internal dimensions are even.** A sprite's edge lands on a pixel boundary when
    * `dim / 2 + v` is whole, so on an odd buffer the world wants a whole `v` and the sprites
@@ -360,7 +360,7 @@ export function makeRenderer({ container, config, log }) {
     // Grain does not animate.
     //
     // It used to, and the harness froze the phase so that "same URL, same pixels"
-    // (ARCHITECTURE §6.3) held for a capture. But grain is evaluated per INTERNAL pixel now
+    // (tools/shots/shoot.js) held for a capture. But grain is evaluated per INTERNAL pixel now
     // (see the composite shader), so at `pixelScale: 3` every sample is a 3x3 block of output
     // pixels at full amplitude — and re-rolling all of them every frame is a shimmer over the
     // entire picture that never stops, including on a frame where nothing in the world moves.
@@ -434,7 +434,7 @@ export function makeRenderer({ container, config, log }) {
 }
 
 /**
- * Fixed 45-degree camera rig (ARCHITECTURE §2.7). Yaw is locked; the camera never rotates,
+ * Fixed 45-degree camera rig (src/core/render.js). Yaw is locked; the camera never rotates,
  * it only follows, with a critically damped spring so grid steps do not read as stutter.
  */
 export function makeCameraRig({ camera, config, view = null }) {
@@ -447,7 +447,7 @@ export function makeCameraRig({ camera, config, view = null }) {
   let basis0 = null, basisWarned = false;
 
   /**
-   * World units one internal pixel covers. **The primitive** (DECISIONS #60).
+   * World units one internal pixel covers. **The primitive**.
    *
    * It used to be measured — `2 * cameraDistance * tan(fov/2) / internalHeight` — which meant
    * it changed with the size of the window, and everything sized off it changed with it. It is
@@ -535,7 +535,7 @@ export function makeCameraRig({ camera, config, view = null }) {
       const k = 1 - Math.pow(config.cameraDamping, Math.max(dt, 1e-4) * 60);
       focus.lerp(target, Math.min(1, k));
 
-      // Aim by setting the rotation, not by looking at anything (DECISIONS #60).
+      // Aim by setting the rotation, not by looking at anything.
       //
       // `lookAt(focus.x, focus.y + cameraLookAhead, focus.z)` from `focus + offset` does not
       // aim at `cameraPitch` — the look direction is `(0, lookAhead, 0) - offset`, which at
@@ -614,7 +614,7 @@ export function makeCameraRig({ camera, config, view = null }) {
     frame(cx, cz, y = 0, opts = null) {
       if (typeof opts === 'number') {
         throw new TypeError(
-          `rig.frame() takes { ppu }, not a distance (got ${opts}). See DECISIONS #60.`);
+          `rig.frame() takes { ppu }, not a distance (got ${opts}). Use { ppu: 16 }, { ppu: 32 } or { ppu: 64 }.`);
       }
       if (opts?.ppu) config.set({ pixelsPerUnit: opts.ppu });
       this.setFocus(cx, y, cz, true);

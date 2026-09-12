@@ -5,7 +5,7 @@
  * something that *happened to* the player rather than something they did. It is now a
  * deliberate act with a price: **a level, and a pile of materials the player had to hunt for.**
  *
- * **The materials are the hunt gate.** ARCHITECTURE §0 says evolution happens only in a hunt;
+ * **The materials are the hunt gate.** evolution depends on hunt materials;
  * that rule used to be a check on where you were standing, and it is now a check on what you
  * had to grind. Every material named here is a `category: 'treasure'` item from
  * `economy/items.js` — the twelve that have shipped since the economy was written with mainline
@@ -45,7 +45,7 @@ export const MATERIAL_FAMILIES = {
  * **Exported so `tools/seams/run.js` rule 7 can hold `encounter/drops.js`'s copy to it.** The
  * hunt hands these out keyed by the defeated wild's type and this file bills an evolution in
  * them keyed by the child's; if the two ever disagree, a player grinds a wood for mushrooms to
- * pay a bill that has started asking for pearls (DECISIONS #75).
+ * pay a bill that has started asking for pearls.
  *
  * Thematic rather than balanced — a Grass-type wanting mushrooms and a Water-type wanting
  * pearls is the kind of thing a player reads once and never has to look up again. Balance
@@ -87,7 +87,7 @@ export function rungFor(childBst) {
  *     cosmetic one is +0. This is what makes Magikarp → Gyarados (+340) expensive and
  *     Caterpie → Metapod (+10) nearly free.
  *   - **rarity** — the child's mainline capture rate, which `species.json` has carried since
- *     DECISIONS #61. A 45-rate result costs two more than a 255-rate one.
+ *     `src/battle/stats.js`. A 45-rate result costs two more than a 255-rate one.
  *
  * Clamped to 2..12 so nothing is free and nothing is a wall.
  */
@@ -111,7 +111,7 @@ export function materialsFor(parent, child, row, isItem = () => true) {
   const bill = [{ id, n: countFor(parent?.bst, child?.bst, child?.catchRate) }];
   // Showdown names evolution items this game does not stock — nine of them, all Gen 8/9
   // (`sweetapple`, `metalalloy`, `auspiciousarmor`, …). Asking for one would make those lines
-  // unreachable forever, which breaks §0's promise that every line can be got to from a hunt.
+  // unreachable forever, preventing them from being reached through hunting.
   // An unknown item is dropped and the route becomes a plain level-and-materials evolution;
   // it is not invented as a real item, because inventing shop stock is `economy`'s call.
   if (row?.type === 'useItem' && row.item && isItem(row.item)) bill.unshift({ id: row.item, n: 1 });

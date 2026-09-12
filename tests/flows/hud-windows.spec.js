@@ -1,12 +1,12 @@
 /**
- * The pointer layer (slice 015): the scrim-ordering fix and `list()`'s new wheel path, driven
+ * The pointer layer: the scrim-ordering fix and `list()`'s new wheel path, driven
  * through real `PointerEvent`/`WheelEvent`s at real buffer coordinates — not by calling a
  * panel's own functions directly, which would prove nothing about whether the click a player
- * actually makes reaches the right hit region (DECISIONS #77(d), #84).
+ * actually makes reaches the right hit region.
  *
  * `screen.regions()` (`window.__CTX__.get('ui')._screen.regions()`) is the diagnostic surface
- * this whole slice was built to make legible: a control's box and mode (`swallow`/`drag`/
- * `drop`/`scroll`) without pixels, per ARCHITECTURE §5.12 ("screen.regions() publishes the hit
+ * that exposes a control's box and mode (`swallow`/`drag`/
+ * `drop`/`scroll`) without pixels, per src/ui/index.js ("screen.regions() publishes the hit
  * boxes of the last paint") and the testing section's own citation of this pattern.
  *
  * `boot()` freezes the frame loop (`__HOOKS__.pause()`), and `regions()` only reflects the
@@ -15,9 +15,8 @@
  * rather than resuming the real rAF loop, which would make the exact moment a paint landed a
  * race against wall-clock time.
  *
- * Slice 016 (movable/resizable/scalable windows) extends this same file rather than starting
- * a new one, for the reason its own slice doc names: these are the same `g.hit(box, {drag,
- * swallow}, tag)` primitives 015 built, used for the first time. `windowGeometry`'s own save
+ * Movable/resizable/scalable windows use the same `g.hit(box, {drag, swallow}, tag)`
+ * primitives as other controls. `windowGeometry`'s save
  * round-trip needs a real `page.reload()`, which none of the tests above do — `offline.persist`
  * is called explicitly first (the `pokecenter-cooldown-reload.spec.js` pattern) rather than
  * relying on `pagehide` to fire in time, so the write is deterministic and not a race.
@@ -184,8 +183,7 @@ test('the mouse wheel also scrolls the dex\'s multi-column national list', async
   const errors = await boot(page);
 
   // `dex.js` predates `list()`'s wheel support: its national list is a multi-column grid, not
-  // a single-column row list, so slice 015 left it out (docs/slices/015-pointer-layer.md's own
-  // Result section names this). It now reuses the same `reconciledTop`/`registerScroll`
+  // a single-column row list. It reuses the same `reconciledTop`/`registerScroll`
   // primitive `list()` does, under its own tag `dex-national`.
   expect(await call(page, 'ui', 'open', 'dex')).toBe(true);
   await paintNow(page);
@@ -226,8 +224,7 @@ test('dragging a window\'s title bar moves it, live, and the moved position surv
   expect(dragRegion, `no "window-drag" region; regions seen: ${regs.map((r) => r.tag).join(', ')}`).toBeTruthy();
   expect(dragRegion.drag, 'the title bar region must carry drag:true').toBe(true);
 
-  // Horizontal only: `party`'s own authored height, once `hudReserved()` (the post-review fix
-  // for the reviewer's `uiScale:2` finding) reserves the wallet/clock and party-bar/strip
+  // Horizontal only: `party`'s own authored height, once `hudReserved()`  reserves the wallet/clock and party-bar/strip
   // bands out of the buffer, exactly fills the vertical room left between them at this
   // viewport — a real, verified fact (`window.test.js`'s `clampToSafeArea` cases, and the
   // overlap-regression test below, cover *that* claim). A drag still has to prove it moves
@@ -362,7 +359,7 @@ test('opening a `full` panel (shop) keeps the wallet, the clock and the party ba
 
   const opened = await hudBars(page);
   expect(opened.panel).toBe('shop');
-  expect(opened.partyBox, 'shop is a `full` panel; the party bar must stay up behind it (DECISIONS #85)')
+  expect(opened.partyBox, 'shop is a `full` panel; the party bar must stay up behind it')
     .toBeTruthy();
   expect(opened.clockBox, 'shop is a `full` panel; the clock must stay up behind it').toBeTruthy();
   expect(opened.stripBox, 'the button strip must stay up behind a `full` panel too').toBeTruthy();
@@ -374,15 +371,13 @@ test('opening a `full` panel (shop) keeps the wallet, the clock and the party ba
 const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 test('a `full` panel window never geometrically covers the wallet/clock/party-bar/strip, ' +
-  'even at uiScale:2 (the reviewer\'s finding on slice 016, fixed by `hudReserved`/' +
+  'even at uiScale:2 (kept clear by `hudReserved`/' +
   '`clampToSafeArea`)', async ({ page }) => {
   // The bug this guards: `bars` stayed up behind a `full` panel (the previous test in this
   // file), but nothing kept the window's own opaque box from being *drawn over* them — at
   // `uiScale:1` a full panel's authored size happened to leave enough margin that it went
   // unnoticed; at `uiScale:2` the same authored size covers nearly the whole halved buffer,
-  // painting over the bars it was supposed to leave visible. This test is the one neither the
-  // implementer's own suite nor the independent tester's combined: each tested `uiScale` and
-  // "bars stay up" separately, never together.
+  // painting over the bars it was supposed to leave visible. This test combines `uiScale` and visible HUD bars to cover the overlap.
   const errors = await boot(page, { uiScale: '2' });
 
   const bars = await hudBars(page);

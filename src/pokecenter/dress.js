@@ -3,7 +3,7 @@
  *
  * `map.js` reserves the window's and the benches' footprints (collision, tags) but cannot
  * place either: a `Placement` names a model id and `tiles.buildInstances()` resolves that id
- * against exactly **one** tileset (DECISIONS #26a), and the window lives in
+ * against exactly **one** tileset, and the window lives in
  * `hgss-newbark-houses` while the benches live in `bw2-adastra` — neither is the room's own
  * `pt-house-indoor`. So each gets its own `InstancedWorld`, built from the same `layout.js`
  * numbers the draft reserved its cells from — exactly the split `city/structures.js` uses for
@@ -60,7 +60,7 @@ export async function dressPokecenter(ctx) {
   // --- the benches -------------------------------------------------------------
   // `bw2-adastra`'s `bench_e`/`bench_w`, each with its own `orientation` in the catalog
   // (unlike the wall sides `map.js` has to fall back to bounds for), so a plain category +
-  // orientation query is enough — DECISIONS #6.
+  // orientation query is enough.
   const benchTiles = await tiles.load('bw2-adastra').catch((err) => {
     log.warn('pokecenter: the `bw2-adastra` tileset did not load — the room has no seating', err);
     return null;
@@ -83,7 +83,7 @@ export async function dressPokecenter(ctx) {
   }
 
   // --- the practical light -----------------------------------------------------
-  // `environment` owns the night ramp and the point-light pool (ARCHITECTURE §5.3); the room
+  // `environment` owns the night ramp and the point-light pool (src/environment/index.js); the room
   // only says where the light comes from. The window is the room's one motivated source
   // (CLAUDE.md: "every scene needs a motivated light source") — daylight falling through it
   // and pooling on the floor in front of the counter, the same bulb+filament pairing
@@ -100,7 +100,7 @@ export async function dressPokecenter(ctx) {
     env.lamps.clear();
     const shaftX = WINDOW.cx + WINDOW.w / 2;
     // In front of the counter (`COUNTER.cz + 1.4`), matching the comment above — not behind it.
-    // At `WINDOW.cz + 1.4` this sat almost exactly on Nurse Joy's own cell once slice 014 put
+    // At `WINDOW.cz + 1.4` this sat almost exactly on Nurse Joy's own cell with
     // her there (`NURSE`, `layout.js`): the light's hot filament core landed on her face and
     // blew her out to a barely-visible smudge, confirmed by a cropped screenshot before this
     // fix (nothing wrong with her sprite or her spawn — `simulation.npcs()` and the sprite

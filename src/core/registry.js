@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Module registry with failure isolation (ARCHITECTURE §2.1).
+ * Module registry with failure isolation (src/core/registry.js).
  *
  * The load-bearing rule of this project: one broken module must never take the game down.
  * Other agents are screenshotting the dev server continuously, so a module that throws in
@@ -64,7 +64,7 @@ export function makeRegistry({ bus, log }) {
    * @param {Error} err
    * @param {string} phase
    * @param {{deliberate?: boolean}} [opts] `deliberate`: the break was *asked for* (`?break=`),
-   *   so it is reported at `warn`. A handled path may not spend §7's zero-console-error budget,
+   *   so it is reported at `warn`. A handled path may not spend tools/shots/shoot.js's zero-console-error budget,
    *   and a quarantine the URL requested is the most handled path there is.
    */
   function fail(id, err, phase, { deliberate = false } = {}) {

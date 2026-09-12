@@ -5,7 +5,7 @@
  * a debug dump. This draws the same information a player would see in a progression HUD —
  * where the income comes from, which Pokemon is pulling its weight, what the multipliers
  * are doing — in the game's own dark-glass language, at full DOM resolution over the pixel
- * scene, the way ARCHITECTURE §5.12 describes the overlay.
+ * scene, the way src/ui/index.js describes the overlay.
  *
  * It is deliberately dumb: `showcase.js` measures, this draws what it is handed.
  */
@@ -195,7 +195,7 @@ export function renderPanel(model) {
   const rateCard = card('Production', `seed ${model.seed} · ${prod.biomeLabel.toLowerCase()} biome`);
   rateCard.insertBefore(
     el('div', 'title',
-      `<b>IDLE CORE</b><span>accrual while the tab lives — ARCHITECTURE §5.7</span>`),
+      `<b>IDLE CORE</b><span>accrual while the tab lives — src/idle/index.js</span>`),
     rateCard.firstChild,
   );
   rateCard.appendChild(el('div', 'tiles',
@@ -306,8 +306,8 @@ export function renderPanel(model) {
     `past its budget.`));
   right.appendChild(gapCard);
 
-  // --- the §5.7 surface ----------------------------------------------------
-  const apiCard = card('Public API', 'ARCHITECTURE §5.7 — contract, then depth');
+  // --- the src/idle/index.js surface ----------------------------------------------------
+  const apiCard = card('Public API', 'src/idle/index.js — contract, then depth');
   const api = el('div', 'api');
   api.innerHTML = model.api.map((a) =>
     `<div><span class="m">${a.ok ? '✓' : '✗'}</span><code>${a.name}</code><span class="t">${a.note}</span></div>`).join('');

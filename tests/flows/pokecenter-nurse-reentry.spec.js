@@ -1,7 +1,7 @@
 /**
  * Nurse Joy is spawned in `pokecenter.enter()` after every `terrain.load()`, and
  * `world:unloaded` resets the module's own `nurseId` to `null` first (`src/pokecenter/index.js`).
- * Nothing in the implementer's own tests walks the door twice in a real boot and asks
+ * Nothing in the cure flow tests walks the door twice in a real boot and asks
  * `simulation.npcs()` whether she came back doubled — `index.test.js` calls `enter()` at most
  * once per `makeWorld()`, and the flow specs that do walk the door twice
  * (`tests/flows/pokecenter.spec.js`, `tests/flows/pokecenter-scene.spec.js`) never look at

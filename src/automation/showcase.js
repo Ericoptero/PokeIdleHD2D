@@ -1,5 +1,5 @@
 /**
- * The automation showcase (ARCHITECTURE §6).
+ * The automation showcase (src/main.js).
  *
  * A systems module cannot prove itself with a pretty frame, so this one proves itself with
  * *evidence*. Every number on screen was produced by calling the live public API during
@@ -111,7 +111,7 @@ export async function showcaseAutomation(mode = 'default', ctx) {
     record(`unlock("${def.id}")`, r.ok ? `−${def.unlock.cost}◈ → ◈${fmt(eco.balance?.('research'))}` : `refused: ${r.why}`);
   }
 
-  // Unlocked is not enabled (§5.11). Switching on is a second, separate act.
+  // Unlocked is not enabled (src/automation/index.js). Switching on is a second, separate act.
   const activeBefore = auto.list().filter((a) => a.active).length;
   for (const def of AUTOMATIONS) auto.enable(def.id, true);
   record('enable(all)', `${activeBefore} active before → ${auto.list().filter((a) => a.active).length} after`);
@@ -516,7 +516,7 @@ function panelBridge(s) {
       <div><b>${d.catchOrdinal}</b><span>stream ordinal</span></div>
     </div>
     <p class="note"><code>idle</code> reports <code>gains.catches</code> as a count plus at most eight sample
-      events, and never creates a Pokémon — §4 reserves <code>catch:succeeded</code> for
+      events, and never creates a Pokémon — <code>catch:succeeded</code> is emitted by
       <code>encounter</code>. So this module deposits them through <code>collection.deposit()</code>, the same
       intake path a wild catch takes, and rolls the surplus from
       <code>ctx.rng.fork('automation/catch/&lt;n&gt;')</code> against the biome's encounter table. The ordinal

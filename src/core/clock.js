@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Three clocks, never conflated (ARCHITECTURE §2.4):
+ * Three clocks, never conflated (src/core/clock.js):
  *   frameDt  render-rate seconds, clamped so an alt-tab does not teleport the world
  *   simDt    fixed 1/20 s steps; the only time gameplay may advance by
  *   wallMs   Date.now(), for idle accrual and saves

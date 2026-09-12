@@ -1,5 +1,5 @@
 /**
- * idle — accrual while the tab is alive but possibly backgrounded (ARCHITECTURE §5.7).
+ * idle — accrual while the tab is alive but possibly backgrounded (src/idle/index.js).
  *
  * The shape of the problem: a backgrounded tab stops `requestAnimationFrame` completely
  * and throttles main-thread timers to about 1 Hz (and much worse after a few minutes).
@@ -46,7 +46,7 @@ let live = null;
 export default {
   id: 'idle',
   needs: ['simulation', 'economy', 'encounter'],
-  /** Extra modules the showcase scene needs on top of `needs` (ARCHITECTURE §6). */
+  /** Extra modules the showcase scene needs on top of `needs` (src/main.js). */
   showcaseNeeds: ['city', 'terrain'],
 
   init(ctx) {
@@ -120,12 +120,12 @@ export default {
         upgrades: { ...own.upgrades },
         tables: Array.isArray(tables) ? tables : [],
         // `encounter`'s own rolls, battle and drops. One index space, live and offline
-        // (DECISIONS #69). A quarantined `encounter` hands over nothing and `accrual.js`
+        //. A quarantined `encounter` hands over nothing and `accrual.js`
         // falls back to its own model, which is a visible degradation rather than a silent
         // disagreement about what encounter 400 was.
         pure: (() => {
           // The registry's null object answers every property with a function — checking the
-          // value, not `typeof`, is the tell (§2.1).
+          // value, not `typeof`, is the tell (src/core/registry.js).
           const e = ctx.get('encounter');
           const live = !!e && e.__missing === undefined;
           return live && typeof e.pure === 'function' ? e.pure() : null;
@@ -172,11 +172,10 @@ export default {
     /**
      * Hands the encounter counter across when the driver changes.
      *
-     * There is one index space (`root/encounter/roll/N`, DECISIONS #61(f)) and two counters
+     * There is one index space (`root/encounter/roll/N`) and two counters
      * walking it — this module's `own.progress.encounters` and `encounter`'s own. Left
      * unsynchronised they drift apart and index N is resolved twice against different party
-     * state, which is the disagreement #61(f) was written to prevent, arriving from the other
-     * end. Whole encounters are the integers in `(p0, p1]` (`accrual.js`), so the floor of this
+     * state, which breaks replay consistency. Whole encounters are the integers in `(p0, p1]` (`accrual.js`), so the floor of this
      * module's float is exactly how many it has finished.
      */
     function handOver(to) {
@@ -210,7 +209,7 @@ export default {
       }
       const cap = Math.max(60, config.offlineCapS);
       if (dt > cap) {
-        // A gap this long is `offline`'s business, not ours (ARCHITECTURE §5.8): the tab
+        // A gap this long is `offline`'s business, not ours (src/offline/index.js): the tab
         // was asleep, not merely backgrounded. Clamp so a laptop shut for three days does
         // not pay out three days at online rates.
         clockHealth.capped++;
@@ -218,7 +217,7 @@ export default {
         dt = cap;
       }
       clockHealth.lastGapS = dt;
-      // **Exactly one thing runs the hunt at a time** (DECISIONS #72). A visible tab is driven
+      // **Exactly one thing runs the hunt at a time**. A visible tab is driven
       // by `encounter`, which walks the loop, engages slots and steps real fights; this module
       // folds a *model* of the same loop. Both were running at once — `document.hidden` was
       // tracked for reporting and never as a gate — and it was harmless only because the fold
@@ -273,11 +272,11 @@ export default {
       }
 
       // The party learns from idling. This call sat here pointing at a method that did not
-      // exist for the whole life of the project (DECISIONS #61) — every point of experience
+      // exist for the whole life of the project — every point of experience
       // the game produced was discarded by a `typeof` guard that always failed.
       //
       // `source: 'idle'` and not `'hunt'`: experience is granted, and the evolution it
-      // unlocks is deliberately NOT taken. §0's rule is that a Pokemon evolves in a hunt, and
+      // unlocks is deliberately NOT taken. Evolution requires a hunt source, and
       // a backgrounded tab is not one — the pending evolution is reported and waits.
       const pokemon = ctx.get('pokemon');
       if (typeof pokemon.grantPartyExp === 'function') pokemon.grantPartyExp(gains.exp, { source: 'idle' });
@@ -421,7 +420,7 @@ export default {
     }
 
     const api = {
-      // --- the ARCHITECTURE §5.7 contract ------------------------------------
+      // --- the src/idle/index.js contract ------------------------------------
       /** The pure model. `offline` calls this exact function. */
       simulate,
       /** Per-second production right now: `{ money, exp, research, encounters }`. */
@@ -516,7 +515,7 @@ export default {
       /**
        * Which of the three things is stepping the hunt. Published, and drawn by `?debug=1`,
        * because "exactly one driver at a time" is a claim a screenshot should be able to
-       * settle rather than one a comment asserts (DECISIONS #72).
+       * settle rather than one a comment asserts.
        */
       driver,
       diagnostics: () => ({
