@@ -132,6 +132,12 @@
 
 #ui-dom img { max-width: 100%; }
 
+/* A component class (`.ci-hud-dock{display:flex}`, say) has the same specificity as the UA
+ * stylesheet's own `[hidden]{display:none}` and, being an author rule, wins the cascade over
+ * it — so toggling the plain `hidden` attribute silently does nothing on anything already
+ * styled with `display`. `!important` here is what actually hides it. */
+#ui-dom [hidden] { display: none !important; }
+
 /**
  * The determinism switch. Set on `#ui-dom` whenever `config.showcase` or `config.timeFrozen`
  * is truthy (`dom/layer.js`) — the same condition `toasts.js` already freezes ageing on, so a

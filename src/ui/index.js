@@ -37,6 +37,7 @@ import { makeTravel } from './panels/travel.js';
 import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeDomLayer } from './dom/layer.js';
 import { makeDomToasts } from './dom/toasts.js';
+import { makeDomHud } from './dom/hud.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -125,6 +126,19 @@ export default {
       return { x: (v.x * 0.5 + 0.5) * w, y: (1 - (v.y * 0.5 + 0.5)) * h };
     }
 
+    /**
+     * A real-viewport Y (CSS pixels, as `getBoundingClientRect()` reports) to canvas-buffer
+     * Y — the inverse of `screen.js`'s own `toUi()`, and the one bridge left between the DOM
+     * HUD chrome's real position (`dom/hud.js`) and the canvas windows/menu that still have
+     * to dodge it (`hudReserved()`, below). `null` when there is nothing to convert (the
+     * chrome is hidden) or the view is not sized yet.
+     */
+    function toBufferY(clientY) {
+      const rect = ctx.three?.view?.displayRect;
+      if (clientY == null || !rect || !rect.h) return null;
+      return (clientY - rect.top) * (screen.height / rect.h);
+    }
+
     const state = {
       /** @type {object|null} */ panel: null,
       /** @type {object|null} */ lastSummary: null,
@@ -174,10 +188,19 @@ export default {
         if (!summary) { toasts.push('No away report yet — close the tab and come back', 'info'); return false; }
         return app.open('offline', { summary });
       },
-      /** Where the clock and the button strip landed this frame, so a panel can dodge them. */
+      /**
+       * Where the DOM HUD chrome's top union and the dock (`dom/hud.js`, Stage 3) land, in
+       * **canvas-buffer** coordinates — `menu.js` anchors above the dock and below this
+       * chrome, unchanged since before the migration, so this stays the shape it always
+       * read: `{y, h}` for `clockBox`, `{y}` for `stripBox`. Synthesised in `draw()` below
+       * from the real DOM measurement; `null` while that chrome is hidden (`minimal`).
+       */
       clockBox: () => state.clockBox,
       stripBox: () => state.stripBox,
-      /** Where the party bar landed. It moves when the touch pad is out, so it is measured. */
+      /** The party bar lives in `#ui-dom` now (`dom/hud.js`), top-left, not docked above
+       *  anything on this canvas — `null` forever. `panels/battle.js`'s own fallback (anchor
+       *  to the bottom of the buffer when there is no party bar to sit above) is exactly the
+       *  right behaviour with nothing there to avoid any more, so nothing else changes. */
       partyBox: () => state.partyBox,
       /**
        * How many pixels at the top and bottom of the buffer are already spoken for by the
@@ -192,14 +215,13 @@ export default {
        * future, taller party bar is reserved for correctly with no change here.
        */
       hudReserved() {
-        const top = Math.max(
-          state.walletBox ? state.walletBox.y + state.walletBox.h : 0,
-          state.clockBox ? state.clockBox.y + state.clockBox.h : 0,
-        );
-        const bottomEdge = Math.min(
-          state.partyBox ? state.partyBox.y : Infinity,
-          state.stripBox ? state.stripBox.y : Infinity,
-        );
+        // The trainer card, party list and wallet/clock (`dom/hud.js`) are one combined
+        // chrome now, not two separately-measured boxes — `state.clockBox` still carries the
+        // union's bottom edge (shaped `{y, h}` so `menu.js`'s own `.y + .h` read keeps
+        // working with no change there), synthesised each frame in `draw()` below from the
+        // DOM chrome's real position.
+        const top = state.clockBox ? state.clockBox.y + state.clockBox.h : 0;
+        const bottomEdge = state.stripBox ? state.stripBox.y : Infinity;
         const bottom = Number.isFinite(bottomEdge) ? Math.max(0, screen.height - bottomEdge) : 0;
         return { top: top ? top + 2 : 0, bottom: bottom ? bottom + 2 : 0 };
       },
@@ -210,6 +232,11 @@ export default {
       },
       toast: (text, kind) => bus.emit('ui:toast', { text, kind }),
     };
+
+    // The always-on HUD chrome (Stage 3a) — mounted once, updated off the same `state.hud`
+    // poll `frame()` already drives (below), never rebuilt per open/close the way a panel is.
+    const domHud = makeDomHud(domLayer, app);
+    domHud.update(state.hud, { minimal });
 
     const PANELS = {
       menu: makeMenu(app),
@@ -388,42 +415,6 @@ export default {
       auto: ['Your Pokémon hunts on its own    T  travel    X  menu', 'T travel · X menu'],
     };
 
-    function drawStrip(g) {
-      const items = [
-        // Travel goes first so it sits leftmost; the four data panels keep their order.
-        ...(isLive(ctx.get('travel')) ? [{ id: 'travel', label: 'TRAVEL', key: 'T' }] : []),
-        { id: 'party', label: 'PARTY', key: 'P' },
-        { id: 'trainer', label: 'TRAINER', key: 'R' },
-        { id: 'shop', label: 'SHOP', key: 'B' },
-        { id: 'boxes', label: 'BOX', key: 'C' },
-        { id: 'inventory', label: 'BAG', key: 'I' },
-        { id: 'dex', label: 'DEX', key: '4' },
-        // Only when there is an `automation` to configure: a chip that opens an empty window is
-        // worse than no chip, and the strip is already the widest thing on the bottom bar.
-        ...(isLive(ctx.get('automation')) ? [{ id: 'automation', label: 'AUTO', key: 'A' }] : []),
-        { id: 'menu', label: 'MENU', key: 'X' },
-      ];
-      const h = 13;
-      // The chip is sized around *both* the label and its key, so the key sits inside the
-      // plate. Round 1 drew it at `x + bw - 3, y + 8` on a chip cut to the label alone, and
-      // every one of the five keys hung off the bottom-right corner into the scene.
-      const widths = items.map((it) => g.measure(it.label) + g.measure(it.key) + 14);
-      const w = widths.reduce((a, b) => a + b, 0) + (items.length - 1) * 2;
-      let x = g.width - 4 - w;
-      const y = g.height - h - 4;
-      items.forEach((it, i) => {
-        const bw = widths[i];
-        const box = { x, y, w: bw, h };
-        const on = app.panelId() === it.id || screen.painter.hovered() === `strip-${it.id}`;
-        panel(g, box, { paper: on ? C.martBase : C.wallLight, drop: false });
-        g.text(x + 5, y + 3, it.label, on ? C.white : C.ink);
-        g.textRight(x + bw - 4, y + 3, it.key, on ? C.glassLight : C.stoneShadow);
-        g.hit(box, () => (app.panelId() === it.id ? app.close() : app.open(it.id)), `strip-${it.id}`);
-        x += bw + 2;
-      });
-      return { x: g.width - 4 - w, y, w, h };
-    }
-
     function drawDebug(g) {
       const m = window.__HOOKS__?.metrics?.();
       if (!m) return;
@@ -468,53 +459,38 @@ export default {
       // stands the bottom bars down — it occupies the same strip of screen they do, and in
       // the mainline a message is the only thing on that strip.
       const bars = !state.panel?.hidesHud;
+      domHud.setBarsVisible(bars);
       state.clockBox = null;
       state.stripBox = null;
       state.partyBox = null;
       state.walletBox = null;
       if (bars) {
-        state.walletBox = hud.drawWallet(g, s);
-        state.clockBox = hud.drawClock(g, s);
+        // The trainer card, party list, wallet, clock and dock all live in `#ui-dom` now
+        // (`dom/hud.js`) — this canvas no longer paints any of them. `clockBox`/`stripBox`
+        // are still synthesised, in canvas-buffer coordinates, purely so `menu.js` (still
+        // canvas) keeps anchoring above the dock and below this chrome exactly as before;
+        // `toBufferY` is the inverse of `screen.js`'s own `toUi()`.
+        const topY = toBufferY(domHud.topBottom());
+        if (topY != null) state.clockBox = { y: 0, h: topY };
+        if (!minimal) {
+          const dockY = toBufferY(domHud.dockTop());
+          if (dockY != null) state.stripBox = { y: dockY };
+        }
       }
       if (!minimal && bars) {
-        // The touch pad owns the bottom-left corner when it is up, so the party bar sits
-        // above it rather than under it.
-        const partyBox = hud.drawParty(g, s, { bottom: input.touch() ? g.height - 76 : g.height - 4, app });
-        state.partyBox = partyBox;
-        const stripBox = drawStrip(g);
-        state.stripBox = stripBox;
-        drawStrip.lastX = stripBox.x;
         if (!input.hasMoved() && !state.panel) {
-          // Three steps, not two. The strip is right-aligned and the hint is centred, so on
-          // a narrow buffer the two meet — and round 1 had exactly one fallback string, so at
-          // 426 px (1280x720) the short hint still overprinted the PARTY chip. This is the
-          // very first screen a new player sees, so the third step is to move the hint up a
-          // row rather than to let it collide or to suppress it.
-          const strip = drawStrip.lastX ?? g.width;
-          const party = partyBox;
-          // Everything that already owns the bottom strip: the button chips and the party
-          // bar. Round 1 also measured the toast stack here, but toasts are their own DOM
-          // layer above this canvas now (`dom/toasts.js`) — a hint drawn under one is merely
-          // covered, not visually corrupted the way two overlapping canvas fills would be, so
-          // there is nothing left on this canvas to avoid.
-          const busyRight = strip;
+          // Centred, with a short fallback for a narrow buffer (426 px at 720p) where the
+          // long string would run off either edge. Simpler than it used to be: wallet, clock,
+          // party and the button strip all left this canvas for `#ui-dom` (Stage 3), so
+          // nothing is left down here for the hint to collide with — the elaborate
+          // party-bar/strip avoidance this replaced was earning its keep against controls
+          // that no longer live on this layer at all.
           const [long, short] = HINTS[input.canWalk() ? 'walk' : 'auto'];
           let text = long;
           let w = g.measure(text);
-          if (Math.round(g.width / 2 + w / 2) + 8 > busyRight) { text = short; w = g.measure(text); }
-          const centred = Math.round(g.width / 2 - w / 2);
-          const partyRight = party ? party.x + party.w + 8 : 4;
-          // Four steps, and the last one always works. Centred if it fits between the party
-          // bar and whatever owns the right of the strip; otherwise pushed left against the
-          // party bar, still on the strip where a control hint belongs; otherwise moved to
-          // the top of the screen under the wallet. It may not overprint and it may not
-          // vanish: it is the first thing a new player ever sees.
-          let hx = centred;
-          let hy = g.height - 13;
-          if (centred + w + 8 > busyRight || centred - 5 < partyRight) {
-            if (partyRight + w + 8 <= busyRight) hx = partyRight;
-            else { hy = 21; hx = Math.max(4, Math.min(centred, g.width - w - 6)); }
-          }
+          if (w + 16 > g.width) { text = short; w = g.measure(text); }
+          const hx = Math.max(4, Math.min(Math.round(g.width / 2 - w / 2), g.width - w - 4));
+          const hy = g.height - 13;
           g.fill(hx - 5, hy - 2, w + 10, 11, 'rgba(12,10,16,0.62)');
           g.text(hx, hy, text, C.wallHi);
         }
@@ -597,6 +573,14 @@ export default {
         // this list for the same reason — a bar that only redrew on name/level/shiny would
         // hold a fainted member's HP bar full until an unrelated event dirtied the screen.
         const party = (p) => JSON.stringify(p.party.map((m) => [m.instanceId, m.name, m.level, m.shiny, m.hp, m.maxHp, m.status]));
+        // `domHud.update()` runs on every tick of this poll, diff or not — it is cheap DOM
+        // writes (`dom/el.js`'s `syncList`/`setText`, never a rebuild), and it reflects state
+        // this diff was never written to know about (automation's own on/off, `dom/hud.js`'s
+        // own dock highlight). The diff below still gates `screen.markDirty()` — that one is
+        // still worth it, a canvas repaint being real GPU/CPU work `state.hud` alone doesn't
+        // capture the cost of.
+        state.hud = next;
+        domHud.update(next, { minimal });
         if (next.tod !== prev.tod
           || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
           || party(next) !== party(prev)
@@ -608,7 +592,6 @@ export default {
           || next.trainer?.level !== prev.trainer?.level
           || next.trainer?.into !== prev.trainer?.into
           || state.debug) {
-          state.hud = next;
           screen.markDirty();
         }
       }
@@ -691,6 +674,7 @@ export default {
       input,
       _screen: screen,
       _domLayer: domLayer,
+      _domHud: domHud,
       /** The DOM successor to `_screen.regions()` — `dom/layer.js`'s own comment explains why
        *  a flow test needs this the same way it needs the canvas one. */
       probe: () => domLayer.probe(),
@@ -718,6 +702,10 @@ export default {
         removeEventListener('resize', onResize);
         input.dispose();
         screen.dispose();
+        // Before `domLayer.dispose()`, which only removes the DOM subtree — `domHud`'s own
+        // drag-reorder (`dom/dnd.js`) holds `window`-level pointer listeners that a removed
+        // node does not take with it.
+        domHud.dispose();
         domLayer.dispose();
         live = null;
       },

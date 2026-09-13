@@ -6,8 +6,10 @@
 
 .ci-toasts {
   position: fixed;
+  /* Clears the dock (`.ci-hud-dock`, below) added in Stage 3 — a notification stack sitting
+   * just above a button row is the ordinary case, not a collision to solve cleverly. */
   right: 20px;
-  bottom: 20px;
+  bottom: 108px;
   z-index: 5;
   display: flex;
   flex-direction: column;
@@ -56,3 +58,213 @@
 .ci-toast[data-kind='bad']     { --tk-fg: var(--c-bad-light);   --tk-wash: var(--c-bad-wash);     --tk-line: var(--c-bad-line); }
 .ci-toast[data-kind='offline'] { --tk-fg: var(--c-info-light);  --tk-wash: var(--c-info-wash);    --tk-line: var(--c-info-line); }
 .ci-toast[data-kind='info']    { --tk-fg: var(--c-neutral);     --tk-wash: var(--c-neutral-wash); --tk-line: var(--c-neutral-line); }
+
+/* ------------------------------------------------------------------- Stage 3: HUD chrome */
+
+/* The row that unions the two top corners — its own bounding box (`dom/hud.js`'s
+ * `topReservedBottom()`) is how `../index.js`'s `hudReserved()` keeps a canvas window
+ * (`shop`, `boxes`, …) from sliding under this chrome, the DOM equivalent of the old
+ * `walletBox`/`clockBox` measurement. */
+.ci-hud-top {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+.ci-hud-top > * { pointer-events: auto; }
+
+.ci-hud-left { display: flex; flex-direction: column; gap: 10px; width: 236px; max-width: 44vw; }
+
+.ci-trainer-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--r-md);
+  background: rgba(24, 20, 17, 0.9);
+  border: 1px solid var(--c-amber-line);
+  box-shadow: var(--shadow-card);
+}
+.ci-trainer-card__portrait {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(150deg, var(--c-amber), var(--c-amber-deep));
+  color: var(--c-amber-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ci-trainer-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ci-trainer-card__name { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--c-ink-strong); line-height: 1; }
+.ci-trainer-card__xp-row { display: flex; align-items: center; gap: 8px; }
+.ci-meter { flex: 1; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.ci-meter__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-amber), var(--c-amber-light)); }
+.ci-trainer-card__level { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--c-amber); }
+
+.ci-party-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: rgba(24, 20, 17, 0.86);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-card);
+}
+.ci-party-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px;
+  border-radius: var(--r-xs);
+  background: var(--c-fill);
+  cursor: grab;
+}
+.ci-party-row[data-active='true'] { outline: 2px solid var(--c-amber-light); outline-offset: 1px; }
+.ci-party-row.ci-dragging { opacity: 0.4; }
+.ci-party-row.ci-drag-over { outline: 2px dashed var(--c-amber); outline-offset: 1px; }
+.ci-party-row__portrait {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 7px), #2A241D;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+/* `dom/hud.js` sets `background-image` in JS once a sprite URL is known — this crops it to
+ * the south-facing, first-walk-cycle frame purely with CSS percentages, no pixel math and no
+ * need to know the sheet's actual size: every sheet is 2 columns × 4 rows `[north, west,
+ * south, east]` (`../hud.js`'s own `drawIcon` comment), `background-size: 200% 400%` scales
+ * the whole sheet so exactly one cell fills this box regardless of its native pixel size, and
+ * `background-position` at column 0 of 2 (`0%`) and row 2 of 4 (`100 · 2/3 = 66.667%`) picks
+ * that cell out. The gradient above is the placeholder shown until a real URL replaces it. */
+.ci-party-row__portrait[style*='background-image'] {
+  background-size: 200% 400%;
+  background-position: 0% 66.6667%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.ci-party-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ci-party-row__head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ci-party-row__name { font-size: 12px; font-weight: 600; color: var(--c-ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ci-party-row__level { font-family: var(--font-mono); font-size: 10px; color: var(--c-ink-dim); flex-shrink: 0; }
+.ci-hp-meter { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.ci-hp-meter__fill { height: 100%; border-radius: 999px; }
+.ci-hp-meter__fill[data-band='high'] { background: var(--c-good); }
+.ci-hp-meter__fill[data-band='mid']  { background: var(--c-amber); }
+.ci-hp-meter__fill[data-band='low']  { background: var(--c-bad); }
+
+.ci-hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  /* `.ci-hud-top`'s own `justify-content: space-between` only holds the wallet/clock pinned
+   * right *because* `.ci-hud-left` is there to space against — hide that sibling (`minimal`,
+   * `dom/hud.js`'s own `applyVisibility()`) and `space-between` has one child left to
+   * distribute, which it places at the flex *start* instead: the wallet/clock jump to the
+   * left edge, on top of where the (also hidden) trainer card used to be. `margin-left: auto`
+   * pins this side to the right unconditionally, sibling or not. */
+  margin-left: auto;
+}
+
+.ci-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: rgba(24, 20, 17, 0.9);
+  border: 1px solid var(--c-line);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-ink-strong);
+  white-space: nowrap;
+}
+.ci-chip .ci-icon { flex-shrink: 0; }
+.ci-chip[data-currency='money']    .ci-icon { color: var(--c-amber); }
+.ci-chip[data-currency='research'] .ci-icon { color: var(--c-good); }
+.ci-chip[data-currency='shards']   .ci-icon { color: var(--c-info); }
+.ci-chip[data-currency='bp']       .ci-icon { color: var(--c-neutral); }
+.ci-chip--clock { flex-direction: column; align-items: center; gap: 1px; font-family: var(--font-body); }
+.ci-chip--clock .ci-chip__time { font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+.ci-chip--clock .ci-chip__phase { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-ink-mute); }
+
+.ci-icon-btn {
+  all: unset;
+  box-sizing: border-box;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-sm);
+  background: rgba(24, 20, 17, 0.9);
+  border: 1px solid var(--c-line);
+  color: var(--c-ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+@media (hover: hover) {
+  .ci-icon-btn:hover { color: var(--c-ink-strong); border-color: var(--c-amber-line); }
+}
+.ci-icon-btn:focus-visible { outline: 2px solid var(--c-info); outline-offset: 2px; }
+
+.ci-hud-dock {
+  /* `#ui-dom` itself is `pointer-events: none` (`base.css`) so an empty layer never blocks
+   * the world underneath; unlike `.ci-hud-top`, this element is not a child of anything that
+   * already opts back in (`.ci-hud-top > *`), so without this rule every button here silently
+   * inherits `none` and a real click falls straight through to the world canvas behind it. */
+  pointer-events: auto;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+}
+.ci-dock-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.ci-dock-btn__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-md);
+  background: rgba(24, 20, 17, 0.9);
+  border: 1px solid var(--c-line);
+  color: var(--c-ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+}
+.ci-dock-btn__label { font-size: 10px; color: var(--c-ink-dim); }
+@media (hover: hover) {
+  .ci-dock-btn:hover .ci-dock-btn__icon { border-color: var(--c-amber-line); color: var(--c-ink-strong); }
+}
+.ci-dock-btn:focus-visible .ci-dock-btn__icon { outline: 2px solid var(--c-info); outline-offset: 2px; }
+/* The primary shortcut (`Automation`) reads as "on" the same way the source design's own dock
+ * highlights it — amber rather than neutral, matching every other "this is running" mark in
+ * this palette (`tokens.css`'s own comment on `--c-amber`). */
+.ci-dock-btn[data-active='true'] .ci-dock-btn__icon {
+  background: linear-gradient(150deg, var(--c-amber), var(--c-amber-dark));
+  border-color: transparent;
+  color: var(--c-amber-ink);
+}
+.ci-dock-btn[data-active='true'] .ci-dock-btn__label { color: var(--c-amber-light); font-weight: 600; }

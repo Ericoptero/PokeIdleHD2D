@@ -86,13 +86,24 @@ async function dragEnd(page, at) {
   await paintNow(page);
 }
 
-/** The bars `index.js`'s `draw()` decides to show or hide each frame — read straight off
- *  `ui`'s own `_state` rather than through `snapshot()`, which does not carry them. */
+/**
+ * The bars `index.js`'s `draw()` decides to show or hide each frame. The party list, the
+ * wallet/clock and the dock all live in `#ui-dom` now (`dom/hud.js`, Stage 3) rather than on
+ * this canvas — `chromeVisible`/`dockVisible`/`partyVisible` read that DOM directly (`hidden`
+ * reflects `bars`/`minimal`, `dom/hud.js`'s own `applyVisibility()`). `clockBox`/`stripBox`
+ * are still read off `_state` because they still exist, purely so `menu.js` (still canvas)
+ * keeps anchoring correctly — see `index.js`'s own comment on `hudReserved()`. `partyBox` is
+ * gone for good (`index.js`'s own comment on `app.partyBox()`: nothing on this canvas needs
+ * to dodge a party bar that is not drawn here any more).
+ */
 const hudBars = (page) => page.evaluate(() => {
   const s = window.__CTX__.get('ui')._state;
   return {
     panel: s.panel?.id ?? null,
-    partyBox: s.partyBox, clockBox: s.clockBox, stripBox: s.stripBox,
+    clockBox: s.clockBox, stripBox: s.stripBox,
+    chromeVisible: !document.querySelector('[data-ui="hud-top"]')?.hidden,
+    dockVisible: !document.querySelector('[data-ui="hud-dock"]')?.hidden,
+    partyVisible: !document.querySelector('[data-ui="hud-party"]')?.closest('[hidden]'),
   };
 });
 
@@ -346,23 +357,29 @@ test('?uiScale=2 halves the UI buffer; the world\'s own render buffer is untouch
   expect(errors, 'no console error booting at uiScale=2').toEqual([]);
 });
 
-test('opening a `full` panel (shop) keeps the wallet, the clock and the party bar up behind it', async ({ page }) => {
+test('opening a `full` panel (shop) keeps the wallet, the clock and the party list up behind it', async ({ page }) => {
   const errors = await boot(page);
 
   const before = await hudBars(page);
-  expect(before.partyBox, 'the party bar must already be up before any panel opens — otherwise the assertion below is vacuous')
-    .toBeTruthy();
-  expect(before.clockBox, 'the clock must already be up before any panel opens').toBeTruthy();
+  expect(before.partyVisible, 'the party list must already be up before any panel opens — otherwise the assertion below is vacuous')
+    .toBe(true);
+  expect(before.chromeVisible, 'the wallet/clock chrome must already be up before any panel opens').toBe(true);
+  expect(before.clockBox, 'the clock reservation must already be measured before any panel opens').toBeTruthy();
 
   expect(await call(page, 'ui', 'open', 'shop')).toBe(true);
   await paintNow(page);
 
   const opened = await hudBars(page);
   expect(opened.panel).toBe('shop');
-  expect(opened.partyBox, 'shop is a `full` panel; the party bar must stay up behind it')
-    .toBeTruthy();
-  expect(opened.clockBox, 'shop is a `full` panel; the clock must stay up behind it').toBeTruthy();
-  expect(opened.stripBox, 'the button strip must stay up behind a `full` panel too').toBeTruthy();
+  // `shop` is a `full` panel — canvas-drawn, so it cannot geometrically cover the DOM chrome
+  // above it (`dom/hud.js`'s own header on the stacking order) — what a `full` panel could
+  // still get wrong is `bars`/`minimal` visibility itself, so that is what stays worth
+  // asserting here.
+  expect(opened.partyVisible, 'shop is a `full` panel; the party list must stay up behind it').toBe(true);
+  expect(opened.chromeVisible, 'shop is a `full` panel; the wallet/clock must stay up behind it').toBe(true);
+  expect(opened.dockVisible, 'the dock must stay up behind a `full` panel too').toBe(true);
+  expect(opened.clockBox, 'the clock reservation must still be measured with a panel open').toBeTruthy();
+  expect(opened.stripBox, 'the dock reservation must still be measured with a panel open').toBeTruthy();
 
   expect(errors, 'no console error opening a full panel').toEqual([]);
 });
@@ -370,20 +387,27 @@ test('opening a `full` panel (shop) keeps the wallet, the clock and the party ba
 /** True if two boxes ({x,y,w,h}) share any pixel. */
 const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-test('a `full` panel window never geometrically covers the wallet/clock/party-bar/strip, ' +
+test('a `full` panel window never geometrically covers the wallet/clock/dock, ' +
   'even at uiScale:2 (kept clear by `hudReserved`/' +
   '`clampToSafeArea`)', async ({ page }) => {
   // The bug this guards: `bars` stayed up behind a `full` panel (the previous test in this
   // file), but nothing kept the window's own opaque box from being *drawn over* them — at
   // `uiScale:1` a full panel's authored size happened to leave enough margin that it went
   // unnoticed; at `uiScale:2` the same authored size covers nearly the whole halved buffer,
-  // painting over the bars it was supposed to leave visible. This test combines `uiScale` and visible HUD bars to cover the overlap.
+  // painting over the bars it was supposed to leave visible. This test combines `uiScale` and
+  // visible HUD bars to cover the overlap.
+  //
+  // The party list is no longer part of this check (Stage 3, `dom/hud.js`): it lives in
+  // `#ui-dom`, a real layer above this whole canvas, so a canvas window cannot geometrically
+  // cover it *by construction* — there is nothing left here for `partyBox` to guard. The
+  // wallet/clock/dock still have a real reservation to get right (`clockBox`/`stripBox`,
+  // synthesised from the DOM chrome's actual position purely so this canvas window still
+  // avoids sitting under it), which is what this test now checks.
   const errors = await boot(page, { uiScale: '2' });
 
   const bars = await hudBars(page);
-  expect(bars.partyBox, 'the party bar must be up before this test means anything').toBeTruthy();
-  expect(bars.clockBox, 'the clock must be up before this test means anything').toBeTruthy();
-  expect(bars.stripBox, 'the button strip must be up before this test means anything').toBeTruthy();
+  expect(bars.clockBox, 'the clock reservation must be measured before this test means anything').toBeTruthy();
+  expect(bars.stripBox, 'the dock reservation must be measured before this test means anything').toBeTruthy();
 
   for (const id of ['shop', 'boxes', 'dex', 'party', 'automation']) {
     expect(await call(page, 'ui', 'open', id)).toBe(true);
@@ -394,7 +418,7 @@ test('a `full` panel window never geometrically covers the wallet/clock/party-ba
     expect(body, `${id}: no "window-body" region at uiScale:2`).toBeTruthy();
 
     const b = await hudBars(page);
-    for (const [name, box] of [['clockBox', b.clockBox], ['partyBox', b.partyBox], ['stripBox', b.stripBox]]) {
+    for (const [name, box] of [['clockBox', b.clockBox], ['stripBox', b.stripBox]]) {
       expect(box, `${id}: ${name} must still be up at uiScale:2`).toBeTruthy();
       expect(overlaps(body.box, box),
         `${id}'s window ${JSON.stringify(body.box)} must not cover ${name} ${JSON.stringify(box)} at uiScale:2`)
