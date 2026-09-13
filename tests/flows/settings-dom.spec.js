@@ -87,7 +87,7 @@ test('the ui save slice upgrades a v1 (window-only) shape without throwing', asy
   await paintNow(page);
 
   const saved = await page.evaluate(() => window.__CTX__.get('ui').saveState());
-  expect(saved.v).toBe(2);
+  expect(saved.v).toBe(3);
   expect(saved.watch).toEqual([]);
   expect(errors, 'no console error loading a v1 ui slice').toEqual([]);
 });

@@ -105,9 +105,9 @@ test('clicking a filled party-bar slot opens the party panel already selected on
   await paintNow(page);
 
   expect(await call(page, 'ui', 'openPanel')).toBe('party');
-  // `party.js`'s own `cursor` accessor — not part of the panel contract, `travel.js`'s
+  // `screens/party.js`'s own `model()` accessor — not part of the screen contract, `travel.js`'s
   // `rows()` precedent for exposing internal state a test needs and nothing else reads.
-  const cursor = await page.evaluate(() => window.__CTX__.get('ui')._state.panel.cursor());
+  const cursor = await page.evaluate(() => window.__CTX__.get('ui')._state.panel.model().cursor);
   expect(cursor).toBe(1);
   expect(errors, 'no console error opening the party panel from the bar').toEqual([]);
 });

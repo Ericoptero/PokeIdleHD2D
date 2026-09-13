@@ -1,7 +1,9 @@
 /**
  * The flow tests: real user flows at `/`, driven through `window.__HOOKS__` and `__CTX__`
- * and asserted on bus events and module state — never on pixels (that is `tools/shots/`) and
- * never on DOM selectors (the UI is one 2-D canvas, `src/ui/screen.js`).
+ * and asserted on bus events and module state — never on pixels (that is `tools/shots/`).
+ * DOM selectors are fair game for the Códice UI (`src/ui/dom/`, `src/ui/screens/`) via the
+ * `[data-ui="…"]` tags `harness.js`'s `click()`/`probe()` walk — what stays off-limits is the
+ * world canvas (`src/ui/screen.js`), which has no selectors at all to assert on.
  *
  *   npx playwright test                              # what the `flows` gate stage runs
  *   npx playwright test tests/flows/hunt.spec.js --headed

@@ -3,9 +3,9 @@
  * instead of it (see `../index.js`'s own top-of-file comment for why the canvas exists and
  * what stays on it — plates, callouts, floaters — for good).
  *
- * Stacking inside `#ui` (`index.html`): the world canvas (`screen.js`, `z-index: 1` today,
- * split into `#ui-world` once the canvas panel stack retires) sits under this, and the
- * evolution cutscene (`../evolution.js`) sits over it at `z-index: 3`.
+ * Stacking inside `#ui` (`index.html`): the world canvas (`#ui-world`, `screen.js`,
+ * `z-index: 1`) sits under this, and the evolution cutscene (`../evolution.js`) sits over it
+ * at `z-index: 3`.
  *
  * The CSS is authored as real `.css` files and pulled in with Vite's `?inline` so it lands in
  * one synchronous `<style>` tag — the same shape `../evolution.js`, `battle/showcase.js`,
@@ -71,13 +71,18 @@ export function makeDomLayer({ root, config }) {
   const offConfig = config?.onChange?.(() => setFrozen(readFrozen()));
 
   /**
-   * `--ui-scale` mirrors `config.uiScale`, clamped to the same {1, 2} ladder `screen.js`
-   * clamps its own backing store to — both layers must agree while the canvas HUD still
-   * exists (Stage 9 relaxes this once it doesn't).
+   * `--ui-scale` mirrors `config.uiScale` — a plain DOM font-size multiplier now (`base.css`'s
+   * `calc(16px * var(--ui-scale))`), not clamped to `screen.js`'s own {1, 2} ladder any more
+   * (Stage 9): that ladder existed so this layer and the canvas-drawn HUD's backing store
+   * stayed in lockstep, and with every panel and every piece of chrome DOM now, `screen.js`'s
+   * own `uiScale` division is an unrelated, independent concern (its own comment on why *it*
+   * still wants a whole number — a NEAREST-filtered atlas, not a CSS font). A continuous
+   * value here is exactly what "Larger UI" always meant to a player; the {1, 2} ladder was an
+   * implementation constraint leaking into the setting, not a real limit on font scaling.
    */
   function applyUiScale() {
     const raw = Number(config?.get ? config.get('uiScale') : config?.uiScale);
-    host.style.setProperty('--ui-scale', raw >= 2 ? '2' : '1');
+    host.style.setProperty('--ui-scale', String(Number.isFinite(raw) && raw > 0 ? raw : 1));
   }
   applyUiScale();
   const offScale = config?.onChange?.(applyUiScale);

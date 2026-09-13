@@ -202,15 +202,15 @@
    "fps": 60,
    "drawCalls": 54,
    "consoleErrors": 0,
-   "mean": 108.29,
-   "p50": 113,
-   "p95": 234,
-   "p99": 234,
+   "mean": 92.68,
+   "p50": 105,
+   "p95": 148,
+   "p99": 163,
    "max": 255,
-   "belowL8Pct": 0.242,
+   "belowL8Pct": 0.252,
    "pureBlackPct": 0.004,
-   "over200Pct": 7.778,
-   "saturation": 0.6389
+   "over200Pct": 0.307,
+   "saturation": 0.6613
   },
   "encounter/vfx/12": {
    "fps": 60,

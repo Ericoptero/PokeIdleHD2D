@@ -25,17 +25,10 @@ import {
 import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
-import { fit, margin } from './panels/common.js';
-// `gesture.js` touches no DOM by construction (it is the pointer layer's pure half, pulled out
-// for exactly this reason — the pointer layer), so its reducer and its scroll clamp run here the same
-// way `panels/battle.js`'s transcript formatter already does.
-import { startDrag, move as moveDrag, drop as dropDrag, cancel as cancelDrag, clampScroll } from './gesture.js';
-// `window.js` is the same split applied to a window's geometry: pure clamp math,
-// no DOM, so it runs here the same way `gesture.js`'s reducer does.
-import { MIN_SIZE, minSizeFor, clampMove, clampResize } from './window.js';
-// `panels/battle.js` touches the DOM only inside `draw`, so its transcript formatter is a pure
-// function this file may call — the same discipline that lets `evolution.js` be tested here.
-import { lineFor, STATUS_NAME } from './panels/battle.js';
+// `screens/battle.js` touches the DOM only inside its render functions, so its transcript
+// formatter is a pure function this file may call — the same discipline that lets
+// `evolution.js` be tested here.
+import { lineFor } from './screens/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
@@ -60,13 +53,12 @@ const check = (name, ok, detail = '') => {
     missingSymbols.length ? missingSymbols.join(' ') : SYMBOLS.join(''));
 
   /**
-   * The battle card's own strings, composed by the same function the panel draws with.
-   *
-   * A missing glyph renders as a blank of the right width, so it is invisible in review — and
-   * `panels/battle.js` shipped "  35 HP  ×2" for a whole capture because the minus in front of
-   * it was U+2212 rather than an ASCII hyphen. Nothing threw, nothing warned, and the only way
-   * to see it was to look at a capture. So the transcript formatter is *called* here, one event
-   * of every kind it handles, and every character it produces is looked up in the face.
+   * The battle card's transcript formatter — real DOM text now (`screens/battle.js`), not the
+   * bitmap font, so there is no glyph coverage left to check here (Stage 9's own analogue of
+   * Stage 5's dropped inventory-glyph check). What is still worth pinning under Node: `lineFor`
+   * is a pure function called for every kind the engine's own transcript can emit, and it must
+   * never silently answer `null` for one of them — a card is a summary, not a description of
+   * everything the engine understands.
    */
   const NAMES = { a: 'Oshawott', b: 'Zubat' };
   const EVENTS = [
@@ -85,14 +77,6 @@ const check = (name, ok, detail = '') => {
     { kind: 'recoil', actor: 'a', species: 'oshawott', damage: 7 },
     { kind: 'faint', species: 'zubat' },
   ];
-  const battleText = [
-    ...EVENTS.map((ev) => lineFor(ev, NAMES)?.text ?? ''),
-    ...Object.values(STATUS_NAME),
-    'WILD', 'PITY', 'IN BATTLE', 'LEARNED', 'two slots always hold attacks',
-  ].join('');
-  const battleMissing = [...new Set([...battleText])].filter((ch) => ch !== ' ' && !has(ch));
-  check('every character the battle card draws has a glyph', battleMissing.length === 0,
-    battleMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
   check('the battle card has a line for every event kind it lists',
     EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
 
@@ -186,47 +170,6 @@ const check = (name, ok, detail = '') => {
     [...new Set(PANEL_KEYS.values())].filter((id) => !PANEL_IDS.includes(id)).join(' ') || 'all known');
 }
 
-// --- the layout clamp (round-2 issue 1) -------------------------------------
-// Both files are pure: `theme.js` and `panels/common.js` touch no DOM, so the two
-// invariants that a screenshot proves *slowly* can be pinned here instead.
-{
-  // The real internal buffers `render.js` produces, now that `resize()` rounds both
-  // dimensions up to **even** and derives the upscale from the viewport.
-  // 1920x1080 and 1280x720 both land on 640x360; 1600x900 on 534x300; a 1512x982 laptop on
-  // 756x492. The last two are the ones that used to be missing: a 2560x1080 ultrawide is only
-  // 270 tall, and a 390 px phone in portrait is 390 wide — both narrower in one axis than any
-  // panel this module authors, which is the whole point of the clamp.
-  //
-  // The five `/2` entries are what `screen.js`'s own `resize()` actually produces from each of
-  // the buffers above once `?uiScale=2` halves the UI canvas's own
-  // backing store — real produced sizes, not invented ones, matching this array's existing
-  // discipline (each halves cleanly; `screen.js` floors regardless).
-  const buffers = [
-    [640, 360], [534, 300], [756, 492], [640, 270], [390, 844],
-    [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
-  ];
-  // Every `...fit(g, w, h)` call site left across `panels/*.js`. Shop's 540x278,
-  // inventory's 480x264 (Stage 5) and automation's 600x300 (Stage 6) have all dropped out of
-  // this list across the Códice DOM conversion: each is a DOM screen now, sized by CSS
-  // (`screens.css`'s `.ci-shelf-card`), and none of them calls `fit()` at all any more.
-  const authored = [[560, 288], [502, 264], [424, 250]];
-  const bad = [];
-  for (const [W, H] of buffers) {
-    const g = { width: W, height: H };
-    const m = margin(g);
-    for (const [w, h] of authored) {
-      const f = fit(g, w, h);
-      if (f.w + m * 2 > W || f.h + m * 2 + 2 > H) bad.push(`${w}x${h} in ${W}x${H} -> ${f.w}x${f.h}`);
-      if (f.w > w || f.h > h) bad.push(`${w}x${h} grew to ${f.w}x${f.h}`);
-    }
-  }
-  check('fit() clamps every authored panel size into every buffer size', bad.length === 0,
-    bad.join(' | ') || `${authored.length} panels x ${buffers.length} buffers`);
-  check('the margin scales with the buffer and never vanishes',
-    margin({ width: 640 }) === 10 && margin({ width: 390 }) >= 5 && margin({ width: 200 }) >= 5,
-    `${margin({ width: 640 })} ${margin({ width: 534 })} ${margin({ width: 390 })}`);
-}
-
 // --- the light model (round-2 issue 2) --------------------------------------
 {
   const noon = lightAt(12);
@@ -284,67 +227,6 @@ const check = (name, ok, detail = '') => {
   }
   // The two tracks are the alternation: they must disagree, or nothing is swapping.
   check('the two sprite tracks are not the same animation', tracks.old !== tracks.neu);
-}
-
-// --- the pointer layer's pure half -------------------------------
-// Proves `gesture.js` has no browser dependency — the same guarantee `battle.js`'s and
-// `evolution.js`'s pure exports already have, checked here rather than only in a browser test
-// so a DOM-shaped regression (an accidental `document.` reference) fails under plain Node too.
-{
-  const s1 = startDrag('mon-3', 'party-row', 10, 20);
-  check('startDrag returns the picked-up state',
-    JSON.stringify(s1) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 10, y: 20 }),
-    JSON.stringify(s1));
-
-  const s2 = moveDrag(s1, 5, -3);
-  check('move() adds the delta, not an absolute position',
-    JSON.stringify(s2) === JSON.stringify({ phase: 'drag', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
-    JSON.stringify(s2));
-
-  const s3 = dropDrag(s2, { id: 'box-slot-9' });
-  check('drop() over a target ends the gesture with phase "drop"',
-    JSON.stringify(s3) === JSON.stringify({ phase: 'drop', tag: 'party-row', payload: 'mon-3', x: 15, y: 17 }),
-    JSON.stringify(s3));
-
-  check('drop() with no target cancels back to null', dropDrag(s2, null) === null);
-  check('cancel() discards the gesture regardless of accumulated motion',
-    cancelDrag(moveDrag(s1, 9999, -9999)) === null);
-  check('move()/drop() pass a null state through unchanged',
-    moveDrag(null, 1, 1) === null && dropDrag(null, { id: 'x' }) === null);
-
-  check('clampScroll: a negative offset clamps to 0', clampScroll(-40, 300, 100) === 0);
-  check('clampScroll: an offset beyond contentSize - viewSize clamps to that max',
-    clampScroll(1000, 300, 100) === 200, String(clampScroll(1000, 300, 100)));
-  check('clampScroll: contentSize <= viewSize always clamps to 0',
-    clampScroll(50, 100, 100) === 0 && clampScroll(50, 80, 100) === 0);
-  check('clampScroll: an in-range offset passes through unchanged', clampScroll(120, 300, 100) === 120);
-}
-
-// --- a window's geometry -----------------------------------------
-// `window.test.js` (vitest) already has the full golden set; this is the same invariant run
-// under plain Node, the way `window.test.js`'s own precedent (`gesture.js`'s reducer) already
-// is here too — so a DOM-shaped regression in `window.js` fails a Node run, not only vitest.
-{
-  const buf = { width: 640, height: 360 };
-  check('minSizeFor falls back to MIN_SIZE for a panel with no override',
-    minSizeFor('shop').w === MIN_SIZE.w && minSizeFor('shop').h === MIN_SIZE.h);
-
-  const negX = clampMove({ x: -50, y: 100, w: 200, h: 150 }, buf, 10);
-  check('clampMove: a window dragged so x would go negative clamps to the margin',
-    negX.x === 10 && negX.y === 100, JSON.stringify(negX));
-
-  const pastRight = clampMove({ x: 600, y: 100, w: 200, h: 150 }, buf, 10);
-  check('clampMove: dragged past the right edge clamps so x + w never exceeds buffer.width - margin',
-    pastRight.x + pastRight.w === buf.width - 10, JSON.stringify(pastRight));
-
-  const tooSmall = clampResize({ x: 20, y: 20, w: 10, h: 10 }, buf, 10, MIN_SIZE);
-  check('clampResize: resized below the declared minimum clamps to that minimum',
-    tooSmall.w === MIN_SIZE.w && tooSmall.h === MIN_SIZE.h, JSON.stringify(tooSmall));
-
-  const tooBig = clampResize({ x: 10, y: 10, w: 5000, h: 5000 }, buf, 10, MIN_SIZE);
-  check('clampResize: resized past the buffer clamps to fit',
-    tooBig.x + tooBig.w === buf.width - 10 && tooBig.y + tooBig.h === buf.height - 10 - 2,
-    JSON.stringify(tooBig));
 }
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nui: all checks pass');

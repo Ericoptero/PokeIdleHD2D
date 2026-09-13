@@ -1,19 +1,19 @@
 /**
- * ui — the HUD, the panels, the Códice DOM screens and the input seam (src/ui/index.js).
+ * ui — the HUD, the Códice DOM screens and the input seam (src/ui/index.js).
  *
- * **Two surfaces, mid-migration.** Most of the HUD and every panel still paint onto one 2-D
- * canvas at the renderer's own internal resolution, upscaled with NEAREST — see `screen.js`
- * for why: a crisp 12 px web panel over a 640×360 world upscaled ×3 is the one thing on screen
- * not on the pixel grid, and it reads as a debug overlay instead of as the game. That
- * argument still holds for anything projected against the world (`plates.js`, `callout.js`,
- * `floaters.js` — permanently canvas, see their own headers) and for the panels not yet
- * converted (`panels/*.js`). Everything converted so far — `screens/offline.js`, the toast
- * stack (`dom/toasts.js`) — lives instead in `#ui-dom` (`dom/layer.js`), a real-resolution DOM
- * layer mounted beside the canvas rather than instead of it; see that file's own header for
- * the stacking order and why a soft-UI redesign (Códice) does not belong on the world's pixel
- * grid the way a DS-style menu does. The canvas still costs **zero draw calls** — a 2-D
- * canvas is composited by the browser and never reaches `renderer.info.render.calls`, which is
- * the number tools/shots/shoot.js budgets — and so does the DOM layer, for the same reason.
+ * **Two surfaces, by design, not mid-migration any more (Stage 9 retired the last of the
+ * canvas panel stack).** `screen.js` now paints only what has to be projected against the
+ * world every rendered frame with no depth divide — `plates.js`, `callout.js`, `floaters.js`
+ * — at the renderer's own internal resolution, upscaled with NEAREST; see `screen.js`'s own
+ * header for why that stays canvas permanently: a crisp 12 px web panel over a 640×360 world
+ * upscaled ×3 is the one thing on screen not on the pixel grid, and it reads as a debug
+ * overlay instead of as the game. Every screen and every HUD widget lives in `#ui-dom`
+ * (`dom/layer.js`), a real-resolution DOM layer mounted beside the world canvas rather than
+ * instead of it; see that file's own header for the stacking order and why a soft-UI redesign
+ * (Códice) does not belong on the world's pixel grid the way a DS-style menu did. Both
+ * surfaces still cost **zero draw calls** — a 2-D canvas is composited by the browser and
+ * never reaches `renderer.info.render.calls`, which is the number tools/shots/shoot.js
+ * budgets — and so does the DOM layer, for the same reason.
  *
  * Two more decisions shape this module:
  *
@@ -32,7 +32,7 @@ import { makeFloaters, CRIT_FLOATER_SCALE } from './floaters.js';
 import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
-import { makeMenu } from './panels/menu.js';
+import { makeMenuDomScreen } from './screens/menu.js';
 import { makeTravelDomScreen } from './screens/travel.js';
 import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeSettingsDomScreen } from './screens/settings.js';
@@ -44,17 +44,16 @@ import { makeChat } from './dom/chat.js';
 import { makeEconomyMode } from './screens/economy.js';
 import { makeDomPad } from './dom/dpad.js';
 import { makeShopDomScreen } from './screens/shop.js';
-import { makeBoxes } from './panels/boxes.js';
-import { makeBattle, STATUS_NAME } from './panels/battle.js';
-import { makeDex } from './panels/dex.js';
+import { makeBoxesDomScreen } from './screens/boxes.js';
+import { makeBattleDomScreen, STATUS_NAME } from './screens/battle.js';
+import { makeDexDomScreen } from './screens/dex.js';
 import { makeAutomationDomScreen } from './screens/automation.js';
-import { makeParty } from './panels/party.js';
+import { makePartyDomScreen } from './screens/party.js';
 import { makeInventoryDomScreen } from './screens/inventory.js';
 import { makeTrainerDomScreen } from './screens/trainer.js';
-import { makeDialogue } from './panels/dialogue.js';
+import { makeDialogueDomScreen } from './screens/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
-import { setActiveDrag, serializeWindows, restoreWindows } from './panels/common.js';
 
 /**
  * The registry hands out a null-object Proxy for a missing or quarantined module, and it
@@ -82,8 +81,12 @@ let live = null;
  *  - v2 (Stage 4): adds `watch`, the species watch-list (`./watchlist.js`) — player state,
  *    not a tunable, so it belongs here and not in `core/config.js`'s own
  *    `localStorage['pokeidle.config']`.
+ *  - v3 (Stage 9): drops `windows` — there is no canvas panel left with draggable/resizable
+ *    geometry to remember (`panels/common.js`'s `serializeWindows`/`restoreWindows` are gone
+ *    with the last panel that called them). `loadState` still tolerates a v1/v2 save that
+ *    carries a stale `windows` object; it is simply never read again.
  */
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 export default {
   id: 'ui',
@@ -139,10 +142,9 @@ export default {
 
     /**
      * A real-viewport Y (CSS pixels, as `getBoundingClientRect()` reports) to canvas-buffer
-     * Y — the inverse of `screen.js`'s own `toUi()`, and the one bridge left between the DOM
-     * HUD chrome's real position (`dom/hud.js`) and the canvas windows/menu that still have
-     * to dodge it (`hudReserved()`, below). `null` when there is nothing to convert (the
-     * chrome is hidden) or the view is not sized yet.
+     * Y — the bridge left between the DOM dock's real position (`dom/hud.js`) and the
+     * canvas-projected plates (`plates.js`) that still have to stay clear of it. `null` when
+     * there is nothing to convert (the dock is hidden) or the view is not sized yet.
      */
     function toBufferY(clientY) {
       const rect = ctx.three?.view?.displayRect;
@@ -155,14 +157,11 @@ export default {
       /** @type {object|null} */ lastSummary: null,
       debug: !!config.debug,
       hud: hud.read(),
-      /** Set by `draw` each frame; read by the menu so it never lands on the clock. */
-      clockBox: null,
+      /** The dock's real top edge, converted to canvas-buffer Y each frame `draw()` runs —
+       *  see `app.stripBox()`'s own comment. */
       stripBox: null,
-      partyBox: null,
       /** This frame's nameplates, gathered once in `lateFrame` and painted by `draw`. */
       plates: [],
-      /** Set by `draw` each frame; the only consumer today is `hudReserved()` below. */
-      walletBox: null,
       /** Economy mode (`screens/economy.js`, Stage 7) — a root mode, not a panel; see
        *  `app.setEconomyMode`. */
       economyMode: false,
@@ -171,7 +170,6 @@ export default {
     const app = {
       ctx,
       markDirty: () => screen.markDirty(),
-      hovered: () => screen.painter.hovered(),
       hud,
       panelOpen: () => !!state.panel,
       panelId: () => state.panel?.id ?? null,
@@ -186,6 +184,7 @@ export default {
         // corner — `dom/toasts.js`'s own comment on `setAside`.
         toasts.setAside(id === 'menu');
         app.syncDpad();
+        app.syncBars();
         screen.markDirty();
         return true;
       },
@@ -195,6 +194,7 @@ export default {
         state.panel = null;
         toasts.setAside(false);
         app.syncDpad();
+        app.syncBars();
         screen.markDirty();
         return true;
       },
@@ -208,6 +208,20 @@ export default {
        * nothing else keeps it in sync on its own.
        */
       syncDpad() { dpad.setContext(!minimal && !state.economyMode && !state.panel); },
+      /**
+       * `bars` — `!state.panel?.hidesHud` — drives the DOM HUD chrome (`domHud`/`chat`) and,
+       * in `draw()` below, the canvas plates/hint/scroll clamps. Called synchronously here for
+       * the same reason `syncDpad` is: `dialogue` (Stage 9's DOM message box) is the one panel
+       * that still sets `hidesHud`, and without this the dock/wallet/party bar would only
+       * catch up on the next canvas repaint rather than the instant the message box opens.
+       * `draw()` still recomputes it every frame too — redundant while `state.panel` only ever
+       * changes through `open()`/`close()`, and cheap insurance if that ever stops being true.
+       */
+      syncBars() {
+        const bars = !state.panel?.hidesHud;
+        domHud.setBarsVisible(bars);
+        chat.setBarsVisible(bars);
+      },
       /** Re-opens the last while-you-were-away card from the menu. */
       openReport() {
         const summary = state.lastSummary ?? pullSummary();
@@ -215,42 +229,12 @@ export default {
         return app.open('offline', { summary });
       },
       /**
-       * Where the DOM HUD chrome's top union and the dock (`dom/hud.js`, Stage 3) land, in
-       * **canvas-buffer** coordinates — `menu.js` anchors above the dock and below this
-       * chrome, unchanged since before the migration, so this stays the shape it always
-       * read: `{y, h}` for `clockBox`, `{y}` for `stripBox`. Synthesised in `draw()` below
-       * from the real DOM measurement; `null` while that chrome is hidden (`minimal`).
+       * The dock's real top edge (`dom/hud.js`, Stage 3), converted to **canvas-buffer**
+       * coordinates — the one thing left that still reads it is `draw()`'s own plate
+       * placement below, so a nameplate never floats over the dock. `null` while the dock is
+       * hidden (`minimal`).
        */
-      clockBox: () => state.clockBox,
       stripBox: () => state.stripBox,
-      /** The party bar lives in `#ui-dom` now (`dom/hud.js`), top-left, not docked above
-       *  anything on this canvas — `null` forever. `panels/battle.js`'s own fallback (anchor
-       *  to the bottom of the buffer when there is no party bar to sit above) is exactly the
-       *  right behaviour with nothing there to avoid any more, so nothing else changes. */
-      partyBox: () => state.partyBox,
-      /**
-       * How many pixels at the top and bottom of the buffer are already spoken for by the
-       * wallet/clock (top) and the party bar/button strip (bottom) *this frame* — every
-       * `windowFrame` call passes this straight through so a window can never open, default,
-       * or be dragged/resized on top of them (at
-       * `uiScale: 2` a `full` panel's authored size covers nearly the whole halved buffer,
-       * including the bars it was supposed to leave visible).
-       *
-       * Measured from the boxes `draw()` already computed this frame, not from a hard-coded
-       * constant — `bars` being false (`hidesHud`) reads back as `{top:0, bottom:0}`, and a
-       * future, taller party bar is reserved for correctly with no change here.
-       */
-      hudReserved() {
-        // The trainer card, party list and wallet/clock (`dom/hud.js`) are one combined
-        // chrome now, not two separately-measured boxes — `state.clockBox` still carries the
-        // union's bottom edge (shaped `{y, h}` so `menu.js`'s own `.y + .h` read keeps
-        // working with no change there), synthesised each frame in `draw()` below from the
-        // DOM chrome's real position.
-        const top = state.clockBox ? state.clockBox.y + state.clockBox.h : 0;
-        const bottomEdge = state.stripBox ? state.stripBox.y : Infinity;
-        const bottom = Number.isFinite(bottomEdge) ? Math.max(0, screen.height - bottomEdge) : 0;
-        return { top: top ? top + 2 : 0, bottom: bottom ? bottom + 2 : 0 };
-      },
       toggleDebug() {
         state.debug = !state.debug;
         config.set({ debug: state.debug });
@@ -280,9 +264,9 @@ export default {
       economyModeActive: () => state.economyMode,
       /** The real screen Y just below the HUD's trainer/party/wallet chrome
        *  (`dom/hud.js`'s own `topBottom()`, already real DOM pixels — no `toBufferY`
-       *  conversion needed since the economy board lives in the same real-pixel `#ui-dom`
-       *  layer) — `null` while that chrome is hidden. `screens/economy.js` clears its own
-       *  top content of this, the same reason `hudReserved()` exists for canvas panels. */
+       *  conversion needed since every screen lives in the same real-pixel `#ui-dom` layer)
+       *  — `null` while that chrome is hidden. Any screen anchored to the top clears its own
+       *  content of this (`screens/economy.js`, `screens/menu.js`, `screens/battle.js`). */
       hudTopBottom: () => domHud.topBottom(),
     };
 
@@ -298,19 +282,19 @@ export default {
     const economyMode = makeEconomyMode(app, domLayer);
 
     const PANELS = {
-      menu: makeMenu(app),
+      menu: makeMenuDomScreen(app, domLayer),
       travel: makeTravelDomScreen(app, domLayer),
       offline: makeOfflineDomScreen(app, domLayer),
       settings: makeSettingsDomScreen(app, domLayer),
       shop: makeShopDomScreen(app, domLayer),
-      boxes: makeBoxes(app),
-      dex: makeDex(app),
+      boxes: makeBoxesDomScreen(app, domLayer),
+      dex: makeDexDomScreen(app, domLayer),
       automation: makeAutomationDomScreen(app, domLayer),
-      party: makeParty(app),
+      party: makePartyDomScreen(app, domLayer),
       inventory: makeInventoryDomScreen(app, domLayer),
       trainer: makeTrainerDomScreen(app, domLayer),
-      battle: makeBattle(app),
-      dialogue: makeDialogue(app),
+      battle: makeBattleDomScreen(app, domLayer),
+      dialogue: makeDialogueDomScreen(app, domLayer),
     };
 
     /**
@@ -328,6 +312,7 @@ export default {
     // `dom/dpad.js`'s own header for why it reads `input.press`/`release` directly.
     const dpad = makeDomPad(domLayer, input);
     app.syncDpad();
+    app.syncBars();
 
     /** The payload `offline` publishes, if it has one and it has not been dismissed. */
     function pullSummary() {
@@ -524,33 +509,18 @@ export default {
       // (theme.js `applyLight`), so the wallet, the panels and the toasts share the world's
       // light instead of sitting on top of it at one fixed brightness.
       if (applyLight(s.tod)) screen.clearTints();
-      // `full` used to also stand the whole HUD down while the panel was open, which is what
-      // made opening any of `shop`/`boxes`/`dex`/`automation`/`party` hide the wallet, the
-      // clock and the party bar along with it. It is inert data now — nothing
-      // reads `panel.full` any more, kept on the descriptor only as a note of which panels
-      // used to behave this way; `hudReserved()` (below) is what actually keeps a window from
-      // covering the bars it no longer stands down. A message box is the one thing that still
-      // stands the bottom bars down — it occupies the same strip of screen they do, and in
+      // A message box (`dialogue`'s `hidesHud: true`) is the only thing left that stands the
+      // dock/wallet/party chrome down — it occupies the same strip of screen they do, and in
       // the mainline a message is the only thing on that strip.
       const bars = !state.panel?.hidesHud;
       domHud.setBarsVisible(bars);
       chat.setBarsVisible(bars);
-      state.clockBox = null;
       state.stripBox = null;
-      state.partyBox = null;
-      state.walletBox = null;
-      if (bars) {
-        // The trainer card, party list, wallet, clock and dock all live in `#ui-dom` now
-        // (`dom/hud.js`) — this canvas no longer paints any of them. `clockBox`/`stripBox`
-        // are still synthesised, in canvas-buffer coordinates, purely so `menu.js` (still
-        // canvas) keeps anchoring above the dock and below this chrome exactly as before;
-        // `toBufferY` is the inverse of `screen.js`'s own `toUi()`.
-        const topY = toBufferY(domHud.topBottom());
-        if (topY != null) state.clockBox = { y: 0, h: topY };
-        if (!minimal) {
-          const dockY = toBufferY(domHud.dockTop());
-          if (dockY != null) state.stripBox = { y: dockY };
-        }
+      if (bars && !minimal) {
+        // The dock's real top edge, converted to canvas-buffer coordinates purely so plates
+        // (below) stay clear of it — `toBufferY` is the inverse of `screen.js`'s own `toUi()`.
+        const dockY = toBufferY(domHud.dockTop());
+        if (dockY != null) state.stripBox = { y: dockY };
       }
       if (!minimal && bars && !state.economyMode) {
         if (!input.hasMoved() && !state.panel) {
@@ -570,38 +540,28 @@ export default {
           g.text(hx, hy, text, C.wallHi);
         }
       }
-      // The one moment `panels/common.js`'s `windowFrame` — called from deep inside whichever
-      // panel draws next — can see the live gesture `screen.js` is holding, without every one
-      // of its six call sites threading `screen.drag()` through `opts` by hand.
-      setActiveDrag(screen.drag());
-      const panelBox = state.panel ? state.panel.draw(g, app) : null;
-      // The away card used to be the one moment the wallet was repainted over its own scrim
-      // (round 1 dimmed it otherwise); now that `offline` is a DOM screen (`screens/
-      // offline.js`) drawing nothing on this canvas at all, there is no canvas scrim left to
-      // repaint the wallet over — its own opaque DOM card sits above this whole layer instead.
+      // Every panel is DOM now and draws nothing here — `draw()` is still called on whichever
+      // one is open, because `screens/trainer.js` (and any future screen that wants a live
+      // refresh on the same cadence the world repaints on) uses it as a "the world just
+      // repainted" hook, not because it returns anything to paint.
+      state.panel?.draw(g, app);
       // Plates first, callouts over them: a name/level/HP plate names who is standing there,
       // a speech balloon is what that creature just did — the balloon reads as the newer,
       // louder thing precisely because it is drawn on top.
       //
-      // Suppressed entirely under a `full`/`hidesHud` panel, exactly like `bars` above — but
-      // `bars` alone is not the right test here. `travel` and `offline` are neither `full` nor
-      // `hidesHud` (the wallet stays up over them on purpose), yet both cover the *whole*
-      // screen themselves — `travel` with `windowFrame`'s `g.scrim`, `offline` with its own
-      // DOM scrim in `#ui-dom` (`screens/offline.js`), stacked above this canvas — a plate
-      // drawn after either would float over a dimmed background like a lit sign in a
-      // blackout, anywhere on screen, not only over the panel's own box. `battle` and `menu`
-      // are the only two panels that draw no scrim at all
-      // (a docked card and a column that says outright "the city stays readable behind it"),
-      // so they are the only two a plate may still show around — clipped to the box each
-      // panel's own `draw()` just handed back, the same discipline `partyBox`/`stripBox` use.
+      // Suppressed entirely under a `hidesHud` panel, exactly like `bars` above — but `bars`
+      // alone is not the right test here. `travel` and `offline` neither hide the HUD (the
+      // wallet stays up over them on purpose) nor draw a scrim on *this* canvas any more —
+      // both are opaque DOM cards in `#ui-dom`, stacked above this whole layer — and a plate
+      // drawn under either would float over a dimmed background like a lit sign in a
+      // blackout, anywhere on screen. `battle` and `menu` are the only two screens that draw
+      // no scrim at all (a docked card and a column that says outright "the city stays
+      // readable behind it"), so they are the only two a plate may still show around.
       const platesShow = !minimal && bars && !state.economyMode
         && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
       if (platesShow) {
-        const plateFloor = Math.min(
-          state.partyBox ? state.partyBox.y : g.height,
-          state.stripBox ? state.stripBox.y : g.height,
-        );
-        plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: panelBox ?? null });
+        const plateFloor = state.stripBox ? state.stripBox.y : g.height;
+        plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: null });
       }
       // Over the world: a callout belongs to a creature, not to the HUD. Toasts (`dom/
       // toasts.js`) are no longer part of this stacking order at all — their own DOM layer
@@ -611,21 +571,6 @@ export default {
       // land on the same spot.
       floaters.draw(g, project);
       if (state.debug) drawDebug(g);
-      // The drag ghost, last of all: whatever is held follows the pointer over the top of
-      // every panel, every toast, the debug overlay — everything this frame just drew. A held
-      // drag is `screen.drag()` (`gesture.js`'s state, kept alive across the `paint()` that
-      // just reset every hit region), not anything this module owns.
-      // A window's own move/resize drag carries an *object* payload
-      // (`{kind, id}`) and needs no floating tag — the window itself is already following the
-      // pointer, drawn above, in real time. The tag is only for a payload meant to be read as
-      // a label, which today means a plain string; `typeof` is the whole test.
-      const drag = screen.drag();
-      if (drag && typeof drag.payload === 'string') {
-        const label = drag.payload;
-        const w = g.measure(label) + 10;
-        g.fill(drag.x + 8, drag.y - 6, w, 11, 'rgba(20,18,26,0.85)');
-        g.text(drag.x + 13, drag.y - 5, label, C.wallHi);
-      }
     }
 
     // ------------------------------------------------------------------ frame
@@ -746,19 +691,16 @@ export default {
       snapshot: () => ({ ...state.hud, panel: state.panel?.id ?? null, toasts: toasts.count() }),
       /** Screen geometry, so a caller can reason about the UI grid. */
       metrics: () => ({ width: screen.width, height: screen.height, drawCalls: 0 }),
-      /**
-       * Every window a player has actually dragged or resized (src/offline/save.js) — a panel
-       * never touched has no entry and keeps opening at its authored default. `restore()`
-       * pushes `loadState`'s own value straight into `panels/common.js`'s module-scope Map;
-       * there is no per-window validation beyond `restoreWindows`'s own numeric-field check,
-       * because a bad entry only ever mis-clamps a window on its next open, never crashes one.
-       */
-      saveState: () => ({ v: SAVE_VERSION, windows: serializeWindows(), watch: watchlist.list() }),
-      // `restoreWindows`/`watchlist.restore` both tolerate `undefined` — a v1 save (no
-      // `watch` field at all) restores to an empty watch-list, exactly what a save with no
-      // `ui` slice at all already did before this field existed.
+      /** The species watch-list (`./watchlist.js`, Stage 4's Settings screen) — the one piece
+       *  of player state this save slice still carries (v3, Stage 9: dropped `windows`, the
+       *  last canvas panel's own dragged/resized geometry — there is no canvas panel left to
+       *  remember it for). */
+      saveState: () => ({ v: SAVE_VERSION, watch: watchlist.list() }),
+      // `watchlist.restore` tolerates `undefined` — a v1 save (no `watch` field at all)
+      // restores to an empty watch-list, exactly what a save with no `ui` slice at all
+      // already did before this field existed. A v1/v2 save's own stale `windows` object is
+      // simply never read.
       loadState(value) {
-        restoreWindows(value?.windows);
         watchlist.restore(value?.watch);
         screen.markDirty();
       },
@@ -766,8 +708,9 @@ export default {
       _screen: screen,
       _domLayer: domLayer,
       _domHud: domHud,
-      /** The DOM successor to `_screen.regions()` — `dom/layer.js`'s own comment explains why
-       *  a flow test needs this the same way it needs the canvas one. */
+      /** Every `[data-ui]` element and its real geometry — `dom/layer.js`'s own comment on
+       *  why a flow test needs this ("a button drawn under another panel looks identical in a
+       *  screenshot to one that works" is equally true in DOM). */
       probe: () => domLayer.probe(),
       /** `document.fonts.ready`, awaited by `showcase.js` before `__READY__` the same way
        *  `_screen.imagesSettled()` already is — a self-hosted face that hasn't decoded yet

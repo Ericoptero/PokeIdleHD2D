@@ -27,8 +27,9 @@
 import { h } from './el.js';
 import { icon } from './icons.js';
 
-/** Mirrors `theme.js`'s `TOAST_COLOUR` mark table — a shape and a colour per kind, so the
- *  kind still reads with no colour vision at all. */
+/** A shape and a colour per kind (`screens.css`'s own `.ci-toast` rules carry the colour), so
+ *  the kind still reads with no colour vision at all — the same reason the canvas toast stack
+ *  this replaced kept a `mark` character beside its own colour table. */
 const KIND_ICON = {
   good: 'check-circle', warn: 'alert', bad: 'close', offline: 'bedtime', info: 'dot',
 };
@@ -75,9 +76,9 @@ export function makeDomToasts(domLayer, { frozen = false } = {}) {
   function push(text, kind = 'info') {
     const t = String(text ?? '').trim();
     if (!t) return null;
-    // An unrecognised kind falls back to `info`, exactly as `theme.js`'s `TOAST_COLOUR[kind]
-    // ? kind : 'info'` did — `idle/index.js` emits `kind: 'idle'`, which nothing has ever
-    // defined a colour for, and this stays a display fallback rather than a build failure.
+    // An unrecognised kind falls back to `info` — `idle/index.js` emits `kind: 'idle'`, which
+    // nothing has ever defined an icon or a colour for, and this stays a display fallback
+    // rather than a build failure.
     const safeKind = KIND_SET.has(kind) ? kind : 'info';
     const entry = {
       id: ++seq, text: t, kind: safeKind, age: 0, lifetime: DURATION_S[safeKind] ?? 3.5,

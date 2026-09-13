@@ -84,33 +84,9 @@ export const key = (page, code, down = true) =>
   page.evaluate(({ c, d }) => window.__HOOKS__.key(c, d), { c: code, d: down });
 
 /**
- * Dispatches a real `PointerEvent` (or a real `WheelEvent` for `type: 'wheel'`) at a point
- * given in UI buffer pixels — the same coordinates `screen.regions()` reports boxes in.
- *
- * `x, y` are translated to client coordinates through the `#ui-screen` canvas's own
- * `getBoundingClientRect()`, the inverse of the conversion `screen.js`'s `toUi()` applies to a
- * real event — so this drives the exact code path a real user's mouse does (`screen.js`
- * listens on `window`, not on the canvas, which is `pointer-events:none`; the event is
- * dispatched directly on `window` for that reason, not on the canvas).
- * `deltaX`/`deltaY` are only read for `type: 'wheel'`.
- */
-export const pointer = (page, { type, x, y, deltaX = 0, deltaY = 0 }) =>
-  page.evaluate(({ t, bx, by, dx, dy }) => {
-    const canvas = document.getElementById('ui-screen');
-    if (!canvas) throw new Error('pointer(): no #ui-screen canvas — is the ui module booted?');
-    const r = canvas.getBoundingClientRect();
-    const clientX = r.left + (bx / canvas.width) * r.width;
-    const clientY = r.top + (by / canvas.height) * r.height;
-    const base = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0 };
-    if (t === 'wheel') window.dispatchEvent(new WheelEvent('wheel', { ...base, deltaX: dx, deltaY: dy }));
-    else window.dispatchEvent(new PointerEvent(t, base));
-  }, { t: type, bx: x, by: y, dx: deltaX, dy: deltaY });
-
-/**
  * Clicks a Códice DOM element by its `data-ui` tag — the DOM layer's own diagnostic
- * attribute (`ui/dom/layer.js`'s `probe()`), the equivalent of `pointer()` above for anything
- * that has converted off the canvas. A real `page.click()`, not a dispatched event, so it
- * exercises the browser's own hit-testing (an element covered by something else fails the
+ * attribute (`ui/dom/layer.js`'s `probe()`). A real `page.click()`, not a dispatched event, so
+ * it exercises the browser's own hit-testing (an element covered by something else fails the
  * way a real click would).
  */
 export const click = (page, tag) => page.click(`[data-ui="${tag}"]`);
