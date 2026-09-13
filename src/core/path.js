@@ -60,8 +60,64 @@ export function bfsPath(from, to, passable, maxTiles = 200) {
       const nz = cur.cz + DIR_DZ[dir];
       const nk = key(nx, nz);
       if (cameFrom.has(nk)) continue;
-      if (!passable(cur.cx, cur.cz, dir)) continue;
+      if (!passable(nx, nz, dir)) continue;
       cameFrom.set(nk, { dir, from: cur.k });
+      visited++;
+      queue.push({ cx: nx, cz: nz, k: nk });
+    }
+  }
+  return null;
+}
+
+/**
+ * Shortest 4-directional walk from `from` to `to`, **inclusive** of both ends — unlike
+ * `bfsPath`, which stops one cell short for the contact-trigger use case this file was
+ * originally written for. Used by `hunts/compose.js`'s `stitchLoop` to join authored
+ * waypoints into a continuous ring.
+ *
+ * @param {{cx:number, cz:number}} from
+ * @param {{cx:number, cz:number}} to
+ * @param {(cx:number, cz:number, dir:number) => boolean} passable destination-cell semantics —
+ *   the cell being entered, matching every other passability caller in this repo.
+ * @param {{maxTiles?: number}} [opts] a search budget, in cells visited — not a straight-line
+ *   distance cap, so a winding-but-short real route is not refused for looking far as the crow
+ *   flies.
+ * @returns {{cx:number, cz:number}[]|null} an ordered list of cells from `from` to `to`
+ *   inclusive, or `null` if `from` and `to` are the same cell, or no route was found within
+ *   budget.
+ */
+export function bfsCells(from, to, passable, opts = {}) {
+  const { maxTiles = 4096 } = opts;
+  if (from.cx === to.cx && from.cz === to.cz) return null;
+
+  const start = key(from.cx, from.cz);
+  const goal = key(to.cx, to.cz);
+  const cameFrom = new Map([[start, null]]); // cell key -> {dir, from key} | null (start)
+  const queue = [{ cx: from.cx, cz: from.cz, k: start }];
+  let visited = 1;
+
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur.k === goal) {
+      // Walk the `cameFrom` chain back to the start, collecting cells in reverse.
+      const cells = [];
+      let at = cur.k;
+      while (at !== start) {
+        const step = cameFrom.get(at);
+        cells.unshift({ cx: step.cx, cz: step.cz });
+        at = step.from;
+      }
+      cells.unshift({ cx: from.cx, cz: from.cz });
+      return cells;
+    }
+    if (visited >= maxTiles) break;
+    for (let dir = 0; dir < 4; dir++) {
+      const nx = cur.cx + DIR_DX[dir];
+      const nz = cur.cz + DIR_DZ[dir];
+      const nk = key(nx, nz);
+      if (cameFrom.has(nk)) continue;
+      if (!passable(nx, nz, dir)) continue;
+      cameFrom.set(nk, { dir, from: cur.k, cx: nx, cz: nz });
       visited++;
       queue.push({ cx: nx, cz: nz, k: nk });
     }

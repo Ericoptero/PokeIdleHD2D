@@ -148,12 +148,26 @@ export default {
      * outbound step has actually been walked, which removes the failure mode outright: `back` is
      * built from where the head demonstrably is, never from where a plan assumed it would be.
      */
-    const detour = { out: [], taken: [], back: [] };
+    const detour = { out: [], taken: [], back: [], returnHome: true };
     /** Drops every queued detour step and everything recorded about the one in progress. */
     function resetDetour() {
       detour.out.length = 0;
       detour.taken.length = 0;
       detour.back.length = 0;
+      detour.returnHome = true;
+    }
+
+    /**
+     * Warns that a scripted route stalled, and emits `walk:stalled` with the same payload —
+     * one shared helper so `setFormation`'s route construction and `setRoute`'s stay
+     * identical rather than drifting into two slightly different messages. `hunts` listens for
+     * the event to trigger a resync back onto the loop; the console line is what a human sees
+     * without one.
+     */
+    function onRouteStall({ cx, cz, dir, index }) {
+      log.warn(`simulation: the route stalled at (${cx},${cz}) facing ${dir}, step ${index} — `
+        + 'the loop is blocked on the shipped map');
+      bus.emit('walk:stalled', { cx, cz, dir, index });
     }
     let frozen = false;
     let paused = false;
@@ -326,8 +340,18 @@ export default {
 
     // ------------------------------------------------------------ the tick
 
-    function stepOptions() {
-      return { walkSeconds: config.walkSecondsPerTile, passable };
+    /**
+     * The options `line.step` walks a step with — terrain passability AND the `solid`
+     * cell-occupancy map, for whichever `mover` is taking the step. Matches what `route.next()`
+     * already picks a direction against (`world`/`worldFor(id)`, both built on `clear`): a step
+     * chosen against terrain-plus-collision must also be WALKED against terrain-plus-collision,
+     * or a direction can be picked correctly and then carry the walker through a solid body
+     * anyway. The party is mover `0`, the same id `world.passable` uses, so its call sites take
+     * the default; an NPC passes its own id (`worldFor`'s own id) so its own claimed cell does
+     * not block its own step.
+     */
+    function stepOptions(mover = 0) {
+      return { walkSeconds: config.walkSecondsPerTile, passable: (cx, cz, dir) => clear(cx, cz, dir, mover) };
     }
 
     function advance(dt) {
@@ -369,8 +393,10 @@ export default {
             detour.out.shift();
             detour.taken.push(dir);
             if (!detour.out.length) {
-              // The approach is fully spent — the return trip is exactly its mirror.
-              detour.back = detour.taken.slice().reverse().map(opposite);
+              // The approach is fully spent — the return trip is exactly its mirror, unless
+              // this approach was queued one-way (`detour(dirs, { returnHome: false })`), in
+              // which case there is no trip home to build.
+              if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
               detour.taken.length = 0;
             }
           } else {
@@ -381,7 +407,7 @@ export default {
             // the queue actually got, not from where the plan assumed it would be. No step is
             // attempted this same tick; the next `advance()` call drains `back`.
             detour.out.length = 0;
-            detour.back = detour.taken.slice().reverse().map(opposite);
+            if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
             detour.taken.length = 0;
           }
         } else if (detour.back.length) {
@@ -409,7 +435,7 @@ export default {
           // Held creatures stand still: `hunts` freezes a wild the instant the party commits to
           // walking at it, so a tether step cannot move the target out from under the detour.
           const cmd = npc.held ? null : npc.route.next(npc.line.pose(0, 0), worldFor(npc.id));
-          if (cmd) npc.line.step(cmd.dir, stepOptions());
+          if (cmd) npc.line.step(cmd.dir, stepOptions(npc.id));
         }
         if (npc.solid) {
           const at = npc.line.pose(0, 0);
@@ -555,9 +581,7 @@ export default {
           route = makeScriptedRoute(formation.route, {
             loop: true,
             strict: formation.strict,
-            onStall: ({ cx, cz, dir, index }) => log.warn(
-              `simulation: the route stalled at (${cx},${cz}) facing ${dir}, step ${index} — `
-              + 'the loop is blocked on the shipped map'),
+            onStall: onRouteStall,
           });
         } else if (kind === 'route') {
           log.warn("simulation: autopilot 'route' with no route spec — standing still");
@@ -571,6 +595,26 @@ export default {
         return api;
       },
       formation: () => ({ ...formation, preferTags: [...formation.preferTags] }),
+
+      /**
+       * Replaces the scripted route object in place — the mid-session resync a hunt needs
+       * once the head is back on its loop (`hunts.resyncToLoop()`), so the circuit picks up
+       * from wherever it owes a step next, instead of restarting cold. `setFormation` is the
+       * wrong tool for this: it also calls `resetDetour()`, `rebuildMembers()` and `restage()`,
+       * throwing away exactly the in-flight state (a detour, the staged cast) a resync must
+       * not disturb.
+       *
+       * Same shape as `setFormation`'s own scripted-route construction — `loop: true`,
+       * `strict: formation.strict`, and the shared `onRouteStall` (above), so a fresh stall on
+       * the new route still warns and emits `walk:stalled` exactly the way the original one
+       * did. `formation.route` is updated too, so `sim.formation()` keeps reporting the loop
+       * actually being walked.
+       */
+      setRoute(dirs) {
+        formation = { ...formation, route: dirs };
+        route = makeScriptedRoute(dirs, { loop: true, strict: formation.strict, onStall: onRouteStall });
+        return api;
+      },
 
       /**
        * Stops the party where it stands, **keeping the route's place in its loop**.
@@ -697,11 +741,17 @@ export default {
        * that record the moment the approach ends — see the long comment on `detour`, above, for
        * why a replayed plan turned one blocked step into a permanent stall and a record of what
        * was actually walked cannot.
+       *
+       * `opts.returnHome` (default `true`) — pass `false` for a one-way walk: no `back` leg is
+       * ever generated for this queued approach, however it ends (spent, blocked, or cut short
+       * by `detourHome()`). That is what `hunts.resyncToLoop()` needs to walk the party back
+       * onto its loop — a move that ends the trip, not one leg of an out-and-back.
        */
-      detour(dirs) {
+      detour(dirs, opts = {}) {
         const list = (Array.isArray(dirs) ? dirs : [dirs]).filter((d) => Number.isFinite(d));
         if (!list.length) return false;
         detour.out.push(...list.map((d) => d & 3));
+        detour.returnHome = opts.returnHome !== false;
         return true;
       },
       detouring: () => detour.out.length > 0 || detour.back.length > 0,
@@ -714,13 +764,25 @@ export default {
        * `hunts` calls this the moment a fight starts: the party can engage as soon as it is
        * `config.slotEngageTiles` off a slot — as little as one cell — which can land mid-approach
        * on a multi-step detour, and the steps `out` still had queued would otherwise walk the
-       * party on toward a creature that will not be there once the duel ends. Harmless to call
-       * with nothing queued: `taken` is then empty and the generated `back` comes out empty too.
+       * party on toward a creature that will not be there once the duel ends.
+       *
+       * **Never clobbers a `back` that is already built.** `bfsPath` stops one tile short of its
+       * target on purpose, so no intermediate cell of an approach is usually within engage
+       * range — the engage fires on the approach's own FINAL cell, by which point `advance()`'s
+       * own out-drain branch (above) has already moved the whole trip into `back` and emptied
+       * `taken`. That is the common case, not an edge case: rebuilding `back` from an empty
+       * `taken` here would silently overwrite a fully-formed return trip with nothing, and the
+       * party would never walk home. So `back` is only rebuilt when `taken` actually holds
+       * something — the genuine mid-approach cut-short — and is left exactly as it is
+       * otherwise. Either way `out` is cleared. A one-way approach (`detour(dirs, { returnHome:
+       * false })`) never gets a `back` leg from this call either.
        */
       detourHome() {
         detour.out.length = 0;
-        detour.back = detour.taken.slice().reverse().map(opposite);
-        detour.taken.length = 0;
+        if (detour.taken.length) {
+          if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
+          detour.taken.length = 0;
+        }
         return api;
       },
       /**

@@ -29,10 +29,14 @@ import { installEventLog, boot, step, events, key, call } from './harness.js';
 /** Small chunks: the properties are about the tick an encounter starts on, not about the lap. */
 const CHUNK = 4;
 const MAX_TICKS = 3000;
-/** How many encounters to watch. Two is enough to make the anti-anchor check non-vacuous
- *  (this seed's first hunt-meadow slots drift within the first two, confirmed empirically) and
- *  small enough that the flow stays fast. */
-const WATCH = 2;
+/**
+ * How many encounters to watch. Three is enough to make the anti-anchor check non-vacuous on
+ * `hunt-meadow`'s own authored circuit (`loop.via` in `src/hunts/biomes/meadow.js`): its first
+ * two slots met on this seed (`lillipup` then `bunnelby`, in that order) happen not to have
+ * drifted at the moment of contact, but the third always has, confirmed empirically against
+ * the shipped map. Small enough that the flow stays fast.
+ */
+const WATCH = 3;
 
 /**
  * Walks to the next `encounter:started`, sampling the live world just before it.
@@ -79,6 +83,14 @@ async function resolveEncounter(page, started) {
       ticks += 12;
     }
   })();
+  // Healed the instant the duel itself is decided — after `battle:ended`'s own writeback
+  // (`endFight()`, src/encounter/index.js) has already run, never mid-fight — so a starting
+  // level-6 party that loses one of the three watched fights (this seed's `bunnelby` at
+  // `hunt-meadow` does, against this file's own starter) does not wipe and travel to the
+  // Pokemon Center before the third encounter this file needs is ever reached. That travel is
+  // real and already covered end to end (`hunt-recovers.spec.js`); this file is about the
+  // slot/tether mechanism, not about surviving three fights on a fresh save.
+  await call(page, 'pokemon', 'reviveAll');
   if (ended.payload.won) {
     await step(page, 4);
     await key(page, 'KeyZ');

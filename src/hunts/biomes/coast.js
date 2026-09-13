@@ -59,6 +59,33 @@ export const COAST = {
    * read correctly: the party files across the frame instead of up it. Everything else in
    * `hunts` is now built to do the same.
    */
+  /**
+   * The authored circuit (`hunts/index.js`'s `authoredLoop`, `stitchLoop` in `compose.js`).
+   *
+   * `shore`, `sea` and `point` all sit in one band that hugs the coastline — probed on the
+   * shipped seed-1337 map, they run from (49,17) down to (26,37) roughly parallel to
+   * `shoreAt`. A via list through only those three stitches a ring whose return leg retraces
+   * its outbound leg almost cell for cell, which `stitchLoop`'s distinct-cells check correctly
+   * rejects (measured: `shore,point,dunes` and every other ordering of the three shore-band
+   * markers revisits a cell). `dunes` cannot fill in for a fourth point either — it sits at
+   * (16,44), one cell inside the 11-cell edge margin `stitchLoop` enforces on every ring cell,
+   * so any via list naming it is rejected outright.
+   *
+   * `point` is the sharp case even once a fourth waypoint is added: it sits at the map's own
+   * north-east extreme, so a ring that visits `sea` immediately before it and anything else
+   * immediately after naturally arrives AND leaves along the same north-south corridor
+   * (`cx` 49) — every `sea -> point -> X` ordering tried revisited `(49,18)`, one cell below
+   * `point` itself, regardless of what `X` was or where it sat, including the very first
+   * version of this comment (which had verified a stub-built replica of this draft rather
+   * than the shipped one, and the two disagreed by exactly the one cell that broke it).
+   *
+   * `loop/bluff`, marked below alongside the rest, sits between `sea` and `point` instead of
+   * after them, so the ring reaches the corridor from the side once rather than doubling back
+   * through it: measured on the shipped seed-1337 map, `shore -> sea -> loop/bluff -> point`
+   * stitches to an 86-cell, 8-corner ring and `slotsForLoop` places all 9 of the 9 slots asked
+   * for.
+   */
+  loop: { via: ['shore', 'sea', 'loop/bluff', 'point'] },
 };
 
 /** Where the sea's surface sits, so the deep water is flush with the shallows sheet. */
@@ -424,6 +451,12 @@ export function buildCoast(draft, ctx, palette, rng, _log) {
   mark('dunes', 16, Math.min(H - 10, Math.round(shoreAt(16)) + 13));
   mark('point', 50, Math.round(shoreAt(50)) + 9);
   mark('sea', 34, Math.round(shoreAt(34)) + 4);
+  // The authored circuit's fourth waypoint (see `loop.via` above): `shore`, `sea` and `point`
+  // all sit in the same band hugging the coastline, and `point` sits at its own north-east
+  // extreme, so any ring visiting `sea` then `point` back to back doubles back through the
+  // same corridor leaving it. This one sits between `sea` and `point` rather than past them,
+  // so the ring reaches that corner from the side instead of retracing its own approach.
+  mark('loop/bluff', 45, 22);
   draft.mark('spawn', draft.spawn.cx, draft.spawn.cz);
 
   // --------------------------------------------------------- the wild Pokemon

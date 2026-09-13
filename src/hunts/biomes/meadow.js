@@ -88,6 +88,24 @@ export const MEADOW = {
    * nothing but the back of the trainer's cap, which is the one defect all three blind A/B
    * rounds named.
    */
+  /**
+   * The authored circuit (`hunts/index.js`'s `authoredLoop`, `stitchLoop` in `compose.js`):
+   * lane -> grass -> fence, closing back to lane.
+   *
+   * `copse` is the only marker north of the brook, and every other marker this biome places —
+   * `lane`, `grass`, `fence`, `bridge`, `brook` — sits south of it, on the farm side. A leg
+   * that reaches `copse` therefore has to cross water no `elbowLeg` straight line crosses
+   * (measured on the seed-1337 draft: `lane -> copse` and `copse -> grass` are neither
+   * X-then-Z nor Z-then-X passable), so it falls through to `bfsCells`, and the plan's
+   * starting guess — `lane -> grass -> copse -> bridge` — comes back rejected: the
+   * `copse` legs' detours retrace ground the `lane -> grass` leg already used, and
+   * `stitchLoop` rejects the revisit at `(45,33)`. Every four-marker order tried the same
+   * way, `copse` in or out, failed the same way (`(45,33)`, `(30,31)`, `(4,22)`, `(21,47)` —
+   * each a different revisited cell, same cause). Dropping to the three markers that never
+   * need to cross the brook at all stitches clean: 102 cells, 10 corners, and
+   * `slotsForLoop` seats all 9 of 9 shoulders on it.
+   */
+  loop: { via: ['lane', 'grass', 'fence'] },
 };
 
 export function buildMeadow(draft, ctx, palette, rng, _log) {
