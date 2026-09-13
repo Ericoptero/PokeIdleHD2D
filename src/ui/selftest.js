@@ -39,9 +39,6 @@ import { lineFor, STATUS_NAME } from './panels/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
-// `panels/inventory.js` touches the DOM only inside `draw`, same as `battle.js` above; its
-// category labels are pure data.
-import { CATEGORY_LABEL } from './panels/inventory.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -99,30 +96,11 @@ const check = (name, ok, detail = '') => {
   check('the battle card has a line for every event kind it lists',
     EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
 
-  /**
-   * The inventory panel's own strings — the category labels it draws as filter
-   * tabs, and one real `desc` per category (`economy/items.js`, copied verbatim as a literal
-   * rather than imported: seam rule 2 forbids importing a sibling module's non-`index.js`
-   * file, the same reason the battle events above are hand-written rather than pulled from
-   * `battle/moves.js`). `CATEGORY_LABEL` is imported for real, so a label added or renamed in
-   * `panels/inventory.js` is covered here without a second copy to keep in sync.
-   */
-  const ITEM_DESC_SAMPLE = [
-    'The standard capsule. 1× catch rate.', // ball: pokeball
-    'Restores 20 HP. ₽10 per point.', // medicine: potion
-    '3,000 EXP. ₽0.27 per point.', // candy: expcandy_xs
-    'Evolves the Fire Stone family. 40 shards at the Shard Stall.', // evolution: firestone
-    '+50% encounter rate for 10 minutes.', // lure: lure
-    '+50% money from every source, forever. One only.', // held: amuletcoin
-    'Sell-only loot.', // treasure: nugget
-  ];
-  const invText = [...Object.values(CATEGORY_LABEL), 'ALL', 'BAG', 'STASH', 'ITEMS', 'DETAIL',
-    'Category', 'Held', 'Sells for', 'Stack worth', 'LOCK (never auto-sold)',
-    'UNLOCK (auto-sell allowed)', 'nothing in the bag', 'nothing in the stash',
-    'nothing selected', ...ITEM_DESC_SAMPLE].join('');
-  const invMissing = [...new Set([...invText])].filter((ch) => ch !== ' ' && !has(ch));
-  check('every string the inventory panel draws has a glyph', invMissing.length === 0,
-    invMissing.map((c) => `${JSON.stringify(c)} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(' '));
+  // The Bag and Shop screens (`screens/inventory.js`, `screens/shop.js`, Stage 5) render
+  // through real DOM text in the browser's own font stack, not through this bitmap font — the
+  // glyph-coverage check that used to live here for the canvas inventory panel no longer has
+  // anything to prove; a missing glyph in a DOM screen is a `fontsReady()`/CSS problem, not
+  // one this module's font table could ever have caught anyway.
 
   const ragged = [];
   const tall = [];
@@ -229,9 +207,11 @@ const check = (name, ok, detail = '') => {
   ];
   // Every `...fit(g, w, h)` call site across `panels/*.js` — `automation.js`'s 600x300 was
   // missing here previously (a pre-existing gap this check's own purpose, "every
-  // authored panel size", was silently not living up to); `inventory.js`'s 480x264 (slice
-  // 018) is added for the same reason a new authored size always belongs in this list.
-  const authored = [[560, 288], [540, 278], [502, 264], [424, 250], [600, 300], [480, 264]];
+  // authored panel size", was silently not living up to). Shop's 540x278 and inventory's
+  // 480x264 dropped out of this list at Stage 5 (Códice DOM conversion): both are DOM
+  // screens now, sized by CSS (`screens.css`'s `.ci-shelf-card`), and neither calls `fit()`
+  // at all any more.
+  const authored = [[560, 288], [502, 264], [424, 250], [600, 300]];
   const bad = [];
   for (const [W, H] of buffers) {
     const g = { width: W, height: H };

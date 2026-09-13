@@ -30,7 +30,7 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * Every multiplier key `economy.multipliers()` can report, this panel's label for it, and
  * what "no bonus" looks like for that key (`economy/upgrades.js`'s own `EFFECT_BASE`,
  * duplicated here rather than imported: `tools/seams/run.js` rule 2 forbids a deep import
- * into `economy/`, and `hud.js`'s `WALLET` / `inventory.js`'s `CATEGORY_LABEL` already keep
+ * into `economy/`, and `hud.js`'s `WALLET` / `models/inventory.js`'s `CATEGORY_LABEL` already keep
  * this exact kind of UI-owned label table for an economy id). A row is only worth a line once
  * its value has moved off `base` — a fresh save's Bonuses section is otherwise eleven rows of
  * "no change yet".

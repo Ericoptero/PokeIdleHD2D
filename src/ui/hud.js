@@ -14,9 +14,11 @@ const isLive = (api) => !!api && api.__missing === undefined;
 
 /**
  * The four currencies, in the order the wallet shows them — **exported**, and imported by
- * `panels/shop.js` rather than re-listed there. Round 1 had two independent lists and they
+ * `panels/trainer.js` rather than re-listed there. Round 1 had two independent lists and they
  * disagreed: the HUD read money/research/shards/bp and the shop's own strip read
- * money/research/bp/shards, so two currencies swapped places one keypress apart.
+ * money/research/bp/shards, so two currencies swapped places one keypress apart (`screens/
+ * shop.js`, Stage 5's DOM conversion, reads `economy.currencies()` directly instead of a
+ * third copy of this table).
  */
 export const WALLET = [
   { id: 'money', symbol: '₽', before: true },

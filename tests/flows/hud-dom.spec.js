@@ -6,7 +6,7 @@
  * landed yet) no-op.
  */
 import { test, expect } from '@playwright/test';
-import { boot, call } from './harness.js';
+import { boot, call, key } from './harness.js';
 
 const paintNow = (page, dt = 0.25) => call(page, 'ui', '_frame', dt);
 const text = (page, tag) => page.locator(`[data-ui="${tag}"]`).innerText();
@@ -27,7 +27,7 @@ test('the clock chip shows the current time and phase', async ({ page }) => {
   expect(await text(page, 'hud-clock')).toMatch(/09:00/);
 });
 
-test('the dock opens the matching panel, and clicking it again closes it', async ({ page }) => {
+test('the dock opens the matching panel; Escape closes it, now that the panel is a real DOM modal covering the dock', async ({ page }) => {
   const errors = await boot(page);
   await paintNow(page);
 
@@ -35,10 +35,23 @@ test('the dock opens the matching panel, and clicking it again closes it', async
   await paintNow(page);
   expect(await call(page, 'ui', 'openPanel')).toBe('shop');
 
-  await page.click('[data-ui="dock-shop"]');
+  // Shop is a full-screen Códice DOM modal (`screens/shop.js`, Stage 5) in the same `#ui-dom`
+  // layer as the dock, stacked above it (`screens.css`'s `.ci-offline-scrim`) so a real click
+  // never falls through to whatever it covers — the dock button underneath is genuinely
+  // unreachable now, not merely painted over the way a canvas panel's own scrim left it.
+  // `elementFromPoint` proves that without paying a real click's actionability timeout for one
+  // that would never land.
+  const coveredBy = await page.evaluate(() => {
+    const dock = document.querySelector('[data-ui="dock-shop"]');
+    const r = dock.getBoundingClientRect();
+    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('[data-ui]')?.dataset.ui;
+  });
+  expect(coveredBy, 'the dock button must not be the topmost element while Shop is open').not.toBe('dock-shop');
+
+  await key(page, 'Escape');
   await paintNow(page);
   expect(await call(page, 'ui', 'openPanel')).toBeNull();
-  expect(errors, 'no console error opening/closing shop from the dock').toEqual([]);
+  expect(errors, 'no console error opening shop from the dock and closing it with Escape').toEqual([]);
 });
 
 test('every dock destination is reachable, matching the old strip\'s full functionality', async ({ page }) => {
@@ -80,14 +93,18 @@ test('the Auto dock button reflects a real running automation, not a fixed "on"'
   expect(errors, 'no console error reflecting a running automation').toEqual([]);
 });
 
-test('the settings button opens the real Settings screen (Stage 4) and toggles closed', async ({ page }) => {
+test('the settings button opens the real Settings screen (Stage 4); its own close button closes it', async ({ page }) => {
   const errors = await boot(page);
   await page.click('[data-ui="hud-settings"]');
   await paintNow(page);
   expect(await call(page, 'ui', 'openPanel')).toBe('settings');
 
-  await page.click('[data-ui="hud-settings"]');
+  // Settings is the same kind of full-screen DOM modal as Shop/Bag (Stages 4/5) — it now
+  // stacks above the gear button in `#ui-dom` (`screens.css`'s `.ci-offline-scrim`), so a
+  // second click on `hud-settings` can no longer reach it; the modal's own close button is
+  // the real affordance a player has to use instead.
+  await page.click('[data-ui="settings-close"]');
   await paintNow(page);
   expect(await call(page, 'ui', 'openPanel')).toBeNull();
-  expect(errors, 'no console error opening and closing Settings from the gear button').toEqual([]);
+  expect(errors, 'no console error opening Settings from the gear button and closing it with its own close button').toEqual([]);
 });

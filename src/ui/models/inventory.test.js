@@ -1,12 +1,12 @@
 /**
  * `economy.bag()`/`stash()` (`economy/index.js:534-535`) already hand back exactly the rows a
- * grid needs, tier-ascending then value-descending — this panel only filters by tab and,
- * optionally, category. `rows()` is not part of the panel contract `ui/index.js` drives
- * (`open`, `close`, `key`, `draw`); it is handed back on the returned object purely so this file
- * does not need a canvas to check the filter (`travel.test.js`'s own precedent).
+ * grid needs, tier-ascending then value-descending — `filterRows` only filters by tab and,
+ * optionally, by category. Moved here unchanged from `panels/inventory.test.js` when the view
+ * built on it converted to a DOM screen (`screens/inventory.js`, Stage 5) — the model this pins
+ * did not change, only the thing rendering it.
  */
 import { describe, it, expect } from 'vitest';
-import { makeInventory, filterRows, CATEGORY_LABEL } from './inventory.js';
+import { filterRows, CATEGORY_LABEL } from './inventory.js';
 
 const BAG_ROWS = [
   { id: 'pokeball', name: 'Poké Ball', category: 'ball', tier: 1, n: 20, cap: 999, unitSell: 100, totalSell: 2000, locked: false, desc: 'x' },
@@ -17,7 +17,7 @@ const STASH_ROWS = [
   { id: 'nugget', name: 'Nugget', category: 'treasure', tier: 2, n: 5, cap: 999, unitSell: 5000, totalSell: 25000, locked: false, desc: 'x' },
 ];
 
-/** Just enough of `app` for `filterRows()`/`rows()`: an `economy` off `ctx.get`. */
+/** Just enough of `app` for `filterRows()`: an `economy` off `ctx.get`. */
 function fakeApp({ bag = [], stash = [] } = {}) {
   return {
     ctx: {
@@ -30,7 +30,7 @@ function fakeApp({ bag = [], stash = [] } = {}) {
   };
 }
 
-describe('the inventory panel row filter', () => {
+describe('the inventory row filter', () => {
   it('reads the bag tab from economy.bag(), untouched, when no category is set', () => {
     const app = fakeApp({ bag: BAG_ROWS, stash: STASH_ROWS });
     expect(filterRows(app, 'bag', null)).toEqual(BAG_ROWS);
@@ -58,14 +58,6 @@ describe('the inventory panel row filter', () => {
     const app = { ctx: { get: () => ({ __missing: true }) } };
     expect(filterRows(app, 'bag', null)).toEqual([]);
     expect(filterRows(app, 'stash', null)).toEqual([]);
-  });
-
-  it('the panel exposes the identical filter through rows(tab, category)', () => {
-    const app = fakeApp({ bag: BAG_ROWS, stash: STASH_ROWS });
-    const panel = makeInventory(app);
-    expect(panel.rows('bag', null)).toEqual(BAG_ROWS);
-    expect(panel.rows('stash', null)).toEqual(STASH_ROWS);
-    expect(panel.rows('bag', 'medicine').map((r) => r.id)).toEqual(['potion', 'superpotion']);
   });
 
   it('every category the catalogue ships has a readable label', () => {

@@ -68,7 +68,7 @@ test('buying an upgrade updates the trainer panel\'s Upgrades block to match eco
   // `payday` carries no `unlock` requirement (`economy/upgrades.js`) and the opening purse
   // (₽100,000 minus the ~₽10,600 starting kit) comfortably covers its ₽12,000 first level, so
   // this is reachable from a fresh save with no other setup — the same call the shop's own
-  // UPGRADE TRACKS shelf makes (`panels/shop.js`: `e.buyUpgrade?.(item.id, n)`).
+  // Upgrades shelf makes (`screens/shop.js`: `e.buyUpgrade?.(item.id, n)`).
   const levelBefore = await call(page, 'economy', 'upgradeLevel', 'payday');
   const bought = await call(page, 'economy', 'buyUpgrade', 'payday', 1);
   expect(bought, 'the purchase must actually go through, or this test proves nothing').toBe(1);

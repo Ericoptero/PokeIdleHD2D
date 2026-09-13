@@ -93,6 +93,16 @@ const PATHS = {
     'M3 7h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z',
     'M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M6 14h12',
   ],
+  // A closed padlock — an item's sell-lock, on.
+  lock: [
+    'M6 11V8a6 6 0 0 1 12 0v3', 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z',
+    'M12 15v2.5',
+  ],
+  // An open padlock — the sell-lock, off.
+  unlock: [
+    'M6 11V8a6 6 0 0 1 11.5-2.4', 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z',
+    'M12 15v2.5',
+  ],
 };
 
 /**

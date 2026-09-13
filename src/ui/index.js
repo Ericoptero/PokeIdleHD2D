@@ -41,13 +41,13 @@ import { makeDomLayer } from './dom/layer.js';
 import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
 import { makeChat } from './dom/chat.js';
-import { makeShop } from './panels/shop.js';
+import { makeShopDomScreen } from './screens/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
 import { makeAutomation } from './panels/automation.js';
 import { makeParty } from './panels/party.js';
-import { makeInventory } from './panels/inventory.js';
+import { makeInventoryDomScreen } from './screens/inventory.js';
 import { makeTrainer } from './panels/trainer.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
@@ -259,12 +259,12 @@ export default {
       travel: makeTravel(app),
       offline: makeOfflineDomScreen(app, domLayer),
       settings: makeSettingsDomScreen(app, domLayer),
-      shop: makeShop(app),
+      shop: makeShopDomScreen(app, domLayer),
       boxes: makeBoxes(app),
       dex: makeDex(app),
       automation: makeAutomation(app),
       party: makeParty(app),
-      inventory: makeInventory(app),
+      inventory: makeInventoryDomScreen(app, domLayer),
       trainer: makeTrainer(app),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
