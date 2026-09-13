@@ -561,6 +561,8 @@ export default {
       // Ages and expires the DOM stack directly (`dom/toasts.js`) — no `screen.markDirty()`
       // needed, since nothing on this canvas depends on toast state any more.
       toasts.step(dt);
+      // Ages the encounter feed card the same way (`dom/hud.js`'s own `step`, Stage 3b).
+      domHud.step(dt);
 
       acc += dt;
       if (acc >= 0.2) {

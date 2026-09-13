@@ -24,6 +24,7 @@ import { h, setText, syncList } from './el.js';
 import { icon } from './icons.js';
 import { fmt, clockTime } from '../format.js';
 import { makeDragReorder } from './dnd.js';
+import { makeEncounterFeed } from './feed.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -97,7 +98,12 @@ export function makeDomHud(domLayer, app) {
     // should be, matching the dock buttons above, so nothing here needs revisiting then.
     onClick: () => (app.panelId() === 'settings' ? app.close() : app.open('settings')),
   }, icon('gear', { size: 20 }));
-  right.append(walletHost, clockChip, settingsBtn);
+  const rightRow = h('div', { class: 'ci-hud-right__row' }, [walletHost, clockChip, settingsBtn]);
+  right.appendChild(rightRow);
+
+  // --- the encounter feed card, Stage 3b (below the wallet row) -----------------------
+  const feed = makeEncounterFeed(app);
+  right.appendChild(feed.el);
 
   // --- the dock ------------------------------------------------------------------------
   const dock = h('div', { class: 'ci-hud-dock', 'data-ui': 'hud-dock' });
@@ -137,6 +143,7 @@ export function makeDomHud(domLayer, app) {
     partyList.hidden = minimalFlag;
     settingsBtn.hidden = minimalFlag;
     dock.hidden = !barsFlag || minimalFlag;
+    feed.setMinimal(minimalFlag);
   }
 
   /**
@@ -222,6 +229,10 @@ export function makeDomHud(domLayer, app) {
 
   return {
     update,
+    /** Ages the encounter feed card (`dom/feed.js`) every real frame — called from
+     *  `../index.js`'s own `frame(dt)`, the same cadence `dom/toasts.js`'s `step(dt)` rides,
+     *  since a 6 s lifetime needs finer resolution than the 0.2s data poll `update()` uses. */
+    step(dt) { feed.step(dt); },
     /** `bars` (`../index.js`'s own flag) — called every `draw()`, not just on the 0.2s data
      *  poll `update()` rides, since a panel's `hidesHud` can flip between two data polls
      *  (opening a dialogue message does not wait for one). */
@@ -236,6 +247,7 @@ export function makeDomHud(domLayer, app) {
     dockTop: () => (dock.hidden ? null : dock.getBoundingClientRect().top),
     dispose() {
       dnd.dispose();
+      feed.dispose();
       top.remove();
       dock.remove();
     },

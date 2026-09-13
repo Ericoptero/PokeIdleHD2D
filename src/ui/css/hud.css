@@ -164,10 +164,9 @@
 
 .ci-hud-right {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   /* `.ci-hud-top`'s own `justify-content: space-between` only holds the wallet/clock pinned
    * right *because* `.ci-hud-left` is there to space against — hide that sibling (`minimal`,
    * `dom/hud.js`'s own `applyVisibility()`) and `space-between` has one child left to
@@ -176,6 +175,53 @@
    * pins this side to the right unconditionally, sibling or not. */
   margin-left: auto;
 }
+.ci-hud-right__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* -- the encounter feed card (Stage 3b) ------------------------------------------------- */
+.ci-feed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 250px;
+  max-width: calc(100vw - 40px);
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: rgba(24, 20, 17, 0.9);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-card);
+}
+.ci-feed-card__head { display: flex; align-items: center; gap: 10px; }
+.ci-feed-card__portrait {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 7px), #2A241D;
+}
+.ci-feed-card__portrait[style*='background-image'] {
+  background-size: 200% 400%;
+  background-position: 0% 66.6667%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.ci-feed-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ci-feed-card__title { font-size: 12px; font-weight: 600; color: var(--c-ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ci-feed-card__subtitle { font-size: 10px; color: var(--c-ink-mute); }
+.ci-feed-card__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ci-feed-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--c-fill);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+.ci-feed-chip[data-tone='good'] { background: var(--c-good-wash); color: var(--c-good-light); }
+.ci-feed-chip[data-tone='amber'] { background: var(--c-amber-wash); color: var(--c-amber-light); }
 
 .ci-chip {
   display: flex;
