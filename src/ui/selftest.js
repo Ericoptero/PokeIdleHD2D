@@ -205,13 +205,11 @@ const check = (name, ok, detail = '') => {
     [640, 360], [534, 300], [756, 492], [640, 270], [390, 844],
     [320, 180], [267, 150], [378, 246], [320, 135], [195, 422],
   ];
-  // Every `...fit(g, w, h)` call site across `panels/*.js` — `automation.js`'s 600x300 was
-  // missing here previously (a pre-existing gap this check's own purpose, "every
-  // authored panel size", was silently not living up to). Shop's 540x278 and inventory's
-  // 480x264 dropped out of this list at Stage 5 (Códice DOM conversion): both are DOM
-  // screens now, sized by CSS (`screens.css`'s `.ci-shelf-card`), and neither calls `fit()`
-  // at all any more.
-  const authored = [[560, 288], [502, 264], [424, 250], [600, 300]];
+  // Every `...fit(g, w, h)` call site left across `panels/*.js`. Shop's 540x278,
+  // inventory's 480x264 (Stage 5) and automation's 600x300 (Stage 6) have all dropped out of
+  // this list across the Códice DOM conversion: each is a DOM screen now, sized by CSS
+  // (`screens.css`'s `.ci-shelf-card`), and none of them calls `fit()` at all any more.
+  const authored = [[560, 288], [502, 264], [424, 250]];
   const bad = [];
   for (const [W, H] of buffers) {
     const g = { width: W, height: H };

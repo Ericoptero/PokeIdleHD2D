@@ -1,12 +1,15 @@
 /**
  * `trainerModel(app)` is the whole content model (`trainer.js`'s own header comment) — a free
- * function of `app.ctx.get(...)`, exposed the `travel.js`/`rows()`, `inventory.js`/`filterRows`
- * way, so this file needs no canvas. `layout(model)` is the second half: it turns that model
- * into block heights with no `g` at all, which is what lets acceptance criterion 4 ("the Party
- * section is reachable") be asserted as a number rather than read off a screenshot.
+ * function of `app.ctx.get(...)`, the `models/travel.js`/`travelRows`, `models/inventory.js`/
+ * `filterRows` way, so this file needs no canvas or DOM. Moved here unchanged from
+ * `panels/trainer.test.js` when the view built on it converted to a DOM screen
+ * (`screens/trainer.js`, Stage 6) — `layout(model)`, the second half that used to turn this
+ * model into canvas block heights, did not move with it: a DOM screen scrolls natively, so
+ * there is nothing left needing a pixel total, and acceptance criterion 4 ("the Party section
+ * is reachable") is now simply true by construction rather than a number to assert on.
  */
 import { describe, it, expect } from 'vitest';
-import { trainerModel, layout } from './trainer.js';
+import { trainerModel } from './trainer.js';
 
 const TRAINER = {
   level: 7, wins: 45, into: 12, need: 18, next: 63,
@@ -178,28 +181,5 @@ describe('trainerModel', () => {
     expect(model.sections.find((s) => s.id === 'party').rows).toHaveLength(6);
     expect(model.sections.find((s) => s.id === 'party').rows.every((r) => r.filled === false)).toBe(true);
     expect(model.sections.find((s) => s.id === 'upgrades').rows).toHaveLength(UPGRADES.length);
-  });
-});
-
-describe('layout(model) — acceptance criterion 4: the Party section is reachable', () => {
-  it('is the last block, with all six of its rows counted, and the total exceeds a 320x180 buffer\'s body', () => {
-    const model = trainerModel(fakeApp());
-    const { blocks, total } = layout(model);
-    const last = blocks[blocks.length - 1];
-    expect(last.kind).toBe('section');
-    expect(last.section.id).toBe('party');
-    expect(last.section.rows).toHaveLength(6);
-
-    // Fixed by construction regardless of any fake data: eleven upgrade tracks and six party
-    // rows alone already outrun the body a 320x180 buffer
-    // leaves once the header, the footer and the reserved HUD bands are subtracted — this
-    // panel can overflow a single screen, so this bound holds however the Bonuses/Dex rows happen to vary.
-    expect(total).toBeGreaterThan(160);
-  });
-
-  it('the total is a pure function of row counts — two models with the same shape lay out identically', () => {
-    const a = layout(trainerModel(fakeApp()));
-    const b = layout(trainerModel(fakeApp({ buffs: [] })));
-    expect(a.total).toBe(b.total);
   });
 });

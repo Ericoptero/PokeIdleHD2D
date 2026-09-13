@@ -33,7 +33,7 @@ import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
-import { makeTravel } from './panels/travel.js';
+import { makeTravelDomScreen } from './screens/travel.js';
 import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeSettingsDomScreen } from './screens/settings.js';
 import * as watchlist from './watchlist.js';
@@ -45,10 +45,10 @@ import { makeShopDomScreen } from './screens/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
 import { makeDex } from './panels/dex.js';
-import { makeAutomation } from './panels/automation.js';
+import { makeAutomationDomScreen } from './screens/automation.js';
 import { makeParty } from './panels/party.js';
 import { makeInventoryDomScreen } from './screens/inventory.js';
-import { makeTrainer } from './panels/trainer.js';
+import { makeTrainerDomScreen } from './screens/trainer.js';
 import { makeDialogue } from './panels/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
 import { C, panel, applyLight } from './theme.js';
@@ -256,16 +256,16 @@ export default {
 
     const PANELS = {
       menu: makeMenu(app),
-      travel: makeTravel(app),
+      travel: makeTravelDomScreen(app, domLayer),
       offline: makeOfflineDomScreen(app, domLayer),
       settings: makeSettingsDomScreen(app, domLayer),
       shop: makeShopDomScreen(app, domLayer),
       boxes: makeBoxes(app),
       dex: makeDex(app),
-      automation: makeAutomation(app),
+      automation: makeAutomationDomScreen(app, domLayer),
       party: makeParty(app),
       inventory: makeInventoryDomScreen(app, domLayer),
-      trainer: makeTrainer(app),
+      trainer: makeTrainerDomScreen(app, domLayer),
       battle: makeBattle(app),
       dialogue: makeDialogue(app),
     };

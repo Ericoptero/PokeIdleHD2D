@@ -13,12 +13,13 @@ import { STATUS_NAME } from './panels/battle.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 /**
- * The four currencies, in the order the wallet shows them — **exported**, and imported by
- * `panels/trainer.js` rather than re-listed there. Round 1 had two independent lists and they
- * disagreed: the HUD read money/research/shards/bp and the shop's own strip read
- * money/research/bp/shards, so two currencies swapped places one keypress apart (`screens/
- * shop.js`, Stage 5's DOM conversion, reads `economy.currencies()` directly instead of a
- * third copy of this table).
+ * The four currencies, in the order `read()`'s own wallet loop (below) uses them and
+ * `drawWallet` falls back to. Round 1 had two independent lists and they disagreed: the HUD
+ * read money/research/shards/bp and the shop's own strip read money/research/bp/shards, so two
+ * currencies swapped places one keypress apart — the reason this stayed exported even after
+ * every Códice DOM screen that used to import it (`screens/shop.js`, `models/trainer.js`)
+ * moved to reading `economy.currencies()` directly instead: one canonical order, now living in
+ * `economy` itself rather than in a second table here for `ui` to keep in sync by hand.
  */
 export const WALLET = [
   { id: 'money', symbol: '₽', before: true },
