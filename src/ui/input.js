@@ -60,7 +60,7 @@ export const MOVE_KEYS = new Map([
  */
 export const PANEL_IDS = Object.freeze([
   'menu', 'travel', 'offline', 'shop', 'boxes', 'dex', 'automation', 'party', 'inventory',
-  'trainer', 'battle', 'dialogue',
+  'trainer', 'battle', 'dialogue', 'settings',
 ]);
 
 export const PANEL_KEYS = new Map([

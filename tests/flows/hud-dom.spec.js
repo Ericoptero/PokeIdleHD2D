@@ -80,11 +80,14 @@ test('the Auto dock button reflects a real running automation, not a fixed "on"'
   expect(errors, 'no console error reflecting a running automation').toEqual([]);
 });
 
-test('the settings button does not crash before Stage 4 lands a settings screen', async ({ page }) => {
+test('the settings button opens the real Settings screen (Stage 4) and toggles closed', async ({ page }) => {
   const errors = await boot(page);
   await page.click('[data-ui="hud-settings"]');
   await paintNow(page);
+  expect(await call(page, 'ui', 'openPanel')).toBe('settings');
 
+  await page.click('[data-ui="hud-settings"]');
+  await paintNow(page);
   expect(await call(page, 'ui', 'openPanel')).toBeNull();
-  expect(errors, 'clicking settings before it exists must not throw').toEqual([]);
+  expect(errors, 'no console error opening and closing Settings from the gear button').toEqual([]);
 });

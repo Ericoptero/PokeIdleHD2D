@@ -86,6 +86,13 @@ const PATHS = {
   enter: ['M18 6v6H8', 'M11 9l-3 3 3 3'],
   // A paper plane — send.
   send: ['M4 12l16-8-6 16-3-6-7-2Z'],
+  // A speaker with sound waves — the sound settings category.
+  volume: ['M4 10v4h4l5 4V6l-5 4H4Z', 'M16.5 9.5a4 4 0 0 1 0 5', 'M19 7a7.5 7.5 0 0 1 0 10'],
+  // A keyboard — the controls settings category.
+  keyboard: [
+    'M3 7h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z',
+    'M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M6 14h12',
+  ],
 };
 
 /**

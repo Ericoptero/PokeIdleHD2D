@@ -35,6 +35,8 @@ import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
 import { makeTravel } from './panels/travel.js';
 import { makeOfflineDomScreen } from './screens/offline.js';
+import { makeSettingsDomScreen } from './screens/settings.js';
+import * as watchlist from './watchlist.js';
 import { makeDomLayer } from './dom/layer.js';
 import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
@@ -70,10 +72,16 @@ const BALLOON_CLEARANCE = 0.6;
 
 let live = null;
 
-/** Save slice version — window geometry only (src/offline/save.js). `uiScale` is a `config` key, not a save
- *  field: it is URL-overridable per session like every other `DEFAULTS` entry, and a save slice
- *  would fight that. */
-const SAVE_VERSION = 1;
+/**
+ * Save slice version (src/offline/save.js). `uiScale` is a `config` key, not a save field: it
+ * is URL-overridable per session like every other `DEFAULTS` entry, and a save slice would
+ * fight that.
+ *  - v1: window geometry only.
+ *  - v2 (Stage 4): adds `watch`, the species watch-list (`./watchlist.js`) — player state,
+ *    not a tunable, so it belongs here and not in `core/config.js`'s own
+ *    `localStorage['pokeidle.config']`.
+ */
+const SAVE_VERSION = 2;
 
 export default {
   id: 'ui',
@@ -250,6 +258,7 @@ export default {
       menu: makeMenu(app),
       travel: makeTravel(app),
       offline: makeOfflineDomScreen(app, domLayer),
+      settings: makeSettingsDomScreen(app, domLayer),
       shop: makeShop(app),
       boxes: makeBoxes(app),
       dex: makeDex(app),
@@ -284,6 +293,16 @@ export default {
     // ----------------------------------------------------------------- events
     const off = [
       bus.on('ui:toast', ({ text, kind }) => toasts.push(text, kind)),
+      /** The species watch-list (`./watchlist.js`, Stage 4's Settings screen) — the one real
+       *  feature behind that screen's "Alerts" section, wired here rather than in
+       *  `dom/feed.js` since it fires on *appearance*, not on the encounter's resolution. */
+      bus.on('encounter:started', ({ species }) => {
+        if (!watchlist.has(species)) return;
+        const pk = ctx.get('pokemon');
+        const display = isLive(pk) && typeof pk.species === 'function'
+          ? (pk.species(species)?.display ?? species) : species;
+        toasts.push(`${display} appeared!`, 'good');
+      }),
       /**
        * **The trainer calls the move out, and the wild answers.**
        *
@@ -680,8 +699,15 @@ export default {
        * there is no per-window validation beyond `restoreWindows`'s own numeric-field check,
        * because a bad entry only ever mis-clamps a window on its next open, never crashes one.
        */
-      saveState: () => ({ v: SAVE_VERSION, windows: serializeWindows() }),
-      loadState(value) { restoreWindows(value?.windows); screen.markDirty(); },
+      saveState: () => ({ v: SAVE_VERSION, windows: serializeWindows(), watch: watchlist.list() }),
+      // `restoreWindows`/`watchlist.restore` both tolerate `undefined` — a v1 save (no
+      // `watch` field at all) restores to an empty watch-list, exactly what a save with no
+      // `ui` slice at all already did before this field existed.
+      loadState(value) {
+        restoreWindows(value?.windows);
+        watchlist.restore(value?.watch);
+        screen.markDirty();
+      },
       input,
       _screen: screen,
       _domLayer: domLayer,
