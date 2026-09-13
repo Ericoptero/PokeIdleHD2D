@@ -38,6 +38,7 @@ import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeDomLayer } from './dom/layer.js';
 import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
+import { makeChat } from './dom/chat.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -231,12 +232,19 @@ export default {
         screen.markDirty();
       },
       toast: (text, kind) => bus.emit('ui:toast', { text, kind }),
+      /** `Enter`, from `input.js`'s global handler — `chat` is declared just below, but this
+       *  closure only ever runs on a later real keypress, by which time it exists (the same
+       *  lazy-reference pattern `open()`'s own `PANELS` lookup already relies on). */
+      toggleChat: () => chat.toggle(),
     };
 
     // The always-on HUD chrome (Stage 3a) — mounted once, updated off the same `state.hud`
     // poll `frame()` already drives (below), never rebuilt per open/close the way a panel is.
     const domHud = makeDomHud(domLayer, app);
     domHud.update(state.hud, { minimal });
+    // The chat mockup (Stage 3c) — see dom/chat.js's own header for what is real in it and
+    // what is placeholder for a backend that does not exist yet.
+    const chat = makeChat(domLayer, app, { minimal });
 
     const PANELS = {
       menu: makeMenu(app),
@@ -460,6 +468,7 @@ export default {
       // the mainline a message is the only thing on that strip.
       const bars = !state.panel?.hidesHud;
       domHud.setBarsVisible(bars);
+      chat.setBarsVisible(bars);
       state.clockBox = null;
       state.stripBox = null;
       state.partyBox = null;
@@ -708,6 +717,7 @@ export default {
         // drag-reorder (`dom/dnd.js`) holds `window`-level pointer listeners that a removed
         // node does not take with it.
         domHud.dispose();
+        chat.dispose();
         domLayer.dispose();
         live = null;
       },

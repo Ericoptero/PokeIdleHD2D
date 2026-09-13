@@ -82,6 +82,10 @@ const PATHS = {
   menu: [
     'M4 6h16M4 12h16M4 18h16',
   ],
+  // A return-key glyph — "press Enter".
+  enter: ['M18 6v6H8', 'M11 9l-3 3 3 3'],
+  // A paper plane — send.
+  send: ['M4 12l16-8-6 16-3-6-7-2Z'],
 };
 
 /**

@@ -147,6 +147,19 @@ export function makeInput({ ctx, app }) {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const code = ev.code;
 
+    // A focused text field (the chat mockup's own input, `dom/chat.js`) owns its own keys —
+    // without this, typing "travel" into it would fire T/R/A/V/E/L as panel shortcuts on the
+    // way past. Escape still blurs it, matching every other escape hatch in this file; the
+    // field's own `keydown` listener handles Enter (send/close) before this ever runs, so
+    // there is nothing else to do here for it.
+    const editing = !!document.activeElement
+      && (document.activeElement.isContentEditable
+        || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+    if (editing) {
+      if (code === 'Escape') document.activeElement.blur();
+      return;
+    }
+
     if (code === 'Backquote') { app.toggleDebug(); ev.preventDefault(); return; }
 
     // A panel swallows movement: walking blind behind a full-frame shop is the classic bug.
@@ -171,7 +184,10 @@ export function makeInput({ ctx, app }) {
       interact();
       return;
     }
-    if (code === 'Escape' || code === 'KeyX' || code === 'Enter') { app.open('menu'); ev.preventDefault(); return; }
+    if (code === 'Escape' || code === 'KeyX') { app.open('menu'); ev.preventDefault(); return; }
+    // Enter used to open the menu too; it now opens/closes the chat mockup instead
+    // (`dom/chat.js`, Stage 3c) — Escape/X are still the menu's own keys.
+    if (code === 'Enter') { app.toggleChat(); ev.preventDefault(); return; }
     const panelId = PANEL_KEYS.get(code);
     if (panelId) { app.open(panelId); ev.preventDefault(); }
   }
