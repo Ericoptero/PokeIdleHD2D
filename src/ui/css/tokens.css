@@ -53,6 +53,16 @@
   --c-bad-line: rgba(214, 104, 91, 0.34);
   --c-bad-wash: rgba(214, 104, 91, 0.1);
   --c-info: #9ECBE6;
+  --c-info-light: #C3E1F2;
+  --c-info-line: rgba(158, 203, 230, 0.32);
+  --c-info-wash: rgba(158, 203, 230, 0.1);
+  /* A neutral, hue-free rail — `info`'s own colour is a *cool* accent already spent on world
+   * facts (encounters, chat's "Local" tab); a toast that is merely bookkeeping ("you were
+   * away") reads as a fact, not a finding, and shares no hue with either the amber "you
+   * gained something" accent or the blue "world event" one. */
+  --c-neutral: #CDBFAE;
+  --c-neutral-line: rgba(255, 255, 255, 0.14);
+  --c-neutral-wash: rgba(255, 255, 255, 0.05);
 
   /* ---- type ---- */
   --font-body: 'Manrope', system-ui, -apple-system, sans-serif;

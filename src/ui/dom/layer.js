@@ -16,6 +16,7 @@
  */
 import tokens from '../css/tokens.css?inline';
 import base from '../css/base.css?inline';
+import hud from '../css/hud.css?inline';
 import screens from '../css/screens.css?inline';
 
 let styleInjected = false;
@@ -23,7 +24,7 @@ function ensureStyle() {
   if (styleInjected) return;
   const style = document.createElement('style');
   style.id = 'ui-codex-style';
-  style.textContent = `${tokens}\n${base}\n${screens}`;
+  style.textContent = `${tokens}\n${base}\n${hud}\n${screens}`;
   document.head.appendChild(style);
   styleInjected = true;
 }

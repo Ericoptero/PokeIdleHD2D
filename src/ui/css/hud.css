@@ -1,0 +1,58 @@
+/**
+ * The always-on Códice chrome — the parts of the HUD that are up whether or not a screen is
+ * open. Toasts are the first piece (Stage 2); the wallet, party list and dock join them at
+ * Stage 3.
+ */
+
+.ci-toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(300px, calc(100vw - 40px));
+  pointer-events: none;
+}
+/* The menu column (still canvas — Stage 9) sits in this same corner; while it is open the
+ * stack steps left rather than stacking on top of it. A temporary cross-layer accommodation,
+ * gone the day `menu` itself converts. */
+.ci-toasts--aside { right: 190px; }
+
+.ci-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 13px;
+  border-radius: var(--r-md);
+  background: var(--c-panel-2);
+  border: 1px solid var(--tk-line);
+  box-shadow: var(--shadow-card);
+}
+.ci-toast__head { display: flex; align-items: center; gap: 9px; }
+.ci-toast__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tk-wash);
+  color: var(--tk-fg);
+}
+.ci-toast__text { flex: 1; font-size: 13px; line-height: 1.45; color: var(--c-ink-strong); min-width: 0; }
+.ci-toast__bar {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--c-line);
+  overflow: hidden;
+}
+.ci-toast__bar-fill { height: 100%; border-radius: 999px; background: var(--tk-fg); width: 100%; }
+
+.ci-toast[data-kind='good']    { --tk-fg: var(--c-good-light);  --tk-wash: var(--c-good-wash);    --tk-line: var(--c-good-line); }
+.ci-toast[data-kind='warn']    { --tk-fg: var(--c-amber-light); --tk-wash: var(--c-amber-wash);   --tk-line: var(--c-amber-line); }
+.ci-toast[data-kind='bad']     { --tk-fg: var(--c-bad-light);   --tk-wash: var(--c-bad-wash);     --tk-line: var(--c-bad-line); }
+.ci-toast[data-kind='offline'] { --tk-fg: var(--c-info-light);  --tk-wash: var(--c-info-wash);    --tk-line: var(--c-info-line); }
+.ci-toast[data-kind='info']    { --tk-fg: var(--c-neutral);     --tk-wash: var(--c-neutral-wash); --tk-line: var(--c-neutral-line); }

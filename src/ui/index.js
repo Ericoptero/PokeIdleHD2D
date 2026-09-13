@@ -1,17 +1,25 @@
 /**
- * ui — the HUD, the panels and the input seam (src/ui/index.js).
+ * ui — the HUD, the panels, the Códice DOM screens and the input seam (src/ui/index.js).
  *
- * Three decisions shape this module, and all three are visible in every screenshot:
+ * **Two surfaces, mid-migration.** Most of the HUD and every panel still paint onto one 2-D
+ * canvas at the renderer's own internal resolution, upscaled with NEAREST — see `screen.js`
+ * for why: a crisp 12 px web panel over a 640×360 world upscaled ×3 is the one thing on screen
+ * not on the pixel grid, and it reads as a debug overlay instead of as the game. That
+ * argument still holds for anything projected against the world (`plates.js`, `callout.js`,
+ * `floaters.js` — permanently canvas, see their own headers) and for the panels not yet
+ * converted (`panels/*.js`). Everything converted so far — `screens/offline.js`, the toast
+ * stack (`dom/toasts.js`) — lives instead in `#ui-dom` (`dom/layer.js`), a real-resolution DOM
+ * layer mounted beside the canvas rather than instead of it; see that file's own header for
+ * the stacking order and why a soft-UI redesign (Códice) does not belong on the world's pixel
+ * grid the way a DS-style menu does. The canvas still costs **zero draw calls** — a 2-D
+ * canvas is composited by the browser and never reaches `renderer.info.render.calls`, which is
+ * the number tools/shots/shoot.js budgets — and so does the DOM layer, for the same reason.
  *
- * 1. **It is one 2-D canvas at the renderer's own internal resolution**, upscaled with
- *    NEAREST, not a DOM overlay at full resolution. See `screen.js` — the short version is
- *    that a crisp 12 px web panel over a 640×360 world upscaled ×3 is the one thing on
- *    screen not on the pixel grid, and it reads as a debug overlay instead of as the game.
- *    It costs **zero draw calls**: a 2-D canvas is composited by the browser and never
- *    reaches `renderer.info.render.calls`, which is the number tools/shots/shoot.js budgets.
- * 2. **Input goes through `simulation.moveIntent` and nowhere else** (`input.js`), so the
+ * Two more decisions shape this module:
+ *
+ * 1. **Input goes through `simulation.moveIntent` and nowhere else** (`input.js`), so the
  *    walk stays tile-locked and deterministic.
- * 3. **It gets out of the way in someone else's showcase.** `src/main.js` boots `ui` for
+ * 2. **It gets out of the way in someone else's showcase.** `src/main.js` boots `ui` for
  *    every `?showcase=…`, so anything this module draws unprompted lands in another
  *    builder's critic shots. Outside its own showcase and the game itself it draws the
  *    wallet, the clock and toasts — what the seed drew — and nothing else.
@@ -19,7 +27,6 @@
 
 import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
-import { makeToasts } from './toasts.js';
 import { makeCallouts } from './callout.js';
 import { makeFloaters, CRIT_FLOATER_SCALE } from './floaters.js';
 import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
@@ -29,6 +36,7 @@ import { makeMenu } from './panels/menu.js';
 import { makeTravel } from './panels/travel.js';
 import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeDomLayer } from './dom/layer.js';
+import { makeDomToasts } from './dom/toasts.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -90,7 +98,7 @@ export default {
     // stacking order and why it exists at all.
     const domLayer = makeDomLayer({ root, config });
     const hud = makeHud(ctx);
-    const toasts = makeToasts({ frozen: !!config.showcase });
+    const toasts = makeDomToasts(domLayer, { frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
     const callouts = makeCallouts();
     const floaters = makeFloaters();
@@ -146,6 +154,9 @@ export default {
         if (state.panel && state.panel !== p) state.panel.close?.();
         state.panel = p;
         p.open?.(opts);
+        // The menu column (canvas, until Stage 9) shares the toast stack's own bottom-right
+        // corner — `dom/toasts.js`'s own comment on `setAside`.
+        toasts.setAside(id === 'menu');
         screen.markDirty();
         return true;
       },
@@ -153,13 +164,14 @@ export default {
         if (!state.panel) return false;
         state.panel.close?.();
         state.panel = null;
+        toasts.setAside(false);
         screen.markDirty();
         return true;
       },
       /** Re-opens the last while-you-were-away card from the menu. */
       openReport() {
         const summary = state.lastSummary ?? pullSummary();
-        if (!summary) { toasts.push('No away report yet — close the tab and come back', 'info'); screen.markDirty(); return false; }
+        if (!summary) { toasts.push('No away report yet — close the tab and come back', 'info'); return false; }
         return app.open('offline', { summary });
       },
       /** Where the clock and the button strip landed this frame, so a panel can dodge them. */
@@ -236,7 +248,7 @@ export default {
 
     // ----------------------------------------------------------------- events
     const off = [
-      bus.on('ui:toast', ({ text, kind }) => { toasts.push(text, kind); screen.markDirty(); }),
+      bus.on('ui:toast', ({ text, kind }) => toasts.push(text, kind)),
       /**
        * **The trainer calls the move out, and the wild answers.**
        *
@@ -480,11 +492,12 @@ export default {
           // row rather than to let it collide or to suppress it.
           const strip = drawStrip.lastX ?? g.width;
           const party = partyBox;
-          // Everything that already owns the bottom strip: the button chips, the party bar,
-          // and the toast stack — which is the one round 1 missed even after it was told to
-          // measure. At 426 internal px the short hint still ran into a toast.
-          const toastLeft = toasts.count() ? g.width - 6 - 168 : g.width;
-          const busyRight = Math.min(strip, toastLeft);
+          // Everything that already owns the bottom strip: the button chips and the party
+          // bar. Round 1 also measured the toast stack here, but toasts are their own DOM
+          // layer above this canvas now (`dom/toasts.js`) — a hint drawn under one is merely
+          // covered, not visually corrupted the way two overlapping canvas fills would be, so
+          // there is nothing left on this canvas to avoid.
+          const busyRight = strip;
           const [long, short] = HINTS[input.canWalk() ? 'walk' : 'auto'];
           let text = long;
           let w = g.measure(text);
@@ -516,8 +529,6 @@ export default {
       // (round 1 dimmed it otherwise); now that `offline` is a DOM screen (`screens/
       // offline.js`) drawing nothing on this canvas at all, there is no canvas scrim left to
       // repaint the wallet over — its own opaque DOM card sits above this whole layer instead.
-      // A menu opens over the bottom-right corner the toasts stack in; they step aside.
-      const toastRight = state.panel?.id === 'menu' ? g.width - 150 : g.width - 6;
       // Plates first, callouts over them: a name/level/HP plate names who is standing there,
       // a speech balloon is what that creature just did — the balloon reads as the newer,
       // louder thing precisely because it is drawn on top.
@@ -541,12 +552,13 @@ export default {
         );
         plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: panelBox ?? null });
       }
-      // Under the toasts and over the world: a callout belongs to a creature, not to the HUD.
+      // Over the world: a callout belongs to a creature, not to the HUD. Toasts (`dom/
+      // toasts.js`) are no longer part of this stacking order at all — their own DOM layer
+      // sits above this whole canvas.
       callouts.draw(g, project);
       // Floaters last: the most transient thing on screen, over a balloon if the two ever
       // land on the same spot.
       floaters.draw(g, project);
-      toasts.draw(g, { bottom: g.height - (minimal ? 6 : 22), right: toastRight });
       if (state.debug) drawDebug(g);
       // The drag ghost, last of all: whatever is held follows the pointer over the top of
       // every panel, every toast, the debug overlay — everything this frame just drew. A held
@@ -570,7 +582,9 @@ export default {
     function frame(dt) {
       if (screen.resize()) screen.markDirty();
       input.frame();
-      if (toasts.step(dt)) screen.markDirty();
+      // Ages and expires the DOM stack directly (`dom/toasts.js`) — no `screen.markDirty()`
+      // needed, since nothing on this canvas depends on toast state any more.
+      toasts.step(dt);
 
       acc += dt;
       if (acc >= 0.2) {

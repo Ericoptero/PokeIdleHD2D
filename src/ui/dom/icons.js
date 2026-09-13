@@ -47,6 +47,8 @@ const PATHS = {
   close: ['M6 6l12 12M18 6L6 18'],
   'chevron-down': ['M6 9l6 6 6-6'],
   'chevron-up': ['M6 15l6-6 6 6'],
+  // A triangle with an exclamation mark — the toast stack's "warn" kind.
+  alert: ['M12 3.5L21.5 20h-19L12 3.5Z', 'M12 10v4', 'M12 17.2v.1'],
   // A small dot — a compact bullet for a note line.
   dot: ['M12 12m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0'],
 };

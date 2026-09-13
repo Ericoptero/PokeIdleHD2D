@@ -10,6 +10,10 @@ import {
   boot, call, key, click, probe,
 } from './harness.js';
 
+/** Tags this screen owns — `probe()` also reports the always-on toast stack (Stage 2's
+ *  `dom/toasts.js`), which is not this screen's concern to assert empty or not. */
+const offlineTags = async (page) => (await probe(page)).map((r) => r.tag).filter((t) => t.startsWith('offline-'));
+
 const SUMMARY = {
   awayS: 3600, effectiveS: 3200, capped: false, efficiency: 0.89,
   bands: [{ seconds: 3600, avgEfficiency: 0.89 }],
@@ -36,7 +40,7 @@ test('the Continue button closes it and unmounts the DOM card', async ({ page })
   await click(page, 'offline-continue');
 
   expect(await call(page, 'ui', 'openPanel')).toBeNull();
-  expect(await probe(page)).toEqual([]);
+  expect(await offlineTags(page)).toEqual([]);
   expect(errors, 'no console error closing the offline screen').toEqual([]);
 });
 
@@ -46,6 +50,6 @@ test('Enter closes it, same as every canvas panel', async ({ page }) => {
   await key(page, 'Enter');
 
   expect(await call(page, 'ui', 'openPanel')).toBeNull();
-  expect(await probe(page)).toEqual([]);
+  expect(await offlineTags(page)).toEqual([]);
   expect(errors, 'no console error dismissing the offline screen with Enter').toEqual([]);
 });
