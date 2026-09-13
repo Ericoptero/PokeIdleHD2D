@@ -169,6 +169,10 @@ export async function showcaseUi(mode = 'default', ctx) {
   // awaited before `__READY__` is set, so waiting here is what makes the capture complete
   // rather than a race against the network.
   await ui._screen?.imagesSettled?.();
+  // The Códice DOM screens' self-hosted faces (`dom/layer.js`), for the identical reason —
+  // a face that hasn't decoded yet renders as its fallback stack in one capture and the real
+  // one in the next, which is exactly what `tools/shots/parity.js` exists to catch.
+  await ui.fontsReady?.();
   ui._screen?.markDirty?.();
 
   if (wanted === 'font') installSpecimen(ui);

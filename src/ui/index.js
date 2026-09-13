@@ -27,7 +27,8 @@ import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
 import { makeMenu } from './panels/menu.js';
 import { makeTravel } from './panels/travel.js';
-import { makeOfflineCard } from './panels/offline.js';
+import { makeOfflineDomScreen } from './screens/offline.js';
+import { makeDomLayer } from './dom/layer.js';
 import { makeShop } from './panels/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -84,6 +85,10 @@ export default {
     const minimal = !!config.showcase && config.showcase !== 'ui';
 
     const screen = makeScreen({ root, view: ctx.three?.view, log, config });
+    // The Códice DOM layer (`dom/layer.js`) — screens converted so far mount into
+    // `domLayer.host`, beside the still-canvas HUD/panels; see that file's header for the
+    // stacking order and why it exists at all.
+    const domLayer = makeDomLayer({ root, config });
     const hud = makeHud(ctx);
     const toasts = makeToasts({ frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
@@ -197,7 +202,7 @@ export default {
     const PANELS = {
       menu: makeMenu(app),
       travel: makeTravel(app),
-      offline: makeOfflineCard(app),
+      offline: makeOfflineDomScreen(app, domLayer),
       shop: makeShop(app),
       boxes: makeBoxes(app),
       dex: makeDex(app),
@@ -507,10 +512,10 @@ export default {
       // of its six call sites threading `screen.drag()` through `opts` by hand.
       setActiveDrag(screen.drag());
       const panelBox = state.panel ? state.panel.draw(g, app) : null;
-      // The away card is the one moment the wallet is the *subject*: it is telling the player
-      // what they earned. Round 1 dimmed the wallet under the card's own scrim at exactly
-      // that moment, so it is repainted on top of it here.
-      if (state.panel?.id === 'offline') hud.drawWallet(g, s);
+      // The away card used to be the one moment the wallet was repainted over its own scrim
+      // (round 1 dimmed it otherwise); now that `offline` is a DOM screen (`screens/
+      // offline.js`) drawing nothing on this canvas at all, there is no canvas scrim left to
+      // repaint the wallet over — its own opaque DOM card sits above this whole layer instead.
       // A menu opens over the bottom-right corner the toasts stack in; they step aside.
       const toastRight = state.panel?.id === 'menu' ? g.width - 150 : g.width - 6;
       // Plates first, callouts over them: a name/level/HP plate names who is standing there,
@@ -519,11 +524,12 @@ export default {
       //
       // Suppressed entirely under a `full`/`hidesHud` panel, exactly like `bars` above — but
       // `bars` alone is not the right test here. `travel` and `offline` are neither `full` nor
-      // `hidesHud` (the wallet stays up over them on purpose, `panels/offline.js`'s own
-      // comment), yet both scrim the *whole* screen themselves (`windowFrame`'s `g.scrim`, or
-      // `offline.js`'s own call to it) — a plate drawn after that scrim would float over a
-      // dimmed background like a lit sign in a blackout, anywhere on screen, not only over the
-      // panel's own box. `battle` and `menu` are the only two panels that draw no scrim at all
+      // `hidesHud` (the wallet stays up over them on purpose), yet both cover the *whole*
+      // screen themselves — `travel` with `windowFrame`'s `g.scrim`, `offline` with its own
+      // DOM scrim in `#ui-dom` (`screens/offline.js`), stacked above this canvas — a plate
+      // drawn after either would float over a dimmed background like a lit sign in a
+      // blackout, anywhere on screen, not only over the panel's own box. `battle` and `menu`
+      // are the only two panels that draw no scrim at all
       // (a docked card and a column that says outright "the city stays readable behind it"),
       // so they are the only two a plate may still show around — clipped to the box each
       // panel's own `draw()` just handed back, the same discipline `partyBox`/`stripBox` use.
@@ -670,6 +676,14 @@ export default {
       loadState(value) { restoreWindows(value?.windows); screen.markDirty(); },
       input,
       _screen: screen,
+      _domLayer: domLayer,
+      /** The DOM successor to `_screen.regions()` — `dom/layer.js`'s own comment explains why
+       *  a flow test needs this the same way it needs the canvas one. */
+      probe: () => domLayer.probe(),
+      /** `document.fonts.ready`, awaited by `showcase.js` before `__READY__` the same way
+       *  `_screen.imagesSettled()` already is — a self-hosted face that hasn't decoded yet
+       *  must never be the difference between two captures of the same URL. */
+      fontsReady: () => domLayer.fontsReady(),
       _toasts: toasts,
       _callouts: callouts,
       _floaters: floaters,
@@ -690,6 +704,7 @@ export default {
         removeEventListener('resize', onResize);
         input.dispose();
         screen.dispose();
+        domLayer.dispose();
         live = null;
       },
     };

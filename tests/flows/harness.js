@@ -106,6 +106,19 @@ export const pointer = (page, { type, x, y, deltaX = 0, deltaY = 0 }) =>
     else window.dispatchEvent(new PointerEvent(t, base));
   }, { t: type, bx: x, by: y, dx: deltaX, dy: deltaY });
 
+/**
+ * Clicks a Códice DOM element by its `data-ui` tag — the DOM layer's own diagnostic
+ * attribute (`ui/dom/layer.js`'s `probe()`), the equivalent of `pointer()` above for anything
+ * that has converted off the canvas. A real `page.click()`, not a dispatched event, so it
+ * exercises the browser's own hit-testing (an element covered by something else fails the
+ * way a real click would).
+ */
+export const click = (page, tag) => page.click(`[data-ui="${tag}"]`);
+
+/** The Códice DOM layer's hit-region list (`ui/dom/layer.js`'s `probe()`) — the DOM
+ *  successor to `ui._screen.regions()` for anything converted off the canvas. */
+export const probe = (page) => page.evaluate(() => window.__CTX__.get('ui')?.probe?.() ?? []);
+
 /** Calls a module's API method through the ctx the page exposes. */
 export const call = (page, id, method, ...args) =>
   page.evaluate(([m, f, a]) => {

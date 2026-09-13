@@ -1,0 +1,79 @@
+/**
+ * The Códice design tokens — every colour, radius and shadow the DOM screens draw with,
+ * scoped to `#ui-dom` so they never leak onto the game canvas or its own `theme.js` palette.
+ *
+ * Copied from the source design ("Códice" theme, Claude Design project) rather than
+ * reinvented: the warm near-black ground, the amber accent, and the soft, blurred, radiused
+ * card language are the whole point of this layer — see `base.css`'s header for why it lives
+ * beside, not instead of, the pixel-canvas theme in `../theme.js`.
+ *
+ * Unlike `theme.js` this is not re-lit per time-of-day: the design's own cards sit over a
+ * dimmed/blurred scrim specifically so they read as neutral instruments over whatever the
+ * world is doing, not as objects lit by it.
+ */
+#ui-dom {
+  /* ---- ground & ink ---- */
+  --c-bg: #0A0806;
+  --c-ink: #F2EBE0;
+  --c-ink-strong: #F7F1E7;
+  --c-ink-dim: #A2968A;
+  --c-ink-faint: #8F959F;
+  --c-ink-mute: #948A7E;
+  --c-ink-quiet: #B5A899;
+
+  /* ---- surfaces ---- */
+  --c-panel-0: #100D0B;   /* rails / headers */
+  --c-panel-1: #14110E;   /* window body */
+  --c-panel-2: #17130F;   /* modal / card */
+  --c-panel-3: #241E19;   /* tooltip */
+  --c-line: rgba(255, 255, 255, 0.08);
+  --c-line-soft: rgba(255, 255, 255, 0.06);
+  --c-fill: rgba(255, 255, 255, 0.045);
+  --c-fill-strong: rgba(255, 255, 255, 0.07);
+
+  /* ---- amber accent (the "you gained something" colour) ---- */
+  --c-amber: #E0A64B;
+  --c-amber-light: #F2CE8E;
+  --c-amber-lighter: #EFC17A;
+  --c-amber-deep: #9C6B23;
+  --c-amber-dark: #B4782C;
+  --c-amber-line: rgba(224, 166, 75, 0.26);
+  --c-amber-line-strong: rgba(224, 166, 75, 0.4);
+  --c-amber-wash: rgba(224, 166, 75, 0.1);
+  --c-amber-wash-strong: rgba(224, 166, 75, 0.16);
+  --c-amber-ink: #241704; /* text on a solid-amber surface */
+
+  /* ---- state colours ---- */
+  --c-good: #7FC98C;
+  --c-good-light: #9ADFAE;
+  --c-good-line: rgba(127, 201, 140, 0.32);
+  --c-good-wash: rgba(127, 201, 140, 0.1);
+  --c-bad: #D6685B;
+  --c-bad-light: #E0897C;
+  --c-bad-line: rgba(214, 104, 91, 0.34);
+  --c-bad-wash: rgba(214, 104, 91, 0.1);
+  --c-info: #9ECBE6;
+
+  /* ---- type ---- */
+  --font-body: 'Manrope', system-ui, -apple-system, sans-serif;
+  --font-display: 'Spectral', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ---- shape ---- */
+  --r-xl: 20px;
+  --r-lg: 18px;
+  --r-md: 13px;
+  --r-sm: 10px;
+  --r-xs: 7px;
+  --r-pill: 999px;
+
+  /* ---- elevation ---- */
+  --shadow-soft: 0 40px 80px -40px rgba(0, 0, 0, 0.95);
+  --shadow-card: 0 18px 36px -16px rgba(0, 0, 0, 0.95);
+  --shadow-lift: 0 14px 28px -14px rgba(224, 166, 75, 0.85);
+  --blur-scrim: 3px;
+
+  /* ---- scale ---- */
+  /* Mirrors `config.uiScale` ({1,2} while the canvas HUD still exists — see `layer.js`). */
+  --ui-scale: 1;
+}
