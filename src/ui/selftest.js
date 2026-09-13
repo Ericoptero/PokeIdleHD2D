@@ -25,10 +25,6 @@ import {
 import { fmt, shortNumber, duration, titleCase, clockTime } from './format.js';
 import { MOVE_KEYS, PANEL_KEYS, PANEL_IDS } from './input.js';
 import { C, applyLight, lightAt } from './theme.js';
-// `screens/battle.js` touches the DOM only inside its render functions, so its transcript
-// formatter is a pure function this file may call — the same discipline that lets
-// `evolution.js` be tested here.
-import { lineFor } from './screens/battle.js';
 // `evolution.js` touches the DOM only inside its functions, so importing its pure pieces here
 // is safe under Node — the same discipline that lets `font.js` be tested without a canvas.
 import { BEATS, TOTAL, swapKeyframes } from './evolution.js';
@@ -52,33 +48,10 @@ const check = (name, ok, detail = '') => {
   check('every symbol the other modules emit has a glyph', missingSymbols.length === 0,
     missingSymbols.length ? missingSymbols.join(' ') : SYMBOLS.join(''));
 
-  /**
-   * The battle card's transcript formatter — real DOM text now (`screens/battle.js`), not the
-   * bitmap font, so there is no glyph coverage left to check here (Stage 9's own analogue of
-   * Stage 5's dropped inventory-glyph check). What is still worth pinning under Node: `lineFor`
-   * is a pure function called for every kind the engine's own transcript can emit, and it must
-   * never silently answer `null` for one of them — a card is a summary, not a description of
-   * everything the engine understands.
-   */
-  const NAMES = { a: 'Oshawott', b: 'Zubat' };
-  const EVENTS = [
-    { kind: 'move', actor: 'a', species: 'oshawott', name: 'Water Pulse' },
-    { kind: 'damage', actor: 'a', species: 'zubat', damage: 34, hits: 1, effectiveness: 2, crit: true },
-    { kind: 'damage', actor: 'a', species: 'zubat', damage: 3, hits: 1, effectiveness: 0.25, crit: false },
-    { kind: 'miss', actor: 'a', species: 'zubat' },
-    { kind: 'immune', actor: 'a', species: 'zubat' },
-    { kind: 'status', actor: 'b', species: 'oshawott', status: 'tox' },
-    { kind: 'confused', actor: 'b', species: 'oshawott' },
-    { kind: 'confused-hit', actor: 'a', species: 'oshawott', damage: 9 },
-    { kind: 'flinch', actor: 'a', species: 'oshawott' },
-    { kind: 'asleep', actor: 'a', species: 'oshawott' },
-    { kind: 'frozen', actor: 'a', species: 'oshawott' },
-    { kind: 'paralysed', actor: 'a', species: 'oshawott' },
-    { kind: 'recoil', actor: 'a', species: 'oshawott', damage: 7 },
-    { kind: 'faint', species: 'zubat' },
-  ];
-  check('the battle card has a line for every event kind it lists',
-    EVENTS.every((ev) => lineFor(ev, NAMES) !== null));
+  // The battle card's own transcript formatter (`lineFor`, `screens/battle.js`) is gone along
+  // with the card — balloons (`callout.js`) and floaters (`floaters.js`) are the on-screen
+  // account of a fight now, both already covered by their own flow specs
+  // (`tests/flows/balloons-and-damage.spec.js`, `balloon-effects-real-fight.spec.js`).
 
   // The Bag and Shop screens (`screens/inventory.js`, `screens/shop.js`, Stage 5) render
   // through real DOM text in the browser's own font stack, not through this bitmap font — the

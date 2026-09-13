@@ -13,7 +13,6 @@ import { icon } from '../dom/icons.js';
 const ITEMS = [
   { id: 'travel', label: 'Travel', blurb: 'The city and four hunts.', icon: 'map' },
   { id: 'party', label: 'Party', blurb: 'Who leads, and the bench.', icon: 'person' },
-  { id: 'trainer', label: 'Trainer', blurb: 'Level, buffs, upgrades and the dex.', icon: 'person' },
   { id: 'shop', label: 'Shop', blurb: 'Four shops and the deal.', icon: 'shop' },
   { id: 'boxes', label: 'Boxes', blurb: '960 slots, ten orders.', icon: 'backpack' },
   { id: 'dex', label: 'Dex', blurb: 'By generation and type.', icon: 'eye' },

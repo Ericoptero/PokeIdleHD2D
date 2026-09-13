@@ -10,7 +10,7 @@
  * `route.js` are deliberately free of three.js, ctx and the DOM so this can run in node.
  */
 
-import { SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ, DIR_NAME } from '../core/dir.js';
+import { SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ, DIR_NAME, opposite } from '../core/dir.js';
 import { makeRng } from '../core/rng.js';
 import { Line } from './line.js';
 import { parseRoute, makeScriptedRoute, makeWander } from './route.js';
@@ -269,6 +269,153 @@ function drive(line, route, ticks, { passable = open() } = {}) {
 
   eq('detour: the circuit resumes owing exactly what it owed',
     walk(loop, 4), [SOUTH, SOUTH, WEST, WEST]);
+}
+
+// --- detourHome: never clobbers a return leg the approach already built -----------------
+//
+// The stage-1 regression, and the single most important check in this file. `detour.out` /
+// `taken` / `back` have exactly two write sites in `simulation/index.js`'s `init()` — the
+// out-drain branch inside `advance()` and `detourHome()` itself — mirrored here as a tiny
+// local model rather than booting the whole module (no ctx, no three.js, matching the block
+// above). The bug: `back` is built from `taken` and `taken` is cleared the INSTANT the last
+// queued approach step lands (inside `advance()`, not inside `detourHome()`), because
+// `bfsPath` stops one tile short of its target so the fight almost always engages on that
+// final cell. The old `detourHome()` did not know that had already happened and unconditionally
+// rebuilt `back` from `taken` — by then empty — wiping the fully-formed trip home to nothing.
+// An early cut-short (`detourHome()` called mid-approach, with `taken` still holding steps)
+// already worked before the fix, so this test deliberately drains the WHOLE approach first —
+// the last queued step landing, not an early cut-short — and only calls `detourHome()` after.
+{
+  const detour = { out: [], taken: [], back: [], returnHome: true };
+
+  /** Mirrors `api.detour(dirs, opts)`, simulation/index.js:750-756. */
+  function startDetour(dirs, opts = {}) {
+    detour.out.push(...dirs);
+    detour.returnHome = opts.returnHome !== false;
+  }
+  /**
+   * Mirrors the out-drain branch of `advance()` (simulation/index.js:389-412): peek `out[0]`,
+   * step it, and only a landed step moves the queue — the step that empties `out` is the one
+   * that builds `back` from `taken` and clears `taken`, right there.
+   */
+  function driveOutStep(line) {
+    const dir = detour.out[0];
+    if (line.step(dir, { walkSeconds: WALK, passable: open() })) {
+      detour.out.shift();
+      detour.taken.push(dir);
+      if (!detour.out.length) {
+        if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
+        detour.taken.length = 0;
+      }
+      return true;
+    }
+    detour.out.length = 0;
+    if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
+    detour.taken.length = 0;
+    return false;
+  }
+  /** Mirrors `detourHome()` verbatim — the FIXED version, simulation/index.js:780-787. */
+  function detourHome() {
+    detour.out.length = 0;
+    if (detour.taken.length) {
+      if (detour.returnHome) detour.back = detour.taken.slice().reverse().map(opposite);
+      detour.taken.length = 0;
+    }
+  }
+
+  const line = new Line({ gap: 1, members: 1 }).place(0, 10, 10, SOUTH, open());
+  const startCell = { ...line.cellOf(0) };
+
+  // A multi-step one-way approach — three cells off the circuit, not one, the shape the real
+  // bug needs: `bfsPath` routinely queues several steps before the engage range is reached.
+  const approach = [EAST, EAST, SOUTH];
+  startDetour(approach);
+
+  // Drain every queued step to completion, one at a time, exactly as `advance()` only drains
+  // a step once the previous one has finished landing (`!line.moving`).
+  for (let i = 0; i < approach.length; i++) {
+    while (line.moving) line.advance(SIM_DT);
+    check('detourHome: each queued approach step lands', driveOutStep(line));
+  }
+  while (line.moving) line.advance(SIM_DT);
+
+  eq('detourHome: a fully drained approach reaches its target cell',
+    { cx: line.cellOf(0).cx, cz: line.cellOf(0).cz },
+    { cx: startCell.cx + 2, cz: startCell.cz + 1 });
+  // Pin the exact order this test exercises: `out` empties NATURALLY on the last queued step
+  // landing, `back` gets built and `taken` cleared right there — all of this happens before
+  // `detourHome()` is ever called below.
+  eq('detourHome: out is already fully drained before detourHome is called', detour.out, []);
+  eq('detourHome: taken was already cleared the instant the approach emptied', detour.taken, []);
+  const builtBack = detour.back.slice();
+  check('detourHome: back was already built by advance() by the time the approach emptied',
+    builtBack.length === approach.length, `${builtBack.length}`);
+
+  // The regression itself: detourHome() called AFTER the natural drain (the engage-on-final-
+  // cell case), not mid-approach (the already-working cut-short case).
+  detourHome();
+
+  check('detourHome: the return trip is NOT wiped to empty by a call after the approach drained',
+    detour.back.length > 0, JSON.stringify(detour.back));
+  eq('detourHome: the return trip is left exactly as advance() built it',
+    detour.back, builtBack);
+  eq('detourHome: and it exactly reverses what was actually walked',
+    detour.back, approach.slice().reverse().map(opposite));
+
+  // Retrace `back` for real and confirm it actually lands the party back where the detour
+  // started — not just that the array looks right.
+  for (const dir of detour.back.slice()) {
+    while (line.moving) line.advance(SIM_DT);
+    line.step(dir, { walkSeconds: WALK, passable: open() });
+  }
+  while (line.moving) line.advance(SIM_DT);
+  eq('detourHome: retracing `back` actually lands the party back where the detour started',
+    { cx: line.cellOf(0).cx, cz: line.cellOf(0).cz }, { cx: startCell.cx, cz: startCell.cz });
+}
+
+// --- detourHome: the mid-approach cut-short still works (contrast, not the regression) ----
+//
+// The path that already worked before the fix, kept alongside the regression test above so the
+// two are told apart rather than one silently standing in for the other.
+{
+  const detour = { out: [], taken: [], back: [], returnHome: true };
+  function startDetour(dirs) { detour.out.push(...dirs); }
+  function driveOutStep(line) {
+    const dir = detour.out[0];
+    if (line.step(dir, { walkSeconds: WALK, passable: open() })) {
+      detour.out.shift();
+      detour.taken.push(dir);
+      if (!detour.out.length) {
+        detour.back = detour.taken.slice().reverse().map(opposite);
+        detour.taken.length = 0;
+      }
+      return true;
+    }
+    return false;
+  }
+  function detourHome() {
+    detour.out.length = 0;
+    if (detour.taken.length) {
+      detour.back = detour.taken.slice().reverse().map(opposite);
+      detour.taken.length = 0;
+    }
+  }
+
+  const line = new Line({ gap: 1, members: 1 }).place(0, 10, 10, SOUTH, open());
+  startDetour([EAST, EAST, SOUTH]);
+
+  // Only walk the FIRST of three queued steps, then cut the approach short — `out` still has
+  // steps left in it, `taken` holds exactly the one step actually walked.
+  while (line.moving) line.advance(SIM_DT);
+  driveOutStep(line);
+  while (line.moving) line.advance(SIM_DT);
+  eq('detourHome (cut-short): out still has steps queued', detour.out, [EAST, SOUTH]);
+  eq('detourHome (cut-short): taken holds exactly the one step walked', detour.taken, [EAST]);
+
+  detourHome();
+  eq('detourHome (cut-short): back is built from the one step actually taken',
+    detour.back, [WEST]);
+  eq('detourHome (cut-short): out is cleared', detour.out, []);
 }
 
 const total = passed + failures.length;

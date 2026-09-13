@@ -169,6 +169,30 @@ export const FOREST = {
    * north leg that had to be walked off first, and they walked the party out of the framing
    * the marker was chosen for.
    */
+  /**
+   * **The authored circuit** (`stitchLoop`, `hunts/compose.js`): out along the south ride
+   * through `path`, north through the wood's gap east of it, west along the north ride
+   * through `deep`, and back south through the gap west of `deep` — the two N-S connectors are
+   * NOT the mirror pair `findLoop`'s bent rectangle would guess at, because the wood's only two
+   * north-south openings are off-centre: one tracks `path`'s longitude, the other `deep`'s.
+   *
+   * **`clearing` is deliberately not a waypoint, and that was verified, not assumed.** The
+   * obvious four-marker rectangle — `clearing → path → glade → deep`, and every one of its
+   * five other orderings and directions — was tried against the real build (a throwaway script
+   * following `selftest.js`'s own per-biome fixture) and every single one came back
+   * `stitchLoop`-rejected with "stitched ring revisits cell": the west connector's only route
+   * from `deep` back down to the south ride arrives through almost the exact cells the
+   * `clearing → path` leg starts on, because both approaches funnel through the same gap the
+   * clearing itself opens into the wood. Dropping `clearing` from the waypoint list removes
+   * that leg entirely — `stageOnLoop` (`hunts/index.js`) still frames the `clearing` preset off
+   * the nearest ring cell to the marker, waypoint or not, and the stitched ring's nearest cell
+   * lands one cell from the marker and three from the campfire (`CAMP`), so the framing is
+   * unchanged. Measured on the shipped map (seed 1337): 82 cells, 16 corners, 9 of 9 requested
+   * slots placed — `path → glade → deep` and `clearing → deep → glade` also stitch cleanly at
+   * 82 cells, but at 18/6 and 20/9 corners/slots respectively, so this is the tightest ring of
+   * the three that actually close.
+   */
+  loop: { via: ['path', 'deep', 'glade'] },
 };
 
 export function buildForest(draft, ctx, palette, rng, _log) {

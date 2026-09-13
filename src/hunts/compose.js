@@ -9,6 +9,7 @@
  */
 
 import { noise2 } from '../core/rng.js';
+import { bfsCells } from '../core/path.js';
 
 const smooth = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -553,17 +554,21 @@ export { clamp01, lerp, smooth };
 /**
  * Finds a **closed** circuit the party can walk forever, on the map that was actually built.
  *
- * Hand-written route strings were the obvious way to do this and they are the wrong one: a
- * route is a list of relative directions with no idea where it is, `makeScriptedRoute` skips a
- * blocked step, and three separate places in this module already document routes drifting off
- * their own path when the map grew an obstacle. A route authored against a map is only correct
- * until the composition changes, and the composition changes every round.
+ * This is the fallback, not the plan. `stitchLoop` (below) is authored-first: a biome that
+ * declares an ordered list of its own markers gets a circuit stitched through them, in the
+ * order asked, on the draft that was actually built. Hand-written route *strings* are still
+ * the wrong way to do it — a route is a list of relative directions with no idea where it is,
+ * `makeScriptedRoute` skips a blocked step, and three separate places in this module already
+ * document routes drifting off their own path when the map grew an obstacle — but a list of
+ * marker names has none of that problem, because it is resolved against the draft on every
+ * build rather than baked in once.
  *
- * So the loop is **derived from the draft**, after it is built, and it is a rectangle — because
- * a rectangle's perimeter is closed by construction and can be checked cell by cell in one
- * pass. The search walks candidate sizes from large to small and returns the first perimeter
- * that is passable the whole way round, so a biome gets the biggest circuit its terrain allows
- * rather than the one somebody guessed at.
+ * `findLoop` is what runs when there is no authored list, or when stitching one fails: a
+ * rectangle, because a rectangle's perimeter is closed by construction and can be checked cell
+ * by cell in one pass. The search walks candidate sizes from large to small and returns the
+ * first perimeter that is passable the whole way round, so a biome gets the biggest circuit
+ * its terrain allows rather than the one somebody guessed at — a floor under the authored path,
+ * not a replacement for it.
  *
  * @param {import('../terrain/index.js').MapDraft} draft
  * @param {{cx:number, cz:number}} around  the marker to centre on
@@ -615,6 +620,250 @@ export function findLoop(draft, around, {
     w: base.w,
     h: base.h,
   };
+}
+
+/**
+ * Stitches a **closed** circuit through an ordered list of waypoints — the authored
+ * counterpart to `findLoop` above, and the one that actually gets tried first: a biome that
+ * declares its own markers in the order it wants them visited gets a circuit through exactly
+ * those markers, on the draft that was actually built, rather than one `findRectangle` happened
+ * to grow near them. `findLoop` is what a caller falls back to when this fails.
+ *
+ * `points` is a plain list of cells — the ring is implicitly closed, the last point connecting
+ * back to the first — and this function knows nothing about marker *names*; resolving a name to
+ * a cell is the caller's job (`hunts/index.js`), exactly as `findLoop`'s own `around` is already
+ * cells, not names.
+ *
+ * One **leg** per consecutive pair of points (`a -> b`, including the wraparound), built by
+ * trying, in order:
+ *
+ *   1. An **X-then-Z elbow** — straight along X at `a`'s row, then straight along Z at `b`'s
+ *      column — and its mirror, a **Z-then-X elbow**. Whichever is fully passable and crosses
+ *      more `preferTags` ground wins; tied, X-first wins, so the result has no hidden rng.
+ *   2. `bfsCells`, when *neither* elbow is fully passable, followed by one straightening pass:
+ *      a raw BFS leg is shortest but shaped like a staircase, and a staircase inflates
+ *      `cornerCount` and can leave the ring with no straight run at all — the coast defect
+ *      `findLoop`'s own header used to document. The pass looks for the two most distant
+ *      indices on a shared row or column and, if the direct segment between them is passable,
+ *      splices it in — a cosmetic repair, not a shortest-path guarantee.
+ *
+ * A leg that cannot be built by any of the above fails the **whole ring** — `onLegFailed` is
+ * told which pair and `stitchLoop` returns `null` — because silently routing around a waypoint
+ * hands back a circuit nobody authored, in a shape nobody reviewed.
+ *
+ * The assembled ring is then held to exactly the standard `findLoop`'s own bumps already meet:
+ * closed and passable (`isClosedWalk`), every cell distinct (a folded-back ring sterilises its
+ * own shoulders — see `applyBump`'s overlap check above, and `Line.step`'s own comment in
+ * `src/simulation/line.js` on why a 180-degree reversal is never special-cased), every cell at
+ * least `margin` from the map edge (the stitched cells between authored markers may not satisfy
+ * the camera framing the markers themselves were snapped for), and an opening straight run at
+ * least `straightLead` long — checked independently of `rotateToStraight`, because that helper
+ * silently returns the ring **unchanged** when nothing qualifies rather than reporting failure.
+ *
+ * @param {import('../terrain/index.js').MapDraft} draft
+ * @param {{cx:number, cz:number}[]} points  ordered waypoints; the ring closes last -> first
+ * @param {{straightLead?:number, preferTags?:string[], margin?:number, maxTiles?:number,
+ *          onLegFailed?:(info:{index:number, from:object, to:object}) => void,
+ *          onReject?:(reason:string) => void}} [opts]
+ * @returns {{start:{cx:number,cz:number,dir:number}, route:string, cells:{cx:number,cz:number}[],
+ *            corners:number, w:number, h:number, source:'authored'}|null}
+ */
+export function stitchLoop(draft, points, opts = {}) {
+  const {
+    straightLead = 4,
+    preferTags = ['path', 'tallgrass'],
+    margin = 11,
+    maxTiles = 4096,
+    onLegFailed = null,
+    onReject = null,
+  } = opts;
+
+  const reject = (reason) => {
+    if (onReject) onReject(reason);
+    return null;
+  };
+
+  if (!Array.isArray(points) || points.length < 3) {
+    return reject('need at least 3 waypoints');
+  }
+
+  // One leg per consecutive pair, wrapping the last point back to the first — the ring is
+  // implicitly closed, never asked for as an explicit N+1th point.
+  const legs = [];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const leg = buildLeg(draft, a, b, { preferTags, maxTiles });
+    if (!leg) {
+      if (onLegFailed) onLegFailed({ index: i, from: a, to: b });
+      return null;
+    }
+    legs.push(leg);
+  }
+
+  // Concatenate: the first leg in full, then every later leg minus its first cell (which
+  // duplicates the previous leg's last cell). The final cell of the last leg duplicates
+  // `points[0]` again — the ring closing — so it is popped rather than kept twice.
+  const cells = legs[0].slice();
+  for (let i = 1; i < legs.length; i++) cells.push(...legs[i].slice(1));
+  cells.pop();
+
+  // Held to exactly the standard the found loop already meets, first failure wins.
+  if (!isClosedWalk(draft, cells)) return reject('stitched ring is not a valid closed walk');
+
+  const seen = new Set();
+  for (const c of cells) {
+    const k = `${c.cx},${c.cz}`;
+    if (seen.has(k)) return reject(`stitched ring revisits cell (${k})`);
+    seen.add(k);
+  }
+
+  for (const c of cells) {
+    if (c.cx < margin || c.cz < margin || c.cx > draft.w - margin || c.cz > draft.h - margin) {
+      return reject(`cell (${c.cx},${c.cz}) is within ${margin} of the map edge`);
+    }
+  }
+
+  // `rotateToStraight` silently returns the ring UNCHANGED when nothing qualifies, so its
+  // result has to be independently checked rather than trusted — the same check
+  // `hunts/index.js`'s own `stageOnLoop`/`straightAt` makes on the ring it is handed.
+  const ordered = rotateToStraight(cells, straightLead);
+  const n = ordered.length;
+  const dir0 = dirBetween(ordered[0], ordered[1]);
+  let lead = 0;
+  while (lead < straightLead
+    && dirBetween(ordered[lead % n], ordered[(lead + 1) % n]) === dir0) lead++;
+  if (lead < straightLead) return reject('no opening straight run long enough');
+
+  let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
+  for (const c of ordered) {
+    if (c.cx < minX) minX = c.cx;
+    if (c.cx > maxX) maxX = c.cx;
+    if (c.cz < minZ) minZ = c.cz;
+    if (c.cz > maxZ) maxZ = c.cz;
+  }
+
+  return {
+    start: { cx: ordered[0].cx, cz: ordered[0].cz, dir: dirBetween(ordered[0], ordered[1]) },
+    route: routeOf(ordered),
+    cells: ordered,
+    corners: cornerCount(ordered),
+    w: maxX - minX + 1,
+    h: maxZ - minZ + 1,
+    source: 'authored',
+  };
+}
+
+/** One straight-line step, checked in the direction of travel — `dirBetween`'s own rule. */
+function stepDir(dCx, dCz) {
+  if (dCx === 1) return EAST_;
+  if (dCx === -1) return WEST_;
+  return dCz === 1 ? SOUTH_ : NORTH_;
+}
+
+/**
+ * Walks a straight run of `steps` unit steps from `from` along `(dCx, dCz)` — exactly one of
+ * which is non-zero — pushing each new cell onto `out`. Returns the final cell, or `null` the
+ * moment a step is not passable in the direction it is taken.
+ */
+function walkStraight(draft, from, dCx, dCz, steps, out) {
+  const dir = stepDir(dCx, dCz);
+  let cx = from.cx; let cz = from.cz;
+  for (let i = 0; i < steps; i++) {
+    const nx = cx + dCx; const nz = cz + dCz;
+    if (!draft.passable(nx, nz, dir)) return null;
+    out.push({ cx: nx, cz: nz });
+    cx = nx; cz = nz;
+  }
+  return { cx, cz };
+}
+
+/**
+ * One elbow leg from `a` to `b`, inclusive: straight along X then straight along Z (`xFirst`),
+ * or the mirror. `null` the instant either arm is not fully passable.
+ */
+function elbowLeg(draft, a, b, xFirst) {
+  const cells = [{ cx: a.cx, cz: a.cz }];
+  const dCx = Math.sign(b.cx - a.cx);
+  const dCz = Math.sign(b.cz - a.cz);
+  if (xFirst) {
+    if (dCx !== 0 && !walkStraight(draft, a, dCx, 0, Math.abs(b.cx - a.cx), cells)) return null;
+    const mid = { cx: b.cx, cz: a.cz };
+    if (dCz !== 0 && !walkStraight(draft, mid, 0, dCz, Math.abs(b.cz - a.cz), cells)) return null;
+  } else {
+    if (dCz !== 0 && !walkStraight(draft, a, 0, dCz, Math.abs(b.cz - a.cz), cells)) return null;
+    const mid = { cx: a.cx, cz: b.cz };
+    if (dCx !== 0 && !walkStraight(draft, mid, dCx, 0, Math.abs(b.cx - a.cx), cells)) return null;
+  }
+  return cells;
+}
+
+/** How many of a leg's cells carry any tag in `preferTags`. */
+function legTagScore(draft, cells, preferTags) {
+  if (!preferTags?.length) return 0;
+  let n = 0;
+  for (const c of cells) {
+    const tags = draft.tagsAt(c.cx, c.cz);
+    if (tags && tags.some((t) => preferTags.includes(t))) n++;
+  }
+  return n;
+}
+
+/** The direct line between two cells that share a row or column, inclusive of `b`, or `null`. */
+function straightSegment(draft, a, b) {
+  const dCx = Math.sign(b.cx - a.cx);
+  const dCz = Math.sign(b.cz - a.cz);
+  const steps = Math.max(Math.abs(b.cx - a.cx), Math.abs(b.cz - a.cz));
+  const out = [];
+  const end = walkStraight(draft, a, dCx, dCz, steps, out);
+  return end ? out : null;
+}
+
+/**
+ * One cosmetic repair pass over a raw BFS leg: a grid BFS staircases around obstacles one cell
+ * at a time, and every one of those steps is a corner `cornerCount` will later count. Repeatedly
+ * finds the most distant pair of indices that share a row or column and whose direct segment is
+ * passable, and splices the staircase between them for the straight line — not a shortest-path
+ * guarantee, just enough to stop a BFS leg from reading as a zigzag.
+ */
+function straightenLeg(draft, cells) {
+  let list = cells;
+  for (let pass = 0; pass < 6; pass++) {
+    let bestI = -1; let bestJ = -1; let bestSeg = null; let bestLen = 0;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = list.length - 1; j > i + 1; j--) {
+        if (j - i <= bestLen) break;                 // nothing left this row can beat the best
+        if (list[i].cx !== list[j].cx && list[i].cz !== list[j].cz) continue;
+        const seg = straightSegment(draft, list[i], list[j]);
+        if (!seg) continue;
+        bestI = i; bestJ = j; bestSeg = seg; bestLen = j - i;
+      }
+    }
+    if (bestI < 0) break;
+    list = [...list.slice(0, bestI + 1), ...bestSeg, ...list.slice(bestJ + 1)];
+  }
+  return list;
+}
+
+/**
+ * One leg of a stitched ring: the better of the two elbows when both are passable, whichever
+ * one is when only one is, or a straightened BFS walk when neither is.
+ */
+function buildLeg(draft, a, b, { preferTags, maxTiles }) {
+  const legXZ = elbowLeg(draft, a, b, true);
+  const legZX = elbowLeg(draft, a, b, false);
+  if (legXZ && legZX) {
+    const scoreXZ = legTagScore(draft, legXZ, preferTags);
+    const scoreZX = legTagScore(draft, legZX, preferTags);
+    return scoreZX > scoreXZ ? legZX : legXZ;         // tie -> X-then-Z, deterministic
+  }
+  if (legXZ) return legXZ;
+  if (legZX) return legZX;
+
+  const passable = (cx, cz, dir) => draft.passable(cx, cz, dir);
+  const bfs = bfsCells(a, b, passable, { maxTiles });
+  if (!bfs) return null;
+  return straightenLeg(draft, bfs);
 }
 
 /**
@@ -865,7 +1114,7 @@ function applyBump(draft, cells, run, side, d, margin) {
 
 
 /** Every consecutive pair one 4-way step apart, passable, and the last pair closing the ring. */
-function isClosedWalk(draft, cells) {
+export function isClosedWalk(draft, cells) {
   const n = cells.length;
   if (n < 8) return false;
   for (let i = 0; i < n; i++) {

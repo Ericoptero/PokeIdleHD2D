@@ -11,7 +11,8 @@
  */
 
 import { makePalette, isLive } from './palette.js';
-import { findLoop, slotsForLoop } from './compose.js';
+import { findLoop, slotsForLoop, stitchLoop } from './compose.js';
+import { bfsPath, bfsCells } from '../core/path.js';
 
 /** `core/dir.js`'s deltas, for walking a route string back over the draft in `audit()`. */
 const LOOP_DX = [0, -1, 0, 1];
@@ -74,19 +75,30 @@ const HUNT_FORMATION = {
 /**
  * How much of the map a circuit may take, and how many creatures stand beside it.
  *
- * The loop is not authored — it is FOUND on the draft that was actually built (`findLoop`),
- * because a route string is a list of relative directions with no idea where it is, and one
- * authored against a map stays correct only until the composition changes. It changes every
- * round.
+ * A biome may AUTHOR its own circuit: an ordered list of its own marker names in `loop.via`
+ * (`authoredLoop`, below, and `stitchLoop` in `compose.js`) gets stitched into a ring through
+ * exactly those markers, in the order asked, on the draft that was actually built — a route
+ * string could not do this (a list of relative directions has no idea where it is, and one
+ * authored against a map stays correct only until the composition changes; that is why the old
+ * `walk.route` strings drifted, see `stageOnLoop`'s own comment below), but a marker NAME is
+ * resolved fresh on every build.
+ *
+ * `findLoop` is the fallback, not the plan: it runs when a biome declares no `via`, or when the
+ * authored circuit could not be stitched over the shipped map (a missing marker, a leg that
+ * would not stitch, a rejected ring — `authoredLoop` warns and `audit()` below fails loudly on
+ * any of those, so a degraded biome cannot ship quietly green).
  */
 const LOOP = { min: 6, max: 22, margin: 11 };
 
 /**
- * The shape knobs, resolved per biome.
+ * The shape knobs, resolved per biome — and read only by the `findLoop` FALLBACK.
  *
- * Three layers, most specific first: whatever the biome's own `loop` field says, then
- * `config` (which `?loopCorners=` reaches without touching code), then the defaults above.
- * A biome that wants a plain rectangle asks for `loop: { corners: 4 }` and gets one.
+ * `corners`, `depth` and the rest of this bag shape the rectangle `findLoop` grows; a biome
+ * with an authored `loop.via` is stitched straight through its own markers instead and never
+ * consults them. Three layers, most specific first: whatever the biome's own `loop` field
+ * says, then `config` (which `?loopCorners=` reaches without touching code), then the defaults
+ * above. A biome that wants a plain rectangle fallback asks for `loop: { corners: 4 }` and
+ * gets one.
  */
 const loopOptions = (biome, config) => ({
   ...LOOP,
@@ -120,7 +132,7 @@ export default {
   showcaseNeeds: ['tiles', 'simulation', 'pokemon'],
 
   init(ctx) {
-    const { log, bus } = ctx;
+    const { log, bus, config } = ctx;
     const terrain = ctx.get('terrain');
     /**
      * What is standing on each slot right now, keyed by slot index.
@@ -151,12 +163,43 @@ export default {
      */
     const triedThisLap = new Set();
 
+    /**
+     * The NPC id `holdNpc(id, true)` currently has frozen for an in-progress approach, or
+     * `null` when nothing is held.
+     *
+     * A wild is held from the instant the party commits to walking at it (so its own tether
+     * drift cannot step it out from under a multi-step path) until one of two things closes
+     * the story: a fight actually starts on it (`encounter:resolved` releases it once the duel
+     * is over), or the approach ends with no fight at all — a blocked step abandoned it, the
+     * lap moved on, `sim.detourHome()` cut it short. That second case has no event of its own
+     * to hang a release on, so it is caught by watching `sim.detouring()` fall from `true` to
+     * `false` (see `wasDetouring`, and `_refill`, below) — the one thing every ending of a
+     * detour has in common. Without this a wild whose approach ended by any means other than a
+     * fight would stay `held: true` forever: frozen, visible, and never fought again.
+     */
+    let heldNpcId = null;
+    /** `sim.detouring()` as of the last tick, so `_refill` can catch its `true -> false` edge. */
+    let wasDetouring = false;
+    /**
+     * Set by `resyncToLoop()` (below) the instant it queues a one-way detour back onto the
+     * loop; consumed by the SAME `wasDetouring` edge `_refill` already watches, the tick that
+     * detour ends (landed OR abandoned — see that handler's own comment), to hand the circuit
+     * back with `setRoute` if the head actually made it onto a loop cell. Never a second
+     * detector. Deliberately carries no target cell of its own: the edge handler looks up
+     * wherever the head really is when it fires, rather than trusting where this queued the
+     * detour toward — see `_refill`'s own comment for why that trust was the bug.
+     */
+    let resyncPending = false;
+
     /** How many times each slot has refilled — the index its respawn roll is addressed by. */
     const generations = new Map();
     /** Seconds of simulated time this module has seen, accumulated from its own `tick`. */
     let elapsed = 0;
     /** Landings since the party last completed a lap of the circuit. */
     let lapSteps = 0;
+    /** Consecutive `player:enteredTile` landings off the current loop — `resyncToLoop`'s own
+     * backstop counter, shares the `onLoopSet` lookup the lap counter above uses (point 4/5). */
+    let offLoopStreak = 0;
 
     /** @type {Map<string, object>} what the last build of each map reported. */
     const built = new Map();
@@ -216,9 +259,16 @@ export default {
      * laps lands identically either way (src/idle/index.js). The full rule — a potion below a threshold,
      * and the Pokemon Center — is phase 6; this is the floor.
      */
-    bus.on('player:enteredTile', () => {
-      const loop = built.get(currentId)?.loop;
+    bus.on('player:enteredTile', ({ cx, cz }) => {
+      const info = built.get(currentId);
+      const loop = info?.loop;
       if (!loop) return;
+      // Only a landing ON the loop advances the counter. Every tile of an off-loop detour —
+      // chasing a wild, or `resyncToLoop`'s own backstop below — used to count too, so
+      // `hunt:lap` and the `triedThisLap` clear fired early and drifted out of phase with the
+      // circuit actually being walked. `onLoopSet` (built alongside the loop, below) is a
+      // `Set` so this is a lookup rather than a scan of `loop.cells` on every tile.
+      if (info.onLoopSet && !info.onLoopSet.has(`${cx},${cz}`)) return;
       if (++lapSteps < loop.cells.length) return;
       lapSteps = 0;
       triedThisLap.clear();
@@ -247,50 +297,240 @@ export default {
     });
 
     /**
-     * **The party leaves the circuit to reach what it is hunting.**
+     * **The party leaves the circuit to reach what it is hunting — Tibia-style: whichever
+     * living wild is nearest within `config.aggroTiles` pulls the trainer off the path, routed
+     * around collision by a real search rather than a fixed cell pair, however many steps the
+     * search actually takes to close the distance.**
      *
      * The brief asks that a battle begin when the trainer's Pokemon *physically reaches* a
-     * living wild, and until now a slot fired at Chebyshev 2 — proximity, not contact. The
-     * circuit is still the spine; what changes is that when the head lands on the cell a slot
-     * was measured from, it takes **one step off the path and one back**, queued together.
+     * living wild. What changed from the fixed-slot detour this replaced: that one fired only
+     * when the head landed on the ONE cell the CURRENT lap's next slot happened to be authored
+     * two cells off of. This fires from ANY tile entered while ANY occupied slot sits within
+     * `aggroTiles`, picks the nearest one by its own LIVE position (a wild drifts a tile around
+     * its tether — the same lookup `wanderingPlates()` already does), and paths to it with
+     * `bfsPath` (`core/path.js`) — bounded to `aggroTiles`, so a plan is never accepted for a
+     * target `bfsPath` had to notice was in range but the party would have to leave the loop
+     * further than it was ever asked to go to reach.
      *
-     * One step, and the geometry proves it (`compose.slotsForLoop`): every slot sits at an
-     * axial offset of 2 from a specific path cell, so the midpoint is Chebyshev 1 from both and
-     * is never itself a loop cell. Queued as a pair at commit time, so nothing has to run when
-     * the fight ends to bring the party home — a `hunts` quarantined mid-duel cannot strand the
-     * queue off its own route. And drained ahead of the autopilot, so the route's index never
-     * learns it happened.
+     * **This used to be a one-cell approach, and only a one-cell approach, on purpose — the
+     * comment that stood here documented a real, measured corruption and a real workaround for
+     * it. Both premises turned out to be wrong about WHERE the bug lived, not about whether it
+     * existed.** `hunt-recovers.spec.js`'s "a lap of the circuit" case reliably turned a
+     * multi-step round trip into a **permanent** stall of the circuit's own `strict` scripted
+     * route, every run — that measurement was real. What it was blamed on — "the exact
+     * mechanism inside `line.js`'s conga-line trail" — was not where it lived. Two real causes,
+     * both in this module's own neighbourhood:
      *
-     * The target is frozen at commit, because a tethered wild drifts a tile and a target that
-     * steps aside between the commit and the arrival turns the detour into a miss.
+     *  1. `simulation`'s `advance()` used to queue a detour as **both legs at once** —
+     *     `[step, opposite(step)]` — and shift a step off that queue and hand it to `line.step`
+     *     without checking the boolean `line.step` returns. `Line.step` returns `false` when
+     *     the cell ahead fails `passable` and, in that case, only turns the head's facing — it
+     *     does NOT move it. A blocked step was consumed from the queue anyway, so the return
+     *     leg then ran one cell short and the head came home off the very cell its own `strict`
+     *     route expected it to be standing on. `route.next()` then found the next scripted
+     *     direction blocked, forever — a permanent stall caused by a silently dropped step, not
+     *     by anything unresolved in the trail itself.
+     *  2. This module planned the path with terrain passability alone, but the walker steps
+     *     with terrain **and** the `solid` cell-occupancy map every wild NPC is spawned onto
+     *     (`solid: true`, `spawnWild`/`_refill`, below). A multi-step BFS path can legitimately
+     *     route through a cell another wild is currently standing on — invisible to a
+     *     terrain-only plan — and that is exactly the kind of blocked step that triggers cause 1
+     *     on a crowded lap. A one-cell approach almost never hits this, because `bfsPath` stops
+     *     at Chebyshev distance 1 of the target and the one verified step is nearly always
+     *     clear — which is why the workaround looked like it was addressing the trail and was
+     *     actually just avoiding cause 2 by accident.
+     *
+     * Both are fixed at the source rather than avoided: `simulation.detour()` now takes the
+     * out leg only and generates the return trip itself from the steps it actually walked (see
+     * `simulation/index.js`'s own long comment on `detour`), so a blocked step can never leave a
+     * return leg short again; and the path here is planned with `sim.passableFor(held.npcId)`
+     * — the walker's own terrain-AND-solid check, minus the target's own claimed cell — so a
+     * plan cannot route through a body the walker would actually refuse to step into. With both
+     * fixed, the one-step guard was a bound on the SYMPTOM rather than the FIX, and lifting it
+     * is what actually delivers the Tibia-style aggro the brief asked for: `range`, below, is
+     * `aggroTiles` itself, not 1, and a wild anywhere inside that radius is walked to and walked
+     * home from — cleanly, however long the approach turns out to be — rather than merely
+     * noticed and left for ordinary progress round the loop to stumble into.
      */
     bus.on('player:enteredTile', ({ cx, cz }) => {
       const sim = ctx.get('simulation');
       const enc = ctx.get('encounter');
       if (!isLive(sim) || typeof sim.detour !== 'function') return;
       if (sim.detouring() || (isLive(enc) && enc.active?.())) return;
+      // A party with nothing left standing walks past its wildlife rather than detouring
+      // toward a fight it cannot take — `encounter/index.js`'s `slotNear()` already refuses
+      // to engage one for the same reason; without this check here too, the walk toward it
+      // still happened, wasting the lap's own rest (`hunt:lap`, below) on trips to wilds that
+      // were never going to be fought.
+      const pokemon = ctx.get('pokemon');
+      const canFight = !isLive(pokemon) || typeof pokemon.firstConscious !== 'function'
+        || !!pokemon.firstConscious();
+      if (!canFight) return;
       const list = built.get(currentId)?.slots ?? [];
+      if (!list.length) return;
+      const npcs = typeof sim.npcs === 'function' ? sim.npcs() : [];
+      const range = Math.max(1, Math.round(Number(config?.aggroTiles) || 5));
+
+      // Every occupied slot's own LIVE position, in reach and not already given up on this
+      // lap — nearest first, so a crowded stretch of the circuit always tries its closest
+      // neighbour before a farther one.
+      const candidates = [];
       for (let k = 0; k < list.length; k++) {
-        const slot = list[k];
-        if (!slot?.from || slot.from.cx !== cx || slot.from.cz !== cz) continue;
-        if (triedThisLap.has(k)) return;          // already walked out to this one this lap
+        if (triedThisLap.has(k)) continue;
         const held = occupancy.get(k);
-        if (!held) return;                       // defeated and not yet respawned: walk on
-        // Re-checked against the draft rather than trusted from build time: a prop placed after
-        // the slot was chosen would make the approach a step into a wall, and `strict` would
-        // stall where the player can see it. A refusal is `debug`, never `warn` — the harness
-        // records `consoleWarnings` in every shot's JSON and a handled path must not spend them
-        //.
-        const terrain = ctx.get('terrain');
-        const back = (slot.step + 2) & 3;
-        const ok = isLive(terrain) && typeof terrain.passable === 'function'
-          ? terrain.passable(slot.approach.cx, slot.approach.cz, slot.step) && terrain.passable(cx, cz, back)
-          : true;
-        if (!ok) { log.debug?.(`hunts/${currentId}: slot ${k} has no approach — skipped this lap`); return; }
-        if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+        if (!held) continue; // defeated and not yet respawned
+        const live = npcs.find((n) => n.id === held.npcId);
+        if (!live) continue; // a slot can report occupied for one tick after its npc is gone
+        const dist = Math.max(Math.abs(live.cx - cx), Math.abs(live.cz - cz));
+        if (dist > range) continue;
+        candidates.push({ k, held, live, dist });
+      }
+      if (!candidates.length) return;
+      candidates.sort((a, b) => a.dist - b.dist || a.k - b.k);
+      const { k, held, live } = candidates[0];
+
+      // Plan against the SAME passability the walker steps with — terrain AND the `solid`
+      // occupancy map, minus the target's own claimed cell — not terrain alone: see cause 2 in
+      // this handler's own header comment. Falls back to a terrain-only predicate for a
+      // quarantined or pre-slice `simulation` that has not shipped `passableFor` yet, so this
+      // never throws on an older registry.
+      const terrain = ctx.get('terrain');
+      const passable = isLive(sim) && typeof sim.passableFor === 'function'
+        ? sim.passableFor(held.npcId)
+        : (isLive(terrain) && typeof terrain.passable === 'function' ? terrain.passable : () => true);
+      const path = bfsPath({ cx, cz }, { cx: live.cx, cz: live.cz }, passable);
+      if (!path || path.length > range) {
+        // No path at all: either already in contact (the generic engage check on this same
+        // event handles that, `encounter/index.js`'s `slotNear`) or genuinely unreachable.
+        // Longer than `range`: `bfsPath` had to detour so far around collision that the real
+        // walk would leave the loop further than `aggroTiles` was ever meant to reach for this
+        // target — left for ordinary progress round the loop to close the rest of the way.
+        // Either way, not worth re-trying every single tile for the rest of the lap.
         triedThisLap.add(k);
-        sim.detour([slot.step, back]);
         return;
+      }
+      if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+      heldNpcId = held.npcId;
+      triedThisLap.add(k);
+      // The out leg only — `simulation` generates and walks the return leg on its own now,
+      // from whatever it actually walks, so it always comes home clean even if this plan turns
+      // out to be stale by the time the party is partway along it.
+      sim.detour(path);
+    });
+
+    /**
+     * Cuts a mid-approach detour short the instant a fight actually starts.
+     *
+     * `config.slotEngageTiles` is 1: the party can engage as soon as it is one cell off a slot,
+     * which can land well before a multi-step detour above finishes walking every queued step —
+     * the target's own tether drift can also close the last cell of the gap on its own. Either
+     * way, the moment a fight is on, the rest of the plan is chasing a creature that will not be
+     * standing there once the duel resolves. `detourHome()` drops whatever `out` still has
+     * queued and generates `back` from exactly what the party actually walked, so the return
+     * trip is always correct even though the approach was cut off partway through — the same
+     * safety net a blocked step gets inside `simulation` itself.
+     */
+    bus.on('encounter:started', () => {
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.detourHome === 'function') sim.detourHome();
+    });
+
+    /**
+     * Releases whatever wild `holdNpc(id, true)` froze for the approach that just ended in a
+     * fight. The other way an approach can end — no fight, the party comes home empty-handed —
+     * has no event of its own; `_refill`, below, catches that by watching `sim.detouring()` fall
+     * from `true` to `false` instead. Between the two, a wild is never left `held: true` forever
+     * because its approach was interrupted or simply failed to land a fight.
+     */
+    bus.on('encounter:resolved', () => {
+      if (heldNpcId == null) return;
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.holdNpc === 'function') sim.holdNpc(heldNpcId, false);
+      heldNpcId = null;
+    });
+
+    /**
+     * **Recovery backstop: walks the head back onto its own loop and resumes the circuit.**
+     *
+     * Stages 1-2 (`detourHome`, `stepOptions`, `src/simulation/index.js`) fix the two ways the
+     * party used to end up off its own path for good, so this should essentially never fire —
+     * it exists for whatever they do not fully cover. `bfsCells` (`core/path.js`) is asked for
+     * an inclusive cell path from the head's current cell to the nearest `loop.cells` entry it
+     * can actually reach, candidates tried nearest-first (Chebyshev) so the first one that
+     * actually resolves wins and the search stays cheap. That path is walked as a ONE-WAY
+     * detour (`{ returnHome: false }` — this is a move onto the loop, not an out-and-back), and
+     * `_refill`'s own `wasDetouring` edge detector, below, picks up the arrival and hands the
+     * circuit back with `setRoute`, rotated (`routeFrom`) so its first step is the one the cell
+     * it landed on owes. `routeFrom`'s `i` is where the TRAINER stands, `gap` cells behind the
+     * head (see `routeFrom`'s own doc below) — the head is what this walks, so the index fed in
+     * is the landing cell's own index minus `gap`.
+     *
+     * Guarded exactly like the aggro handler above: never mid-detour, never mid-fight.
+     */
+    function resyncToLoop() {
+      const loop = built.get(currentId)?.loop;
+      if (!loop?.cells?.length) return;
+      const sim = ctx.get('simulation');
+      const enc = ctx.get('encounter');
+      if (!isLive(sim) || typeof sim.detour !== 'function' || typeof sim.followerCell !== 'function') return;
+      if (sim.detouring() || (isLive(enc) && enc.active?.())) return;
+
+      // The SAME passability the party's own walker steps with (mover id `0`, `simulation`'s
+      // own placeholder for the party) — not terrain alone — so this cannot plan a walk home
+      // through a solid wild's claimed cell. Falls back to terrain-only for a quarantined or
+      // pre-slice `simulation` with no `passableFor` yet.
+      const terrain = ctx.get('terrain');
+      const passable = typeof sim.passableFor === 'function'
+        ? sim.passableFor(0)
+        : (isLive(terrain) && typeof terrain.passable === 'function' ? terrain.passable : () => true);
+      const head = sim.followerCell();
+
+      const ranked = loop.cells
+        .map((c) => ({ c, d: Math.max(Math.abs(c.cx - head.cx), Math.abs(c.cz - head.cz)) }))
+        .sort((a, b) => a.d - b.d);
+      for (const { c } of ranked) {
+        if (c.cx === head.cx && c.cz === head.cz) continue; // already there — bfsCells refuses
+        const cells = bfsCells(head, c, passable, { maxTiles: 512 });
+        if (!cells) continue;
+        // Cell path -> `core/dir.js`-style directions, via the same LOOP_DX/LOOP_DZ table
+        // `audit()` already walks a route with, below — one lookup rather than a second
+        // dx/dz-to-dir mapping.
+        const dirs = [];
+        for (let k = 1; k < cells.length; k++) {
+          const dx = cells[k].cx - cells[k - 1].cx;
+          const dz = cells[k].cz - cells[k - 1].cz;
+          const dir = LOOP_DX.findIndex((x, d) => x === dx && LOOP_DZ[d] === dz);
+          if (dir < 0) return; // a non-4-way step should never come back from bfsCells
+          dirs.push(dir);
+        }
+        if (!dirs.length) return;
+        resyncPending = true;
+        sim.detour(dirs, { returnHome: false });
+        return;
+      }
+      log.warn(`hunts/${currentId}: resyncToLoop found no reachable cell on its own loop`);
+    }
+
+    /** A scripted route stalled (`simulation/index.js`'s `walk:stalled`) — walk back to it. */
+    bus.on('walk:stalled', () => resyncToLoop());
+
+    /**
+     * The cheap half of the backstop: if the head has landed off the loop for more than
+     * `gap + 2` consecutive tiles, something left it off-circuit without ever stalling the
+     * route (an aggro approach that never made it home, on a build where stages 1-2 have not
+     * landed) — resync rather than wait for a stall that may never come. Reuses the same
+     * `onLoopSet` lookup the lap counter above shares, so a cell is never tested against
+     * `loop.cells` twice.
+     */
+    bus.on('player:enteredTile', ({ cx, cz }) => {
+      const info = built.get(currentId);
+      if (!info?.loop || !info.onLoopSet) return;
+      if (info.onLoopSet.has(`${cx},${cz}`)) { offLoopStreak = 0; return; }
+      const sim = ctx.get('simulation');
+      const gap = isLive(sim) && typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
+      if (++offLoopStreak > gap + 2) {
+        offLoopStreak = 0;
+        resyncToLoop();
       }
     });
 
@@ -418,6 +658,42 @@ export default {
       return wildIds.length;
     }
 
+    /**
+     * A biome's own predetermined circuit — `stitchLoop` (`compose.js`) run through the marker
+     * names it names in `loop.via`, in order, closed last-to-first. Tried before `findLoop`'s
+     * rectangle-grown fallback below; `null` (never throws) when the biome declares no `via`,
+     * names fewer than three markers, names one this draft does not have, or `stitchLoop`
+     * itself rejects the ring (a leg that would not stitch, a revisited or too-close-to-the-edge
+     * cell, no opening straight run) — every one of those is a `log.warn`, because a caller
+     * that falls back to a found circuit without saying so is exactly what `audit()`, below,
+     * exists to catch when it happens.
+     */
+    function authoredLoop(draft, biome, c) {
+      const via = biome.loop && biome.loop.via;
+      if (!Array.isArray(via) || via.length < 3) return null;
+      const points = [];
+      for (const name of via) {
+        const m = draft.marker(name);
+        if (!m) {
+          const known = [...draft.markers.keys()].join(', ') || 'none';
+          log.warn(`hunts/${biome.id}: authored circuit names marker "${name}", `
+            + `which this draft does not have (has: ${known}) -- falling back to a found circuit`);
+          return null;
+        }
+        points.push({ cx: m.cx, cz: m.cz });
+      }
+      const opts = loopOptions(biome, c.config);
+      return stitchLoop(draft, points, {
+        straightLead: opts.straightLead, preferTags: opts.preferTags, margin: opts.margin,
+        onLegFailed: ({ index, from, to }) => log.warn(
+          `hunts/${biome.id}: authored circuit leg ${via[index]} (${from.cx},${from.cz}) `
+          + `-> ${via[(index + 1) % via.length]} (${to.cx},${to.cz}) could not be stitched `
+          + 'over the shipped map -- falling back to a found circuit'),
+        onReject: (reason) => log.warn(
+          `hunts/${biome.id}: authored circuit rejected (${reason}) -- falling back to a found circuit`),
+      });
+    }
+
     for (const biome of BIOMES) {
       terrain.register(`hunt-${biome.id}`, async (draft, c) => {
         const tiles = c.get('tiles');
@@ -432,17 +708,23 @@ export default {
         // idea of where the good ground is, so the loop is grown around that.
         // Every marker the biome placed, its own favourite first, then the spawn. A cave is a
         // system of galleries and searching only around the showcase marker found nothing.
+        // Anchors for the FOUND fallback only — the authored path (above) resolves its own
+        // markers by name and never touches this list.
         const preferred = biome.presets?.[biome.showcaseDefault]?.marker;
         const anchors = [...draft.markers.entries()]
           .sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0))
           .map(([, m]) => m);
         anchors.push(draft.spawn);
-        const loop = findLoop(draft, anchors, {
+        // Authored first, found as the fallback — see the `LOOP` header comment above.
+        const loop = authoredLoop(draft, biome, c) ?? findLoop(draft, anchors, {
           ...loopOptions(biome, c.config),
           // Seeded off the biome and the map seed, so the bends are a property of the world
           // rather than of when the page happened to load.
           rng: c.rng.fork(`hunts/loop/${biome.id}/${draft.seed}`),
         });
+        // `stitchLoop` always stamps `source: 'authored'`; `findLoop` knows nothing about
+        // provenance at all, so a loop that comes back without one was found, not authored.
+        if (loop && loop.source == null) loop.source = 'found';
         const slots = loop
           ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
             { count: SLOTS })
@@ -451,7 +733,10 @@ export default {
           log.warn(`hunts/${biome.id}: no closed circuit fits this map between `
             + `${LOOP.min} and ${LOOP.max} cells — the party will stand still`);
         }
-        built.set(biome.id, { ...report, loop, slots, missing: palette.missing() });
+        // The "is this cell on the loop" lookup `lapSteps` and `resyncToLoop`'s off-loop streak
+        // both share (points 4/5) — built once, here, rather than scanned per tile.
+        const onLoopSet = loop ? new Set(loop.cells.map((cell) => `${cell.cx},${cell.cz}`)) : null;
+        built.set(biome.id, { ...report, loop, slots, missing: palette.missing(), onLoopSet });
       });
     }
 
@@ -637,6 +922,8 @@ export default {
       // Reset with the scene: it used to carry across a biome change, so the first lap of a
       // new hunt healed early by however many steps the previous one had banked.
       lapSteps = 0;
+      offLoopStreak = 0;
+      resyncPending = false;
 
         // `terrain.load` builds one `InstancedWorld` from one tileset, and `InstancedWorld`
         // resolves every placement's id against that tileset alone. A model from `props` put
@@ -823,13 +1110,27 @@ export default {
           fails.push({ preset: 'loop', why: 'no closed circuit was found for this map' });
         } else {
           checked++;
+          // **Provenance.** A biome that authored a circuit and silently fell back to a found
+          // one ships a shape nobody reviewed — `stitchLoop` always stamps `source: 'authored'`
+          // on success, so anything else here means the authored attempt failed or was never
+          // tried (`authoredLoop`, above, already warned which).
+          if (biome.loop?.via && loop.source !== 'authored') {
+            fails.push({ preset: 'loop', why: 'declares loop.via but is running a found circuit' });
+          }
+
           let cx = loop.start.cx;
           let cz = loop.start.cz;
           let blocked = 0;
-          for (const dir of parseLoop(loop.route)) {
+          const dirs = parseLoop(loop.route);
+          let reversed = 0;
+          for (let i = 0; i < dirs.length; i++) {
+            const dir = dirs[i];
             const nx = cx + LOOP_DX[dir];
             const nz = cz + LOOP_DZ[dir];
             if (!draft.passable(nx, nz, dir)) blocked++;
+            // A 180-degree reversal walks the head straight into its own follower — `Line.step`
+            // deliberately does not special-case one (`src/simulation/line.js`).
+            if (dirs[(i + 1) % dirs.length] === ((dir + 2) & 3)) reversed++;
             cx = nx; cz = nz;
           }
           if (blocked) fails.push({ preset: 'loop', at: `${loop.start.cx},${loop.start.cz}`, why: `${blocked} blocked step(s)` });
@@ -838,6 +1139,20 @@ export default {
           if (cx !== loop.start.cx || cz !== loop.start.cz) {
             fails.push({ preset: 'loop', why: `does not close — ends at ${cx},${cz} not ${loop.start.cx},${loop.start.cz}` });
           }
+          if (reversed) {
+            fails.push({ preset: 'loop', why: `${reversed} 180-degree reversal(s) back to back in the route` });
+          }
+
+          // **Every cell distinct.** A doubled-back stretch sterilises both its shoulders for
+          // `slotsForLoop` and quietly yields fewer than the biome's `SLOTS` — see `stitchLoop`'s
+          // own R9 check in `compose.js`, held here to the found loop as well.
+          const seen = new Set();
+          let revisited = 0;
+          for (const c of loop.cells) {
+            const k = `${c.cx},${c.cz}`;
+            if (seen.has(k)) revisited++; else seen.add(k);
+          }
+          if (revisited) fails.push({ preset: 'loop', why: `${revisited} cell(s) on the ring visited more than once` });
         }
 
         // --- the slots, measured -------------------------------------------
@@ -866,7 +1181,7 @@ export default {
         const l = built.get(id ?? 'forest')?.loop ?? null;
         return l ? {
           start: { ...l.start }, route: l.route, w: l.w, h: l.h,
-          corners: l.corners, length: l.cells.length,
+          corners: l.corners, length: l.cells.length, source: l.source ?? 'found',
           cells: l.cells.map((c) => ({ ...c })),
         } : null;
       },
@@ -935,11 +1250,69 @@ export default {
         // it. Timing a respawn off `simTime` meant a slot emptied under the screenshot
         // harness or a stepped sim never came back at all.
         elapsed += Math.max(0, dt);
+
+        // Catches the ending of an approach that never became a fight (a blocked step that
+        // abandoned the plan, `detourHome()` firing for someone else's fight, ordinary progress
+        // round the loop rendering the target unreachable) — the `true -> false` edge of
+        // `sim.detouring()` is the one thing every such ending has in common, unlike
+        // `encounter:started`/`encounter:resolved`, which only fire for the ending that DOES
+        // become a fight. Runs every tick, ahead of the respawn loop's own early return, because
+        // the hold has to be released whether or not anything is waiting to refill.
+        //
+        // The SAME edge also closes out `resyncToLoop()`'s own one-way detour (above): once it
+        // lands, `detouring()` falls back to `false` exactly like every other detour, so there
+        // is nothing new to watch for — just something new to do on the edge already caught.
+        const sim = ctx.get('simulation');
+        if (isLive(sim) && typeof sim.detouring === 'function') {
+          const detouring = sim.detouring();
+          if (wasDetouring && !detouring) {
+            if (heldNpcId != null) {
+              if (typeof sim.holdNpc === 'function') sim.holdNpc(heldNpcId, false);
+              heldNpcId = null;
+            }
+            if (resyncPending) {
+              resyncPending = false;
+              const info = built.get(currentId);
+              const loop = info?.loop;
+              if (loop?.cells?.length && typeof sim.setRoute === 'function'
+                && typeof sim.followerCell === 'function') {
+                /**
+                 * **`detouring()` going false does not mean the detour REACHED
+                 * `resyncCellIndex`.** A one-way resync detour can be abandoned mid-approach
+                 * exactly like any other (`simulation/index.js`'s "blocked mid-approach"
+                 * branch in `advance()`) — a solid wild's tether drift claims a cell the plan
+                 * assumed was open — and with `returnHome:false` that abandonment ALSO drops
+                 * `out` to nothing and never populates `back`, so this same edge fires having
+                 * gotten nowhere near the intended cell. Rotating from `resyncCellIndex`
+                 * regardless is what produced a real, reproducible stall (measured: cave,
+                 * seed 1337, tick 8750 — the head landed one cell short of the intended loop
+                 * cell, the route was rotated for the cell it never reached, and its very next
+                 * scripted step walked off the loop instead of along it). So find out where
+                 * the head actually is, and rotate from THAT if it lands on the loop at all —
+                 * a coincidence the streak-based backstop above should not have to clean up.
+                 */
+                const head = sim.followerCell();
+                const at = loop.cells.findIndex((c) => c.cx === head.cx && c.cz === head.cz);
+                if (at >= 0) {
+                  const gap = typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
+                  // `at` is the HEAD's real landing index; `routeFrom`'s own `i` is the
+                  // TRAINER's, `gap` cells behind — see `resyncToLoop`'s doc, above.
+                  sim.setRoute(routeFrom(loop, at - gap, gap).rotated);
+                }
+                // Landed somewhere off the loop instead: leave the route alone. The head is
+                // still off-circuit, so the `player:enteredTile` off-loop-streak counter
+                // (below) picks it back up and tries `resyncToLoop()` again on its own —
+                // exactly the path a resync that never got queued at all already takes.
+              }
+            }
+          }
+          wasDetouring = detouring;
+        }
+
         if (!refills.length || !currentId) return;
         const now = elapsed;
         const biome = byId(currentId);
         const list = built.get(currentId)?.slots ?? [];
-        const sim = ctx.get('simulation');
         const pokemon = ctx.get('pokemon');
         if (!isLive(sim) || !isLive(pokemon)) return;
 

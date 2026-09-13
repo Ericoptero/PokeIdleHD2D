@@ -29,9 +29,13 @@ test('a real encounter resolving populates the feed card with its own outcome', 
   else if (hit.payload.outcome === 'win') expect(title).toMatch(/defeated$/);
   else expect(title).toMatch(/got away$/);
 
+  // `pokemonExp` (the real amount `pokemon.grantPartyExp()` paid out, `encounter/index.js`
+  // `resolve()`) is a different, generally smaller quantity than `rewards.exp` (the generic
+  // scaled figure the money/BP side of a win uses) — both are only ever paid on a win, so
+  // gating on `rewards.exp` still identifies the same encounters.
   if (hit.payload.rewards?.exp > 0) {
     const chips = await page.locator('[data-ui="hud-feed"] .ci-feed-chip').allInnerTexts();
-    expect(chips.some((c) => c.includes('xp'))).toBe(true);
+    expect(chips.some((c) => /XP/i.test(c))).toBe(true);
   }
 
   expect(errors, 'no console error rendering a real resolved encounter').toEqual([]);

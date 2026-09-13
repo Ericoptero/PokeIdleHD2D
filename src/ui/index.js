@@ -1,19 +1,21 @@
 /**
  * ui — the HUD, the Códice DOM screens and the input seam (src/ui/index.js).
  *
- * **Two surfaces, by design, not mid-migration any more (Stage 9 retired the last of the
- * canvas panel stack).** `screen.js` now paints only what has to be projected against the
- * world every rendered frame with no depth divide — `plates.js`, `callout.js`, `floaters.js`
- * — at the renderer's own internal resolution, upscaled with NEAREST; see `screen.js`'s own
- * header for why that stays canvas permanently: a crisp 12 px web panel over a 640×360 world
- * upscaled ×3 is the one thing on screen not on the pixel grid, and it reads as a debug
- * overlay instead of as the game. Every screen and every HUD widget lives in `#ui-dom`
- * (`dom/layer.js`), a real-resolution DOM layer mounted beside the world canvas rather than
- * instead of it; see that file's own header for the stacking order and why a soft-UI redesign
- * (Códice) does not belong on the world's pixel grid the way a DS-style menu did. Both
- * surfaces still cost **zero draw calls** — a 2-D canvas is composited by the browser and
- * never reaches `renderer.info.render.calls`, which is the number tools/shots/shoot.js
- * budgets — and so does the DOM layer, for the same reason.
+ * **One surface now, not two.** Every screen, every HUD widget and — since this pass —
+ * everything that used to be projected against the world every rendered frame with no depth
+ * divide (`plates.js`'s nameplates, `callout.js`'s battle balloons, `floaters.js`'s damage
+ * numbers, the debug overlay, the walk hint) lives in `#ui-dom` (`dom/layer.js`): the always-on
+ * chrome and the screens at the real viewport, and the world-anchored trio in `dom/world.js`'s
+ * own sub-layer, positioned every frame with `projectClient()` below (real, viewport CSS
+ * pixels through `view.displayRect` — not `screen.js`'s internal, letterboxed buffer). Both
+ * still cost **zero draw calls** — a DOM layer is composited by the browser and never reaches
+ * `renderer.info.render.calls`, which is the number tools/shots/shoot.js budgets.
+ *
+ * `screen.js`'s bitmap-font canvas (`#ui-world`) is kept mounted, but nothing in the normal
+ * game paints on it any more — only the font specimen showcase
+ * (`?showcase=ui&mode=font`, `ui/showcase.js`) still does, straight through `screen.painter`,
+ * which is why `draw()` on the currently open panel still receives it as an argument even
+ * though every real screen ignores it.
  *
  * Two more decisions shape this module:
  *
@@ -28,7 +30,7 @@
 import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeCallouts } from './callout.js';
-import { makeFloaters, CRIT_FLOATER_SCALE } from './floaters.js';
+import { makeFloaters, CRIT_FLOATER_SCALE, FLOATER_STEPS, STATUS_NAME } from './floaters.js';
 import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
@@ -38,6 +40,9 @@ import { makeOfflineDomScreen } from './screens/offline.js';
 import { makeSettingsDomScreen } from './screens/settings.js';
 import * as watchlist from './watchlist.js';
 import { makeDomLayer } from './dom/layer.js';
+import { makeWorldLayer } from './dom/world.js';
+import { makeCaptureTooltip } from './dom/capture.js';
+import { h, setText } from './dom/el.js';
 import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
 import { makeChat } from './dom/chat.js';
@@ -45,7 +50,6 @@ import { makeEconomyMode } from './screens/economy.js';
 import { makeDomPad } from './dom/dpad.js';
 import { makeShopDomScreen } from './screens/shop.js';
 import { makeBoxesDomScreen } from './screens/boxes.js';
-import { makeBattleDomScreen, STATUS_NAME } from './screens/battle.js';
 import { makeDexDomScreen } from './screens/dex.js';
 import { makeAutomationDomScreen } from './screens/automation.js';
 import { makePartyDomScreen } from './screens/party.js';
@@ -53,7 +57,6 @@ import { makeInventoryDomScreen } from './screens/inventory.js';
 import { makeTrainerDomScreen } from './screens/trainer.js';
 import { makeDialogueDomScreen } from './screens/dialogue.js';
 import { makeEvolutionOverlay } from './evolution.js';
-import { C, panel, applyLight } from './theme.js';
 
 /**
  * The registry hands out a null-object Proxy for a missing or quarantined module, and it
@@ -61,15 +64,6 @@ import { C, panel, applyLight } from './theme.js';
  * (`core/registry.js`). The only safe test is the marker.
  */
 const isLive = (api) => !!api && api.__missing === undefined;
-
-/**
- * How much higher than its speaker's plate a balloon floats, in world units — clear of the
- * name/level/HP row `plates.js` draws at the same lift, plus a little air. Measured against
- * the plate's own on-screen height (about a third of a world unit at this project's fixed
- * `pixelsPerUnit`), not computed exactly: the plate's own width and whether it carries a bar
- * both vary the row's pixel height by a point or two, and this only has to clear the tallest.
- */
-const BALLOON_CLEARANCE = 0.6;
 
 let live = null;
 
@@ -107,11 +101,23 @@ export default {
     // In another module's showcase this module is a passenger: wallet, clock, toasts.
     const minimal = !!config.showcase && config.showcase !== 'ui';
 
+    // Kept for the font specimen showcase (`?showcase=ui&mode=font`, `ui/showcase.js`) and its
+    // own `_screen.imagesSettled()`/`markDirty()` — nothing in the normal game paints on it any
+    // more (plates, balloons, floaters, the debug overlay and the walk hint are all `#ui-dom`
+    // now; see this file's own header).
     const screen = makeScreen({ root, view: ctx.three?.view, log, config });
-    // The Códice DOM layer (`dom/layer.js`) — screens converted so far mount into
-    // `domLayer.host`, beside the still-canvas HUD/panels; see that file's header for the
-    // stacking order and why it exists at all.
+    // The Códice DOM layer (`dom/layer.js`) — every screen and every HUD widget lives here now;
+    // see that file's header for the stacking order and why it exists at all.
     const domLayer = makeDomLayer({ root, config });
+    // The world-anchor sub-layer (`dom/world.js`) — plates, balloons and floaters mount here,
+    // positioned every frame off `projectClient()` below.
+    const worldLayer = makeWorldLayer(domLayer);
+    // The post-battle capture control (`dom/capture.js`) — its own container
+    // (`worldLayer.capture`), never one of the other three: each of those is fully owned by a
+    // `syncList` caller that wipes its container's whole content on an empty frame
+    // (`dom/world.js`'s own header on why sharing one broke this the first time).
+    const captureTooltip = makeCaptureTooltip(ctx);
+    worldLayer.capture.appendChild(captureTooltip.el);
     const hud = makeHud(ctx);
     const toasts = makeDomToasts(domLayer, { frozen: !!config.showcase });
     /** The lines shouted over a fight — `battle:strike` puts them there. */
@@ -141,15 +147,23 @@ export default {
     }
 
     /**
-     * A real-viewport Y (CSS pixels, as `getBoundingClientRect()` reports) to canvas-buffer
-     * Y — the bridge left between the DOM dock's real position (`dom/hud.js`) and the
-     * canvas-projected plates (`plates.js`) that still have to stay clear of it. `null` when
-     * there is nothing to convert (the dock is hidden) or the view is not sized yet.
+     * A world point in real, viewport CSS pixels — `project()`'s own NDC math, mapped through
+     * `view.displayRect` (`src/core/render.js`, already the CSS-pixel rect the scene canvas
+     * itself sits at) instead of `internalSize`. This is what a `#ui-dom` child needs: that
+     * layer sits at the real viewport (`inset: 0`, `dom/layer.js`) rather than on `#ui-world`'s
+     * letterboxed, internal-resolution buffer, so a plate/balloon/floater built as a DOM node
+     * (`dom/world.js`) positions itself with this, not with `project()`. Same contract:
+     * `null` behind the camera or before the view has a size.
      */
-    function toBufferY(clientY) {
-      const rect = ctx.three?.view?.displayRect;
-      if (clientY == null || !rect || !rect.h) return null;
-      return (clientY - rect.top) * (screen.height / rect.h);
+    function projectClient(x, y, z) {
+      const three = ctx.three;
+      const cam = three?.camera;
+      const rect = three?.view?.displayRect;
+      if (!cam || !rect || !rect.w || typeof ctx.THREE?.Vector3 !== 'function') return null;
+      const v = new ctx.THREE.Vector3(x, y, z);
+      v.project(cam);
+      if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || v.z > 1) return null;
+      return { x: rect.left + (v.x * 0.5 + 0.5) * rect.w, y: rect.top + (1 - (v.y * 0.5 + 0.5)) * rect.h };
     }
 
     const state = {
@@ -157,10 +171,7 @@ export default {
       /** @type {object|null} */ lastSummary: null,
       debug: !!config.debug,
       hud: hud.read(),
-      /** The dock's real top edge, converted to canvas-buffer Y each frame `draw()` runs —
-       *  see `app.stripBox()`'s own comment. */
-      stripBox: null,
-      /** This frame's nameplates, gathered once in `lateFrame` and painted by `draw`. */
+      /** This frame's nameplates, gathered once in `lateFrame` and synced into the DOM. */
       plates: [],
       /** Economy mode (`screens/economy.js`, Stage 7) — a root mode, not a panel; see
        *  `app.setEconomyMode`. */
@@ -174,6 +185,10 @@ export default {
       panelOpen: () => !!state.panel,
       panelId: () => state.panel?.id ?? null,
       panelKey: (ev) => (state.panel?.key ? !!state.panel.key(ev) : false),
+      /** `Z`/`Space` throws at a beaten wild while the capture tooltip is up — `ui/input.js`
+       *  checks this before anything else consumes the key, mirroring `panelKey` but for a
+       *  control that is not a panel (`dom/capture.js`'s own header on why). */
+      captureKey: (ev) => !!captureTooltip.key(ev),
       open(id, opts) {
         const p = PANELS[id];
         if (!p) return false;
@@ -228,13 +243,6 @@ export default {
         if (!summary) { toasts.push('No away report yet — close the tab and come back', 'info'); return false; }
         return app.open('offline', { summary });
       },
-      /**
-       * The dock's real top edge (`dom/hud.js`, Stage 3), converted to **canvas-buffer**
-       * coordinates — the one thing left that still reads it is `draw()`'s own plate
-       * placement below, so a nameplate never floats over the dock. `null` while the dock is
-       * hidden (`minimal`).
-       */
-      stripBox: () => state.stripBox,
       toggleDebug() {
         state.debug = !state.debug;
         config.set({ debug: state.debug });
@@ -268,6 +276,17 @@ export default {
        *  — `null` while that chrome is hidden. Any screen anchored to the top clears its own
        *  content of this (`screens/economy.js`, `screens/menu.js`, `screens/battle.js`). */
       hudTopBottom: () => domHud.topBottom(),
+      /** The trainer card's own live rect (`dom/hud.js`'s `trainerRect()`) — the trainer
+       *  popup (Slice 5, non-modal) anchors its `draw()` off this every frame. */
+      hudTrainerRect: () => domHud.trainerRect(),
+      /** Whether the currently open panel is modal — the default, true, for every panel
+       *  except one that opts out with `modal: false` (today, only `trainer`). `input.js`
+       *  reads this to decide whether an unhandled key falls through to the rest of its
+       *  priority chain (movement, interact, chat) instead of being swallowed the way a
+       *  modal panel swallows it — `state.panel` itself is not reachable from `input.js`
+       *  (only `app` is), so this is the minimal accessor that generalizes past `trainer`
+       *  being the only non-modal panel today. */
+      panelModal: () => state.panel?.modal !== false,
     };
 
     // The always-on HUD chrome (Stage 3a) — mounted once, updated off the same `state.hud`
@@ -293,7 +312,6 @@ export default {
       party: makePartyDomScreen(app, domLayer),
       inventory: makeInventoryDomScreen(app, domLayer),
       trainer: makeTrainerDomScreen(app, domLayer),
-      battle: makeBattleDomScreen(app, domLayer),
       dialogue: makeDialogueDomScreen(app, domLayer),
     };
 
@@ -354,7 +372,13 @@ export default {
        */
       bus.on('battle:strike', (s2) => {
         if (minimal || config.showcase) return;
-        if (!s2?.name && !s2?.struggle) return;
+        // A swap has no `name`/`struggle` of its own (`strike.js`'s `OPENERS.swap` sets
+        // neither) but does carry `cause: 'swap'` and the switched-in Pokemon's own species on
+        // `attackerSpecies` — the one event this guard used to drop on the floor, so the swap
+        // that fixed the sprite/moves desync (`encounter/index.js`'s `nextAlly`) was invisible
+        // on screen too.
+        const isSwap = s2?.cause === 'swap';
+        if (!s2?.name && !s2?.struggle && !isSwap) return;
         const enc = ctx.get('encounter');
         const sim = ctx.get('simulation');
         const bt = ctx.get('battle');
@@ -372,37 +396,61 @@ export default {
           const lift = (wild ? enc.scene?.()?.headLift : null) ?? (wild ? POKEMON_LIFT : TRAINER_LIFT);
           const ink = !s2.struggle && isLive(bt) && typeof bt.typeColour === 'function'
             ? bt.typeColour(s2.type)?.ink ?? null : null;
-          callouts.say({
-            name: s2.attackerSpecies, move: s2.struggle ? 'Struggle' : s2.name, ink,
-            side: s2.attacker ?? 'a',
-            x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5,
-            y: groundY(speakerAt) + lift + BALLOON_CLEARANCE,
-          });
+          // The player's own Pokemon "use"s a move; the wild "use"s it too, but takes the "s" —
+          // the brief's own two verbs. A swap never happens on the wild's side (nothing here
+          // voluntarily switches out a wild), so it is always the player's own send-out line.
+          callouts.say(isSwap
+            ? { name: `${s2.attackerSpecies}, I choose you!`, side: s2.attacker ?? 'a',
+              x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5, y: groundY(speakerAt) + lift }
+            : {
+              name: s2.attackerSpecies, verb: wild ? 'uses' : 'use', move: s2.struggle ? 'Struggle' : s2.name, ink,
+              side: s2.attacker ?? 'a',
+              x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5,
+              y: groundY(speakerAt) + lift,
+            });
         }
+        if (isSwap) return;
 
         if (targetAt) {
           // Both possible targets are Pokémon (the wild, or the ally the trainer sends out) —
           // never the trainer itself, so this is always `POKEMON_LIFT`, precisely
-          // `scene.headLift` when the target is the wild being fought. Cleared above the
-          // plate by the same margin the balloon uses — the first cut spawned a floater right
-          // on the plate's own lift and it printed straight across the HP bar.
-          const lift = ((s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT) + BALLOON_CLEARANCE;
+          // `scene.headLift` when the target is the wild being fought.
+          const lift = (s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT;
           const at3 = { x: targetAt.cx + 0.5, y: groundY(targetAt) + lift, z: targetAt.cz + 0.5 };
           if (s2.damage > 0) {
             floaters.push({
               text: `-${s2.damage}`, ...at3, scale: s2.crit ? CRIT_FLOATER_SCALE : 1,
-              colour: s2.effectiveness > 1 ? C.roofShadow : s2.effectiveness > 0 && s2.effectiveness < 1 ? C.shadowInk : C.ink,
+              tone: s2.crit ? 'crit' : null,
             });
+            // A second, shorter-lived floater in the same slot above the damage number —
+            // the effectiveness callout ("Super Effective!"/"Not very effective…"), or, when
+            // this very blow is the one that ended the target, "Fainted!" instead. The two
+            // never stack: a fainting blow's effectiveness is old news next to the fact that
+            // the thing it hit is down, so the faint check goes first and wins the slot.
+            if (s2.fainted === s2.target) {
+              floaters.push({
+                text: 'Fainted!', x: at3.x, y: at3.y + 0.35, z: at3.z,
+                tone: 'faint', life: Math.round(FLOATER_STEPS * 1.25),
+              });
+            } else if (s2.effectiveness > 1) {
+              floaters.push({
+                text: 'Super Effective!', x: at3.x, y: at3.y + 0.35, z: at3.z,
+                tone: 'super effectiveness', life: Math.round(FLOATER_STEPS * 0.75),
+              });
+            } else if (s2.effectiveness > 0 && s2.effectiveness < 1) {
+              floaters.push({
+                text: 'Not very effective…', x: at3.x, y: at3.y + 0.35, z: at3.z,
+                tone: 'weak effectiveness', life: Math.round(FLOATER_STEPS * 0.75),
+              });
+            }
           } else if (s2.miss) {
-            floaters.push({ text: 'MISS', ...at3, colour: C.shadowInk });
+            floaters.push({ text: 'MISS', ...at3, tone: 'miss' });
           } else if (s2.immune) {
-            floaters.push({ text: 'IMMUNE', ...at3, colour: C.shadowInk });
+            floaters.push({ text: 'IMMUNE', ...at3, tone: 'miss' });
           } else if (s2.status) {
-            floaters.push({ text: STATUS_NAME[s2.status] ?? s2.status.toUpperCase(), ...at3, colour: C.roofShadow });
+            floaters.push({ text: STATUS_NAME[s2.status] ?? s2.status.toUpperCase(), ...at3, tone: 'status' });
           }
         }
-
-        screen.markDirty();
       }),
       bus.on('encounter:resolved', () => { callouts.clear(); floaters.clear(); screen.markDirty(); }),
       bus.on('economy:changed', () => screen.markDirty()),
@@ -422,34 +470,6 @@ export default {
         if (a && b) evolution.play({ from: a, to: b, shiny: !!shiny });
         screen.markDirty();
       }),
-      /**
-       * The battle card (src/ui/index.js).
-       *
-       * `encounter:started` and not `battle:started`: the engine's event fires from inside
-       * `fight()`, *before* `encounter` has assembled the record the card reads, so a card
-       * opened on it would find nothing. By `encounter:started` the fight is resolved and its
-       * transcript is on `encounter.active()`.
-       *
-       * Three guards, and each one is a bug that would otherwise be invisible:
-       *  - `minimal || config.showcase` — this module is a passenger in every other module's
-       *    showcase, and a card painted over `encounter_12` moves a frame in the regression
-       *    gate that nobody asked to move (tools/shots/shoot.js).
-       *  - `state.panel` — a hunt starts a battle every few seconds. One that shut the shop
-       *    the player was standing in would be unusable.
-       *  - `has()` — an encounter with no battle record (a quarantined `battle`) would open an
-       *    empty card that still owns the panel slot and still suppresses the walk hint.
-       */
-      bus.on('encounter:started', () => {
-        if (minimal || config.showcase || state.panel) return;
-        if (!PANELS.battle.has?.()) return;
-        app.open('battle');
-      }),
-      // `resolve()` clears `active`, so the card has nothing left to read the moment this
-      // fires. Closing it is not a courtesy; it is what stops an empty panel owning the slot.
-      bus.on('encounter:resolved', () => {
-        if (state.panel?.id === 'battle') app.close();
-        else screen.markDirty();
-      }),
       bus.on('tod:changed', ({ phase }) => { hud.onPhase(phase); screen.markDirty(); }),
       // The event, never `summary() != null`: in showcase mode `offline` builds a summary
       // and deliberately does not emit, and a card driven by the getter
@@ -462,23 +482,41 @@ export default {
       }),
     ];
 
-    const onResize = () => { if (screen.resize()) screen.markDirty(); };
+    const onResize = () => { screen.resize(); };
     addEventListener('resize', onResize);
-    const offConfig = config.onChange(() => { onResize(); screen.markDirty(); });
+    const offConfig = config.onChange(onResize);
 
-    // ------------------------------------------------------------------ paint
+    // ------------------------------------------------------------------ HUD chrome that is
+    // screen-anchored rather than world-anchored: no `projectClient`, just ordinary fixed-
+    // position `#ui-dom` children. Both used to be canvas text (`screen.js`); moved onto the
+    // design system along with the world-anchored trio below.
+
     // Two pairs, because the controls are not the same in both kinds of scene: a walkable
     // map is driven, a hunt is watched. `input.canWalk()` picks the pair.
     const HINTS = {
-      walk: ['↑←↓→ or WASD  walk    T  travel    X  menu', 'WASD walk · T travel · X menu'],
-      auto: ['Your Pokémon hunts on its own    T  travel    X  menu', 'T travel · X menu'],
+      walk: '↑←↓→ or WASD  walk    T  travel    X  menu',
+      auto: 'Your Pokémon hunts on its own    T  travel    X  menu',
     };
+    const hintEl = h('div', { class: 'ci-walk-hint', 'data-ui': 'walk-hint', hidden: true });
+    domLayer.host.appendChild(hintEl);
 
-    function drawDebug(g) {
+    function updateHint(bars) {
+      const show = !minimal && bars && !state.economyMode && !state.panel && !input.hasMoved();
+      hintEl.hidden = !show;
+      if (show) setText(hintEl, HINTS[input.canWalk() ? 'walk' : 'auto']);
+    }
+
+    const debugLines = Array.from({ length: 7 }, () => h('div', { class: 'ci-debug-line' }));
+    const debugEl = h('div', { class: 'ci-debug-overlay', 'data-ui': 'debug-overlay', hidden: true }, debugLines);
+    domLayer.host.appendChild(debugEl);
+
+    function updateDebug() {
+      debugEl.hidden = !state.debug;
+      if (!state.debug) return;
       const m = window.__HOOKS__?.metrics?.();
       if (!m) return;
       const down = (m.modules ?? []).filter((s) => s.status === 'failed' || s.status === 'blocked');
-      // **Who is stepping the hunt**, drawn rather than asserted. `encounter` and `idle` were
+      // **Who is stepping the hunt**, shown rather than asserted. `encounter` and `idle` were
       // both running the loop at once and nothing said so; a line in the overlay is a claim the
       // harness photographs on every `?debug=1` capture.
       const idle = ctx.get('idle');
@@ -494,92 +532,65 @@ export default {
         down.length ? `down: ${down.map((d) => d.id).join(' ')}` : `${(m.modules ?? []).length} modules ok`,
         (m.consoleErrors ?? []).length ? `${m.consoleErrors.length} console errors` : 'no console errors',
       ];
-      const w = Math.max(...lines.map((l) => g.measure(l))) + 10;
-      const box = { x: g.width - w - 4, y: 32, w, h: lines.length * 9 + 6 };
-      panel(g, box, { paper: C.wallLight });
       lines.forEach((l, i) => {
         const bad = (i === 5 && down.length) || (i === 6 && (m.consoleErrors ?? []).length);
-        g.text(box.x + 4, box.y + 4 + i * 9, l, bad ? C.roofShadow : C.shadowInk);
+        setText(debugLines[i], l);
+        debugLines[i].classList.toggle('ci-debug-line--bad', !!bad);
       });
     }
 
-    function draw(g) {
-      const s = state.hud;
-      // Before anything is painted: the whole palette is re-lit for the current time of day
-      // (theme.js `applyLight`), so the wallet, the panels and the toasts share the world's
-      // light instead of sitting on top of it at one fixed brightness.
-      if (applyLight(s.tod)) screen.clearTints();
-      // A message box (`dialogue`'s `hidesHud: true`) is the only thing left that stands the
-      // dock/wallet/party chrome down — it occupies the same strip of screen they do, and in
-      // the mainline a message is the only thing on that strip.
+    /**
+     * Syncs the world-anchored trio — plates, balloons, floaters — into `worldLayer`'s three
+     * containers, and the screen-anchored debug overlay/walk hint alongside them. Runs every
+     * `lateFrame` (after the camera rig updates, same reason `plates.read()` already waited for
+     * it), unconditionally rather than gated behind a canvas-style dirty flag: a DOM sync of a
+     * handful of nodes is not the render-budget cost a canvas repaint was, and `syncList`
+     * (`dom/el.js`) already no-ops on anything that has not actually changed.
+     */
+    function drawWorld() {
       const bars = !state.panel?.hidesHud;
       domHud.setBarsVisible(bars);
       chat.setBarsVisible(bars);
-      state.stripBox = null;
-      if (bars && !minimal) {
-        // The dock's real top edge, converted to canvas-buffer coordinates purely so plates
-        // (below) stay clear of it — `toBufferY` is the inverse of `screen.js`'s own `toUi()`.
-        const dockY = toBufferY(domHud.dockTop());
-        if (dockY != null) state.stripBox = { y: dockY };
-      }
-      if (!minimal && bars && !state.economyMode) {
-        if (!input.hasMoved() && !state.panel) {
-          // Centred, with a short fallback for a narrow buffer (426 px at 720p) where the
-          // long string would run off either edge. Simpler than it used to be: wallet, clock,
-          // party and the button strip all left this canvas for `#ui-dom` (Stage 3), so
-          // nothing is left down here for the hint to collide with — the elaborate
-          // party-bar/strip avoidance this replaced was earning its keep against controls
-          // that no longer live on this layer at all.
-          const [long, short] = HINTS[input.canWalk() ? 'walk' : 'auto'];
-          let text = long;
-          let w = g.measure(text);
-          if (w + 16 > g.width) { text = short; w = g.measure(text); }
-          const hx = Math.max(4, Math.min(Math.round(g.width / 2 - w / 2), g.width - w - 4));
-          const hy = g.height - 13;
-          g.fill(hx - 5, hy - 2, w + 10, 11, 'rgba(12,10,16,0.62)');
-          g.text(hx, hy, text, C.wallHi);
-        }
-      }
-      // Every panel is DOM now and draws nothing here — `draw()` is still called on whichever
-      // one is open, because `screens/trainer.js` (and any future screen that wants a live
-      // refresh on the same cadence the world repaints on) uses it as a "the world just
-      // repainted" hook, not because it returns anything to paint.
-      state.panel?.draw(g, app);
-      // Plates first, callouts over them: a name/level/HP plate names who is standing there,
-      // a speech balloon is what that creature just did — the balloon reads as the newer,
-      // louder thing precisely because it is drawn on top.
-      //
+      updateHint(bars);
+      // Every real screen's `draw()` takes no arguments and uses it as a "the world just moved
+      // on" refresh hook (`screens/trainer.js`) — `screen.painter` is still passed through for
+      // the one exception, the font specimen (`ui/showcase.js`'s `installSpecimen`), which
+      // bypasses the normal panel registry to paint straight on the canvas `screen.js` still
+      // owns; every other `draw()` ignores the extra argument harmlessly.
+      state.panel?.draw(screen.painter, app);
       // Suppressed entirely under a `hidesHud` panel, exactly like `bars` above — but `bars`
-      // alone is not the right test here. `travel` and `offline` neither hide the HUD (the
-      // wallet stays up over them on purpose) nor draw a scrim on *this* canvas any more —
-      // both are opaque DOM cards in `#ui-dom`, stacked above this whole layer — and a plate
-      // drawn under either would float over a dimmed background like a lit sign in a
-      // blackout, anywhere on screen. `battle` and `menu` are the only two screens that draw
-      // no scrim at all (a docked card and a column that says outright "the city stays
-      // readable behind it"), so they are the only two a plate may still show around.
+      // alone is not the right test here: every other panel is an opaque DOM card stacked
+      // above the world layer already (`dom/world.js`'s own comment on why it mounts first),
+      // and a plate under one would float over a dimmed background like a lit sign in a
+      // blackout. `menu` is the only one that draws no scrim at all (a column that says
+      // outright "the city stays readable behind it"), so it is the only one a plate may
+      // still show around. A hunt fight itself opens no panel any more — the battle card is
+      // gone (balloons/floaters/the capture tooltip are the whole on-screen account now) — so
+      // plates stay up through a fight exactly the way they do through ordinary walking.
+      // `state.panel.modal === false` (Slice 5: the trainer popup) joins `menu` as a second
+      // exception to "any open panel covers the world" — both leave the world fully visible
+      // and clickable behind them, `menu`'s own transparent scrim and the trainer popup's own
+      // lack of one being two different routes to the same rule.
       const platesShow = !minimal && bars && !state.economyMode
-        && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
-      if (platesShow) {
-        const plateFloor = state.stripBox ? state.stripBox.y : g.height;
-        plates.draw(g, project, state.plates, { bottomLimit: plateFloor, avoid: null });
-      }
-      // Over the world: a callout belongs to a creature, not to the HUD. Toasts (`dom/
-      // toasts.js`) are no longer part of this stacking order at all — their own DOM layer
-      // sits above this whole canvas.
-      callouts.draw(g, project);
-      // Floaters last: the most transient thing on screen, over a balloon if the two ever
-      // land on the same spot.
-      floaters.draw(g, project);
-      if (state.debug) drawDebug(g);
+        && (!state.panel || state.panel.modal === false || state.panel.id === 'menu');
+      plates.draw(worldLayer.plates, projectClient, platesShow ? state.plates : []);
+      callouts.draw(worldLayer.balloons, projectClient);
+      floaters.draw(worldLayer.floaters, projectClient);
+      // Only when nothing else is open, or the open panel declares itself non-modal (the
+      // trainer popup) — a modal panel or economy mode covers the world anyway, and the throw
+      // window's own timing (`encounter/index.js`'s `leaveSteps()`) does not care whether this
+      // happened to be visible for all of it.
+      captureTooltip.update(!minimal && bars && !state.economyMode
+        && (!state.panel || state.panel.modal === false) ? projectClient : null);
+      updateDebug();
     }
 
     // ------------------------------------------------------------------ frame
     let acc = 0;
     function frame(dt) {
-      if (screen.resize()) screen.markDirty();
+      screen.resize();
       input.frame();
-      // Ages and expires the DOM stack directly (`dom/toasts.js`) — no `screen.markDirty()`
-      // needed, since nothing on this canvas depends on toast state any more.
+      // Ages and expires the DOM stack directly (`dom/toasts.js`).
       toasts.step(dt);
       // Ages the encounter feed card the same way (`dom/hud.js`'s own `step`, Stage 3b).
       domHud.step(dt);
@@ -590,55 +601,24 @@ export default {
         // The wallet and the per-hour figures on the economy board, ticked at the same 0.2s
         // cadence as every other HUD poll here — a no-op while the board is not mounted.
         economyMode.step();
-        const next = hud.read();
-        const prev = state.hud;
-        // The party is compared on everything the bar draws, not on the lead's name: a
-        // level-up or a second Pokemon of the same species would otherwise leave the HUD
-        // stale until something unrelated dirtied it. `hp`/`maxHp`/`status` are in
-        // this list for the same reason — a bar that only redrew on name/level/shiny would
-        // hold a fainted member's HP bar full until an unrelated event dirtied the screen.
-        const party = (p) => JSON.stringify(p.party.map((m) => [m.instanceId, m.name, m.level, m.shiny, m.hp, m.maxHp, m.status]));
-        // `domHud.update()` runs on every tick of this poll, diff or not — it is cheap DOM
-        // writes (`dom/el.js`'s `syncList`/`setText`, never a rebuild), and it reflects state
-        // this diff was never written to know about (automation's own on/off, `dom/hud.js`'s
-        // own dock highlight). The diff below still gates `screen.markDirty()` — that one is
-        // still worth it, a canvas repaint being real GPU/CPU work `state.hud` alone doesn't
-        // capture the cost of.
-        state.hud = next;
-        domHud.update(next, { minimal });
-        if (next.tod !== prev.tod
-          || JSON.stringify(next.wallet) !== JSON.stringify(prev.wallet)
-          || party(next) !== party(prev)
-          // The marked slot: mid-fight this swaps the instant `nextAlly` sends a
-          // new member in, on the same 0.2s poll everything else in this snapshot uses.
-          || next.activeId !== prev.activeId
-          // The badge is drawn from `trainer`, so a level-up has to dirty the screen on its
-          // own account: nothing else in this comparison moves when a battle is won.
-          || next.trainer?.level !== prev.trainer?.level
-          || next.trainer?.into !== prev.trainer?.into
-          || state.debug) {
-          screen.markDirty();
-        }
+        // `domHud.update()` runs unconditionally, not diffed against the previous read — it is
+        // cheap DOM writes (`dom/el.js`'s `syncList`/`setText`, never a rebuild), and there is
+        // no canvas-dirty flag left for a diff to gate any more.
+        state.hud = hud.read();
+        domHud.update(state.hud, { minimal });
       }
     }
 
     /**
-     * The paint, moved out of `frame` and run after the camera rig updates
+     * The world-anchor DOM sync, moved out of `frame` and run after the camera rig updates
      * (`core/registry.js`'s `lateFrame`, `src/main.js`'s frame loop) — the same reason
-     * `pokemon/field.js` poses its sprites there rather than in `frame`: a plate projected
+     * `pokemon/field.js` poses its sprites there rather than in `frame`: a plate positioned
      * against last frame's camera trails a moving sprite by exactly one frame of motion, a
      * different sub-pixel offset every time, which reads as the plate swimming.
-     *
-     * A plate follows a sprite that moves every rendered frame, not merely every sim tick, so
-     * `screen.dirty`'s tick-driven model does not fit it — this marks the screen dirty
-     * whenever there is a plate to draw, which is most of the time a scene has anyone standing
-     * in it. Measured against the render budget (tools/shots/shoot.js) rather than assumed: `npm run gate`'s
-     * `boot`/`coldboot`/`regress` stages all read `fps`/`p95` off exactly this cost.
      */
     function lateFrame() {
       state.plates = minimal ? [] : plates.read();
-      if (state.plates.length) screen.markDirty();
-      if (screen.dirty) screen.paint(draw);
+      drawWorld();
     }
 
     live = {
@@ -727,7 +707,7 @@ export default {
       project,
       _frame: frame,
       _lateFrame: lateFrame,
-      _draw: draw,
+      _draw: drawWorld,
       _state: state,
       _minimal: minimal,
       dispose() {

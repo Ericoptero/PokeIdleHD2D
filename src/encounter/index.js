@@ -58,6 +58,7 @@ import {
 } from './tables.js';
 import { runSelfTest, summarise } from './selftest.js';
 import { reportSelfTest } from '../core/log.js';
+import { dirTo } from '../core/dir.js';
 
 /**
  * How many balls may be thrown at one defeated wild.
@@ -363,8 +364,14 @@ export default {
       //. Prefer the measured one and fall back to the authored one.
       const y = isLive(sim) && Number.isFinite(sim.surfaceAt?.(cx, cz))
         ? sim.surfaceAt(cx, cz) : (terrain.height?.(cx, cz) ?? 0);
-      // The wild faces the lead, which is the reverse of the lead's own facing.
-      return { cx, cz, y, dir: (dir + 2) & 3, x: cx + 0.5, z: cz + 0.5 };
+      // **The wild faces the lead** — computed from the true geometry (`dirTo`, core/dir.js)
+      // rather than assumed to be the exact reverse of the lead's own facing. The two only
+      // agree when the lead is looking straight at the staged cell; a slot encounter (the
+      // common case now, `hunts`'s aggro trigger) stages the wild on its own drifted tile,
+      // which is not always dead ahead of whichever way the lead happens to be facing when it
+      // arrives.
+      const faceDir = cell ? dirTo(cx, cz, cell.cx, cell.cz) : (dir + 2) & 3;
+      return { cx, cz, y, dir: faceDir, x: cx + 0.5, z: cz + 0.5 };
     }
 
     async function showWild(enc, at) {
@@ -387,19 +394,19 @@ export default {
     }
 
     /**
-     * How high above a wild Pokemon's feet its "!" balloon hangs.
+     * How high above a wild Pokemon's feet its "!" balloon — and its plate, and the capture
+     * tooltip — hang.
      *
-     * Measured off the actor rather than guessed: `pokemon.sprites.get()` reports the quad's
-     * world height, which is the 32-texel frame over 16 texels per unit and then stretched by
-     * `1/cos(pitch)` (pokemon/sprites.js `frameWorldSize`). The art sits low in its own frame
-     * — the top rows are the clearance a sprite sheet leaves — so the balloon hangs at 0.58 of
-     * the quad rather than on top of it, which is where the reference puts it: overlapping the
-     * head's own airspace, not floating a body-length above it.
+     * Measured off the actor rather than guessed: `pokemon.sprites.get()` now reports
+     * `headLift` straight from `pokemon/sprites.js`'s `headLiftOf()` (the quad's own stretched
+     * height, less the same foot pad `field.js` drops the sprite by), the one true head height
+     * every caller used to guess at with its own fudge factor. `1.62` survives only as the
+     * fallback for a sprite that has not spawned yet.
      */
     function headLiftOf(actorId) {
       const pokemon = ctx.get('pokemon');
       const a = isLive(pokemon) ? pokemon.sprites.get?.(actorId) : null;
-      return Number.isFinite(a?.h) ? a.h * 0.58 : 1.62;
+      return Number.isFinite(a?.headLift) ? a.headLift : 1.62;
     }
 
     function clearWild() {
@@ -434,6 +441,24 @@ export default {
      * animation can honour it, and the outcome — already decided and already on the bus —
      * simply plays out.
      */
+    /**
+     * How long the manual throw window stays open before the wild leaves unattended, in sim
+     * steps. Only a WON fight can throw a ball at all (`attempt()` refuses on anything but
+     * `active.battle.win === true`), so only that case is worth extending — `T.LEAVE` (0.8s)
+     * covers a loss/flee either way. On a win: `T.LEAVE` when Auto-Catch is on — automation
+     * throws well inside that, from its own `battle:ended` handler
+     * (`src/automation/index.js`) — or `config.manualThrowSeconds` (5s) when it is off, so a
+     * human player actually has time to read the capture tooltip (`dom/capture.js`) and choose
+     * before the wild is gone.
+     */
+    function leaveSteps() {
+      if (active?.battle?.win !== true) return T.LEAVE;
+      const auto = ctx.get('automation');
+      const autoCatch = isLive(auto) && typeof auto.isActive === 'function' && auto.isActive('catch');
+      if (autoCatch) return T.LEAVE;
+      return Math.max(T.LEAVE, Math.round((config.manualThrowSeconds ?? 5) * 20));
+    }
+
     function marks(s) {
       // **The throw window opens when the fight ends, and not before.** `fightEndsAt` is
       // `Infinity` while turns are still being stepped, which makes every mark below infinite
@@ -442,7 +467,7 @@ export default {
       const throwAt = Math.max(ready, s.throwAt ?? Infinity);
       // Finite only while no throw has been queued: an order to throw cancels the exit by
       // construction, rather than by a flag that could fall out of step with it.
-      const leaveAt = Number.isFinite(throwAt) ? Infinity : ready + T.LEAVE;
+      const leaveAt = Number.isFinite(throwAt) ? Infinity : ready + leaveSteps();
       const land = throwAt + T.THROW;
       const suck = land + T.SUCK;
       const shakeEnd = suck + Math.max(0, s.shakes) * T.SHAKE;
@@ -586,6 +611,11 @@ export default {
         // hard-coding `'none'` — so the 2.5x sleep and 1.5x paralysis bonuses in `catchOdds`
         // were unreachable from the one place a ball is ever thrown.
         enc.wildStatus = st.b.status ?? 'none';
+        // **The last word on whoever is left in the `a` slot.** `nextAlly` (`openDuel`) already
+        // snapshots anyone who fainted and was swapped out; this is the other half — the
+        // member still standing when the fight ends (a win, a loss, or a stall) never triggers
+        // `nextAlly` at all, so nothing would otherwise record its true final hp/status/PP.
+        if (st.a?.instanceId) duel.snapshots?.set(st.a.instanceId, st.a);
         writeBack(duel);
       } else {
         enc.battle.win = duel?.win ?? false;
@@ -625,9 +655,7 @@ export default {
         // `battle:strike`, one per beat and never two in the same tick, so the
         // VFX, the callout and the card all read one seam.
         tickDuel(step);
-        // The wild squares up: a slow breath in place, so a fight reads as two creatures and
-        // not as two stills. The phase is the sim step, so a frozen frame is reproducible.
-        moveWild({ y: at.y + Math.abs(Math.sin(step / 9)) * 0.12, visible: true, scale: 1 });
+        moveWild({ y: at.y, visible: true, scale: 1 });
         if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
         /**
          * **The blow, drawn between the two creatures that are standing there.**
@@ -670,7 +698,7 @@ export default {
           moveWild({ y: at.y, visible: true, scale: 1 });
           if (s.shiny) sprite.shimmer(at, step); else sprite.hide();
           // **No "!" balloon.** What says "you may throw now" is the beaten wild's own plate,
-          // whose bar is on the floor, and the battle card's throw prompt.
+          // whose bar is on the floor, and the capture tooltip's own prompt.
           s.stage = 'ready';
         }
       } else if (step < m.land) {
@@ -816,9 +844,18 @@ export default {
         return null;
       }
       const reach = Math.max(0, Number(config.slotEngageTiles ?? 2));
+      // **Against the wild's own live position, not the slot's authored one.** It drifts a
+      // tile around its tether (`hunts/index.js`'s own `tether: {radius: 1}`), and "the
+      // trainer's Pokemon physically reaches a living wild" (the brief's own words) means the
+      // creature standing there right now — the same live lookup `ui/plates.js`'s
+      // `wanderingPlates()` and the aggro walk (`hunts/index.js`'s own `bfsPath` trigger)
+      // already use, so all three agree on where contact actually happens.
+      const sim = ctx.get('simulation');
+      const npcs = isLive(sim) && typeof sim.npcs === 'function' ? sim.npcs() : [];
       for (const s2 of hunts.slots()) {
         if (!s2.occupied) continue;
-        if (Math.max(Math.abs(s2.cx - cx), Math.abs(s2.cz - cz)) <= reach) return s2;
+        const live = npcs.find((n) => n.id === s2.npcId) ?? s2;
+        if (Math.max(Math.abs(live.cx - cx), Math.abs(live.cz - cz)) <= reach) return s2;
       }
       return null;
     }
@@ -910,7 +947,7 @@ export default {
       const pokemon = ctx.get('pokemon');
       const walkover = (win) => ({
         engine: false, run: null, ally: null, wild: null,
-        win, turns: 0, transcript: [], hpFraction: win ? 0 : 1, fought: [],
+        win, turns: 0, transcript: [], hpFraction: win ? 0 : 1, snapshots: new Map(),
       });
       if (!isLive(bt) || typeof bt.stepper !== 'function' || !isLive(pokemon)) {
         return walkover((lead?.level ?? topLevel()) >= (enc.level ?? 5));
@@ -932,19 +969,54 @@ export default {
       });
 
       /**
-       * Everyone who has actually stood in the fight, so the writeback covers a swapped-in
-       * member and not only the one that started. Keyed by `instanceId`, because that is the
-       * one field on an instance that is minted once and never recomputed (src/pokemon/index.js).
+       * The live HP/PP/status **every** party member actually ended the fight with, keyed by
+       * `instanceId` — the one field on an instance that is minted once and never recomputed
+       * (src/pokemon/index.js). `writeBack` reads this instead of the combatant objects handed
+       * to `bt.stepper()`: those are the *starting* snapshots (`combatantOf()`'s own return
+       * value) and `battle/engine.js` never mutates them — every turn clones a fresh `state.a`/
+       * `state.b` (`cloneSide`) and reassigns, so a plain `[ally, ...swapped-in]` array frozen
+       * at each member's OWN entry would forever read as that member's HP when it stepped in,
+       * never what the fight actually did to it. Two moments give the true final value for
+       * everyone who was ever `state.a`: the instant before a fainted one is swapped out
+       * (`nextAlly(state)` below — the engine calls it with `state.a` still the fainted
+       * member, hp and all) and the instant the whole fight ends (`endFight()`, `state.a` is
+       * whoever is left standing, or the last one tried against a stall/loss).
        */
-      const fought = [ally];
+      const snapshots = new Map();
       const sent = new Set([lead.instanceId]);
+      /**
+       * The duel object `openDuel` is about to return, made visible to `nextAlly` before it
+       * exists as a return value. `nextAlly` is a closure defined here, inside `openDuel`, but
+       * it only ever RUNS later — once `bt.stepper()` has been handed it below and a turn
+       * actually faints somebody — which is after `openDuel` has already returned its result to
+       * `begin()`/`resolveFight()`. So there is nothing for `nextAlly` to call `writeBackOne`
+       * against unless this module keeps its own handle on the object it is building, set once,
+       * right before `return`.
+       */
+      let duelHandle = null;
 
       /**
        * The next party member that can still fight. Party order for now; the API puts
        * the matchup rule behind the same hook, so Auto-Lead replaces this function and nothing
        * else moves.
        */
-      function nextAlly() {
+      function nextAlly(state) {
+        // The member `state.a` names here is the one that just fainted — record its true
+        // final state (hp 0, whatever status/PP it ended with) before it is discarded. This is
+        // the ONLY place that HP is ever observed, so a swap that never checked in here would
+        // leave that member's write-back reading its starting HP, undoing its own faint.
+        if (state?.a?.instanceId) {
+          snapshots.set(state.a.instanceId, state.a);
+          // **Landed on `pokemon.party()` the instant the swap happens, not at `endFight()`.**
+          // `writeBack(duel)` used to run exactly once, at the very end of the whole battle, so
+          // a member that fainted and was swapped out here sat in `duel.snapshots` — correct,
+          // and completely unread — until the fight finished. Meanwhile `ui/hud.js`'s `read()`
+          // only overlays live-combatant hp onto whichever member is `state.a` *right now*, so
+          // the fainted member's HUD row kept showing its last-written (pre-fight, full) hp for
+          // the rest of the fight. `writeBackOne` against the outgoing member's own instanceId
+          // closes that gap the moment it opens.
+          writeBackOne(duelHandle, state.a.instanceId);
+        }
         if (typeof pokemon.conscious !== 'function') return null;
         // Only members that can still fight AND have not already been out. The second half is
         // what stops a duel cycling one Pokemon back in after it faints.
@@ -974,9 +1046,18 @@ export default {
           who = bench.find((m) => m.instanceId === want) ?? bench[0];
         }
         sent.add(who.instanceId);
-        const c = combatantOf(who);
-        fought.push(c);
-        return c;
+        // **The party record follows the swap the instant it happens, not after the whole
+        // encounter resolves.** Until this call, `pokemon.lead()` — and everything keyed off
+        // it: the field sprite (`simulation.rebuildMembers()`), the nameplate name/shiny star
+        // (`ui/plates.js`), the balloon speaker — kept showing the fainted leader for the rest
+        // of the fight while the engine was already acting on (and choosing moves for) whoever
+        // just stepped in. `resolve()`'s own end-of-encounter re-pick (further down this file)
+        // is a safety net for the case nothing here already fixed, not the primary path any
+        // more.
+        const party = typeof pokemon.party === 'function' ? pokemon.party() : [];
+        const idx = party.findIndex((m) => m.instanceId === who.instanceId);
+        if (idx > 0 && typeof pokemon.setLead === 'function') pokemon.setLead(idx);
+        return combatantOf(who);
       }
 
       /**
@@ -1022,38 +1103,64 @@ export default {
         : null;
 
       const run = bt.stepper(ally, wild, seed, enc.index, { nextAlly, between });
-      return { engine: true, run, ally, wild, fought, win: null, turns: 0, transcript: [], hpFraction: 1 };
+      duelHandle = { engine: true, run, ally, wild, snapshots, win: null, turns: 0, transcript: [], hpFraction: 1 };
+      return duelHandle;
     }
 
     /**
-     * Writes back what the fight cost, through `pokemon`'s published API.
+     * Writes back what one member's own snapshot says the fight cost it, through `pokemon`'s
+     * published API — the ledger of HP and PP belongs to the creature's owner, not to the
+     * module that staged the encounter.
      *
-     * The ledger of HP and PP belongs to the creature's owner, not to the module that staged
-     * the encounter — and it covers **every member that was sent out**, not just the lead, now
-     * that a faint swaps rather than ending the duel.
+     * Reads `duel.snapshots.get(instanceId)` — the live per-`instanceId` state `openDuel`'s
+     * `nextAlly` and `endFight` (below) record as the fight actually happens — rather than the
+     * combatant objects `bt.stepper()` was originally handed. Those never change: `battle/
+     * engine.js` clones a fresh `state.a`/`state.b` every turn (`cloneSide`) and never mutates
+     * its input, so a snapshot frozen at "what this member looked like when it stepped in"
+     * reads as that member's STARTING hp forever — which is exactly why the party used to come
+     * out of every hunt fight undamaged, no matter what happened inside it.
+     *
+     * Split out of `writeBack(duel)` below so `nextAlly` can call it on ONE instance — the
+     * member it is swapping out — the instant that swap happens, rather than wait for
+     * `writeBack`'s own once-per-fight call at `endFight()`. Waiting until then is what left a
+     * fainted, swapped-out member's `pokemon.party()` record (and therefore its HUD row,
+     * `ui/hud.js`'s `read()` only overlays live-combatant hp onto whoever is `state.a` right
+     * now) reading its pre-fight, full hp for the rest of the fight it had already lost.
      */
-    function writeBack(duel) {
+    function writeBackOne(duel, instanceId) {
       const pokemon = ctx.get('pokemon');
       if (!duel?.engine || !isLive(pokemon)) return;
+      const c = duel.snapshots?.get(instanceId);
+      if (!c) return;
       const party = typeof pokemon.party === 'function' ? pokemon.party() : [];
-      for (const c of duel.fought ?? []) {
-        const inst = party.find((m) => m.instanceId === c.instanceId);
-        if (!inst) continue;
-        const lost = Math.max(0, inst.hp - c.hp);
-        if (lost > 0 && typeof pokemon.damage === 'function') pokemon.damage(inst.instanceId, lost);
-        else if (c.hp > inst.hp && typeof pokemon.heal === 'function') {
-          // An item was used mid-fight. Heal by the difference rather than setting HP, so the
-          // instance stays the authority on its own maximum.
-          pokemon.heal(inst.instanceId, { hp: c.hp - inst.hp, status: false, revive: c.hp > 0 && inst.hp <= 0 });
-        }
-        if (Array.isArray(inst.moves)) {
-          for (const slot of inst.moves) {
-            const spent = c.moves.find((m) => m.id === slot.id);
-            if (spent) slot.pp = Math.max(0, Math.min(slot.maxPp ?? spent.maxPp, spent.pp));
-          }
-        }
-        if (c.status !== undefined) inst.status = c.status;
+      const inst = party.find((m) => m.instanceId === c.instanceId);
+      if (!inst) return;
+      const lost = Math.max(0, inst.hp - c.hp);
+      if (lost > 0 && typeof pokemon.damage === 'function') pokemon.damage(inst.instanceId, lost);
+      else if (c.hp > inst.hp && typeof pokemon.heal === 'function') {
+        // An item was used mid-fight. Heal by the difference rather than setting HP, so the
+        // instance stays the authority on its own maximum.
+        pokemon.heal(inst.instanceId, { hp: c.hp - inst.hp, status: false, revive: c.hp > 0 && inst.hp <= 0 });
       }
+      if (Array.isArray(inst.moves)) {
+        for (const slot of inst.moves) {
+          const spent = c.moves.find((m) => m.id === slot.id);
+          if (spent) slot.pp = Math.max(0, Math.min(slot.maxPp ?? spent.maxPp, spent.pp));
+        }
+      }
+      if (c.status !== undefined) inst.status = c.status;
+    }
+
+    /**
+     * Writes back what the fight cost **every** member it sent out, through `pokemon`'s
+     * published API — a thin loop over `writeBackOne` above, kept as its own entry point
+     * because `endFight()` (below) still wants "every snapshot, in one call" for whoever is
+     * left standing when the fight resolves, which is the one snapshot `nextAlly` never took
+     * because nothing swapped it out.
+     */
+    function writeBack(duel) {
+      if (!duel?.engine) return;
+      for (const c of duel.snapshots?.values() ?? []) writeBackOne(duel, c.instanceId);
     }
 
     /**
@@ -1119,6 +1226,16 @@ export default {
       const at = stageCell(enc.slotCell ?? null);
       const sim = ctx.get('simulation');
       const trainer = isLive(sim) ? sim.player?.() : null;
+      // **Mutual facing, once, at the moment the fight is staged.** The wild already turned to
+      // face the lead inside `stageCell()`; this is the other half — the party's own lead
+      // turns to face the wild's staged cell, so the fight opens with both sides looking at
+      // each other instead of the lead still facing whichever way the walk happened to leave
+      // it. A stationary turn (`line.turn`, `simulation.face`), not a step — the battle is
+      // staged where everyone already stands.
+      if (isLive(sim) && typeof sim.face === 'function' && typeof sim.followerCell === 'function') {
+        const lead = sim.followerCell();
+        if (lead) sim.face(dirTo(lead.cx, lead.cz, at.cx, at.cz));
+      }
       scene = {
         step: 0, stage: 'meet', at, wildActor: 0, coverY: coverHeightAt(at.cx, at.cz),
         /**
@@ -1327,15 +1444,20 @@ export default {
 
       // **The experience a won fight is worth, finally paid to the Pokemon that won it.**
       // `source: 'hunt'` is what lets the evolution it may unlock be taken at all — the rule
-      // lives at one point, in `pokemon.grantExp`.
+      // lives at one point, in `pokemon.grantExp`. Kept outside the `if` (defaulting to 0) so
+      // `encounter:resolved`'s own payload can carry the REAL amount granted — a different,
+      // smaller number than `rewards.exp` (`rewardsFor()`'s own generic scaled figure, used
+      // for the money/XP chip today) — for the drop tooltip's Pokémon-XP line to read
+      // (`ui/dom/feed.js`).
       const pokemon = ctx.get('pokemon');
       const bt = ctx.get('battle');
+      let pokemonExp = 0;
       if (win && isLive(pokemon) && typeof pokemon.grantPartyExp === 'function') {
         const wild = enc.sheet ?? pokemon.species?.(enc.species);
-        const gained = isLive(bt) && typeof bt.expYield === 'function' && wild
+        pokemonExp = isLive(bt) && typeof bt.expYield === 'function' && wild
           ? bt.expYield(wild.baseExp, enc.level)
           : Math.max(1, Math.round((enc.level ?? 5) * 6));
-        pokemon.grantPartyExp(gained, { source: 'hunt' });
+        pokemon.grantPartyExp(pokemonExp, { source: 'hunt' });
       }
 
       // **A fainted lead steps aside, and a fainted party loses the hunt.**
@@ -1365,11 +1487,11 @@ export default {
         });
         if (loot.length && isLive(economy) && typeof economy.give === 'function') {
           for (const drop of loot) economy.give(drop.id, drop.n, 'drop');
+          // The one drop summary is the encounter feed card (`ui/dom/feed.js`, listening for
+          // this same event) — a second, item-only "Found …" toast duplicated it and was the
+          // one the user asked removed; the feed card is index-correlated and richer (XP,
+          // gold, pity), so it is the summary kept.
           bus.emit('drop:collected', { items: loot, index: enc.index });
-          if (!config.showcase) {
-            const named = loot.map((d) => `${d.n}× ${economy.item?.(d.id)?.name ?? d.id}`).join(', ');
-            bus.emit('ui:toast', { text: `Found ${named}`, kind: 'good' });
-          }
         }
       }
 
@@ -1379,7 +1501,7 @@ export default {
       if (isLive(sim) && typeof sim.pause === 'function') sim.pause(false);
 
       bus.emit('encounter:resolved', {
-        outcome, species: enc.species, rewards,
+        outcome, species: enc.species, rewards, pokemonExp,
         caught: !!caught, ball, level: enc.level, shiny: enc.shiny,
         biome: enc.biome, index: enc.index, turns: enc.turn,
       });

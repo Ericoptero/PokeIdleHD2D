@@ -65,6 +65,19 @@ export const CAVE = {
    * it matters twice over, because the rooms are joined by corridors and a corridor a party
    * files *up* is a corridor the camera sees one sprite in.
    */
+  /**
+   * The authored circuit (`hunts/index.js`'s `authoredLoop`, `stitchLoop` in `compose.js`):
+   * mouth -> terrace -> gallery -> chamber, closing back to mouth.
+   *
+   * `mouth`, `gallery` and `terrace` all sit within a few cells of the hall, so their cyclic
+   * order matters — measured on the seed-1337 draft, not guessed. The plan's starting guess,
+   * `mouth -> gallery -> chamber -> terrace`, walks its `chamber -> terrace` leg back through
+   * `(21,38)`, a cell the `mouth -> gallery` leg already used, and `stitchLoop` rejects the
+   * revisit (R9). Reversing the middle two legs to `mouth -> terrace -> gallery -> chamber`
+   * routes around the hall instead of back across it and stitches clean: 22 cells, 6 corners,
+   * and `slotsForLoop` seats 8 of 9 shoulders on it.
+   */
+  loop: { via: ['mouth', 'terrace', 'gallery', 'chamber'] },
 };
 
 /** A rounded room. Rooms plus the corridors between them is a cave; noise is a sponge. */

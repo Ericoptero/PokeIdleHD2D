@@ -33,7 +33,8 @@
  */
 
 import {
-  Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff, mulTint, litAt, findLoop, slotsForLoop } from './compose.js';
+  Field, valueNoise, fbm2, scatterSpaced, ellipseFalloff, mulTint, litAt, findLoop, slotsForLoop,
+  stitchLoop, isClosedWalk } from './compose.js';
 import { makeRng } from '../core/rng.js';
 import terrainModule from '../terrain/index.js';
 import { BIOMES } from './index.js';
@@ -64,6 +65,78 @@ function check(name, cond, detail = '') {
   return false;
 }
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
+
+/** `core/dir.js`'s numbers: 0 south, 1 west, 2 north, 3 east — spelled out locally, as the
+ *  existing `findLoop` fixture below already does, rather than reaching into `core/dir.js`. */
+const RING_DX = [0, -1, 0, 1];
+const RING_DZ = [1, 0, -1, 0];
+
+/** Parses a `'e8 s2 ...'` route string (`routeOf`'s spelling) back into a list of 4-way dirs. */
+function parseRouteDirs(route) {
+  const L = { s: 0, w: 1, n: 2, e: 3 };
+  const dirs = [];
+  for (const m of route.matchAll(/([nsew])\s*(\d*)/g)) {
+    const n = m[2] ? parseInt(m[2], 10) : 1;
+    for (let i = 0; i < n; i++) dirs.push(L[m[1]]);
+  }
+  return dirs;
+}
+
+/**
+ * Every invariant a stitched ring (`stitchLoop`'s return) has to hold, re-derived independently
+ * rather than trusted — the same discipline the `findLoop` fixture below already applies:
+ * `isClosedWalk` is the checker `stitchLoop` itself used to accept the ring, called again here
+ * directly; unit 4-directional steps and real passability are then re-derived by hand so a
+ * regression in `isClosedWalk` itself would still be caught; the route string is parsed back
+ * into dirs and walked from `start` to confirm the round trip; and `slotsForLoop` is asked to
+ * place shoulders on the result, each one pinned at exactly Chebyshev 2 off the path.
+ */
+function checkStitchedRing(label, draft, ring, { straightLead = 4, minSlots = 1, slotSeed = 'ring-slots' } = {}) {
+  check(`${label}: satisfies isClosedWalk`, isClosedWalk(draft, ring.cells));
+
+  let bad = 0;
+  for (let i = 0; i < ring.cells.length; i++) {
+    const p = ring.cells[i]; const q = ring.cells[(i + 1) % ring.cells.length];
+    const dx = q.cx - p.cx; const dz = q.cz - p.cz;
+    if (Math.abs(dx) + Math.abs(dz) !== 1) { bad++; continue; }
+    const dir = dx === 1 ? 3 : dx === -1 ? 1 : dz === 1 ? 0 : 2;
+    if (!draft.passable(q.cx, q.cz, dir)) bad++;
+  }
+  check(`${label}: every step is a unit 4-way step, passable in the direction of travel`,
+    bad === 0, `${bad} bad steps`);
+
+  const seen = new Set(ring.cells.map((c) => `${c.cx},${c.cz}`));
+  check(`${label}: visits no cell twice`, seen.size === ring.cells.length,
+    `${ring.cells.length} cells, ${seen.size} distinct`);
+
+  const dOf = (p, q) => (q.cx > p.cx ? 3 : q.cx < p.cx ? 1 : q.cz > p.cz ? 0 : 2);
+  const n = ring.cells.length;
+  const dir0 = dOf(ring.cells[0], ring.cells[1]);
+  let lead = 0;
+  while (lead < straightLead
+    && dOf(ring.cells[lead % n], ring.cells[(lead + 1) % n]) === dir0) lead++;
+  check(`${label}: opens on a straight at least straightLead long`, lead >= straightLead, `lead ${lead}`);
+
+  const dirs = parseRouteDirs(ring.route);
+  check(`${label}: parseRoute(route).length === cells.length`, dirs.length === ring.cells.length,
+    `${dirs.length} steps, ${ring.cells.length} cells`);
+  let wx = ring.start.cx; let wz = ring.start.cz; let walkBad = 0;
+  for (const d of dirs) {
+    const nx = wx + RING_DX[d]; const nz = wz + RING_DZ[d];
+    if (!draft.passable(nx, nz, d)) walkBad++;
+    wx = nx; wz = nz;
+  }
+  check(`${label}: walking the route round-trips back to start`,
+    walkBad === 0 && wx === ring.start.cx && wz === ring.start.cz,
+    `${walkBad} blocked, ends ${wx},${wz} want ${ring.start.cx},${ring.start.cz}`);
+
+  const slots = slotsForLoop(draft, ring.cells, makeRng(1337, slotSeed), { count: 9 });
+  check(`${label}: slotsForLoop places a reasonable number of slots`, slots.length >= minSlots,
+    `${slots.length}`);
+  const dist = (s2) => Math.min(...ring.cells.map((c) => Math.max(Math.abs(c.cx - s2.cx), Math.abs(c.cz - s2.cz))));
+  check(`${label}: every slot is EXACTLY two cells off the path`,
+    slots.every((s2) => dist(s2) === 2), slots.map(dist).join(','));
+}
 
 // ------------------------------------------------------------------ region algebra
 
@@ -305,6 +378,15 @@ const quietLog = { info() {}, warn() {}, error() {} };
 /** The two biomes round 7 gave a practical to — see the block inside the loop. */
 const LIT_BIOMES = new Set(['forest', 'meadow']);
 
+// Tallied across the biome loop below and printed once at the end, because whether an authored
+// `loop.via` stitches here is a property of the STUB tileset's collision, not of the descriptor —
+// this file's own header already documents that a stub footprint can seal a passage the real
+// pack leaves open. A biome falling back is not this file's failure; a biome with no loop at all
+// (below) would be.
+let authoredStitchedCount = 0;
+let authoredFallbackCount = 0;
+const authoredFallbacks = [];
+
 for (const biome of BIOMES) {
   const tiles = stubTiles();
   const ctxStub = { get: (id) => (id === 'tiles' ? tiles : { __missing: true }), rng: makeRng(1337, 'selftest') };
@@ -472,6 +554,70 @@ for (const biome of BIOMES) {
     JSON.stringify(wild.filter((c) => !a.draft.passable(c.cx, c.cz, 2)).slice(0, 3)));
   check(`${biome.id}: the wild cells are the same from the same seed`,
     JSON.stringify(wild) === JSON.stringify(b.report?.wild ?? []));
+
+  // -------------------------------------------------- the authored circuit (`loop.via`)
+  //
+  // Mirrors `hunts/index.js`'s own `authoredLoop`: resolve every named marker on the built
+  // draft, then `stitchLoop` a ring through them in order. Marker *existence* is a property of
+  // the biome's own `build()`, not of the tileset, so a missing marker is a hard failure here.
+  // Whether the ring itself *stitches* depends on collision this file's stub tileset produces,
+  // which this file's own header already says can differ from the real pack (a stub footprint
+  // can seal a passage the real pack leaves open) — so a failure to stitch is counted and
+  // logged rather than failed, and `authoredLoop(...) ?? findLoop(...)` is mirrored below to
+  // assert only that SOME loop comes out the other end, exactly as `hunts/index.js` does.
+  if (Array.isArray(biome.loop?.via)) {
+    const via = biome.loop.via;
+    const missing = via.filter((name) => !a.draft.marker(name));
+    check(`${biome.id}: every authored via-marker resolves on the built draft`, missing.length === 0,
+      `missing: ${missing.join(', ') || 'none'} (has: ${[...a.draft.markers.keys()].join(', ')})`);
+
+    if (missing.length === 0) {
+      const resolvePoints = (draft) => via.map((name) => {
+        const m = draft.marker(name);
+        return { cx: m.cx, cz: m.cz };
+      });
+      const tryStitch = (draft) => {
+        let reason = null;
+        const ring = stitchLoop(draft, resolvePoints(draft), {
+          straightLead: 4, preferTags: ['path', 'tallgrass'], margin: 11,
+          onLegFailed: (info) => {
+            reason = `leg ${via[info.index]}(${info.from.cx},${info.from.cz}) -> `
+              + `${via[(info.index + 1) % via.length]}(${info.to.cx},${info.to.cz}) would not stitch`;
+          },
+          onReject: (r) => { reason = r; },
+        });
+        return { ring, reason };
+      };
+
+      const ra = tryStitch(a.draft);
+      const rb = tryStitch(b.draft);
+
+      if (ra.ring) {
+        authoredStitchedCount++;
+        checkStitchedRing(`${biome.id}: authored circuit`, a.draft, ra.ring,
+          { straightLead: 4, minSlots: 1, slotSeed: `selftest/authored-slots/${biome.id}` });
+        check(`${biome.id}: the authored circuit is deterministic (seed 1337 twice -> identical route)`,
+          !!rb.ring && rb.ring.route === ra.ring.route,
+          rb.ring ? `"${ra.ring.route}" vs "${rb.ring.route}"` : `second build fell back (${rb.reason})`);
+      } else {
+        authoredFallbackCount++;
+        authoredFallbacks.push(`${biome.id} (${ra.reason})`);
+      }
+
+      // Whatever happened above, the biome still has to end up with SOME loop, authored or
+      // found — the actual `authoredLoop(...) ?? findLoop(...)` chain `hunts/index.js` runs.
+      const preferred = biome.presets?.[biome.showcaseDefault]?.marker;
+      const anchors = [...a.draft.markers.entries()]
+        .sort(([x], [y]) => (x === preferred ? -1 : y === preferred ? 1 : 0))
+        .map(([, m]) => m);
+      anchors.push(a.draft.spawn);
+      const finalLoop = ra.ring ?? findLoop(a.draft, anchors, {
+        min: 6, max: 22, margin: 11, corners: 12, depth: 3, preferTags: ['path', 'tallgrass'],
+        straightLead: 4, rng: makeRng(1337, `selftest/loopfallback/${biome.id}`),
+      });
+      check(`${biome.id}: some loop (authored or found) is produced for this build`, !!finalLoop);
+    }
+  }
 
   // The party has to be able to reach the map from the spawn; a walled-in spawn is the one
   // failure that looks completely fine in a screenshot and is unplayable.
@@ -703,6 +849,31 @@ function floodFrom(draft, cx, cz) {
       }));
   }
 
+  // ---------------------------------------------------------------------------
+  // stitchLoop: an authored circuit through hand-picked waypoints, same room + pillar
+  // ---------------------------------------------------------------------------
+  // Independent of the four real biomes below and of the `findLoop` fixture just above: four
+  // waypoints placed by hand around the pillar, stitched with `stitchLoop` the way a biome's
+  // own `loop.via` is stitched in `hunts/index.js`'s `authoredLoop`. This is a hand-built room
+  // with REAL collision, not a stub-tileset draft, so there is no "the real pack might disagree"
+  // escape hatch here — every invariant is a hard failure.
+  {
+    const waypoints = [
+      { cx: 4, cz: 4 }, { cx: 19, cz: 4 }, { cx: 19, cz: 15 }, { cx: 4, cz: 15 },
+    ];
+    const authored = stitchLoop(room, waypoints, { straightLead: 4, margin: 1 });
+    check('stitchLoop finds a ring through hand-picked waypoints', !!authored,
+      authored ? `${authored.cells.length} cells` : 'none');
+    if (authored) {
+      check('the authored ring is stamped with its provenance', authored.source === 'authored',
+        String(authored.source));
+      check('the authored ring steps around the pillar, not through it',
+        !authored.cells.some((c) => c.cx >= 10 && c.cx < 14 && c.cz >= 8 && c.cz < 12));
+      checkStitchedRing('authored ring (hand-built room)', room, authored,
+        { straightLead: 4, minSlots: 4, slotSeed: 'authored-slots' });
+    }
+  }
+
   // --- corners: configurable, and closure survives every one of them ------
   // The rectangle is the floor. Each bend displaces a straight run sideways, which cannot open
   // the ring because it replaces a path between two cells with another path between the same
@@ -758,6 +929,13 @@ function floodFrom(draft, cx, cz) {
   const solid = new MapDraft({ id: 'solid', w: 20, h: 20, seed: 1 });
   check('a map with no walkable ring reports no loop', findLoop(solid, { cx: 10, cz: 10 }, { margin: 1 }) === null);
 }
+
+console.log(`  (info) authored circuits (loop.via): ${authoredStitchedCount} stitched, `
+  + `${authoredFallbackCount} fell back to findLoop against this file's stub tileset`
+  + (authoredFallbacks.length ? ` — ${authoredFallbacks.join('; ')}` : '')
+  + ' (a fallback here is not a failure: the stub tileset can seal a passage the real pack '
+  + 'leaves open — see the file header. What is asserted is that a loop, authored or found, '
+  + 'still comes out for every biome.)');
 
 const total = passed + failed;
 if (failed) for (const f of fails) console.log(`  ✗ ${f}`);

@@ -17,7 +17,7 @@
  */
 
 import { SpriteAtlas } from './atlas.js';
-import { FOOT_PAD_TEXELS, TEXELS_PER_UNIT, frameWorldSize, pokemonCycle, trainerCycle } from './sprites.js';
+import { FOOT_PAD_TEXELS, TEXELS_PER_UNIT, frameWorldSize, headLiftOf, pokemonCycle, trainerCycle } from './sprites.js';
 
 /** Soft round shadow, generated once. A ring of stops keeps the falloff from banding. */
 function makeBlobTexture(THREE) {
@@ -275,7 +275,19 @@ export class SpriteField {
     }
   }
 
-  get(id) { return this.actors.get(id) ?? null; }
+  /**
+   * `headLift` is derived, not stored: `headLiftOf(a.frameTexels, this._pitch, a.scale)` is
+   * cheap and it is the one true source (`sprites.js`), so a fresh read here can never drift
+   * from `a.h`/`a.scale` the way a field cached at `add()`/`set()` time would the moment
+   * `update()`'s own pitch-change branch re-derives `h` without anyone remembering to also
+   * patch a third copy of this math. It stays in raw world units — never multiplied by
+   * `update()`'s pixel-grid magnification `k` — so it reads the same regardless of camera zoom.
+   */
+  get(id) {
+    const a = this.actors.get(id);
+    if (!a) return null;
+    return { ...a, headLift: headLiftOf(a.frameTexels, this._pitch, a.scale) };
+  }
   remove(id) { this.actors.delete(id); }
   clear() { this.actors.clear(); this.mesh.count = 0; this.blobs.count = 0; }
   count() { return this.actors.size; }

@@ -21,9 +21,10 @@
  *   T travel  P party   B shop   C boxes   I bag   4 dex   R trainer   M menu   `  debug overlay
  * ```
  *
- * `Z`/`Space` swap meaning the instant a panel is open: `onKeyDown`'s panel branch routes them
- * to that panel's own `key(ev)` first (a dialogue's advance, a battle card's throw) — interact
- * only ever fires with no panel open, so the two never race for the same press.
+ * `Z`/`Space` swap meaning the instant a panel is open, or the post-battle capture tooltip is
+ * up: `onKeyDown` routes them to the tooltip first (`app.captureKey`, `dom/capture.js`), then
+ * to the open panel's own `key(ev)` (a dialogue's advance) — interact only ever fires with
+ * neither present, so the three never race for the same press.
  *
  * The event is generic — the faced cell's tags, not a fixed list of "things you can talk to" —
  * on purpose: the input bus lets `pokecenter` gets to react to it without this file knowing
@@ -61,7 +62,7 @@ export const MOVE_KEYS = new Map([
  */
 export const PANEL_IDS = Object.freeze([
   'menu', 'travel', 'offline', 'shop', 'boxes', 'dex', 'automation', 'party', 'inventory',
-  'trainer', 'battle', 'dialogue', 'settings',
+  'trainer', 'dialogue', 'settings',
 ]);
 
 export const PANEL_KEYS = new Map([
@@ -163,12 +164,21 @@ export function makeInput({ ctx, app }) {
 
     if (code === 'Backquote') { app.toggleDebug(); ev.preventDefault(); return; }
 
+    // The post-battle capture tooltip (`dom/capture.js`) is not a panel — it floats over the
+    // world with nothing else open — so it gets first refusal on `Z`/`Space` ahead of the
+    // panel gate below, the same priority the old battle card's own keybind had while it was
+    // the open panel.
+    if (app.captureKey(ev)) { ev.preventDefault(); return; }
+
     // A panel swallows movement: walking blind behind a full-frame shop is the classic bug.
+    // The one exception is a panel that declares itself non-modal (`app.panelModal()`, today
+    // only the trainer popup, Slice 5): the world stays visible and walkable behind it by
+    // design, so an unhandled key falls through to the rest of this chain below — movement,
+    // interact, chat — instead of being swallowed here the way a modal panel's is.
     if (app.panelOpen()) {
-      clear();
-      if (app.panelKey(ev)) { ev.preventDefault(); return; }
-      if (code === 'Escape' || code === 'KeyX') { app.close(); ev.preventDefault(); return; }
-      return;
+      if (app.panelKey(ev)) { clear(); ev.preventDefault(); return; }
+      if (code === 'Escape' || code === 'KeyX') { clear(); app.close(); ev.preventDefault(); return; }
+      if (app.panelModal()) { clear(); return; }
     }
 
     // Economy mode (`screens/economy.js`, Stage 7) is a root mode, not a panel — it has no
