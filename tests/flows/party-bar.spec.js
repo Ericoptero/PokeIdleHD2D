@@ -1,53 +1,54 @@
 /**
- * The party bar: six real slots, a click that opens the party panel already
- * selected on the slot clicked, a drag that reorders, and the marked slot following a
- * mid-fight ally swap rather than the party's own resting order.
+ * The party list: six real rows in `#ui-dom` (`src/ui/dom/hud.js`, converted off the canvas
+ * bar in Stage 3), a click that opens the party panel already selected on the row clicked, a
+ * drag that reorders, and the marked row following a mid-fight ally swap rather than the
+ * party's own resting order.
  *
- * Driven through real `PointerEvent`s at real buffer coordinates (the gesture test pattern,
- * `tests/flows/hud-windows.spec.js`'s `regions()`/`click()`), never by calling `hud.js`'s
- * functions directly — that would prove nothing about whether the click a player actually
- * makes reaches the party bar's own hit regions rather than, say, the button strip drawn
- * over the same corner of the screen.
+ * Driven through real mouse input at real screen coordinates (`page.mouse`, which Chromium
+ * synthesises into genuine `pointerdown`/`pointermove`/`pointerup` events — the same events
+ * `dom/dnd.js`'s own `window` listeners read) rather than by calling `dom/hud.js`'s functions
+ * directly, for the same reason the canvas version of this file gave: proving the click a
+ * player actually makes reaches the right element, not merely that the underlying data
+ * mutation works.
  *
- * A party-bar slot's hit region does one job for two different releases: `pointerdown`
- * always starts a drag (`gesture.js`), and a `pointerup` back over the SAME slot (no
- * intervening `pointermove` at all, unlike the window-drag tests in `hud-windows.spec.js`)
- * is what a plain click looks like to `screen.js` — its own `drop.on` reads
- * `payload.index === i` as "that was a click" (`hud.js`'s own comment on the region). Because
- * `screen.js`'s `pointerup` handler computes the release point straight off the real event's
- * `clientX/clientY` rather than off any painted "ghost" position, no intermediate paint is
- * needed between the down and the up the way `windowFrame`'s own reconciliation needs one.
+ * `dom/dnd.js`'s own contract: `pointerdown` always starts a drag, and a `pointerup` back
+ * over the SAME row (no intervening `pointermove`) is what a plain click looks like — its own
+ * `onClick` callback is exactly `dom/hud.js`'s "open the party panel on this index".
  */
 import { test, expect } from '@playwright/test';
 import {
-  installEventLog, boot, events, step, call, pointer,
+  installEventLog, boot, events, step, call,
 } from './harness.js';
 
-/** The hit regions of the last paint, boxes and all — the same shape `g.hit()` builds. */
-const regions = (page) => page.evaluate(() => window.__CTX__.get('ui')._screen.regions());
-
-/** Forces one UI frame. `dt >= 0.2` also forces `hud.read()` to refresh (`ui/index.js`'s own
- *  throttle) — needed here because `boot()` pauses the real frame loop that would otherwise
- *  do this on its own every 200 ms of wall clock. */
+/** Forces one UI frame. `dt >= 0.2` also forces `hud.read()` to refresh and `dom/hud.js`'s
+ *  own `update()` to run (`ui/index.js`'s own throttle) — needed here because `boot()` pauses
+ *  the real frame loop that would otherwise do this on its own every 200 ms of wall clock. */
 const paintNow = (page, dt = 0) => call(page, 'ui', '_frame', dt);
 
-/** The centre point of a region's box, in UI buffer pixels. */
-const centre = (r) => ({ x: Math.round(r.box.x + r.box.w / 2), y: Math.round(r.box.y + r.box.h / 2) });
-
-/** A real click: down then up at the same point, the way `screen.js`'s listeners see one. */
-async function click(page, point) {
-  await pointer(page, { type: 'pointerdown', ...point });
-  await pointer(page, { type: 'pointerup', ...point });
+/** `hud-party-i`'s own centre, in real screen (client) coordinates — `page.mouse` works in
+ *  this space, unlike the canvas-buffer pixels `tests/flows/hud-windows.spec.js`'s `pointer()`
+ *  helper converts. Forces a paint first so the row reflects the current party. */
+async function partySlotCentre(page, i) {
+  await paintNow(page);
+  const box = await page.locator(`[data-ui="hud-party-${i}"]`).boundingBox();
+  expect(box, `no [data-ui="hud-party-${i}"] element on screen`).toBeTruthy();
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-/** `party-slot-i`'s own box, forcing a paint first so the region reflects the current party. */
-async function partySlotBox(page, i) {
-  await paintNow(page);
-  const regs = await regions(page);
-  const r = regs.find((x) => x.tag === `party-slot-${i}`);
-  expect(r, `no party-slot-${i} region; tags seen: ${[...new Set(regs.map((x) => x.tag))].join(', ')}`)
-    .toBeTruthy();
-  return r;
+/** A real click: move, down, then up at the same point. */
+async function click(page, point) {
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.up();
+}
+
+/** A real drag: down over `from`, a move (so `dom/dnd.js` registers a drop target, not a
+ *  click), then up over `to`. */
+async function drag(page, from, to) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 4 });
+  await page.mouse.up();
 }
 
 /** A fresh `?seed=1337` game starts with three party members (Oshawott, Snivy, Tepig) — filled
@@ -98,15 +99,15 @@ async function stepUntilTrue(page, fn, arg, { chunk = 10, maxTicks = 4000 } = {}
 test('clicking a filled party-bar slot opens the party panel already selected on it', async ({ page }) => {
   const errors = await boot(page);
   await fillPartyToSix(page);
-  const slot1 = await partySlotBox(page, 1);
+  const slot1 = await partySlotCentre(page, 1);
 
-  await click(page, centre(slot1));
+  await click(page, slot1);
   await paintNow(page);
 
   expect(await call(page, 'ui', 'openPanel')).toBe('party');
-  // `party.js`'s own `cursor` accessor — not part of the panel contract, `travel.js`'s
+  // `screens/party.js`'s own `model()` accessor — not part of the screen contract, `travel.js`'s
   // `rows()` precedent for exposing internal state a test needs and nothing else reads.
-  const cursor = await page.evaluate(() => window.__CTX__.get('ui')._state.panel.cursor());
+  const cursor = await page.evaluate(() => window.__CTX__.get('ui')._state.panel.model().cursor);
   expect(cursor).toBe(1);
   expect(errors, 'no console error opening the party panel from the bar').toEqual([]);
 });
@@ -117,12 +118,11 @@ test('dragging a slot that never crosses index 0 reorders without a lead change'
   await fillPartyToSix(page);
 
   const before = (await call(page, 'pokemon', 'party')).map((p) => p.instanceId);
-  const slot3 = await partySlotBox(page, 3);
-  const slot1 = await partySlotBox(page, 1);
+  const slot3 = await partySlotCentre(page, 3);
+  const slot1 = await partySlotCentre(page, 1);
   const markBefore = (await events(page)).length;
 
-  await pointer(page, { type: 'pointerdown', ...centre(slot3) });
-  await pointer(page, { type: 'pointerup', ...centre(slot1) });
+  await drag(page, slot3, slot1);
   await paintNow(page);
 
   const after = (await call(page, 'pokemon', 'party')).map((p) => p.instanceId);
@@ -142,12 +142,11 @@ test('dragging a non-lead onto slot 0 fires party:leadChanged and turns the walk
   await fillPartyToSix(page);
 
   const before = (await call(page, 'pokemon', 'party')).map((p) => p.instanceId);
-  const slot1 = await partySlotBox(page, 1);
-  const slot0 = await partySlotBox(page, 0);
+  const slot1 = await partySlotCentre(page, 1);
+  const slot0 = await partySlotCentre(page, 0);
   const markBefore = (await events(page)).length;
 
-  await pointer(page, { type: 'pointerdown', ...centre(slot1) });
-  await pointer(page, { type: 'pointerup', ...centre(slot0) });
+  await drag(page, slot1, slot0);
   await paintNow(page);
 
   const after = (await call(page, 'pokemon', 'party')).map((p) => p.instanceId);

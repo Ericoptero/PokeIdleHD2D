@@ -38,7 +38,7 @@ Each module lives in `src/<id>/`; its `index.js` is the public entry and descrip
 | `src/economy/` | Currency, inventory, shops, pricing, upgrades, pity and trainer level |
 | `src/collection/` | Dex, boxes, storage and sorting |
 | `src/automation/` | Hunt/catch/supply rules, unlock pricing and duel orchestration |
-| `src/ui/` | Canvas HUD, windows, gestures, floaters and `panels/` |
+| `src/ui/` | Códice DOM screens/HUD (`dom/`, `screens/`, `css/`) plus the world-overlay canvas (plates, callouts, floaters) |
 | `src/city/`, `src/hunts/` | City layout and four biome maps, hunt loops and spawn slots |
 | `src/pokecenter/` | Interior, Nurse Joy interaction, healing and cooldown persistence |
 | `src/travel/` | Destinations, trainer locks, transitions and saved scene |

@@ -1,9 +1,9 @@
 /**
  * The trainer panel at `/?seed=1337`: the level/wins bar tracks `economy.trainer()`
  * after a real win, and the Upgrades block reflects a real purchase — both read off the live
- * panel's own content model (`window.__CTX__.get('ui')._state.panel.model()`,
- * `hud-windows.spec.js`'s `_state` precedent and `party-bar.spec.js`'s own `.cursor()` read),
- * never off a pixel.
+ * panel's own content model (`window.__CTX__.get('ui')._state.panel.model()`, the same
+ * `_state.panel`/`model()` read `party-bar.spec.js` uses for its own cursor check), never
+ * off a pixel.
  *
  * `trainerFromWins` is imported directly from `src/economy/trainer.js` for the *expected* side
  * of the level assertion — a literal per its own documented triangular formula, not a second
@@ -68,7 +68,7 @@ test('buying an upgrade updates the trainer panel\'s Upgrades block to match eco
   // `payday` carries no `unlock` requirement (`economy/upgrades.js`) and the opening purse
   // (₽100,000 minus the ~₽10,600 starting kit) comfortably covers its ₽12,000 first level, so
   // this is reachable from a fresh save with no other setup — the same call the shop's own
-  // UPGRADE TRACKS shelf makes (`panels/shop.js`: `e.buyUpgrade?.(item.id, n)`).
+  // Upgrades shelf makes (`screens/shop.js`: `e.buyUpgrade?.(item.id, n)`).
   const levelBefore = await call(page, 'economy', 'upgradeLevel', 'payday');
   const bought = await call(page, 'economy', 'buyUpgrade', 'payday', 1);
   expect(bought, 'the purchase must actually go through, or this test proves nothing').toBe(1);

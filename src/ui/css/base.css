@@ -1,0 +1,163 @@
+/**
+ * The DOM UI layer's foundation — `#ui-dom` itself, the self-hosted Códice fonts, and the
+ * determinism guards the screenshot harness needs.
+ *
+ * `#ui-dom` sits at `inset: 0` (the real viewport), not at the game's letterboxed
+ * `view.displayRect` the way `screen.js`'s canvas does — a deliberate divergence: the Códice
+ * screens are authored at real screen sizes, and pinning them to the internal render buffer
+ * would put a soft-UI card on the world's own pixel grid for no reason. See `dom/layer.js`.
+ *
+ * Fonts are self-hosted under `public/fonts/` rather than loaded from Google Fonts: the
+ * screenshot harness (`tools/shots/shoot.js`) turns a failed network request into a console
+ * error, and a budget check fails on a single one. `font-display: block` rather than `swap`
+ * for the same reason `tools/shots/parity.js` exists — two captures of the same URL must be
+ * byte-identical, and a font swap mid-capture is a second rendering of the same frame.
+ */
+
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/manrope-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/manrope-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/manrope-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/manrope-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/manrope-800.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/spectral-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/spectral-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/spectral-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/jetbrains-mono-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+#ui-dom {
+  position: fixed;
+  inset: 0;
+  /* The children opt in individually (a card, a button) — this root stays click-through so
+   * the world underneath is never blocked by an empty layer, matching `#ui`'s own rule in
+   * `index.html` and the existing precedent in `src/idle/panel.js`. */
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+  font-family: var(--font-body);
+  font-size: calc(16px * var(--ui-scale));
+  line-height: 1.5;
+  color: var(--c-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+#ui-dom *, #ui-dom *::before, #ui-dom *::after {
+  box-sizing: border-box;
+}
+
+#ui-dom button {
+  font: inherit;
+  color: inherit;
+}
+
+#ui-dom img { max-width: 100%; }
+
+/* A component class (`.ci-hud-dock{display:flex}`, say) has the same specificity as the UA
+ * stylesheet's own `[hidden]{display:none}` and, being an author rule, wins the cascade over
+ * it — so toggling the plain `hidden` attribute silently does nothing on anything already
+ * styled with `display`. `!important` here is what actually hides it. */
+#ui-dom [hidden] { display: none !important; }
+
+/**
+ * The determinism switch. Set on `#ui-dom` whenever `config.showcase` or `config.timeFrozen`
+ * is truthy (`dom/layer.js`) — the same condition `toasts.js` already freezes ageing on, so a
+ * capture of the same URL gives the same pixels (`tools/shots/parity.js`).
+ */
+#ui-dom[data-frozen], #ui-dom[data-frozen] * {
+  animation-play-state: paused !important;
+  animation-duration: 0s !important;
+  transition: none !important;
+  caret-color: transparent !important;
+}
+#ui-dom[data-frozen] :focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  #ui-dom *, #ui-dom *::before, #ui-dom *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Sticky `:hover` on a touch device is a real bug (Stage 8's mobile pass), so every screen's
+ * own stylesheet is expected to gate its hover rules behind this query rather than a bare
+ * `:hover` selector — recorded here once so it needs no repeating in each screen file. */

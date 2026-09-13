@@ -29,16 +29,17 @@
  * on purpose: the input bus lets `pokecenter` gets to react to it without this file knowing
  * the Pokemon Center exists, and why a future NPC anywhere else needs no new key of its own.
  *
- * A touch device gets an on-screen pad instead, drawn on the same canvas — but only on a
- * touch device, because every other module's showcase boots `ui` too (`src/main.js`) and a
- * d-pad in the corner of a critic's screenshot of the *city* would be this module vandalising
- * someone else's frame.
+ * A touch device gets an on-screen pad instead — `dom/dpad.js` (Stage 8), not drawn here; this
+ * file only owns the `press(dir)`/`release(dir)`/`touch()`/`canWalk()` primitives that pad
+ * reads, the same ones a held keyboard key already drives — but only on a touch device,
+ * because every other module's showcase boots `ui` too (`src/main.js`) and a d-pad in the
+ * corner of a critic's screenshot of the *city* would be this module vandalising someone
+ * else's frame.
  */
 
 import {
   SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ,
 } from '../core/dir.js';
-import { C } from './theme.js';
 
 /** Physical keys → direction. `code` rather than `key`, so a non-QWERTY layout still walks. */
 export const MOVE_KEYS = new Map([
@@ -60,7 +61,7 @@ export const MOVE_KEYS = new Map([
  */
 export const PANEL_IDS = Object.freeze([
   'menu', 'travel', 'offline', 'shop', 'boxes', 'dex', 'automation', 'party', 'inventory',
-  'trainer', 'battle', 'dialogue',
+  'trainer', 'battle', 'dialogue', 'settings',
 ]);
 
 export const PANEL_KEYS = new Map([
@@ -147,6 +148,19 @@ export function makeInput({ ctx, app }) {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const code = ev.code;
 
+    // A focused text field (the chat mockup's own input, `dom/chat.js`) owns its own keys —
+    // without this, typing "travel" into it would fire T/R/A/V/E/L as panel shortcuts on the
+    // way past. Escape still blurs it, matching every other escape hatch in this file; the
+    // field's own `keydown` listener handles Enter (send/close) before this ever runs, so
+    // there is nothing else to do here for it.
+    const editing = !!document.activeElement
+      && (document.activeElement.isContentEditable
+        || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+    if (editing) {
+      if (code === 'Escape') document.activeElement.blur();
+      return;
+    }
+
     if (code === 'Backquote') { app.toggleDebug(); ev.preventDefault(); return; }
 
     // A panel swallows movement: walking blind behind a full-frame shop is the classic bug.
@@ -154,6 +168,20 @@ export function makeInput({ ctx, app }) {
       clear();
       if (app.panelKey(ev)) { ev.preventDefault(); return; }
       if (code === 'Escape' || code === 'KeyX') { app.close(); ev.preventDefault(); return; }
+      return;
+    }
+
+    // Economy mode (`screens/economy.js`, Stage 7) is a root mode, not a panel — it has no
+    // `state.panel` slot to swallow movement through, but walking blind with the world hidden
+    // is the same bug the branch above exists to avoid, so this mirrors it: every panel
+    // shortcut still opens on top of the board (Bag, Shop and Automation all still make sense
+    // with no 3D view to look at), and Escape/X leave the mode instead of opening the menu.
+    if (app.economyModeActive?.()) {
+      clear();
+      if (code === 'Escape' || code === 'KeyX') { app.setEconomyMode(false); ev.preventDefault(); return; }
+      if (code === 'Enter') { app.toggleChat(); ev.preventDefault(); return; }
+      const onId = PANEL_KEYS.get(code);
+      if (onId) { app.open(onId); ev.preventDefault(); }
       return;
     }
 
@@ -171,7 +199,10 @@ export function makeInput({ ctx, app }) {
       interact();
       return;
     }
-    if (code === 'Escape' || code === 'KeyX' || code === 'Enter') { app.open('menu'); ev.preventDefault(); return; }
+    if (code === 'Escape' || code === 'KeyX') { app.open('menu'); ev.preventDefault(); return; }
+    // Enter used to open the menu too; it now opens/closes the chat mockup instead
+    // (`dom/chat.js`, Stage 3c) — Escape/X are still the menu's own keys.
+    if (code === 'Enter') { app.toggleChat(); ev.preventDefault(); return; }
     const panelId = PANEL_KEYS.get(code);
     if (panelId) { app.open(panelId); ev.preventDefault(); }
   }
@@ -210,81 +241,8 @@ export function makeInput({ ctx, app }) {
     if (s.moveIntent(held[0]) !== false) engage();
   }
 
-  // ------------------------------------------------------------- the touch pad
-  const PAD = { size: 21 };
-
-  /**
-   * The d-pad, drawn as **one body** rather than as five detached rectangles.
-   *
-   * Round 1 drew four separate 21 px panels in a plus with a bare tan square in the middle,
-   * and a rectangular RUN chip beside it — which is what a d-pad looks like before anyone has
-   * drawn it. The silhouette here is a single cross with the corner pixels knocked out the
-   * same way `theme.panel` knocks them out, the four keys are plates inset into it and the
-   * middle is a recessed hub rather than a hole. (The RUN latch went with run itself.)
-   */
-  function drawPad(g) {
-    // Not drawn where the player cannot walk. `screen.paint()` clears the hit regions every
-    // repaint, so not drawing the pad *is* unregistering it — there are no orphaned taps.
-    if (!touch || !canWalk()) return;
-    const s = PAD.size;
-    const ox = 8;
-    const oy = g.height - s * 3 - 8;
-
-    // The cross, outlined by the two-rect trick so all eight outer corners are knocked out.
-    const ink = C.ink;
-    g.fill(ox + s, oy - 1, s, s * 3 + 2, ink);
-    g.fill(ox + s - 1, oy, s + 2, s * 3, ink);
-    g.fill(ox - 1, oy + s, s * 3 + 2, s, ink);
-    g.fill(ox, oy + s - 1, s * 3, s + 2, ink);
-    g.fill(ox + s, oy, s, s * 3, C.wallBase);
-    g.fill(ox, oy + s, s * 3, s, C.wallBase);
-    // the light coming from the top-left, as everywhere else in this UI
-    g.fill(ox + s + 1, oy + 1, s - 2, 1, C.wallHi);
-    g.fill(ox + 1, oy + s + 1, s, 1, C.wallHi);
-    g.fill(ox + 1, oy + s + 1, 1, s - 2, C.wallHi);
-    g.fill(ox + s + 1, oy + 1, 1, s, C.wallHi);
-    g.fill(ox + s + 1, oy + s * 3 - 2, s - 2, 1, C.wallDeep);
-    g.fill(ox + s * 3 - 2, oy + s + 1, 1, s - 2, C.wallDeep);
-
-    const cells = [
-      { dir: NORTH, gx: 1, gy: 0, glyph: '↑' },
-      { dir: WEST, gx: 0, gy: 1, glyph: '←' },
-      { dir: EAST, gx: 2, gy: 1, glyph: '→' },
-      { dir: SOUTH, gx: 1, gy: 2, glyph: '↓' },
-    ];
-    for (const cell of cells) {
-      const box = { x: ox + cell.gx * s + 3, y: oy + cell.gy * s + 3, w: s - 6, h: s - 6 };
-      const down = held[0] === cell.dir;
-      g.fill(box.x - 1, box.y - 1, box.w + 2, box.h + 2, C.wallDeep);
-      g.fill(box.x, box.y, box.w, box.h, down ? C.martBase : C.wallLight);
-      g.fill(box.x, box.y, box.w, 1, down ? C.martDeep : C.wallHi);
-      g.fill(box.x, box.y + box.h - 1, box.w, 1, down ? C.martLight : C.wallDeep);
-      g.textCentre(box.x + box.w / 2, box.y + Math.round((box.h - 7) / 2), cell.glyph, down ? C.white : C.ink);
-      // the whole arm is the target, not just the plate: a thumb is wider than 15 px
-      g.hit({ x: ox + cell.gx * s, y: oy + cell.gy * s, w: s, h: s },
-        () => { press(cell.dir); pulse(cell.dir); }, `pad-${cell.dir}`);
-    }
-
-    // The hub: recessed, so the middle reads as the pad's pivot instead of as a gap.
-    const hx = ox + s + Math.round((s - 9) / 2);
-    const hy = oy + s + Math.round((s - 9) / 2);
-    g.fill(hx, hy, 9, 9, C.wallDeep);
-    g.fill(hx + 1, hy + 1, 7, 7, C.wallShadow);
-    g.fill(hx + 1, hy + 1, 7, 1, C.wallDeep);
-    g.fill(hx + 1, hy + 7, 7, 1, C.wallLight);
-  }
-
-  /** A tap is one step: press, and release on the next frame boundary. */
-  let pulses = [];
-  function pulse(dir) { pulses.push({ dir, frames: 2 }); }
-  function drainPulses() {
-    if (!pulses.length) return;
-    pulses = pulses.filter((p) => { p.frames -= 1; if (p.frames > 0) return true; release(p.dir); return false; });
-  }
-
   return {
-    frame() { frame(); drainPulses(); },
-    drawPad,
+    frame,
     /** True once the player has engaged with the controls — the hint hides itself then. */
     hasMoved: () => engaged,
     /** Whether this scene lets the keyboard drive the walker; the hint copy reads it. */

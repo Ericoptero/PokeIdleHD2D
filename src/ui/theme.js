@@ -1,15 +1,23 @@
 /**
- * The palette and the panel language.
+ * The palette and the light model, plus the handful of canvas paint primitives still standing
+ * after Stage 9 retired the last DS-style panel (`plates.js`/`callout.js`/`floaters.js` — the
+ * nameplates, speech balloons and damage numbers projected onto the 3-D world, and `index.js`'s
+ * own debug overlay — are what remains on the canvas at all, by design: they are projected
+ * against the orthographic camera every rendered frame with no depth divide, which is what
+ * keeps a nameplate on the same pixel grid as the sprite it names, and a DOM element cannot be
+ * positioned that precisely without reintroducing the sub-pixel drift this architecture exists
+ * to avoid).
  *
  * The colours are the Black & White 2 building ramps, copied verbatim out of
  * `tools/structures/pixel.js` (`src/` may not import `tools/`, and the asset generator fixes those
- * ramps as the authored buildings' palette — the Pokemon Center roof on screen and the
- * header of the shop panel are the same red on purpose).
+ * ramps as the authored buildings' palette — the Pokemon Center roof on screen and this file's
+ * own `C.roofBase` are the same red on purpose).
  *
- * The panel shape is the DS menu box: a hard two-tone frame with the corner pixels knocked
- * out, a light bevel inside the top and left edges, a dark bevel inside the bottom and
- * right, and a flat paper fill. No radius, no gradient, no blur — every edge lands on the
- * pixel grid the scene is drawn on.
+ * **What used to live here and is gone**: the DS menu-box panel language
+ * (`header`/`well`/`row`/`button`/`pokeball`/`itemMark`, `CURRENCY_COLOUR`, `TOAST_COLOUR`) —
+ * every caller of any of it was a canvas panel, and Stage 9 converted the last six. `C`,
+ * `panel`, `meter`, `hpRamp` and the light model (`applyLight`/`lightAt`/`litAt`) survive
+ * because the world-projected overlays above still paint with them.
  */
 
 export const C = {
@@ -42,11 +50,6 @@ export const C = {
   deepInk: '#D6E0F2', deepDim: '#9AABCB', deepFaint: '#7C8CAE',
 };
 
-/** Currency accents, matched to `economy/currencies.js`'s own colours but pulled onto the ramp. */
-export const CURRENCY_COLOUR = {
-  money: C.glowLight, research: '#7FE6C4', bp: C.glassLight, shards: '#C6A8FF',
-};
-
 // ---------------------------------------------------------------------------------------
 // The light
 // ---------------------------------------------------------------------------------------
@@ -62,8 +65,8 @@ export const CURRENCY_COLOUR = {
  * and used it only to pick a word.
  *
  * So every colour in this file is a *base* colour, and `applyLight(tod)` writes the lit
- * version back into `C`, `CURRENCY_COLOUR` and `TOAST_COLOUR` in place. Everything that
- * reads `C.x` at paint time — which is everything — picks it up with no further plumbing.
+ * version back into `C` in place. Everything that reads `C.x` at paint time picks it up with
+ * no further plumbing.
  *
  * Two constraints shape the curve, and the second is the one that stops this from being a
  * simple multiply:
@@ -76,7 +79,6 @@ export const CURRENCY_COLOUR = {
  *    paper #F5E9CE 233.6 -> 152, ink #241E1B against it 6.1:1, still past WCAG AA.
  */
 const BASE_C = { ...C };
-const BASE_CURRENCY = { ...CURRENCY_COLOUR };
 
 /**
  * The lamp ramp is **emissive** and is not dimmed by the sky.
@@ -147,36 +149,11 @@ export function applyLight(tod) {
   lightKey = key;
   const m = lightAt(key);
   for (const k of Object.keys(BASE_C)) C[k] = EMISSIVE.has(k) ? BASE_C[k] : shade(BASE_C[k], m);
-  for (const k of Object.keys(BASE_CURRENCY)) CURRENCY_COLOUR[k] = shade(BASE_CURRENCY[k], m);
-  for (const k of Object.keys(BASE_TOAST)) {
-    TOAST_COLOUR[k] = { ...BASE_TOAST[k], bar: shade(BASE_TOAST[k].bar, m), edge: shade(BASE_TOAST[k].edge, m) };
-  }
   return true;
 }
 
 /** The quarter-hour the palette is currently lit for — the debug overlay reports it. */
 export const litAt = () => lightKey;
-
-/**
- * Toast kinds, so `kind` reads before the text does.
- *
- * Round 1 carried the kind on **hue alone** and the critic measured it: good #2F7D4F and
- * info #6B6B63 came out 1.3 apart in luminance, which to a deuteranope is the same grey bar.
- * Two channels now carry it. The rails are separated in *value* as well as hue — measured
- * CIE L\*: good 82.9, warn 61.5, bad 46.8, offline 35.6, info 24.3, so no two are closer than 11 L\* —
- * and each kind also has a **mark**, which is the channel that survives any colour vision at
- * all.
- */
-export const TOAST_COLOUR = {
-  good: { bar: '#8FE0A8', edge: '#1C4E31', mark: '✓' },
-  warn: { bar: '#C9871F', edge: '#4A2F0C', mark: '!' },
-  bad: { bar: C.roofBase, edge: C.roofDeep, mark: '✗' },
-  offline: { bar: C.martShadow, edge: C.martDeep, mark: '▾' },
-  info: { bar: '#3A3A36', edge: '#1B1B18', mark: '·' },
-};
-
-/** Captured before the first `applyLight`, exactly as `BASE_C` is. */
-const BASE_TOAST = Object.fromEntries(Object.entries(TOAST_COLOUR).map(([k, v]) => [k, { ...v }]));
 
 /**
  * The frame every panel is drawn in.
@@ -216,70 +193,6 @@ export function panel(g, box, opts = {}) {
   return box;
 }
 
-/** A coloured title bar across the top of a panel, sunk into its frame. */
-export function header(g, box, text, opts = {}) {
-  const bar = opts.bar ?? C.roofBase;
-  const barEdge = opts.edge ?? C.roofDeep;
-  const h = opts.h ?? 13;
-  g.fill(box.x + 1, box.y + 1, box.w - 2, h, bar);
-  g.fill(box.x + 1, box.y + 1, box.w - 2, 1, opts.light ?? C.roofLight);
-  g.fill(box.x + 1, box.y + h, box.w - 2, 1, barEdge);
-  g.fill(box.x + 1, box.y + h + 1, box.w - 2, 1, C.ink);
-  if (text) g.text(box.x + 5, box.y + 3, text, opts.ink ?? C.white, { shadow: barEdge });
-  return { x: box.x + 1, y: box.y + h + 2, w: box.w - 2, h: box.h - h - 3 };
-}
-
-/**
- * An inset well — the recess a list or a grid sits in.
- *
- * `dark: true` is the deep recess: the paper goes to `C.deepBase` and the caller draws light
- * type into it. Everything that opts in has to opt in *completely* — a label left on `C.ink`
- * inside a dark well is invisible — so `row()` and `list()` take the same flag and hand back
- * the right ink rather than making each panel guess.
- */
-export function well(g, box, opts = {}) {
-  const { x, y, w, h } = box;
-  const dark = !!opts.dark;
-  g.fill(x, y, w, h, opts.paper ?? (dark ? C.deepBase : C.wallShadow));
-  g.fill(x, y, w, 1, opts.shade ?? (dark ? C.deepDeep : C.wallDeep));
-  g.fill(x, y, 1, h, opts.shade ?? (dark ? C.deepDeep : C.wallDeep));
-  g.fill(x, y + h - 1, w, 1, opts.bevel ?? (dark ? C.deepLight : C.wallLight));
-  g.fill(x + w - 1, y, 1, h, opts.bevel ?? (dark ? C.deepLight : C.wallLight));
-  return { x: x + 1, y: y + 1, w: w - 2, h: h - 2 };
-}
-
-/** A row in a list: flat when idle, a solid plate when selected. */
-export function row(g, box, { selected = false, disabled = false, dark = false } = {}) {
-  if (selected) {
-    g.fill(box.x, box.y, box.w, box.h, C.martBase);
-    g.fill(box.x, box.y, box.w, 1, C.martLight);
-    g.fill(box.x, box.y + box.h - 1, box.w, 1, C.martDeep);
-  } else if (disabled) {
-    g.fill(box.x, box.y, box.w, box.h, dark ? C.deepShade : 'rgba(74,74,70,0.18)');
-  }
-  if (selected) return C.white;
-  if (disabled) return dark ? C.deepFaint : C.stoneShadow;
-  return dark ? C.deepInk : C.ink;
-}
-
-/**
- * A small pressable plate. Returns its text colour.
- *
- * `danger` is the destructive treatment — the Pokemon Center red, white ink. It exists so
- * that RELEASE, the only irreversible action in the module, cannot be drawn in the same
- * cream as CONTINUE (round-1 issue 12).
- */
-export function button(g, box, { active = false, disabled = false, danger = false } = {}) {
-  const base = disabled ? C.stoneBase : (danger ? C.roofBase : (active ? C.martBase : C.wallLight));
-  const light = disabled ? C.stoneLight : (danger ? C.roofLight : (active ? C.martLight : C.wallHi));
-  const dark = disabled ? C.stoneDeep : (danger ? C.roofDeep : (active ? C.martDeep : C.wallDeep));
-  g.fill(box.x, box.y, box.w, box.h, C.ink);
-  g.fill(box.x + 1, box.y + 1, box.w - 2, box.h - 2, base);
-  g.fill(box.x + 1, box.y + 1, box.w - 2, 1, light);
-  g.fill(box.x + 1, box.y + box.h - 2, box.w - 2, 1, dark);
-  return (active || danger) ? C.white : (disabled ? C.stoneShadow : C.ink);
-}
-
 /**
  * The HP ramp — one colour pair per band, shared by the battle card, the party bar, the
  * trainer panel and the world's own nameplates (`plates.js`) so a Pokémon's bar reads the
@@ -308,127 +221,3 @@ export function meter(g, box, t, { fill = C.glowBase, back = C.wallDeep, light =
   }
 }
 
-/** The Poké Ball mark, 7×7, used as a bullet and on the offline card. */
-export function pokeball(g, x, y, { red = C.ballRed, white = C.ballWhite, band = C.ballBand } = {}) {
-  const rows = [
-    '.#####.',
-    '#RRRRR#',
-    '#RRRRR#',
-    '#BBBBB#',
-    '#WW#WW#',
-    '#WWWWW#',
-    '.#####.',
-  ];
-  const map = { '#': band, R: red, W: white, B: band };
-  for (let j = 0; j < rows.length; j++) {
-    for (let i = 0; i < rows[j].length; i++) {
-      const c = map[rows[j][i]];
-      if (c) g.fill(x + i, y + j, 1, 1, c);
-    }
-  }
-}
-
-/**
- * One placeholder mark per item category, 7×7, in `pokeball()`'s own hand-authored bitmap
- * style — no image load, because no item icon asset exists anywhere in the repository
- * These procedural icons are placeholders for dedicated item art.
- *
- * Filled with `def.tier` tinted off this file's own dark-recess ramp (`deepDeep`…`deepLight`,
- * the four-step *background* progression, not the `deepInk`/`deepDim`/`deepFaint` ink group —
- * those are reserved for text on the recess and would make a tier-3 item's mark the same
- * colour as the well it sits in) and outlined in `deepInk`, which stays legible against
- * `C.deepBase` at every hour (`applyLight`'s own EMISSIVE set never dims the recess or its
- * ink, so the outline reads the same at noon and at midnight).
- */
-const TIER_TINT = [C.deepDeep, C.deepShade, C.deepBase, C.deepLight];
-
-const ITEM_MARKS = {
-  // a Poké Ball, plainer than `pokeball()` above: one tint, not two, since the tint here
-  // carries the item's tier rather than the ball's own colour scheme.
-  ball: [
-    '.#####.',
-    '#XXXXX#',
-    '#XXXXX#',
-    '#XX#XX#',
-    '#XXXXX#',
-    '#XXXXX#',
-    '.#####.',
-  ],
-  // a cross — the oldest medical mark there is
-  medicine: [
-    '..###..',
-    '..#X#..',
-    '#######',
-    '#XXXXX#',
-    '#######',
-    '..#X#..',
-    '..###..',
-  ],
-  // a diamond — the shape EXP candy and evolution stones already share on a shop shelf
-  candy: [
-    '...#...',
-    '..#X#..',
-    '.#XXX#.',
-    '#XXXXX#',
-    '.#XXX#.',
-    '..#X#..',
-    '...#...',
-  ],
-  // a four-point sparkle — a stone catching the light
-  evolution: [
-    '#.....#',
-    '.#...#.',
-    '..#X#..',
-    '...X...',
-    '..#X#..',
-    '.#...#.',
-    '#.....#',
-  ],
-  // a bobber, point down into the water it lures from
-  lure: [
-    '...#...',
-    '..#X#..',
-    '.#XXX#.',
-    '#XXXXX#',
-    '#XXXXX#',
-    '#XXXXX#',
-    '#######',
-  ],
-  // a ring — the held charms and the amulet are all worn, not thrown or drunk
-  held: [
-    '.#####.',
-    '#X...X#',
-    '#X...X#',
-    '#X...X#',
-    '#X...X#',
-    '#X...X#',
-    '.#####.',
-  ],
-  // a cut gem, point down — the treasure that only ever gets sold
-  treasure: [
-    '#######',
-    '#XXXXX#',
-    '#XXXXX#',
-    '#XXXXX#',
-    '.#XXX#.',
-    '..#X#..',
-    '...#...',
-  ],
-};
-
-/**
- * Draws category `category`'s placeholder mark at `x, y`, tinted for `tier` (1..5, clamped).
- * Falls back to the `held` silhouette for a category this table does not carry (`key`, the one
- * typedef entry with no populated item — `ITEMS` having nothing in it).
- */
-export function itemMark(g, x, y, category, tier = 1, { ink = C.deepInk } = {}) {
-  const rows = ITEM_MARKS[category] ?? ITEM_MARKS.held;
-  const fill = TIER_TINT[Math.max(0, Math.min(TIER_TINT.length - 1, Math.floor(tier) - 1))];
-  const map = { '#': ink, X: fill };
-  for (let j = 0; j < rows.length; j++) {
-    for (let i = 0; i < rows[j].length; i++) {
-      const c = map[rows[j][i]];
-      if (c) g.fill(x + i, y + j, 1, 1, c);
-    }
-  }
-}

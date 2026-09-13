@@ -1,0 +1,977 @@
+/**
+ * Full-screen Códice cards. One file for all of them (`hud.css` is the always-on chrome;
+ * `mobile.css`, added at Stage 8, narrows these with `@media` rather than forking them).
+ */
+
+/* ---------------------------------------------------------------- offline / away report */
+
+.ci-offline-scrim {
+  position: fixed;
+  inset: 0;
+  /* Above the always-on chrome (`hud.css`'s dock/top/chat, all `z-index: 3`) — without an
+   * explicit value here a fixed-position modal stacks at the implicit `z-index: auto` level,
+   * which loses to any positioned sibling that *does* set one, in DOM order or not. A wide
+   * enough card (Bag and Shop's `.ci-shelf-card`, Stage 5) reaches into the dock's own
+   * bottom-right corner, and a button there would silently stop being clickable — caught by
+   * `tests/flows/shop-dom.spec.js`'s own `page.click()`, which fails loudly on a covered
+   * element rather than firing through it the way a dispatched event would. Below toasts
+   * (`z-index: 5`): a toast must stay visible over a modal, never be hidden by one. */
+  z-index: 4;
+  background: rgba(8, 6, 5, 0.72);
+  backdrop-filter: blur(var(--blur-scrim));
+  -webkit-backdrop-filter: blur(var(--blur-scrim));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: auto;
+}
+
+.ci-offline-card {
+  width: min(620px, 100%);
+  max-height: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 26px 26px 22px;
+  border-radius: var(--r-xl);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-amber-line);
+  box-shadow: var(--shadow-soft);
+}
+
+.ci-offline-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.ci-offline-head__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: linear-gradient(150deg, var(--c-amber), var(--c-amber-deep));
+  color: var(--c-amber-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ci-offline-head__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ci-offline-head__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--c-ink-strong);
+}
+
+.ci-offline-head__subtitle {
+  font-size: 13px;
+  color: var(--c-ink-quiet);
+}
+
+.ci-offline-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: var(--r-pill);
+  background: var(--c-good-wash);
+  border: 1px solid var(--c-good-line);
+  color: var(--c-good-light);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ci-offline-pill .ci-icon { color: var(--c-good); }
+
+.ci-offline-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* -- the summary rows (away / credited / worth) -- */
+.ci-offline-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.ci-offline-row__label { color: var(--c-ink-dim); }
+.ci-offline-row__value { font-family: var(--font-mono); color: var(--c-ink); font-weight: 600; }
+.ci-offline-row--capped .ci-offline-row__label,
+.ci-offline-row--capped .ci-offline-row__value { color: var(--c-bad-light); }
+
+/* -- the efficiency bar -- */
+.ci-offline-bands {
+  display: flex;
+  height: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--c-ink);
+}
+.ci-offline-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 0;
+}
+.ci-offline-bands-caption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--c-ink-mute);
+}
+
+/* -- collapsible sections -- */
+.ci-section {
+  border-radius: var(--r-md);
+  background: var(--c-fill);
+  border: 1px solid var(--c-line);
+  overflow: hidden;
+}
+.ci-section__head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 16px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ci-section__head:hover { background: var(--c-fill-strong); }
+}
+.ci-section__head-icon { color: var(--c-amber); flex-shrink: 0; }
+.ci-section__head-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--c-ink); }
+.ci-section__head-value { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-section__head-chevron { color: var(--c-ink-mute); flex-shrink: 0; }
+.ci-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 16px 16px;
+}
+.ci-section[data-open='false'] .ci-section__body { display: none; }
+
+.ci-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-xs);
+  background: var(--c-fill);
+}
+.ci-line__icon { color: var(--c-amber-light); flex-shrink: 0; }
+.ci-line__label { flex: 1; font-size: 13px; color: var(--c-ink); min-width: 0; }
+.ci-line__value { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-line--held .ci-line__label,
+.ci-line--held .ci-line__value { color: var(--c-ink-mute); }
+
+.ci-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.ci-note {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-ink-mute);
+}
+.ci-note .ci-icon { flex-shrink: 0; margin-top: 3px; color: var(--c-ink-mute); }
+
+.ci-offline-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-line);
+}
+
+.ci-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 22px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(150deg, var(--c-amber), var(--c-amber-dark));
+  color: var(--c-amber-ink);
+  box-shadow: var(--shadow-lift);
+}
+@media (hover: hover) {
+  .ci-btn:hover { filter: brightness(1.05); }
+}
+.ci-btn:focus-visible { outline: 2px solid var(--c-info); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------------------- settings (Stage 4) */
+
+.ci-settings-card {
+  width: min(720px, 100%);
+  height: min(600px, 100%);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-xl);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ci-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--c-line);
+  flex-shrink: 0;
+}
+.ci-settings-head__title { margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-settings-body { flex: 1; min-height: 0; display: flex; }
+.ci-settings-rail {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  background: var(--c-panel-0);
+  border-right: 1px solid var(--c-line);
+  overflow-y: auto;
+}
+.ci-settings-rail__item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-ink-dim);
+  cursor: pointer;
+}
+.ci-settings-rail__item--active { background: var(--c-amber-wash-strong); color: var(--c-amber-light); }
+@media (hover: hover) {
+  .ci-settings-rail__item:not(.ci-settings-rail__item--active):hover { background: var(--c-fill); color: var(--c-ink); }
+}
+.ci-settings-content { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px; }
+
+.ci-settings-section { display: flex; flex-direction: column; gap: 12px; }
+.ci-settings-section__title {
+  margin: 10px 0 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-ink-mute);
+}
+.ci-settings-section__title:first-child { margin-top: 0; }
+.ci-settings-section__hint { margin: 0; font-size: 13px; line-height: 1.55; color: var(--c-ink-dim); }
+.ci-settings-section__hint--warn { color: var(--c-amber-light); }
+
+.ci-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--c-fill);
+  cursor: pointer;
+}
+.ci-settings-row--slider, .ci-settings-row--add { cursor: default; }
+.ci-settings-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ci-settings-row__label { font-size: 14px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-settings-row__sub { font-size: 12px; color: var(--c-ink-dim); }
+.ci-settings-row__value { font-family: var(--font-mono); font-size: 12px; color: var(--c-amber-light); }
+.ci-settings-row--slider { flex-direction: column; align-items: stretch; gap: 10px; }
+.ci-settings-row--slider .ci-settings-row__text { flex-direction: row; align-items: center; justify-content: space-between; }
+
+.ci-toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 3px;
+  display: flex;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.ci-toggle[data-on='true'] { background: var(--c-amber); justify-content: flex-end; }
+.ci-toggle__knob { width: 20px; height: 20px; border-radius: 999px; background: var(--c-ink-strong); }
+.ci-toggle[data-on='true'] .ci-toggle__knob { background: var(--c-amber-ink); }
+
+.ci-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.ci-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--c-amber-light);
+  cursor: pointer;
+}
+.ci-slider::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 999px; background: var(--c-amber-light); cursor: pointer; }
+.ci-slider:disabled { opacity: 0.4; }
+.ci-slider:disabled::-webkit-slider-thumb { cursor: not-allowed; }
+
+.ci-watch-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.ci-watch-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px 7px 12px;
+  border-radius: var(--r-pill);
+  background: var(--c-amber-wash-strong);
+  border: 1px solid var(--c-amber-line-strong);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-ink-strong);
+}
+.ci-watch-chip__x {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--c-amber-light);
+  cursor: pointer;
+}
+.ci-settings-empty { font-size: 13px; color: var(--c-ink-mute); }
+.ci-settings-row--add { display: flex; gap: 10px; padding: 0; background: none; }
+.ci-watch-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 14px;
+  border-radius: var(--r-sm);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--c-line);
+  color: var(--c-ink);
+  font-size: 13px;
+}
+.ci-watch-input::placeholder { color: var(--c-ink-mute); }
+
+.ci-controls-table { display: flex; flex-direction: column; gap: 2px; }
+.ci-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-xs);
+}
+.ci-controls-row:nth-child(odd) { background: var(--c-fill); }
+.ci-controls-row__label { font-size: 13px; color: var(--c-ink); }
+.ci-controls-row__keys { font-family: var(--font-mono); font-size: 12px; color: var(--c-amber-light); text-align: right; }
+
+/* ---------------------------------------------------------------------------- shelf (Stage 5) */
+/* Bag and Shop share one rail/grid/detail skeleton — the brief's own reason for treating a
+ * permanent-upgrade purchase and a stack of Poké Balls as the same kind of decision applies
+ * just as well to their two screens: a filter rail on the left, a scrollable list in the
+ * middle, and what the player is pointing at on the right. */
+
+.ci-shelf-card {
+  width: min(960px, 100%);
+  height: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-xl);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ci-shelf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--c-line);
+  flex-shrink: 0;
+}
+.ci-shelf-head__title { margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--c-ink-strong); flex-shrink: 0; }
+.ci-shelf-head__mid { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ci-shelf-body { flex: 1; min-height: 0; display: flex; }
+
+.ci-shelf-rail {
+  width: 148px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  background: var(--c-panel-0);
+  border-right: 1px solid var(--c-line);
+  overflow-y: auto;
+}
+.ci-shelf-rail__item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.ci-shelf-rail__item-label { font-size: 13px; font-weight: 600; color: var(--c-ink-dim); }
+.ci-shelf-rail__item-sub { font-size: 10.5px; color: var(--c-ink-mute); }
+.ci-shelf-rail__item--active { background: var(--c-amber-wash-strong); }
+.ci-shelf-rail__item--active .ci-shelf-rail__item-label { color: var(--c-amber-light); }
+.ci-shelf-rail__item--locked .ci-shelf-rail__item-label { color: var(--c-ink-mute); }
+@media (hover: hover) {
+  .ci-shelf-rail__item:not(.ci-shelf-rail__item--active):hover { background: var(--c-fill); }
+}
+
+.ci-shelf-grid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  overflow-y: auto;
+}
+.ci-shelf-row {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.ci-shelf-row--active { background: var(--c-fill-strong); }
+@media (hover: hover) {
+  .ci-shelf-row:not(.ci-shelf-row--active):hover { background: var(--c-fill); }
+}
+.ci-shelf-row--locked { opacity: 0.55; }
+.ci-shelf-row__icon {
+  width: 30px; height: 30px; border-radius: var(--r-xs); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-fill); color: var(--c-amber-light); font-size: 10px; font-weight: 700;
+}
+.ci-shelf-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ci-shelf-row__name { font-size: 13px; font-weight: 600; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-shelf-row__sub { font-size: 11px; color: var(--c-ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-shelf-row__value { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--c-ink-strong); flex-shrink: 0; text-align: right; }
+.ci-shelf-row__value--dim { color: var(--c-ink-mute); }
+.ci-shelf-row__badge {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--c-amber-ink);
+  background: var(--c-amber); border-radius: var(--r-xs); padding: 2px 6px; flex-shrink: 0;
+}
+.ci-shelf-empty { padding: 20px; font-size: 13px; color: var(--c-ink-mute); }
+
+.ci-shelf-detail {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-left: 1px solid var(--c-line);
+  overflow-y: auto;
+}
+.ci-shelf-detail__name { margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-shelf-detail__desc { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--c-ink-dim); }
+.ci-shelf-detail__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.ci-shelf-detail__row-label { color: var(--c-ink-mute); }
+.ci-shelf-detail__row-value { font-family: var(--font-mono); color: var(--c-ink); font-weight: 600; }
+.ci-shelf-detail__hint { font-size: 12px; line-height: 1.5; color: var(--c-amber-light); background: var(--c-amber-wash); border: 1px solid var(--c-amber-line); border-radius: var(--r-sm); padding: 10px 12px; }
+.ci-shelf-detail__actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.ci-shelf-detail__row-group { display: flex; gap: 6px; }
+.ci-shelf-detail__group-label { font-size: 11px; font-weight: 600; color: var(--c-ink-mute); margin-bottom: -4px; }
+
+.ci-shelf-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border-radius: var(--r-sm);
+  background: var(--c-fill-strong);
+  color: var(--c-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+}
+.ci-shelf-btn--primary { background: linear-gradient(150deg, var(--c-amber), var(--c-amber-dark)); color: var(--c-amber-ink); }
+.ci-shelf-btn--ghost { background: none; border: 1px solid var(--c-line); }
+.ci-shelf-btn[data-active='true'] { background: var(--c-amber-wash-strong); color: var(--c-amber-light); }
+.ci-shelf-btn:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) {
+  .ci-shelf-btn:not(:disabled):hover { filter: brightness(1.08); }
+}
+
+.ci-shelf-tabs { display: flex; gap: 4px; background: var(--c-panel-0); border-radius: var(--r-sm); padding: 3px; }
+.ci-shelf-tab {
+  all: unset;
+  box-sizing: border-box;
+  padding: 7px 14px;
+  border-radius: var(--r-xs);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--c-ink-dim);
+  cursor: pointer;
+}
+.ci-shelf-tab--active { background: var(--c-amber); color: var(--c-amber-ink); }
+
+.ci-shelf-picker__back {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-ink-dim);
+  cursor: pointer;
+  padding: 4px 0 10px;
+}
+.ci-shelf-picker__row {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ci-shelf-picker__row:hover { background: var(--c-fill); }
+}
+.ci-shelf-picker__row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ci-shelf-picker__row-name { font-size: 12.5px; font-weight: 600; color: var(--c-ink); }
+
+/* --------------------------------------------------------------------------- economy (Stage 7) */
+/* No dark scrim, no blur — unlike every modal above, this fills the space the 3D world used to
+ * occupy (`core/render.js`'s `setPaused` hides the canvas entirely), so it needs its own solid
+ * ground rather than a translucent film over it. `z-index: 0`: below the dock/HUD chrome and
+ * every modal (both explicit, `hud.css`'s `3` and this file's own `4`), so Bag, Shop and
+ * Automation all still open correctly on top of it. */
+
+.ci-economy-board {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--c-bg);
+  overflow-y: auto;
+  pointer-events: auto;
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px;
+}
+.ci-economy-inner { width: min(760px, 100%); display: flex; flex-direction: column; gap: 18px; }
+/* Column, not `justify-content: space-between` with the exit button on the right — the always-
+ * on HUD chrome (`hud.css`'s wallet/clock, `z-index: 3`) sits in that exact top-right corner,
+ * above this board's own `z-index: 0` by design, and a button placed there would be silently
+ * unreachable the same way Bag/Shop's own bottom-right actions were before Stage 5's z-index
+ * fix — caught here in review rather than shipped, by keeping every interactive element on
+ * this board out of the HUD's own top/bottom strips instead of fighting their stacking order. */
+.ci-economy-head { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding-top: 8px; }
+.ci-economy-wallet { display: flex; flex-wrap: wrap; gap: 8px; }
+.ci-economy-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ci-economy-stat {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--c-fill); color: var(--c-amber);
+}
+.ci-economy-stat__value { display: block; font-family: var(--font-mono); font-size: 17px; font-weight: 700; color: var(--c-ink-strong); }
+.ci-economy-stat__label { font-size: 11px; color: var(--c-ink-mute); }
+.ci-economy-log { display: flex; flex-direction: column; gap: 4px; }
+.ci-economy-log-row {
+  padding: 9px 12px; border-radius: var(--r-sm); background: var(--c-fill); font-size: 13px; color: var(--c-ink);
+}
+.ci-economy-log-row--good { color: var(--c-good-light); }
+.ci-economy-log-row--info { color: var(--c-ink-dim); }
+
+/* ------------------------------------------------------------------------------- menu (Stage 9) */
+.ci-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  background: transparent;
+  pointer-events: auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 18px 100px 0;
+}
+.ci-menu-col {
+  position: relative;
+  width: min(280px, 100%);
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--r-lg);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+}
+.ci-menu-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-ink-mute);
+}
+.ci-menu-row {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--r-md);
+  color: var(--c-amber);
+  cursor: pointer;
+}
+.ci-menu-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ci-menu-row__label { font-size: 14px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-menu-row__blurb { font-size: 11.5px; color: var(--c-ink-dim); }
+.ci-menu-row--close { color: var(--c-ink-mute); }
+.ci-menu-row--close .ci-menu-row__label { color: var(--c-ink-dim); }
+@media (hover: hover) {
+  .ci-menu-row:hover { background: var(--c-fill); }
+}
+
+/* ------------------------------------------------------------------------------ battle (Stage 9) */
+/* A docked card, not a modal — no scrim, the world and the rest of the HUD stay up (this
+ * screen never sets `hidesHud`). Positioned left, cleared below the trainer/party chrome the
+ * same way `screens/menu.js`/`screens/economy.js` clear it, via `app.hudTopBottom()`. */
+.ci-battle-card {
+  position: fixed;
+  left: 18px;
+  top: 18px;
+  z-index: 3;
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-card);
+  pointer-events: auto;
+}
+.ci-battle-side { display: flex; flex-direction: column; gap: 3px; }
+.ci-battle-side__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ci-battle-name { font-size: 13px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-battle-wild-tag { color: var(--c-bad-light); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.ci-battle-side__level { font-size: 11px; color: var(--c-ink-dim); flex-shrink: 0; }
+.ci-battle-side__foot { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--c-ink-dim); }
+.ci-battle-status { color: var(--c-bad-light); font-weight: 700; }
+.ci-battle-verdict { font-size: 12px; font-weight: 700; color: var(--c-amber-light); text-align: center; padding: 2px 0; border-top: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line); }
+.ci-battle-verdict--lost { color: var(--c-bad-light); }
+.ci-battle-log { display: flex; flex-direction: column; gap: 2px; background: var(--c-fill); border-radius: var(--r-xs); padding: 6px 8px; }
+.ci-battle-log__line { font-size: 11px; color: var(--c-ink-dim); }
+.ci-battle-log__line--move { color: var(--c-ink); }
+.ci-battle-log__line--bad { color: var(--c-bad-light); }
+.ci-battle-pity { display: flex; flex-direction: column; gap: 3px; }
+
+/* -------------------------------------------------------------------------------- dex (Stage 9) */
+
+.ci-dex-rail { width: 220px; overflow-y: auto; gap: 8px; }
+.ci-dex-completion { display: flex; align-items: center; gap: 8px; color: var(--c-amber); font-family: var(--font-mono); font-weight: 700; }
+.ci-dex-completion__pct { margin-left: auto; color: var(--c-ink-strong); }
+.ci-dex-bar-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.ci-dex-bar-row__label { width: 42px; flex-shrink: 0; color: var(--c-ink-dim); text-transform: capitalize; }
+.ci-dex-bar-row__meter { flex: 1; }
+.ci-dex-bar-row__value { width: 42px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); color: var(--c-ink-strong); }
+.ci-dex-list {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-content: start;
+  gap: 1px;
+  padding: 8px;
+}
+.ci-dex-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  color: var(--c-ink-mute);
+}
+.ci-dex-entry--caught { color: var(--c-ink); }
+.ci-dex-entry__id { font-family: var(--font-mono); font-size: 10px; color: var(--c-ink-faint); width: 26px; flex-shrink: 0; }
+.ci-dex-entry__mark { width: 10px; flex-shrink: 0; color: var(--c-good-light); }
+.ci-dex-entry__name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-dex-entry__shiny { color: var(--c-amber-light); flex-shrink: 0; }
+.ci-dex-entry__owned { color: var(--c-ink-mute); font-family: var(--font-mono); font-size: 10.5px; flex-shrink: 0; }
+
+/* ------------------------------------------------------------------------------ boxes (Stage 9) */
+
+.ci-boxes-grid-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 10px; }
+.ci-boxes-grid { display: grid; gap: 4px; }
+.ci-boxes-cell {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 32px;
+  border-radius: var(--r-xs);
+  background: var(--c-panel-0);
+  border: 1px solid var(--c-line);
+  cursor: pointer;
+  overflow: hidden;
+}
+.ci-boxes-cell--active { border-color: var(--c-amber); box-shadow: inset 0 0 0 1px var(--c-amber); }
+@media (hover: hover) {
+  .ci-boxes-cell:not(.ci-boxes-cell--active):hover { border-color: var(--c-amber-line); }
+}
+.ci-boxes-cell__sprite {
+  position: absolute; inset: 0; background-repeat: no-repeat; image-rendering: pixelated;
+}
+.ci-boxes-cell__shiny {
+  position: absolute; top: 1px; right: 1px; font-size: 9px; color: var(--c-amber-light);
+  background: rgba(0, 0, 0, 0.6); border-radius: 2px; padding: 0 1px;
+}
+
+/* ------------------------------------------------------------------------------ party (Stage 9) */
+
+.ci-party-screen-portrait {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: var(--r-xs);
+  background-color: var(--c-panel-0);
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.ci-party-screen-portrait--empty { display: flex; align-items: center; justify-content: center; color: var(--c-ink-mute); }
+.ci-party-screen-row { align-items: center; }
+.ci-party-screen-row .ci-shelf-row__body { gap: 3px; min-width: 0; }
+.ci-party-screen-lead-badge {
+  position: absolute; bottom: -3px; right: -3px; width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-amber); color: var(--c-amber-ink); border: 1.5px solid var(--c-panel-2);
+}
+.ci-party-screen-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.ci-party-screen-stats { display: flex; flex-direction: column; gap: 6px; }
+.ci-party-screen-stat-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ci-party-screen-stat-row__label { width: 30px; flex-shrink: 0; color: var(--c-ink-dim); }
+.ci-party-screen-stat-row__meter { position: relative; }
+.ci-party-screen-stat-row__value { width: 30px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); color: var(--c-ink-strong); }
+.ci-party-screen-iv-tick { position: absolute; top: -1px; width: 2px; height: 7px; background: var(--c-ink-quiet); }
+.ci-party-screen-iv-tick--good { background: var(--c-amber-light); }
+.ci-party-screen-pp-empty { color: var(--c-bad-light) !important; }
+
+/* -------------------------------------------------------------------------- dialogue (Stage 9) */
+/* No scrim — the mainline shows the scene behind a message box, and `hidesHud: true` already
+ * stands the rest of the chrome down, so this is the only thing left on screen either way. */
+.ci-dialogue {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
+}
+.ci-dialogue-surface {
+  all: unset;
+  box-sizing: border-box;
+  width: min(720px, 100%);
+  padding: 16px 20px;
+  border-radius: var(--r-lg);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  position: relative;
+}
+.ci-dialogue-speaker {
+  position: absolute;
+  top: -13px;
+  left: 16px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(150deg, var(--c-amber), var(--c-amber-dark));
+  color: var(--c-amber-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ci-dialogue-text { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--c-ink); }
+.ci-dialogue-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; color: var(--c-ink-mute); }
+.ci-dialogue-count { font-family: var(--font-mono); font-size: 11px; }
+
+/* ---------------------------------------------------------------------------- routes (Stage 6) */
+
+.ci-routes-card {
+  width: min(460px, 100%);
+  max-height: min(600px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px 22px 16px;
+  border-radius: var(--r-xl);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+}
+.ci-routes-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 6px; }
+.ci-routes-row {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--c-fill);
+  cursor: pointer;
+}
+.ci-routes-row--here { background: var(--c-amber-wash); border: 1px solid var(--c-amber-line); }
+.ci-routes-row--locked { opacity: 0.6; cursor: default; }
+.ci-routes-row--loading { opacity: 0.7; }
+@media (hover: hover) {
+  .ci-routes-row:not(.ci-routes-row--here):not(.ci-routes-row--locked):hover { background: var(--c-fill-strong); }
+}
+.ci-routes-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ci-routes-row__name { font-size: 14px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-routes-row__yield { display: flex; gap: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--c-ink-mute); }
+.ci-routes-row__yield-good { color: var(--c-good-light); }
+.ci-routes-row__status {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; flex-shrink: 0;
+}
+.ci-routes-row__status--here { color: var(--c-amber-light); }
+.ci-routes-row__status--locked { color: var(--c-ink-mute); }
+.ci-routes-row__status--kind { color: var(--c-ink-dim); }
+
+/* --------------------------------------------------------------------------- trainer (Stage 6) */
+/* `.ci-trainer-screen`, not `.ci-trainer-card` — `hud.css` already owns that name for the
+ * always-on chrome's small trainer widget (`dom/hud.js`'s `data-ui="hud-trainer"`); a second,
+ * unrelated `.ci-trainer-card` rule here would win every property the cascade lets it (this
+ * file loads after `hud.css`) and silently repaint that small widget with THIS screen's own
+ * 420px-card sizing, border-radius and background — caught in this stage's own review via a
+ * computed-style check (`border-radius: 20px` where the always-on widget wants `13px`, a
+ * solid `--c-panel-2` fill where it wants a translucent one), not by eye. */
+.ci-trainer-screen {
+  width: min(420px, 100%);
+  max-height: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-xl);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ci-trainer-head {
+  display: flex; align-items: center; gap: 14px; padding: 20px; border-bottom: 1px solid var(--c-line); flex-shrink: 0;
+}
+.ci-trainer-portrait {
+  width: 56px; height: 56px; border-radius: var(--r-md); overflow: hidden; flex-shrink: 0;
+  background: var(--c-panel-0); image-rendering: pixelated;
+}
+.ci-trainer-portrait img { image-rendering: pixelated; position: relative; }
+.ci-trainer-head__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ci-trainer-head__title { font-family: var(--font-display); font-size: 19px; font-weight: 600; color: var(--c-ink-strong); }
+.ci-trainer-head__wins { font-size: 12px; color: var(--c-ink-dim); }
+.ci-trainer-head__xp { display: flex; align-items: center; gap: 8px; }
+.ci-trainer-head__xp-text { font-family: var(--font-mono); font-size: 10.5px; color: var(--c-ink-mute); flex-shrink: 0; }
+.ci-trainer-close { flex-shrink: 0; }
+
+.ci-trainer-wallet {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--c-line); flex-shrink: 0;
+}
+
+.ci-trainer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+.ci-trainer-section { display: flex; flex-direction: column; gap: 6px; }
+.ci-trainer-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 3px 0; }
+.ci-trainer-row__label { color: var(--c-ink-dim); }
+.ci-trainer-row__value { font-family: var(--font-mono); color: var(--c-ink); font-weight: 600; }
+.ci-trainer-row--dim .ci-trainer-row__label,
+.ci-trainer-row--dim .ci-trainer-row__value { color: var(--c-ink-mute); }
+.ci-trainer-party-row { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+
+/* ------------------------------------------------------------------------ automation (Stage 6) */
+
+.ci-automation-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ci-automation-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 16px 20px; border-bottom: 1px solid var(--c-line); flex-shrink: 0;
+}
+.ci-automation-header__text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ci-automation-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 20px; }
+.ci-automation-list { display: flex; flex-direction: column; gap: 4px; }
+
+.ci-automation-rule__rank {
+  width: 18px; flex-shrink: 0; text-align: center; font-family: var(--font-mono);
+  font-size: 11px; color: var(--c-ink-mute);
+}
+.ci-automation-ladder-row, .ci-automation-chip-row { cursor: grab; }
+.ci-toggle-wrap { all: unset; box-sizing: border-box; cursor: pointer; flex-shrink: 0; }
+
+.ci-automation-stepper { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ci-automation-stepper__btn { width: 26px; height: 26px; font-size: 15px; font-weight: 700; }
+.ci-automation-stepper__value {
+  font-family: var(--font-mono); font-size: 12px; color: var(--c-ink-strong); min-width: 44px; text-align: center;
+}
+.ci-automation-cycle { flex: none !important; padding: 7px 14px; }
+
+/* Reordering (Automation's rule list, the healing ladder, every `order` setting): the
+ * dragged row's own class, and the drop target it hovers over — `dom/dnd.js`'s own
+ * `dragClass`/`overClass` defaults. */
+.ci-dragging { opacity: 0.4; }
+.ci-drag-over { outline: 2px solid var(--c-amber-line-strong); outline-offset: -2px; }
+
+.ci-shelf-deal {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  background: var(--c-amber-wash-strong);
+  border: 1px solid var(--c-amber-line-strong);
+  color: var(--c-amber-light);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}

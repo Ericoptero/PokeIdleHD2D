@@ -1,0 +1,175 @@
+/**
+ * The mobile pass (Stage 8) — narrows what Stages 1-7 already built with `@media` rather than
+ * forking any component into a second, phone-only version (the plan's own rule: "fork with
+ * media queries, never with separate components"). Every rule below is an override of a
+ * selector already defined in `hud.css`/`screens.css`; nothing here introduces a new class
+ * with no desktop counterpart, and this file is injected last (`dom/layer.js`) so the cascade
+ * needs no `!important` to win.
+ *
+ * Two independent conditions, used for two different reasons and never conflated:
+ *  - `(pointer: coarse)` — a touch input with no hover, regardless of screen size (a touch
+ *    laptop is still a laptop). Everything gated on it is a **touch target size**, per the
+ *    plan's own "44px+ targets" — this app already guards every `:hover` affordance with
+ *    `(hover: hover)` (Stage 3 onward), so coarse pointers were never shown a hover-only
+ *    control with no tap equivalent; there is no separate "long-press instead of hover" to
+ *    build on top of that, since nothing here ever put unique information behind hover alone.
+ *  - `(max-width: 640px)` — not a device class, a **layout** breakpoint: the shelf/settings
+ *    three-column shape (rail + grid + detail) has nowhere to put three columns side by side
+ *    once the viewport itself is narrower than the rail and detail columns' own minimum
+ *    widths combined, so it stacks instead. 640px is `phone-portrait`'s own 390px and
+ *    `phone-landscape`'s 844px straddling it (`playwright.config.js`/`tools/shots/parity.js`'s
+ *    own viewport matrix) — a phone in portrait always gets the stacked layout, landscape
+ *    keeps the desktop one, matching how much width a rail actually needs to read.
+ *
+ * **Base rules before `@media` overrides, always** — the one real bug this file's own review
+ * caught in itself: the d-pad's base `bottom: 14px` used to sit *after* the narrow-layout
+ * block that tries to lift it clear of the bottom tab bar, so at equal specificity the later,
+ * unconditional rule won regardless of viewport and the override never applied. Source order
+ * matters as much as the media condition does.
+ */
+
+/* --------------------------------------------------------------------------------- the d-pad */
+/* `dom/dpad.js` (Stage 8) — replaces `input.js`'s canvas-drawn pad; see that file's own
+ * header for why a DOM d-pad reads the same `press()`/`release()` primitives a held keyboard
+ * key already does, rather than the canvas pad's one-tap-one-step `pulse()`. */
+.ci-dpad {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 2px;
+  pointer-events: auto;
+}
+.ci-dpad__btn {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 20, 17, 0.85);
+  border: 1px solid var(--c-line);
+  color: var(--c-ink-dim);
+  border-radius: var(--r-xs);
+  touch-action: none;
+  cursor: pointer;
+}
+.ci-dpad__btn[data-active='true'] { background: var(--c-amber); color: var(--c-amber-ink); border-color: transparent; }
+.ci-dpad__n { grid-column: 2; grid-row: 1; border-radius: var(--r-xs) var(--r-xs) 4px 4px; }
+.ci-dpad__w { grid-column: 1; grid-row: 2; border-radius: var(--r-xs) 4px 4px var(--r-xs); }
+.ci-dpad__e { grid-column: 3; grid-row: 2; border-radius: 4px var(--r-xs) var(--r-xs) 4px; }
+.ci-dpad__s { grid-column: 2; grid-row: 3; border-radius: 4px 4px var(--r-xs) var(--r-xs); }
+.ci-dpad__hub { grid-column: 2; grid-row: 2; background: var(--c-panel-0); border-radius: 4px; }
+
+/* ------------------------------------------------------------------------- touch targets */
+@media (pointer: coarse) {
+  .ci-icon-btn { width: 44px; height: 44px; }
+  .ci-toggle-wrap { min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+  .ci-automation-stepper__btn { width: 36px; height: 36px; }
+  .ci-watch-chip__x { width: 26px; height: 26px; }
+  .ci-shelf-tab { padding: 12px 14px; }
+  .ci-shelf-rail__item { padding: 12px 14px; }
+  .ci-settings-rail__item { padding: 13px 14px; }
+  .ci-shelf-btn { min-height: 40px; }
+  .ci-dock-btn__icon { width: 56px; height: 56px; }
+  .ci-chat-send { width: 32px; height: 32px; }
+  .ci-chat-pill { padding: 10px 14px 10px 11px; }
+}
+
+/* ------------------------------------------------------------------------------- narrow layout */
+@media (max-width: 640px) {
+  /* Every full-screen card goes edge to edge — a modal with visible page behind it on a
+   * 390px phone is a modal with no room left to show anything. */
+  .ci-offline-card, .ci-settings-card, .ci-shelf-card, .ci-trainer-screen, .ci-routes-card {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+  .ci-offline-scrim { padding: 0; }
+
+  /* The rail becomes a horizontal strip above the content instead of a column beside it —
+   * `overflow-x: auto` rather than wrapping, since a rail can run to a dozen entries
+   * (Automation's own roster) and a dozen wrapped rows would be taller than the content. */
+  .ci-shelf-body, .ci-settings-body { flex-direction: column; }
+  .ci-shelf-rail, .ci-settings-rail {
+    flex-direction: row;
+    width: 100%;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--c-line);
+    padding: 8px;
+    gap: 6px;
+  }
+  .ci-shelf-rail__item, .ci-settings-rail__item { flex-shrink: 0; }
+  .ci-shelf-rail__item-sub { display: none; }
+  /* Detail stacks below the grid rather than beside it — both keep their own vertical
+   * scroll, so a long shelf and a long detail pane never fight over the same space. */
+  .ci-shelf-detail {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--c-line);
+    max-height: 45vh;
+  }
+
+  .ci-routes-card, .ci-trainer-screen { width: 100%; max-width: 100%; }
+
+  /* The dock becomes a bottom tab bar — the plan's own "5-tab bottom nav" is this dock
+   * already: Auto/Bag/Shop/Routes/Menu, unchanged, just spanning the width it has instead of
+   * floating in the corner. */
+  .ci-hud-dock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    justify-content: space-around;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--c-panel-0);
+    border-top: 1px solid var(--c-line);
+  }
+  .ci-dock-btn__label { font-size: 9px; }
+
+  /* The always-on top chrome condenses AND stacks rather than disappears: `.ci-hud-left`
+   * (trainer + party) and `.ci-hud-right` (wallet/clock/gear) sit side by side at desktop
+   * widths because there is room for both; at 390px there plainly is not (the trainer card
+   * alone runs wider than a phone's own safe-tap margins would leave for a second column), so
+   * they stack — left block first, right block below it, each free to use the full width
+   * rather than fighting the other for half of one that was never enough for either. */
+  .ci-hud-top { flex-direction: column; align-items: stretch; padding: 8px; gap: 8px; }
+  .ci-hud-right { margin-left: 0; }
+  .ci-hud-right__row { flex-wrap: wrap; gap: 6px; }
+  .ci-trainer-card { padding: 8px; gap: 8px; }
+  .ci-trainer-card__xp-row { display: none; }
+  .ci-party-list { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .ci-party-row { padding: 4px 6px; gap: 6px; width: calc(50% - 2px); }
+  .ci-party-row__portrait { width: 24px; height: 24px; }
+  .ci-party-row__level { display: none; }
+  .ci-chip span:not(.ci-chip__time):not(.ci-chip__phase) { font-size: 11px; }
+  .ci-feed-card { width: min(240px, calc(100vw - 24px)); }
+
+  /* The economy board's stat grid, two columns instead of four-in-a-row — the same reason
+   * the shelf's rail becomes a strip: four `minmax(150px,1fr)` tiles do not fit 390px wide. */
+  .ci-economy-stats { grid-template-columns: repeat(2, 1fr); }
+  .ci-economy-inner { gap: 14px; }
+
+  /* The d-pad sits bottom-left everywhere; the dock only becomes a full-width bottom bar
+   * here, and once it does, the two occupy the same strip of screen — caught in this stage's
+   * own review (a real click, not a screenshot: the dock's own "Auto" button was unreachable,
+   * covered by the pad sitting on top of it). Lifted clear of the bar's own real height plus
+   * its safe-area padding, both already computed by that bar's own rule above rather than
+   * guessed again here. This rule must load *after* the base `.ci-dpad` rule above for the
+   * override to win — see this file's own header on source order.
+   */
+  .ci-dpad { bottom: calc(94px + env(safe-area-inset-bottom, 0px)); }
+  /* The chat pill sits in the same bottom-left corner (`hud.css`'s `.ci-chat`, also
+   * `bottom: 18px`) — the identical collision with the dock, plus a second one with the pad
+   * itself once both are lifted to the same height: cleared above the pad's own reserved
+   * 160px square (`.ci-dpad`'s `3 * 52px` grid) rather than beside it, since a phone's width
+   * has no room left for "beside" once the pad already claims the left edge. */
+  .ci-chat { bottom: calc(262px + env(safe-area-inset-bottom, 0px)); }
+}

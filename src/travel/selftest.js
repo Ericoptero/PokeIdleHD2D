@@ -125,7 +125,7 @@ function makeWorld({ trainerLevel = 1, config = {}, economy = true, enterThrows 
 }
 
 {
-  // `hidden` hides a row from `ui/panels/travel.js` (`travel.test.js`), not a destination
+  // `hidden` hides a row from `ui/models/travel.js`'s `travelRows` (`travel.test.js`), not a destination
   // from `go()` — the door listener in `src/pokecenter/index.js` calls `travel.go('pokecenter')`
   // directly and it has to work despite never appearing in the panel.
   const { api, entered } = makeWorld({ trainerLevel: 1 });

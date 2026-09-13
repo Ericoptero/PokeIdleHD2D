@@ -22,8 +22,8 @@
  * own `pokemon.reviveAll()`, unchanged), just in this room now instead of on the pavement, and
  * that path never touches the cooldown.
  *
- * **Not on the travel panel.** `travel.destinations()` carries it with `hidden: true`
- * (src/travel/index.js) so `ui/panels/travel.js` never lists it — the door is the only way in.
+ * **Not on the Routes screen.** `travel.destinations()` carries it with `hidden: true`
+ * (src/travel/index.js) so `ui/screens/travel.js` never lists it — the door is the only way in.
  */
 
 import { buildPokecenterMap } from './map.js';
