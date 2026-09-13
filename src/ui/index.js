@@ -42,6 +42,7 @@ import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
 import { makeChat } from './dom/chat.js';
 import { makeEconomyMode } from './screens/economy.js';
+import { makeDomPad } from './dom/dpad.js';
 import { makeShopDomScreen } from './screens/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -184,6 +185,7 @@ export default {
         // The menu column (canvas, until Stage 9) shares the toast stack's own bottom-right
         // corner — `dom/toasts.js`'s own comment on `setAside`.
         toasts.setAside(id === 'menu');
+        app.syncDpad();
         screen.markDirty();
         return true;
       },
@@ -192,9 +194,20 @@ export default {
         state.panel.close?.();
         state.panel = null;
         toasts.setAside(false);
+        app.syncDpad();
         screen.markDirty();
         return true;
       },
+      /**
+       * The DOM d-pad's (`dom/dpad.js`, Stage 8) own visibility condition —
+       * `!minimal && !state.economyMode && !state.panel` (a `bars`-style check simplifies to
+       * exactly this: `!state.panel` alone already implies `bars` is true, since `hidesHud`
+       * can only ever be a property of a panel that IS open). Called synchronously from every
+       * place one of those three changes, not only from `draw()` — the pad is a real DOM
+       * element, not a canvas region `screen.paint()` redraws every frame regardless, so
+       * nothing else keeps it in sync on its own.
+       */
+      syncDpad() { dpad.setContext(!minimal && !state.economyMode && !state.panel); },
       /** Re-opens the last while-you-were-away card from the menu. */
       openReport() {
         const summary = state.lastSummary ?? pullSummary();
@@ -261,6 +274,7 @@ export default {
         state.economyMode = on;
         ctx.three?.view?.setPaused?.(on);
         economyMode.setActive(on);
+        app.syncDpad();
         screen.markDirty();
       },
       economyModeActive: () => state.economyMode,
@@ -310,6 +324,10 @@ export default {
     const evolution = makeEvolutionOverlay(app);
 
     const input = makeInput({ ctx, app });
+    // The touch d-pad (Stage 8) — a real DOM control now, not drawn on the canvas; see
+    // `dom/dpad.js`'s own header for why it reads `input.press`/`release` directly.
+    const dpad = makeDomPad(domLayer, input);
+    app.syncDpad();
 
     /** The payload `offline` publishes, if it has one and it has not been dismissed. */
     function pullSummary() {
@@ -551,7 +569,6 @@ export default {
           g.fill(hx - 5, hy - 2, w + 10, 11, 'rgba(12,10,16,0.62)');
           g.text(hx, hy, text, C.wallHi);
         }
-        input.drawPad(g);
       }
       // The one moment `panels/common.js`'s `windowFrame` — called from deep inside whichever
       // panel draws next — can see the live gesture `screen.js` is holding, without every one
@@ -782,6 +799,7 @@ export default {
         domHud.dispose();
         chat.dispose();
         economyMode.dispose();
+        dpad.dispose();
         domLayer.dispose();
         live = null;
       },

@@ -670,8 +670,14 @@
 .ci-routes-row__status--kind { color: var(--c-ink-dim); }
 
 /* --------------------------------------------------------------------------- trainer (Stage 6) */
-
-.ci-trainer-card {
+/* `.ci-trainer-screen`, not `.ci-trainer-card` — `hud.css` already owns that name for the
+ * always-on chrome's small trainer widget (`dom/hud.js`'s `data-ui="hud-trainer"`); a second,
+ * unrelated `.ci-trainer-card` rule here would win every property the cascade lets it (this
+ * file loads after `hud.css`) and silently repaint that small widget with THIS screen's own
+ * 420px-card sizing, border-radius and background — caught in this stage's own review via a
+ * computed-style check (`border-radius: 20px` where the always-on widget wants `13px`, a
+ * solid `--c-panel-2` fill where it wants a translucent one), not by eye. */
+.ci-trainer-screen {
   width: min(420px, 100%);
   max-height: min(640px, 100%);
   display: flex;

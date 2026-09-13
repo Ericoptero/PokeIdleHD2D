@@ -18,13 +18,17 @@ import tokens from '../css/tokens.css?inline';
 import base from '../css/base.css?inline';
 import hud from '../css/hud.css?inline';
 import screens from '../css/screens.css?inline';
+import mobile from '../css/mobile.css?inline';
 
 let styleInjected = false;
 function ensureStyle() {
   if (styleInjected) return;
   const style = document.createElement('style');
   style.id = 'ui-codex-style';
-  style.textContent = `${tokens}\n${base}\n${hud}\n${screens}`;
+  // `mobile.css` last: every rule in it is an `@media` override narrowing what came before,
+  // never a new base rule of its own (Stage 8's own header comment on that file) — cascade
+  // order is what lets it win without a specificity fight.
+  style.textContent = `${tokens}\n${base}\n${hud}\n${screens}\n${mobile}`;
   document.head.appendChild(style);
   styleInjected = true;
 }

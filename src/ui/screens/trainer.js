@@ -69,7 +69,7 @@ export function makeTrainerDomScreen(app, domLayer) {
     body = h('div', { class: 'ci-trainer-body', 'data-ui': 'trainer-body' });
 
     return h('div', { class: 'ci-offline-scrim', 'data-ui': 'trainer-scrim' }, [
-      h('div', { class: 'ci-trainer-card' }, [
+      h('div', { class: 'ci-trainer-screen' }, [
         h('div', { class: 'ci-trainer-head' }, [
           trainerPortrait(),
           h('div', { class: 'ci-trainer-head__body' }, [
