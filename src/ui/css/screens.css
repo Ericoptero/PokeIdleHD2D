@@ -229,6 +229,7 @@
   .ci-btn:hover { filter: brightness(1.05); }
 }
 .ci-btn:focus-visible { outline: 2px solid var(--c-info); outline-offset: 2px; }
+.ci-btn:disabled { opacity: 0.4; cursor: default; filter: none; }
 
 /* ---------------------------------------------------------------------------- settings (Stage 4) */
 
@@ -675,40 +676,10 @@
   .ci-menu-row:hover { background: var(--c-fill); }
 }
 
-/* ------------------------------------------------------------------------------ battle (Stage 9) */
-/* A docked card, not a modal — no scrim, the world and the rest of the HUD stay up (this
- * screen never sets `hidesHud`). Positioned left, cleared below the trainer/party chrome the
- * same way `screens/menu.js`/`screens/economy.js` clear it, via `app.hudTopBottom()`. */
-.ci-battle-card {
-  position: fixed;
-  left: 18px;
-  top: 18px;
-  z-index: 3;
-  width: 232px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: var(--r-lg);
-  background: var(--c-panel-2);
-  border: 1px solid var(--c-line);
-  box-shadow: var(--shadow-card);
-  pointer-events: auto;
-}
-.ci-battle-side { display: flex; flex-direction: column; gap: 3px; }
-.ci-battle-side__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.ci-battle-name { font-size: 13px; font-weight: 600; color: var(--c-ink-strong); }
-.ci-battle-wild-tag { color: var(--c-bad-light); font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.ci-battle-side__level { font-size: 11px; color: var(--c-ink-dim); flex-shrink: 0; }
-.ci-battle-side__foot { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--c-ink-dim); }
-.ci-battle-status { color: var(--c-bad-light); font-weight: 700; }
-.ci-battle-verdict { font-size: 12px; font-weight: 700; color: var(--c-amber-light); text-align: center; padding: 2px 0; border-top: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line); }
-.ci-battle-verdict--lost { color: var(--c-bad-light); }
-.ci-battle-log { display: flex; flex-direction: column; gap: 2px; background: var(--c-fill); border-radius: var(--r-xs); padding: 6px 8px; }
-.ci-battle-log__line { font-size: 11px; color: var(--c-ink-dim); }
-.ci-battle-log__line--move { color: var(--c-ink); }
-.ci-battle-log__line--bad { color: var(--c-bad-light); }
-.ci-battle-pity { display: flex; flex-direction: column; gap: 3px; }
+/* The docked battle card (Stage 9) is gone — balloons (`callout.js`), floaters
+ * (`floaters.js`) and the capture tooltip (`dom/capture.js`, `css/world.css`) are the whole
+ * on-screen account of a fight now. Its pity block moved to the drop tooltip
+ * (`.ci-feed-card__pity`, `css/hud.css`). */
 
 /* -------------------------------------------------------------------------------- dex (Stage 9) */
 

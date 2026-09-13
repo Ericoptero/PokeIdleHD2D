@@ -2,15 +2,15 @@
  * The encounter feed card (Stage 3b) — a small, honest summary of the most recent wild
  * encounter, docked under the wallet row.
  *
- * **What this deliberately does not do.** The source design's own mockup shows this card
- * carrying a "Capture" button. It cannot: `encounter.attempt(ball)` — the one real,
- * player-triggered capture path (already wired to `panels/battle.js`'s own throw button) —
- * only works while the encounter it targets is still `active`, and `encounter:resolved`
- * (this card's own trigger) fires *after* `resolve()` has already set `active = null`. There
- * is no "wild defeated, still around, catch it later" state anywhere in this domain — a
- * failed throw is captioned `escaped`, meaning it is already gone by the time this card could
- * show it. A capture button here would call a function with nothing left to act on. This card
- * is a read-only recap; the one real capture control stays exactly where it already worked.
+ * **What this still does not do.** `encounter.attempt(ball)` — the one real, player-triggered
+ * capture path — only works while the encounter it targets is still `active`, and
+ * `encounter:resolved` (this card's own trigger) fires *after* `resolve()` has already set
+ * `active = null`. So the capture control is not on THIS card — it is a separate,
+ * world-anchored tooltip over the wild itself (`dom/capture.js`), up during the real window
+ * that already exists before `resolve()` runs, extended to `config.manualThrowSeconds` (5s)
+ * specifically when Auto-Catch is off (`encounter/index.js`'s `leaveSteps()`) so there is time
+ * to click it. This card stays a read-only recap of what already happened, by the time it
+ * appears.
  *
  * **Where "defeated by X" comes from.** Not from `encounter:resolved` itself, which carries
  * no attacker information at all. Every `battle:strike` during the live fight is watched
@@ -23,6 +23,7 @@
  * the two have to be matched up rather than assumed adjacent.
  */
 import { h, setText } from './el.js';
+import { icon } from './icons.js';
 import { fmt } from '../format.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -37,12 +38,14 @@ export function makeEncounterFeed(app) {
   const title = h('div', { class: 'ci-feed-card__title' }, '');
   const subtitle = h('div', { class: 'ci-feed-card__subtitle' }, '');
   const chips = h('div', { class: 'ci-feed-card__chips' });
+  const pityRow = h('div', { class: 'ci-feed-card__pity', hidden: true });
   const el = h('div', { class: 'ci-feed-card', 'data-ui': 'hud-feed', hidden: true }, [
     h('div', { class: 'ci-feed-card__head' }, [
       portrait,
       h('div', { class: 'ci-feed-card__text' }, [title, subtitle]),
     ]),
     chips,
+    pityRow,
   ]);
 
   /**
@@ -66,8 +69,13 @@ export function makeEncounterFeed(app) {
   let minimalFlag = false;
   const applyVisibility = () => { el.hidden = minimalFlag || !present; };
 
-  function chip(text, tone) {
-    return h('span', { class: 'ci-feed-chip', 'data-tone': tone ?? '' }, text);
+  /** A chip is icon + text — the wallet row's own shape (`dom/hud.js`'s `.ci-chip`), so a
+   *  number in this card reads the same way the same number reads in the HUD proper instead
+   *  of relying on the amber/green tint alone to say what kind of number it is. */
+  function chip(iconName, text, tone) {
+    return h('span', { class: 'ci-feed-chip', 'data-tone': tone ?? '' }, [
+      icon(iconName, { size: 13 }), h('span', {}, text),
+    ]);
   }
 
   /** `hud.js`'s own species-name casing (`nidoran-f` → `Nidoran F`) — every bus payload here
@@ -85,15 +93,59 @@ export function makeEncounterFeed(app) {
     portrait.style.backgroundImage = isLive(pokemon) && typeof pokemon.spriteUrl === 'function'
       ? `url(${pokemon.spriteUrl(entry.species, { shiny: entry.shiny })})` : '';
 
+    // **The species' own type colour**, as an accent — the same source `battle`'s balloons
+    // and the Dex bars already tint from (`battle.typeColour`, `src/battle/types.js`), not a
+    // separate rarity table (this game has none — see this file's own header discussion).
+    // Falls back to the neutral line colour for a species lookup that failed.
+    const bt = app.ctx.get('battle');
+    const species = isLive(pokemon) && typeof pokemon.species === 'function' ? pokemon.species(entry.species) : null;
+    const primaryType = species?.types?.[0];
+    const edge = primaryType && isLive(bt) && typeof bt.typeColour === 'function'
+      ? bt.typeColour(primaryType)?.edge ?? null : null;
+    el.style.setProperty('--type-accent', edge ?? 'var(--c-line)');
+
     setText(title, entry.caught ? `${displayName} caught!` : entry.outcome === 'win' ? `${displayName} defeated` : `${displayName} got away`);
     setText(subtitle, entry.finisherSpecies ? `by ${speciesName(entry.finisherSpecies)}` : '');
 
     chips.replaceChildren();
-    if (entry.rewards?.exp > 0) chips.appendChild(chip(`+${fmt(entry.rewards.exp)} xp`, 'good'));
-    if (entry.rewards?.money > 0) chips.appendChild(chip(`+${fmt(entry.rewards.money)}`, 'amber'));
+    // **Pokémon XP and trainer progress, shown separately** — they are two different
+    // quantities in this game, not one XP number split two ways: `entry.pokemonExp` is the
+    // real amount `pokemon.grantPartyExp()` just paid out (`bt.expYield`, `encounter/index.js`
+    // `resolve()`), and the trainer has no XP field of its own to show at all — it levels off
+    // `battlesWon` (`economy/trainer.js`) — so what is shown for it is progress toward the
+    // next level, the same shape the HUD's own trainer card already renders
+    // (`dom/hud.js`).
+    if (entry.pokemonExp > 0) chips.appendChild(chip('trending-up', `+${fmt(entry.pokemonExp)} XP`, 'good'));
+    const trainer = isLive(eco) && typeof eco.trainer === 'function' ? eco.trainer() : null;
+    if (entry.outcome === 'win' && trainer) {
+      chips.appendChild(chip('person', `Trainer Lv ${trainer.level} (${trainer.into}/${trainer.need})`, 'good'));
+    }
+    if (entry.rewards?.money > 0) chips.appendChild(chip('coin', `₽${fmt(entry.rewards.money)}`, 'amber'));
     for (const drop of entry.drops ?? []) {
       const name = isLive(eco) && typeof eco.item === 'function' ? (eco.item(drop.id)?.name ?? drop.id) : drop.id;
-      chips.appendChild(chip(`${name} ×${fmt(drop.n)}`));
+      chips.appendChild(chip('backpack', `${name} ×${fmt(drop.n)}`));
+    }
+
+    // **Pity** — ported from the battle card it is replacing (`ui/screens/battle.js`'s own
+    // `pityOf`/render, now removed): meaningful whenever the wild was fought and not caught,
+    // whether that is a clean loss/flee or a win nobody threw a ball at.
+    const pity = isLive(eco) && typeof eco.pity === 'function' ? eco.pity(entry.species) : null;
+    pityRow.hidden = entry.caught || !pity || !Number.isFinite(pity.price);
+    if (!pityRow.hidden) {
+      const shown = Math.min(1, pity.ratio / 1.25);
+      pityRow.replaceChildren(
+        h('div', { class: 'ci-feed-card__pity-row' }, [
+          h('span', {}, 'Pity'),
+          h('span', {}, pity.t > 0 ? `+${Math.round(pity.t * 100)}%` : `${Math.round(pity.ratio * 100)}%`),
+        ]),
+        h('div', { class: 'ci-meter' }, h('div', {
+          class: 'ci-meter__fill',
+          style: { width: `${shown * 100}%`, background: pity.t > 0 ? 'var(--c-good)' : '' },
+        })),
+        h('div', { class: 'ci-feed-card__pity-row' }, [
+          h('span', {}, `₽${fmt(Math.round(pity.sum))} / ₽${fmt(pity.price)}`),
+        ]),
+      );
     }
 
     present = true;
@@ -114,7 +166,8 @@ export function makeEncounterFeed(app) {
       finishers.delete(r.index);
       show({
         species: r.species, shiny: r.shiny, outcome: r.outcome, caught: r.caught,
-        rewards: r.rewards, finisherSpecies: rec?.species ?? null, drops: rec?.drops ?? [],
+        rewards: r.rewards, pokemonExp: r.pokemonExp ?? 0,
+        finisherSpecies: rec?.species ?? null, drops: rec?.drops ?? [],
       });
     }),
   ];

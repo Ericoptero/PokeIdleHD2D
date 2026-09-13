@@ -1,0 +1,122 @@
+/**
+ * World-anchored DOM — nameplates, battle balloons and damage floaters, mounted under
+ * `#ui-dom-world` (`dom/world.js`) and positioned every frame with inline `left`/`top` off
+ * `ui/index.js`'s `projectClient()`. Everything here is `pointer-events: none` and
+ * `white-space: nowrap`: nothing projected against the world has ever been interactive
+ * (`screen.js`'s own header made the same point about the canvas this replaces), and a label
+ * that wraps mid-word over a moving sprite reads as broken rather than as a balloon.
+ */
+
+.ci-world-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---- nameplates (replaces ui/plates.js's canvas text+meter) ---- */
+
+.ci-nameplate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 5px;
+  border-radius: var(--r-xs);
+  background: rgba(10, 9, 14, 0.55);
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.ci-nameplate__row { display: flex; align-items: baseline; gap: 5px; }
+.ci-nameplate__name { color: var(--c-ink-strong); font-weight: 600; }
+.ci-nameplate__star { color: var(--c-amber-light); }
+.ci-nameplate__level { color: var(--c-ink-dim); font-family: var(--font-mono); font-size: 9px; }
+.ci-nameplate__hp { width: 100%; min-width: 26px; height: 3px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+.ci-nameplate__hp-fill { height: 100%; border-radius: 999px; }
+.ci-nameplate__hp-fill[data-band='high'] { background: var(--c-good); }
+.ci-nameplate__hp-fill[data-band='mid']  { background: var(--c-amber); }
+.ci-nameplate__hp-fill[data-band='low']  { background: var(--c-bad); }
+
+/* ---- battle balloons (replaces ui/callout.js's canvas panel+tail+text) ---- */
+
+/* The anchor sits exactly at the projected point with zero size; the tail and the balloon are
+ * its two SIBLING children (`callout.js`'s own comment on why: nesting the tail inside the
+ * balloon would carry it along with the lean). The tail stays put at the anchor's own origin;
+ * the balloon leans away from it (`--lean: -1` ally/left, `1` wild/right) and floats clear
+ * above it — the same split the canvas version's "the tail still points at the true anchor, so
+ * the lean never reads as a balloon belonging to the wrong speaker" was written for. */
+.ci-balloon-anchor { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.ci-balloon__tail {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--c-panel-3);
+  border-right: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line);
+  transform: translate(-50%, 50%) rotate(45deg);
+}
+.ci-balloon {
+  position: absolute;
+  left: 0;
+  bottom: 10px;
+  transform: translate(calc(-50% + var(--lean, -1) * 50% + var(--lean, -1) * 6px), 0);
+  max-width: 220px;
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  background: var(--c-panel-3);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-card);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: normal;
+  color: var(--c-ink);
+}
+.ci-balloon__move { font-weight: 700; }
+
+/* ---- post-battle capture tooltip (dom/capture.js) ---- */
+
+.ci-capture {
+  position: absolute;
+  left: 0;
+  bottom: 10px;
+  transform: translate(-50%, 0);
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border-radius: var(--r-md);
+  background: var(--c-panel-3);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-card);
+  pointer-events: auto;
+  white-space: nowrap;
+}
+.ci-capture .ci-btn { padding: 8px 14px; font-size: 12px; }
+.ci-capture .ci-shelf-btn { padding: 8px 12px; font-size: 12px; }
+
+/* ---- damage floaters (replaces ui/floaters.js's canvas text) ---- */
+
+.ci-floater {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -100%);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--c-ink-strong);
+  text-shadow: 0 1px 2px rgba(20, 16, 12, 0.65);
+  white-space: nowrap;
+}
+.ci-floater--crit { font-size: 22px; }
+.ci-floater--super { color: var(--c-bad-light); }
+.ci-floater--weak { color: var(--c-ink-dim); }
+.ci-floater--miss, .ci-floater--status { color: var(--c-ink-dim); }
+.ci-floater--effectiveness { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }

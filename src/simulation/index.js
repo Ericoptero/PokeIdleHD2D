@@ -418,6 +418,17 @@ export default {
         return true;
       },
       stop() { intent = null; },
+      /**
+       * Turns the head of the walking queue on the spot, without moving it — `line.turn(dir)`
+       * (`simulation/line.js`), written for exactly this and never called until a hunt battle
+       * needed the party to visibly look at what it is fighting. "The head" is whichever member
+       * `formation.head` put at the front of the queue (`setFormation`) — the party's Pokemon
+       * in a hunt, the trainer on a walkable map — since that member is the only one whose
+       * facing is a free value (`line.pose()`'s own `dir: k === 0 ? this.facing : to.dir`); a
+       * follower's facing is fixed by the direction it last walked into its own cell and cannot
+       * be turned without moving it.
+       */
+      face(dir) { line.turn(dir & 3); },
 
       /**
        * How the scene in the world is played: who leads, whether the player drives, and what

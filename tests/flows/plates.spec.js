@@ -44,13 +44,17 @@ test('a plate over the party tracks the live duel, not the stale party record', 
   }
   await step(page, 90); // a few turns in
 
-  // 3. The plate's HP must match the live duel state, not the untouched party record.
+  // 3. The plate's identity AND HP must match the live duel state, not the untouched party
+  //    record — `active.duel.ally` is the combatant the fight OPENED with and is never
+  //    reassigned (`encounter/index.js`'s `openDuel`), so on a bad matchup where the lead has
+  //    already fainted and been swapped by tick 90, it no longer names who is actually
+  //    fighting; `liveState.a` (the engine's own current combatant, `battle/engine.js`) does.
   const active = await call(page, 'encounter', 'active');
   const liveState = active?.duel?.run?.state;
   expect(liveState, 'a duel is actually running').toBeTruthy();
 
   const list = await plates(page);
-  const lead = list.find((p) => p.name === (active.duel.ally.display ?? active.duel.ally.species));
+  const lead = list.find((p) => p.name === (liveState.a.display ?? liveState.a.species));
   expect(lead, 'the fighting ally has a plate').toBeTruthy();
   expect(lead.bar.hp, "the plate's HP is the live duel's, not the party record's").toBe(Math.max(0, liveState.a.hp));
   expect(lead.bar.maxHp).toBe(Math.max(1, liveState.a.maxHp));

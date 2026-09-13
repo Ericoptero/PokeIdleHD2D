@@ -1,64 +1,32 @@
 /**
- * `floaters.js`'s pure geometry and lifecycle — the same discipline `plates.test.js` already
- * applies to `plates.js`: a fake painter and an identity projection, no canvas, no `ctx`.
+ * `floaters.js`'s pure lifecycle — `push()`/`tick()`/`clear()`/`peek()` — needs no DOM and
+ * stays covered here. Its `draw()` now builds real `.ci-floater` elements (`css/world.css`)
+ * rather than painting a fake canvas; this project verifies DOM-construction code (`dom/
+ * hud.js`, `dom/feed.js`, …) through the real browser rather than jsdom (no jsdom/happy-dom
+ * dependency is installed), so the floater's own position, rise and crit sizing are covered by
+ * `tests/flows/balloon-effects-real-fight.spec.js` and `tests/flows/balloons-and-damage.spec.js`
+ * instead.
  */
 import { describe, it, expect } from 'vitest';
 import { makeFloaters, FLOATER_STEPS, CRIT_FLOATER_SCALE } from './floaters.js';
 
-/** Just enough of the painter for `draw()`: records every text/textScaled call. */
-function fakePainter({ width = 200, height = 100 } = {}) {
-  const texts = [];
-  const scaled = [];
-  return {
-    width, height,
-    measure: (s) => String(s ?? '').length * 6,
-    fill() {},
-    text(x, y, str, colour, opts) { texts.push({ x, y, str, colour, opts }); return x + String(str ?? '').length * 6; },
-    textScaled(x, y, str, colour, scale, opts) { scaled.push({ x, y, str, colour, scale, opts }); return x; },
-    _texts: texts,
-    _scaled: scaled,
-  };
-}
-
-const identityProject = (x, y, z) => ({ x, y: z });
-
 describe('floaters — lifecycle', () => {
-  it('draws nothing before anything is pushed', () => {
+  it('starts empty', () => {
     const floaters = makeFloaters();
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    expect(g._texts.length).toBe(0);
+    expect(floaters.count()).toBe(0);
   });
 
-  it('draws a pushed floater at its spawn position on the same tick', () => {
+  it('a pushed floater is live on the same tick, at its spawn position', () => {
     const floaters = makeFloaters();
     floaters.push({ text: '-8', x: 10, y: 0, z: 20, colour: '#ff0000' });
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    expect(g._texts).toHaveLength(1);
-    expect(g._texts[0].str).toBe('-8');
-    expect(g._texts[0].colour).toBe('#ff0000');
+    expect(floaters.count()).toBe(1);
+    expect(floaters.peek()[0]).toEqual(expect.objectContaining({ text: '-8', x: 10, y: 0, z: 20, colour: '#ff0000' }));
   });
 
-  it('rises over its lifetime — later ticks draw higher up (smaller y)', () => {
-    const floaters = makeFloaters();
-    floaters.push({ text: '-8', x: 10, y: 0, z: 20 });
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    const y0 = g._texts[0].y;
-    floaters.tick(FLOATER_STEPS / 2);
-    const g2 = fakePainter();
-    floaters.draw(g2, identityProject);
-    expect(g2._texts[0].y).toBeLessThan(y0);
-  });
-
-  it('expires after its life and stops drawing', () => {
+  it('expires after its life', () => {
     const floaters = makeFloaters();
     floaters.push({ text: '-8', x: 10, y: 0, z: 20, life: 10 });
     floaters.tick(10);
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    expect(g._texts.length).toBe(0);
     expect(floaters.count()).toBe(0);
   });
 
@@ -82,45 +50,16 @@ describe('floaters — lifecycle', () => {
     floaters.clear();
     expect(floaters.count()).toBe(0);
   });
-});
 
-describe('floaters — crit emphasis', () => {
-  it('draws a scale > 1 floater through textScaled, not text', () => {
+  it('a crit keeps its scale on the record, for a caller to size by', () => {
     const floaters = makeFloaters();
-    floaters.push({ text: '-20', x: 0, y: 0, z: 0, scale: CRIT_FLOATER_SCALE });
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    expect(g._texts.length).toBe(0);
-    expect(g._scaled).toHaveLength(1);
-    expect(g._scaled[0].scale).toBe(CRIT_FLOATER_SCALE);
-    expect(g._scaled[0].str).toBe('-20');
+    floaters.push({ text: '-20', x: 0, y: 0, z: 0, tone: 'crit', scale: CRIT_FLOATER_SCALE });
+    expect(floaters.peek()[0].scale).toBe(CRIT_FLOATER_SCALE);
   });
 
-  it('an ordinary (scale 1) floater uses text, not textScaled', () => {
-    const floaters = makeFloaters();
-    floaters.push({ text: '-4', x: 0, y: 0, z: 0, scale: 1 });
-    const g = fakePainter();
-    floaters.draw(g, identityProject);
-    expect(g._scaled.length).toBe(0);
-    expect(g._texts).toHaveLength(1);
-  });
-});
-
-describe('floaters — off-screen and clamping', () => {
-  it('skips a floater the projection refuses (behind the camera)', () => {
+  it('FLOATER_STEPS is the default life', () => {
     const floaters = makeFloaters();
     floaters.push({ text: 'x', x: 0, y: 0, z: 0 });
-    const g = fakePainter();
-    floaters.draw(g, () => null);
-    expect(g._texts.length).toBe(0);
-  });
-
-  it('clamps a floater inside the buffer rather than drawing off it', () => {
-    const floaters = makeFloaters();
-    floaters.push({ text: 'MISS', x: 0, y: 0, z: 0 });
-    const g = fakePainter({ width: 40 });
-    // Project far to the right of a narrow buffer.
-    floaters.draw(g, () => ({ x: 500, y: 50 }));
-    expect(g._texts[0].x).toBeLessThanOrEqual(40 - g.measure('MISS') - 2);
+    expect(floaters.peek()[0].life).toBe(FLOATER_STEPS);
   });
 });

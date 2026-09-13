@@ -167,15 +167,11 @@ test('the city no longer heals — Nurse Joy does, once you walk in and face the
   // `city.enter()` does not heal: a fainted party arriving in the lobby stays fainted.
   expect(await conscious(page), 'arriving in the city no longer heals the party').toBe(false);
 
-  // `encounter.cancel()` (called from inside `travel.go()`) resolves nothing, so `ui`'s battle
-  // card — opened on the meadow's `encounter:started` and never told the fight is over — is
-  // still open here (`ui.openPanel()`
-  // reads `'battle'` at this point). `Escape`/`X` closes ANY open panel that does not consume
-  // the key itself (`ui/input.js`'s panel branch) — the same key a player uses here.
-  expect(await call(page, 'ui', 'openPanel'), 'the stale battle card is still up').toBe('battle');
-  await key(page, 'Escape');
-  await key(page, 'Escape', false);
-  expect(await call(page, 'ui', 'openPanel')).toBeNull();
+  // `encounter.cancel()` (called from inside `travel.go()`) resolves nothing — but a hunt
+  // fight opens no panel any more (balloons/floaters/the capture tooltip are the whole
+  // on-screen account of one, `src/ui/index.js`), so there is no stale panel left behind to
+  // close by the time the city is reached.
+  expect(await call(page, 'ui', 'openPanel'), 'no panel survives the cancelled fight').toBeNull();
 
   // Walk to the Center's door, in, up to the counter, and press Z.
   const marker = await call(page, 'city', 'marker', 'pokecenter-door');

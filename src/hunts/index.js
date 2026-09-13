@@ -12,6 +12,8 @@
 
 import { makePalette, isLive } from './palette.js';
 import { findLoop, slotsForLoop } from './compose.js';
+import { bfsPath } from '../core/path.js';
+import { opposite } from '../core/dir.js';
 
 /** `core/dir.js`'s deltas, for walking a route string back over the draft in `audit()`. */
 const LOOP_DX = [0, -1, 0, 1];
@@ -120,7 +122,7 @@ export default {
   showcaseNeeds: ['tiles', 'simulation', 'pokemon'],
 
   init(ctx) {
-    const { log, bus } = ctx;
+    const { log, bus, config } = ctx;
     const terrain = ctx.get('terrain');
     /**
      * What is standing on each slot right now, keyed by slot index.
@@ -247,51 +249,89 @@ export default {
     });
 
     /**
-     * **The party leaves the circuit to reach what it is hunting.**
+     * **The party leaves the circuit to reach what it is hunting — Tibia-style: whichever
+     * living wild is nearest within `config.aggroTiles` pulls the trainer off the path,
+     * routed around collision by a real search rather than a fixed cell pair — bounded to a
+     * single step each way.**
      *
      * The brief asks that a battle begin when the trainer's Pokemon *physically reaches* a
-     * living wild, and until now a slot fired at Chebyshev 2 — proximity, not contact. The
-     * circuit is still the spine; what changes is that when the head lands on the cell a slot
-     * was measured from, it takes **one step off the path and one back**, queued together.
+     * living wild. What changed from the fixed-slot detour this replaced: that one fired only
+     * when the head landed on the ONE cell the CURRENT lap's next slot happened to be authored
+     * two cells off of. This fires from ANY tile entered while ANY occupied slot sits within
+     * `aggroTiles`, picks the nearest one by its own LIVE position (a wild drifts a tile
+     * around its tether — the same lookup `wanderingPlates()` already does), and paths to it
+     * with `bfsPath` (`core/path.js`) against the terrain's real passability.
      *
-     * One step, and the geometry proves it (`compose.slotsForLoop`): every slot sits at an
-     * axial offset of 2 from a specific path cell, so the midpoint is Chebyshev 1 from both and
-     * is never itself a loop cell. Queued as a pair at commit time, so nothing has to run when
-     * the fight ends to bring the party home — a `hunts` quarantined mid-duel cannot strand the
-     * queue off its own route. And drained ahead of the autopilot, so the route's index never
-     * learns it happened.
-     *
-     * The target is frozen at commit, because a tethered wild drifts a tile and a target that
-     * steps aside between the commit and the arrival turns the detour into a miss.
+     * **Why only a one-cell approach is walked, when `bfsPath` will happily plan a longer
+     * one.** Measured, not assumed: queuing a longer round trip as one `sim.detour()` call —
+     * this feature's own first cut, matching the shape `bfsPath` naturally returns — reliably
+     * corrupted the circuit's own `strict` scripted route into a **permanent** stall the
+     * instant the round trip ran longer than a single step each way; `hunt-recovers.spec.js`'s
+     * "a lap of the circuit" case (a fainted party walking a full lap unattended) reproduced it
+     * deterministically, every run, the moment a multi-step path was involved, and never once
+     * with a single-step one — the exact shape the fixed-slot detour this replaces always used
+     * in production. Draining a multi-step path one direction per tile across several ticks
+     * (an earlier revision of this fix) did **not** avoid it either — the corruption tracks
+     * total distance travelled off the route, not the size of one `detour()` call. The exact
+     * mechanism inside `line.js`'s conga-line trail is not something this fix set out to chase
+     * down under the time this task had; a one-cell approach is the shape already proven safe,
+     * and is what this stays inside. The practical cost: a wild more than about two tiles away
+     * is noticed (it is inside `aggroTiles`) but not walked to until something else — the
+     * party's own ordinary progress round the loop — brings it within that one-cell reach.
      */
     bus.on('player:enteredTile', ({ cx, cz }) => {
       const sim = ctx.get('simulation');
       const enc = ctx.get('encounter');
       if (!isLive(sim) || typeof sim.detour !== 'function') return;
       if (sim.detouring() || (isLive(enc) && enc.active?.())) return;
+      // A party with nothing left standing walks past its wildlife rather than detouring
+      // toward a fight it cannot take — `encounter/index.js`'s `slotNear()` already refuses
+      // to engage one for the same reason; without this check here too, the walk toward it
+      // still happened, wasting the lap's own rest (`hunt:lap`, below) on trips to wilds that
+      // were never going to be fought.
+      const pokemon = ctx.get('pokemon');
+      const canFight = !isLive(pokemon) || typeof pokemon.firstConscious !== 'function'
+        || !!pokemon.firstConscious();
+      if (!canFight) return;
       const list = built.get(currentId)?.slots ?? [];
+      if (!list.length) return;
+      const npcs = typeof sim.npcs === 'function' ? sim.npcs() : [];
+      const range = Math.max(1, Math.round(Number(config?.aggroTiles) || 5));
+
+      // Every occupied slot's own LIVE position, in reach and not already given up on this
+      // lap — nearest first, so a crowded stretch of the circuit always tries its closest
+      // neighbour before a farther one.
+      const candidates = [];
       for (let k = 0; k < list.length; k++) {
-        const slot = list[k];
-        if (!slot?.from || slot.from.cx !== cx || slot.from.cz !== cz) continue;
-        if (triedThisLap.has(k)) return;          // already walked out to this one this lap
+        if (triedThisLap.has(k)) continue;
         const held = occupancy.get(k);
-        if (!held) return;                       // defeated and not yet respawned: walk on
-        // Re-checked against the draft rather than trusted from build time: a prop placed after
-        // the slot was chosen would make the approach a step into a wall, and `strict` would
-        // stall where the player can see it. A refusal is `debug`, never `warn` — the harness
-        // records `consoleWarnings` in every shot's JSON and a handled path must not spend them
-        //.
-        const terrain = ctx.get('terrain');
-        const back = (slot.step + 2) & 3;
-        const ok = isLive(terrain) && typeof terrain.passable === 'function'
-          ? terrain.passable(slot.approach.cx, slot.approach.cz, slot.step) && terrain.passable(cx, cz, back)
-          : true;
-        if (!ok) { log.debug?.(`hunts/${currentId}: slot ${k} has no approach — skipped this lap`); return; }
-        if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+        if (!held) continue; // defeated and not yet respawned
+        const live = npcs.find((n) => n.id === held.npcId);
+        if (!live) continue; // a slot can report occupied for one tick after its npc is gone
+        const dist = Math.max(Math.abs(live.cx - cx), Math.abs(live.cz - cz));
+        if (dist > range) continue;
+        candidates.push({ k, held, live, dist });
+      }
+      if (!candidates.length) return;
+      candidates.sort((a, b) => a.dist - b.dist || a.k - b.k);
+      const { k, held, live } = candidates[0];
+
+      const terrain = ctx.get('terrain');
+      const passable = isLive(terrain) && typeof terrain.passable === 'function'
+        ? terrain.passable : () => true;
+      const path = bfsPath({ cx, cz }, { cx: live.cx, cz: live.cz }, passable);
+      if (!path || path.length !== 1) {
+        // No path at all: either already in contact (the generic engage check on this same
+        // event handles that, `encounter/index.js`'s `slotNear`) or genuinely unreachable.
+        // A path longer than one cell: outside the safe shape (this function's own header) —
+        // left for ordinary progress round the loop to close the rest of the distance.
+        // Either way, not worth re-trying every single tile for the rest of the lap.
         triedThisLap.add(k);
-        sim.detour([slot.step, back]);
         return;
       }
+      if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+      triedThisLap.add(k);
+      sim.detour([path[0], opposite(path[0])]);
     });
 
     /**

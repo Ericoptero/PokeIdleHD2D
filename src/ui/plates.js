@@ -4,10 +4,10 @@
  *
  * Two halves, the same split `hud.js` already draws: `read()` gathers the world through
  * published APIs at paint time (a quarantined `hunts` or `encounter` costs this file its
- * wild plates, never a crash), and `draw()` projects and paints what it found. Drawn on the
- * 2-D HUD canvas, like `callout.js` — a plate in the 3-D scene would be one more draw call
- * per entity and its own filtering story; this one costs nothing the renderer's own stats
- * count (src/core/render.js).
+ * wild plates, never a crash), and `draw()` syncs a `.ci-nameplate` DOM node per entry into
+ * `dom/world.js`'s world-anchor layer, positioned every frame off `ui/index.js`'s
+ * `projectClient()`. Moved off the bitmap-font HUD canvas onto the design system — see that
+ * file's own header for why nothing here needs `three` or a canvas painter.
  *
  * **What gets a level and a bar, and what gets only a name** (the user's own call, not a
  * guess): the trainer, the party's lead and every wild Pokémon in a hunt carry a level; only
@@ -16,9 +16,8 @@
  * scenery with nothing to fight, so it gets a name and nothing else.
  */
 
-import { C, meter, hpRamp } from './theme.js';
 import { titleCase } from './format.js';
-import { HEIGHT } from './font.js';
+import { h, setText, syncList } from './dom/el.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -42,11 +41,6 @@ export const POKEMON_LIFT = 3.1;
  */
 export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
 
-/** Vertical gap between the name row and the HP bar, and the bar's own height, in px. */
-const ROW_GAP = 1;
-const BAR_H = 3;
-/** The narrowest a bar is ever drawn, so a one-letter name does not leave a sliver. */
-const BAR_MIN_W = 26;
 /** No session has this many entities on screen; a paint cost ceiling in case one ever did. */
 const MAX_PLATES = 48;
 /**
@@ -87,19 +81,28 @@ export function makePlates(ctx) {
       if (m.role === 'trainer') {
         const t = isLive(economy) && typeof economy.trainer === 'function' ? economy.trainer() : null;
         out.push({
-          x: m.x, y: m.y, z: m.z, lift: TRAINER_LIFT,
+          key: 'trainer', x: m.x, y: m.y, z: m.z, lift: TRAINER_LIFT,
           name: 'Trainer', level: Number.isFinite(t?.level) ? t.level : null, bar: null,
         });
       } else if (m.role === 'pokemon') {
         const lead = isLive(pokemon) && typeof pokemon.lead === 'function' ? pokemon.lead() : null;
         if (!lead) continue;
         const side = st?.a ?? null;
+        // **Identity comes from the live combatant while one is fighting, not just its HP.**
+        // `encounter`'s `nextAlly` calls `pokemon.setLead()` the instant a swap happens
+        // (`encounter/index.js`), so `pokemon.lead()` itself now tracks a mid-duel swap too —
+        // but the two can still disagree for exactly one tick around the swap (the bus event
+        // that moves `lead` and the engine's own `state.a` are not the same write), and `side`
+        // (the engine's own combatant, cloned fresh every turn — `battle/engine.js`) is the
+        // one both the sprite and the moves actually agree with at every instant. Falling back
+        // to `lead` only when nothing is fighting.
+        const name = side ? (side.display ?? side.species) : displayName(lead.species);
         const hp = Math.max(0, (side ?? lead)?.hp ?? 0);
         const maxHp = Math.max(1, (side ?? lead)?.maxHp ?? 1);
         out.push({
-          x: m.x, y: m.y, z: m.z, lift: POKEMON_LIFT,
-          name: displayName(lead.species), level: side?.level ?? lead.level ?? null,
-          shiny: !!lead.shiny, bar: { hp, maxHp },
+          key: 'party-pokemon', x: m.x, y: m.y, z: m.z, lift: POKEMON_LIFT,
+          name, level: side?.level ?? lead.level ?? null,
+          shiny: side ? !!side.shiny : !!lead.shiny, bar: { hp, maxHp },
         });
       }
     }
@@ -114,7 +117,7 @@ export function makePlates(ctx) {
       const live = npcs.find((n) => n.id === s.npcId);
       if (!live) continue; // a slot can report occupied for one tick after its npc is gone
       out.push({
-        x: live.x, y: live.y, z: live.z, lift: POKEMON_LIFT,
+        key: `wild:${s.npcId}`, x: live.x, y: live.y, z: live.z, lift: POKEMON_LIFT,
         name: s.display ?? titleCase(s.species ?? ''), level: s.level ?? null,
         shiny: !!s.shiny, bar: { hp: 1, maxHp: 1 }, // full — nothing has struck it yet
       });
@@ -141,7 +144,7 @@ export function makePlates(ctx) {
     const hp = st ? Math.max(0, side.hp) : Math.round((Number(active.hpFraction) || 0) * 100);
     const maxHp = st ? Math.max(1, side.maxHp) : 100;
     return {
-      x: scene.at.cx + 0.5, y: scene.at.y, z: scene.at.cz + 0.5, lift: scene.headLift ?? POKEMON_LIFT,
+      key: 'wild:fighting', x: scene.at.cx + 0.5, y: scene.at.y, z: scene.at.cz + 0.5, lift: scene.headLift ?? POKEMON_LIFT,
       name: active.display ?? titleCase(active.species ?? ''), level: active.level ?? null,
       shiny: !!active.shiny, bar: { hp, maxHp },
     };
@@ -161,7 +164,7 @@ export function makePlates(ctx) {
       if (!name) name = titleCase(String(n.name ?? '').split('/').pop() ?? '');
       if (!name) continue;
       out.push({
-        x: n.x, y: n.y, z: n.z, lift: n.species ? POKEMON_LIFT : TRAINER_LIFT,
+        key: `npc:${n.id}`, x: n.x, y: n.y, z: n.z, lift: n.species ? POKEMON_LIFT : TRAINER_LIFT,
         name, level: null, bar: null,
       });
     }
@@ -205,86 +208,60 @@ export function makePlates(ctx) {
     },
 
     /**
-     * Paints every plate, projecting each world anchor through the camera — same discipline
-     * as `callout.js`: `project` is handed in rather than imported, so this file stays free of
-     * `three`.
+     * Syncs `container`'s children to `list`, one `.ci-nameplate` per entry, positioned with
+     * `left`/`top` off `projectClient` (real, viewport CSS pixels — `ui/index.js`'s own
+     * bridge, replacing the internal-buffer `project()` the canvas version used).
      *
-     * `opts.bottomLimit` keeps a plate off the party bar and the button strip; `opts.avoid` (a
-     * `{x,y,w,h}` box, from the battle card's own `draw()` return — `ui/index.js`) is a plate
-     * a card is already sitting on top of, and a plate that landed under a docked card, rather
-     * than behind a full-screen scrim, would otherwise print half-legible across it. A plate
-     * that would overlap it is skipped for the frame rather than nudged: repositioning it risks
-     * landing on a *different* plate, and one missing label for one frame reads better than two
-     * overlapping ones.
+     * Reconciled by `p.key` (`syncList`, `dom/el.js`) rather than rebuilt every frame: a
+     * plate's DOM node is real work for the browser's layout/paint, and most plates are the
+     * same handful of creatures frame to frame.
+     *
+     * **What this deliberately drops from the canvas version**: the pixel-perfect
+     * overlap-avoidance/nudge system (`ui/plates.js`'s previous `draw()` — measuring painted
+     * footprints and nudging a plate below whatever it collided with). That measured against a
+     * fixed-width bitmap font on a fixed low-res buffer; DOM text is proportional and would
+     * need a `getBoundingClientRect()` read per plate per frame to reproduce, which is a
+     * layout thrash this project's own render budget (`tools/shots/shoot.js`) does not have
+     * room for. `MAX_PLATE_TILES`/`MAX_PLATES` (`read()`, above) already keep the crowd small
+     * enough that the occasional overlap between two DOM labels — which still each render
+     * legibly on their own background, unlike two labels sharing one bitmap atlas — is a minor
+     * cosmetic case rather than the illegible smear it would have been on canvas.
      */
-    draw(g, project, list, opts = {}) {
-      const { bottomLimit = g.height, avoid = null } = opts;
-      if (!list?.length || typeof project !== 'function') return;
-      // Back-to-front by the screen row the head sits on, so two plates close enough to
-      // overlap stack the way the creatures behind them would.
-      const ordered = [...list].sort((a, b) => {
-        const pa = project(a.x, a.y, a.z);
-        const pb = project(b.x, b.y, b.z);
-        return (pa?.y ?? 0) - (pb?.y ?? 0);
-      });
-      // The bottom strip (the party bar, the button chips) owns the last row of the buffer —
-      // a plate over a wild standing far off, near the horizon, projects low on screen and
-      // would otherwise sit on top of them.
-      const floor = Math.max(2, Math.min(g.height, bottomLimit) - 2);
-      const overlaps = (r1, r2) => r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
-      // The padding the background strip below adds beyond the logical `x,y,w,h` — collision
-      // has to test against the **painted** footprint, not the tighter box text is laid out
-      // in, or two backgrounds can still touch by exactly this many pixels even when their
-      // logical boxes do not (measured: a 1 px vertical seam between two stacked plates,
-      // `PAD_Y` short).
-      const PAD_X = 2, PAD_Y = 1;
-      const painted = (r) => ({ x: r.x - PAD_X, y: r.y - PAD_Y, w: r.w + PAD_X * 2, h: r.h + PAD_Y * 2 });
-      /** Already-drawn plates this paint (painted footprints), so two creatures standing close
-       *  together stack their labels instead of printing one over the other. */
-      const placed = [];
-      for (const p of ordered) {
-        const at = project(p.x, p.y + p.lift, p.z);
-        if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) continue;
-        const lvl = Number.isFinite(p.level) ? `Lv ${p.level}` : '';
-        const nameW = g.measure(p.name);
-        const lvlW = lvl ? g.measure(lvl) : 0;
-        const starW = p.shiny ? g.measure('★') + 2 : 0;
-        const rowW = nameW + starW + (lvlW ? lvlW + 6 : 0);
-        const w = Math.max(rowW, p.bar ? BAR_MIN_W : 0);
-        const h = HEIGHT + (p.bar ? ROW_GAP + BAR_H : 0);
-        const x = Math.round(Math.max(2, Math.min(g.width - w - 2, at.x - w / 2)));
-        let y = Math.round(Math.max(2, Math.min(floor - h, at.y - h)));
-
-        if (avoid && overlaps(painted({ x, y, w, h }), avoid)) continue;
-        // Nudged below whatever it lands on, a bounded number of times. Two plates squeezed
-        // against the floor with nowhere left to go are **skipped**, not forced back onto the
-        // spot they were just pushed off of — snapping a losing nudge back to `floor - h`
-        // landed it right on top of the very plate it was trying to clear, which read as one
-        // plate with two names stitched together rather than as two.
-        let blocked = false;
-        for (let tries = 0; tries < 6; tries++) {
-          const hit = placed.find((r) => overlaps(painted({ x, y, w, h }), r));
-          if (!hit) break;
-          // `hit` is already a painted rect; push the new plate's logical top just past its
-          // painted bottom, plus one clear pixel and this plate's own top padding.
-          y = hit.y + hit.h + 1 + PAD_Y;
-          if (y + h + PAD_Y > floor) { blocked = true; break; }
-        }
-        if (blocked || placed.some((r) => overlaps(painted({ x, y, w, h }), r))) continue;
-        placed.push(painted({ x, y, w, h }));
-
-        // A dark strip under the text, not a full panel: a plate is a label, not a window,
-        // and grass under a bright name is otherwise unreadable at every time of day.
-        g.fill(x - PAD_X, y - PAD_Y, w + PAD_X * 2, HEIGHT + PAD_Y * 2, 'rgba(10,9,14,0.55)');
-        const afterName = g.text(x, y, p.name, C.wallHi, { max: nameW });
-        if (p.shiny) g.text(afterName + 2, y, '★', C.glowDeep);
-        if (lvl) g.textRight(x + w, y, lvl, C.deepDim);
-
-        if (p.bar) {
-          const frac = p.bar.maxHp > 0 ? p.bar.hp / p.bar.maxHp : 0;
-          meter(g, { x, y: y + HEIGHT + ROW_GAP, w, h: BAR_H }, frac, hpRamp(frac));
-        }
-      }
+    draw(container, projectClient, list) {
+      if (!container) return;
+      if (!list?.length || typeof projectClient !== 'function') { container.replaceChildren(); return; }
+      syncList(container, list, (p) => p.key,
+        () => {
+          const row = h('div', { class: 'ci-nameplate__row' }, [
+            h('span', { class: 'ci-nameplate__name' }),
+            h('span', { class: 'ci-nameplate__star', hidden: true }, '★'),
+            h('span', { class: 'ci-nameplate__level' }),
+          ]);
+          const fill = h('div', { class: 'ci-nameplate__hp-fill' });
+          const bar = h('div', { class: 'ci-nameplate__hp', hidden: true }, fill);
+          return h('div', { class: 'ci-nameplate' }, [row, bar]);
+        },
+        (el, p) => {
+          const at = projectClient(p.x, p.y + p.lift, p.z);
+          el.hidden = !at || !Number.isFinite(at.x) || !Number.isFinite(at.y);
+          if (el.hidden) return;
+          el.style.left = `${at.x}px`;
+          el.style.top = `${at.y}px`;
+          const [row, bar] = el.children;
+          const [nameEl, starEl, lvlEl] = row.children;
+          setText(nameEl, p.name);
+          starEl.hidden = !p.shiny;
+          const lvl = Number.isFinite(p.level) ? `Lv ${p.level}` : '';
+          setText(lvlEl, lvl);
+          lvlEl.hidden = !lvl;
+          bar.hidden = !p.bar;
+          if (p.bar) {
+            const frac = p.bar.maxHp > 0 ? p.bar.hp / p.bar.maxHp : 0;
+            const fill = bar.firstChild;
+            fill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+            fill.dataset.band = frac <= 0.2 ? 'low' : frac <= 0.5 ? 'mid' : 'high';
+          }
+        });
     },
   };
 }

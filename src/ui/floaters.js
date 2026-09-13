@@ -1,37 +1,52 @@
 /**
  * floaters.js — the number a blow leaves over the thing it hit, MMORPG-style.
  *
- * Same discipline as `callout.js`, for the same reasons: drawn on the HUD canvas rather than
- * in the scene (zero draw calls, the exact orthographic projection, the same bitmap font),
- * lifetime counted in sim steps rather than wall time so a frozen frame is reproducible
- *, and `project` handed in rather than imported so this file stays free of
- * `three`. `ui/index.js` decides *what* a strike is worth showing (a number, `MISS`, a status)
- * and hands this file only the finished record; this file only times and draws it.
+ * Same discipline as `callout.js`, for the same reasons: drawn in `#ui-dom-world`
+ * (`dom/world.js`) on the design system rather than the bitmap-font HUD canvas, lifetime
+ * counted in sim steps rather than wall time so a frozen frame is reproducible
+ *, and `projectClient` handed in rather than imported so this file stays
+ * free of `three`. `ui/index.js` decides *what* a strike is worth showing (a number, `MISS`, a
+ * status, an effectiveness callout) and hands this file only the finished record; this file
+ * only times and positions it.
  */
 
-import { C } from './theme.js';
+import { h, setText, syncList } from './dom/el.js';
+
+/** A status effect's own short code, for the status floater — moved here from the (now
+ *  removed) battle card, `screens/battle.js`, which used the same map for its transcript
+ *  lines. */
+export const STATUS_NAME = {
+  brn: 'BRN', psn: 'PSN', tox: 'TOX', par: 'PAR', slp: 'SLP', frz: 'FRZ',
+};
 
 /** How long a floater is visible, in sim steps. Long enough to read, short enough that a busy
  *  fight (several floaters a second on the same target) does not turn into a wall of numbers. */
 export const FLOATER_STEPS = 24;
-/** How far it drifts upward over its life, in internal pixels. */
-const RISE_PX = 14;
-/** A critical hit's number is drawn this many times normal size. */
+/** How far it drifts upward over its life, in CSS pixels. */
+const RISE_PX = 22;
+/** A critical hit's number is drawn this many times normal size — `.ci-floater--crit`. */
 const CRIT_SCALE = 2;
 
+let nextId = 1;
+
 export function makeFloaters() {
-  /** @type {{text:string, x:number, y:number, z:number, colour:string, scale:number, born:number, life:number}[]} */
+  /** @type {{id:number, text:string, x:number, y:number, z:number, tone:string|null, colour:string|null, scale:number, born:number, life:number}[]} */
   let items = [];
   let step = 0;
 
   return {
-    /** Adds one floater over a world point. Never replaces another — several can stack. */
-    push({ text, x, y = 0, z, colour = C.ink, scale = 1, life = FLOATER_STEPS }) {
+    /**
+     * Adds one floater over a world point. Never replaces another — several can stack.
+     * `tone` names a `.ci-floater--<tone>` modifier (`crit`, `super`, `weak`, `miss`,
+     * `status`, `effectiveness`); `colour` is an escape hatch for a one-off inline colour
+     * when no tone fits.
+     */
+    push({ text, x, y = 0, z, tone = null, colour = null, scale = 1, life = FLOATER_STEPS }) {
       if (!text) return false;
-      items.push({ text: String(text), x, y, z, colour, scale, born: step, life });
+      items.push({ id: nextId++, text: String(text), x, y, z, tone, colour, scale, born: step, life });
       return true;
     },
-    /** One sim step. Returns whether the canvas needs a repaint, same contract as `callout.js`. */
+    /** One sim step. Returns whether a repaint is owed, same contract as `callout.js`. */
     tick(n = 1) {
       if (!items.length) return false;
       step += n;
@@ -42,20 +57,26 @@ export function makeFloaters() {
     count: () => items.length,
     peek: () => items.map((it) => ({ ...it })),
 
-    /** Paints every live floater, rising over its own lifetime. */
-    draw(g, project) {
-      if (!items.length || typeof project !== 'function') return;
-      for (const it of items) {
-        const at = project(it.x, it.y, it.z);
-        if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) continue;
-        const t = Math.min(1, (step - it.born) / it.life);
-        const py = Math.round(at.y - RISE_PX * t);
-        const scale = Math.max(1, Math.round(it.scale));
-        const w = g.measure(it.text) * scale;
-        const px = Math.round(Math.max(2, Math.min(g.width - w - 2, at.x - w / 2)));
-        if (scale > 1) g.textScaled(px, py, it.text, it.colour, scale, { shadow: 'rgba(20,16,12,0.55)' });
-        else g.text(px, py, it.text, it.colour, { shadow: 'rgba(20,16,12,0.55)' });
-      }
+    /** Syncs `container`'s children to the live floaters, each rising over its own lifetime. */
+    draw(container, projectClient) {
+      if (!container) return;
+      if (!items.length || typeof projectClient !== 'function') { container.replaceChildren(); return; }
+      syncList(container, items, (it) => it.id,
+        () => h('div', { class: 'ci-floater' }),
+        (el, it) => {
+          const at = projectClient(it.x, it.y, it.z);
+          el.hidden = !at || !Number.isFinite(at.x) || !Number.isFinite(at.y);
+          if (el.hidden) return;
+          const t = Math.min(1, (step - it.born) / it.life);
+          el.style.left = `${at.x}px`;
+          el.style.top = `${Math.round(at.y - RISE_PX * t)}px`;
+          // `tone` may name more than one modifier, space-separated (e.g. `'super
+          // effectiveness'` — both the colour and the effectiveness-callout sizing).
+          const tones = it.tone ? it.tone.split(' ').filter(Boolean) : [];
+          el.className = ['ci-floater', ...tones.map((t) => `ci-floater--${t}`)].join(' ');
+          el.style.color = it.colour ?? '';
+          setText(el, it.text);
+        });
     },
   };
 }

@@ -9,30 +9,26 @@
  * in the world*, which is a shape this project did not have: `ui` is a HUD anchored to the
  * screen and everything in the world is a textured quad.
  *
- * **It is drawn on the HUD canvas, not in the scene**, and the reason is arithmetic rather than
- * convenience. Text in 3-D would need a second font atlas as a texture, one draw call per
- * balloon, and its own filtering story. Projected onto the 2-D canvas it costs **zero draw
- * calls**, reuses the bitmap font and the panel art the rest of the UI is made of, and — because
- * the camera is orthographic and the UI canvas is exactly the renderer's internal buffer
- * (src/core/render.js, `screen.js`) — the projection is exact and lands on the same pixel grid the world
- * does. There is no depth divide to make the balloon disagree with the sprite under it.
+ * **Drawn in `#ui-dom-world`** (`dom/world.js`), on the design system — `.ci-balloon`
+ * (`css/world.css`), positioned every frame with `left`/`top` off `ui/index.js`'s
+ * `projectClient()` (real, viewport CSS pixels through `view.displayRect`). Text at real
+ * resolution, in the project's own type and colour tokens, is what a soft-UI balloon over a
+ * DS-pixel world needs — the reasoning `screen.js`'s own header gives for the debug overlay
+ * staying canvas is exactly the reasoning that put every other panel in `#ui-dom` starting
+ * Stage 1, and a battle balloon is a panel like any other.
  *
  * **Its lifetime is counted in sim steps**, like every other beat `encounter` owns, so a frozen
  * frame is reproducible and a screenshot of turn three is the same picture every time
  *.
  */
 
-import { C, panel } from './theme.js';
+import { h, setText, syncList } from './dom/el.js';
 
 /** How long a line hangs there, in sim steps (1/20 s). Just under one exchange. */
 export const CALLOUT_STEPS = 22;
 
-/** How tall the tail is, in px, and how far its tip clears the anchor point beneath it. */
-const TAIL_H = 4;
-const TAIL_GAP = 2;
-
 export function makeCallouts() {
-  /** @type {{name:string, move:string, ink:string, x:number, y:number, z:number, side:string, born:number, life:number}[]} */
+  /** @type {{name:string, verb:string, move:string, ink:string, x:number, y:number, z:number, side:string, born:number, life:number}[]} */
   let lines = [];
   let step = 0;
 
@@ -44,21 +40,23 @@ export function makeCallouts() {
      * for the plate now living there too), because only the caller knows which of the two this
      * speaker is.
      *
-     * `name` and `move` are printed as two runs, `name` in the ordinary ink and `move` in
-     * `ink` (the type's own — `battle.typeColour(type).ink`, resolved by the caller so this
-     * file stays free of `battle`). A line with no `move` (a struggle, a status) prints `name`
-     * alone in the ordinary ink.
+     * `name`, `verb` and `move` print as three runs — `"{name} {verb} {move}"` — `name`/`verb`
+     * in the ordinary ink, `move` in `ink` (the type's own — `battle.typeColour(type).ink`,
+     * resolved by the caller so this file stays free of `battle`). `verb` is what tells a
+     * player's own Pokemon ("use") from a wild's ("uses") — the caller's call, not a guess
+     * made here. A line with no `move` (a swap's "I choose you!", a status) prints `name`
+     * alone, whole, in the ordinary ink.
      */
-    say({ name, move = null, ink = null, x, y = 0, z, side = 'a', life = CALLOUT_STEPS }) {
+    say({ name, verb = null, move = null, ink = null, x, y = 0, z, side = 'a', life = CALLOUT_STEPS }) {
       if (!name) return false;
       lines = lines.filter((l) => l.side !== side);
-      lines.push({ name: String(name), move, ink, x, y, z, side, born: step, life });
+      lines.push({ name: String(name), verb, move, ink, x, y, z, side, born: step, life });
       return true;
     },
     /**
-     * One sim step. Answers whether the canvas needs a repaint: false when nothing is up,
-     * true otherwise — a live callout drifts and fades every step, so any step with one alive
-     * is a changed frame even when none expired.
+     * One sim step. Answers whether a repaint is owed: false when nothing is up, true
+     * otherwise — a live callout can expire between two DOM syncs, so any step with one alive
+     * is a changed frame even when none expired this tick.
      */
     tick(n = 1) {
       if (!lines.length) return false;
@@ -71,62 +69,53 @@ export function makeCallouts() {
     peek: () => lines.map((l) => ({ ...l })),
 
     /**
-     * Paints every live line, projecting each world anchor through the camera.
-     *
-     * `project` is handed in rather than imported, so this file stays free of `three` and can
-     * be reasoned about (and, one day, checked) without a renderer.
+     * Syncs `container`'s children to the live lines, one `.ci-balloon-anchor` per side (at
+     * most two: `say()` replaces rather than stacks). `projectClient` is handed in rather than
+     * imported, so this file stays free of `three`.
      */
-    draw(g, project) {
-      if (!lines.length || typeof project !== 'function') return;
-      for (const l of lines) {
-        const at = project(l.x, l.y, l.z);
-        // Behind the camera, or off the buffer entirely: say nothing rather than clamping a
-        // balloon to an edge it does not belong to.
-        if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) continue;
-
-        const moveW = l.move ? g.measure(`${l.move}!`) : 0;
-        const nameW = g.measure(l.move ? `${l.name}:` : l.name);
-        const text = moveW ? nameW + 3 + moveW : nameW;
-        const w = Math.min(g.width - 8, text + 10);
-        const h = 12;
-        // Centred on the speaker and nudged inside the frame, because a creature at the edge of
-        // the screen still has something to say.
-        // **The two sides lean apart, and that is not decoration.** A sprite is 2.83 world
-        // units tall, which under the 45-degree camera is exactly two tiles of ground depth
-        // — and `encounter` stages the wild two cells in front of the party's
-        // Pokemon. So a balloon lifted clear of the wild's head lands precisely where the
-        // Pokemon is standing, every time, and no vertical lift can separate them. Leaning the
-        // ally's line left and the wild's right does, and it reads the way a fight should — and
-        // the tail (below) still points at the true anchor, so the lean never reads as a balloon
-        // belonging to the wrong speaker.
-        const lean = (l.side === 'b' ? 1 : -1) * (w / 2 + 6);
-        const x = Math.round(Math.max(4, Math.min(g.width - w - 4, at.x - w / 2 + lean)));
-        const y = Math.round(Math.max(2 + TAIL_H + TAIL_GAP, Math.min(g.height - h - 2, at.y - h - TAIL_H - TAIL_GAP)));
-
-        panel(g, { x, y, w, h }, { paper: C.wallLight, edge: C.woodShadow, bevel: false, drop: true });
-
-        // The tail, drawn *after* the panel (and its own drop shadow) rather than before —
-        // `drop: true` shades a strip right where the tail sits, and drawing under it left the
-        // tail's top row eaten by the panel's own shadow on the first cut of this.  A small
-        // downward-narrowing notch, anchored at the *true* projected point (clamped inside the
-        // balloon's own width) so a leaned balloon still visibly belongs to its speaker rather
-        // than to whatever happens to be under its centre.
-        const tipX = Math.round(Math.max(x + 4, Math.min(x + w - 4, at.x)));
-        for (let row = 0; row < TAIL_H; row++) {
-          const rw = Math.max(1, (TAIL_H - row) * 2 - 1);
-          g.fill(tipX - Math.floor(rw / 2), y + h + row, rw, 1, row === 0 ? C.woodShadow : C.wallLight);
-        }
-        // The tail's own outline, so it does not read as a paper-coloured blob with no edge.
-        g.fill(tipX - Math.floor(TAIL_H / 2) - 1, y + h, 1, TAIL_H, C.woodShadow);
-        g.fill(tipX + Math.floor(TAIL_H / 2), y + h, 1, TAIL_H, C.woodShadow);
-
-        if (l.move) {
-          const after = g.text(x + 5, y + 3, `${l.name}:`, C.ink, { max: nameW });
-          g.text(after + 3, y + 3, `${l.move}!`, l.ink ?? C.ink, { max: moveW });
-        } else {
-          g.text(x + 5, y + 3, l.name, C.ink, { max: w - 10 });
-        }
-      }
+    draw(container, projectClient) {
+      if (!container) return;
+      if (!lines.length || typeof projectClient !== 'function') { container.replaceChildren(); return; }
+      syncList(container, lines, (l) => l.side,
+        () => {
+          // The tail is a SIBLING of the balloon, both children of the zero-size anchor — not
+          // nested inside it — so it stays pinned to the true projected point while the
+          // balloon itself leans away from it (`--lean`, `world.css`). Nesting it inside the
+          // balloon would carry it along with the lean, which is exactly the "belongs to the
+          // wrong speaker" reading this split exists to avoid.
+          const tail = h('div', { class: 'ci-balloon__tail' });
+          const move = h('span', { class: 'ci-balloon__move' });
+          const body = h('span', { class: 'ci-balloon__body' });
+          const balloon = h('div', { class: 'ci-balloon' }, [body, move]);
+          return h('div', { class: 'ci-balloon-anchor' }, [tail, balloon]);
+        },
+        (el, l) => {
+          const at = projectClient(l.x, l.y, l.z);
+          el.hidden = !at || !Number.isFinite(at.x) || !Number.isFinite(at.y);
+          if (el.hidden) return;
+          el.style.left = `${at.x}px`;
+          el.style.top = `${at.y}px`;
+          const [, balloon] = el.children;
+          const [body, move] = balloon.children;
+          // **The two sides lean apart, and that is not decoration.** A sprite is 2.83 world
+          // units tall, which under the 45-degree camera is exactly two tiles of ground depth
+          // — and `encounter` stages the wild two cells in front of the party's Pokemon. So a
+          // balloon anchored at the wild's own head lands close to where the Pokemon is
+          // standing too; leaning the ally's line left and the wild's right (`--lean` in
+          // `world.css`) separates them.
+          balloon.style.setProperty('--lean', l.side === 'b' ? '1' : '-1');
+          if (l.move) {
+            // The trailing space is deliberate — `body` and `move` are adjacent inline runs
+            // with no separator of their own between them.
+            setText(body, `${l.name} ${l.verb ?? 'uses'} `);
+            setText(move, l.move);
+            move.hidden = false;
+            move.style.color = l.ink ?? '';
+          } else {
+            setText(body, l.name);
+            move.hidden = true;
+          }
+        });
     },
   };
 }

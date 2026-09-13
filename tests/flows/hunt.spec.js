@@ -1,11 +1,18 @@
 /**
  * The hunt loop at `/?scene=hunt-meadow`: the party walks the circuit, meets a wild on a slot,
  * the fight is stepped turn by turn, and it ends — and if it was won, the player can throw a
- * ball inside the window the game leaves open. Every step is a bus event; nothing here reads a
- * pixel. `?scene=` stands the trainer-level lock down for that id (src/travel/index.js).
+ * ball inside the window the game leaves open (a world-anchored tooltip now,
+ * `src/ui/dom/capture.js` — there is no docked battle card any more). Every step is a bus
+ * event; nothing here reads a pixel. `?scene=` stands the trainer-level lock down for that id
+ * (src/travel/index.js).
  */
 import { test, expect } from '@playwright/test';
 import { installEventLog, boot, step, events, stepUntil, key, call } from './harness.js';
+
+/** Forces one world-layer DOM sync — `window.__HOOKS__.step()` only drives `registry.tick`,
+ *  never `registry.lateFrame`, so the capture tooltip (positioned there) does not update from
+ *  stepping alone (`tests/flows/plates.spec.js`'s own header explains the same gap). */
+const paintNow = (page) => call(page, 'ui', '_lateFrame');
 
 test('a hunt reaches an encounter, fights it, and resolves it', async ({ page }) => {
   await installEventLog(page);
@@ -22,7 +29,9 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   expect(typeof enc.index).toBe('number');
   const battleStarted = started.log.find((e) => e.type === 'battle:started' && e.at < started.hit.at);
   expect(battleStarted, 'battle:started precedes encounter:started').toBeTruthy();
-  expect(await call(page, 'ui', 'openPanel'), 'the battle card opened').toBe('battle');
+  // No panel opens for a fight any more — balloons/floaters/the capture tooltip are the whole
+  // on-screen account of it, and the walk stays visible underneath the whole time.
+  expect(await call(page, 'ui', 'openPanel'), 'a hunt fight opens no panel').toBeNull();
 
   // 2. The fight is stepped, one turn per T.TURN ticks, and ends.
   const ended = await stepUntil(page, 'battle:ended', { chunk: 12, maxTicks: 2400, after: started.hit.at });
@@ -32,12 +41,31 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   expect(outcome).toEqual(expect.objectContaining({ won: expect.any(Boolean), turns: expect.any(Number) }));
   expect(outcome.turns).toBeGreaterThan(0);
 
+  // The fight's own writeback has already run by the time `battle:ended` fires
+  // (`endFight()`, src/encounter/index.js) — `outcome.allyHp` is the engine's own true final
+  // HP for whoever was fighting. Only when the fight actually cost HP does this catch
+  // anything: the bug this guards against (a stale `combatantOf()` snapshot that never
+  // reflected what the duel did) always read back the party's STARTING hp, so a clean sweep
+  // with zero damage taken would pass either way. When damage *was* taken, the party's real
+  // HP must already show it — not "heal itself" back to full the instant the encounter
+  // resolves.
+  if (outcome.allyHp != null && outcome.allyMaxHp != null && outcome.allyHp < outcome.allyMaxHp) {
+    const party = await call(page, 'pokemon', 'party');
+    const hurt = party.find((m) => m.hp === outcome.allyHp && m.maxHp === outcome.allyMaxHp);
+    expect(hurt, `some party member's real HP (${party.map((m) => `${m.hp}/${m.maxHp}`).join(', ')}) ` +
+      `matches the fight's own final ${outcome.allyHp}/${outcome.allyMaxHp} — it must not have healed back to full`)
+      .toBeTruthy();
+  }
+
   if (outcome.won) {
-    // 3a. A won fight leaves a throw window of READY + LEAVE sim steps (src/encounter/index.js
-    // T.READY, T.LEAVE) with the card open; one ball, one roll, and the encounter resolves in
-    // the same tick as the throw (attempt() calls resolve() synchronously).
+    // 3a. A won fight leaves a throw window open (`config.manualThrowSeconds` while Auto-Catch
+    // is off, `src/encounter/index.js`'s `leaveSteps()`) with the capture tooltip up over the
+    // wild; one ball, one roll, and the encounter resolves in the same tick as the throw
+    // (attempt() calls resolve() synchronously).
     await step(page, 4);
-    expect(await call(page, 'ui', 'openPanel'), 'the card is still up in the throw window').toBe('battle');
+    await paintNow(page);
+    expect(await page.locator('[data-ui="capture-throw"]').isVisible(),
+      'the capture tooltip is up in the throw window').toBe(true);
     const before = (await events(page)).length;
     await key(page, 'KeyZ');
     const thrown = (await events(page)).filter((e) => e.at >= before);
@@ -64,9 +92,12 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   test.info().annotations.push({ type: 'path', description:
     `encounter after ${started.ticks} ticks: ${enc.species} L${enc.level}; fight ${outcome.won ? 'won' : 'lost'} in ${outcome.turns} turns, ${strikes.length} strikes, ${ended.ticks} ticks` });
 
-  // 4. The card closes with the encounter, and the walk resumes: another tile is entered.
+  // 4. The capture tooltip closes with the encounter, and the walk resumes: another tile is
+  // entered.
   await step(page, 40);
-  expect(await call(page, 'ui', 'openPanel'), 'the battle card closed after the encounter').not.toBe('battle');
+  await paintNow(page);
+  expect(await page.locator('[data-ui="capture-throw"]').isVisible(),
+    'the capture tooltip is gone after the encounter resolves').toBe(false);
   const after = (await events(page)).filter((e) => e.type === 'player:enteredTile' && e.at > ended.hit.at);
   expect(after.length, 'the party is walking again').toBeGreaterThan(0);
 

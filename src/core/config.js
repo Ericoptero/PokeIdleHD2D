@@ -197,6 +197,17 @@ export const DEFAULTS = {
   slotEngageTiles: 1,
 
   /**
+   * How far off the circuit an occupied slot still pulls the party toward it, in tiles
+   * (Chebyshev) — the "notice and approach" radius, Tibia-style, distinct from
+   * `slotEngageTiles`'s own "contact" one. `hunts/index.js`'s `player:enteredTile` trigger
+   * scans every occupied slot's own LIVE position within this range, picks the nearest, and
+   * paths to it with a real search (`simulation/path.js`'s `bfsPath`) around collision —
+   * replacing the old fixed two-step detour, which only ever reacted to the one slot the
+   * current lap happened to be walking past.
+   */
+  aggroTiles: 5,
+
+  /**
    * How many fixed sim steps one **action** takes — one side's blow, its balloon, its effect.
    *
    * Replaces `turnSteps`: a turn used to be staged as one 24-step block for
@@ -230,6 +241,15 @@ export const DEFAULTS = {
    * harness an instant one.
    */
   reviveSeconds: 5,
+
+  /**
+   * How long a won fight's manual throw window stays open before the wild leaves unattended,
+   * in seconds — only while Auto-Catch is off (`src/encounter/index.js`'s `leaveSteps()`);
+   * automation throws well inside the shorter default either way. Long enough to read the
+   * capture tooltip's ball/odds and choose; `?manualThrowSeconds=0` gives the harness an
+   * instant window for a deterministic capture.
+   */
+  manualThrowSeconds: 5,
 
   /**
    * How much of its maximum HP the party gets back for completing one lap of a hunt.

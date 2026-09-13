@@ -126,6 +126,13 @@ export function strikesOf(events, names = {}) {
         open.target = open.attacker;
         open.targetSpecies = open.attackerSpecies;
         open.use = ev.use ?? null;
+      } else if (kind === 'swap') {
+        // `blank()` names the attacker from the fight-wide `names` map — fixed to whoever
+        // opened the fight, so it is already wrong the moment a second Pokemon steps in.
+        // `engine.js`'s own swap event carries the true species of whoever just took the
+        // field (`species: state.a.species`, `battle/engine.js`'s `relieve()`); take that
+        // instead of the stale fight-wide name.
+        if (ev.species) open.attackerSpecies = ev.species;
       } else if (kind === 'residual') {
         // A residual hurts the side it is about; there is no attacker.
         open.target = ev.actor ?? null;
@@ -176,7 +183,7 @@ export function strikesOf(events, names = {}) {
 export function describeStrike(s) {
   if (!s) return '';
   if (s.cause === 'item') return `${s.targetSpecies ?? '?'} used an item`;
-  if (s.cause === 'swap') return `${s.attackerSpecies ?? '?'} stepped out`;
+  if (s.cause === 'swap') return `${s.attackerSpecies ?? '?'}, I choose you!`;
   if (s.cause === 'residual') return `${s.targetSpecies ?? '?'} was hurt by ${s.status ?? 'it'}`;
   if (!s.move) return `${s.attackerSpecies ?? '?'} could not move`;
   const head = `${s.attackerSpecies ?? '?'} used ${s.name ?? s.move}`;
