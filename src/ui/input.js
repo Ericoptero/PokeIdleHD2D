@@ -170,6 +170,20 @@ export function makeInput({ ctx, app }) {
       return;
     }
 
+    // Economy mode (`screens/economy.js`, Stage 7) is a root mode, not a panel — it has no
+    // `state.panel` slot to swallow movement through, but walking blind with the world hidden
+    // is the same bug the branch above exists to avoid, so this mirrors it: every panel
+    // shortcut still opens on top of the board (Bag, Shop and Automation all still make sense
+    // with no 3D view to look at), and Escape/X leave the mode instead of opening the menu.
+    if (app.economyModeActive?.()) {
+      clear();
+      if (code === 'Escape' || code === 'KeyX') { app.setEconomyMode(false); ev.preventDefault(); return; }
+      if (code === 'Enter') { app.toggleChat(); ev.preventDefault(); return; }
+      const onId = PANEL_KEYS.get(code);
+      if (onId) { app.open(onId); ev.preventDefault(); }
+      return;
+    }
+
     if (MOVE_KEYS.has(code)) {
       // preventDefault even when the key does nothing here: a page that scrolls out from
       // under the game is worse than a key that politely explains itself.

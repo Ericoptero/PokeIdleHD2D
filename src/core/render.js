@@ -352,10 +352,15 @@ export function makeRenderer({ container, config, log }) {
   }
 
   let frameCount = 0;
+  /** Economy mode's own seam (`ui/screens/economy.js`) — the simulation keeps ticking, only
+   *  this stops. `renderer.info.reset()` still runs so `stats()` reports zero draws, exactly
+   *  what a paused frame actually costs. */
+  let paused = false;
 
   function render() {
     if (!outW) return;
     renderer.info.reset();
+    if (paused) return;
     syncUniforms();
     // Grain does not animate.
     //
@@ -430,6 +435,18 @@ export function makeRenderer({ container, config, log }) {
     get internalSize() { return [inW, inH]; },
     /** Where the canvas actually sits in the page, for anything that must line up with it. */
     get displayRect() { return { left: canvas.offsetLeft, top: canvas.offsetTop, w: outW, h: outH }; },
+    /**
+     * Economy mode's render-suppression seam (`ui/screens/economy.js`): `render()` stops
+     * doing any GPU work (above), and the canvas itself is hidden — a WebGL canvas keeps
+     * showing its *last drawn frame* otherwise, which would read as a frozen, broken world
+     * behind the economy card rather than as "not rendering". The simulation is untouched:
+     * nothing here pauses a tick, a clock, or an automation.
+     */
+    setPaused(on) {
+      paused = !!on;
+      canvas.style.visibility = paused ? 'hidden' : '';
+    },
+    get paused() { return paused; },
   };
 }
 

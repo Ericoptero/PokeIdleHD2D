@@ -41,6 +41,7 @@ import { makeDomLayer } from './dom/layer.js';
 import { makeDomToasts } from './dom/toasts.js';
 import { makeDomHud } from './dom/hud.js';
 import { makeChat } from './dom/chat.js';
+import { makeEconomyMode } from './screens/economy.js';
 import { makeShopDomScreen } from './screens/shop.js';
 import { makeBoxes } from './panels/boxes.js';
 import { makeBattle, STATUS_NAME } from './panels/battle.js';
@@ -161,6 +162,9 @@ export default {
       plates: [],
       /** Set by `draw` each frame; the only consumer today is `hudReserved()` below. */
       walletBox: null,
+      /** Economy mode (`screens/economy.js`, Stage 7) — a root mode, not a panel; see
+       *  `app.setEconomyMode`. */
+      economyMode: false,
     };
 
     const app = {
@@ -244,6 +248,28 @@ export default {
        *  closure only ever runs on a later real keypress, by which time it exists (the same
        *  lazy-reference pattern `open()`'s own `PANELS` lookup already relies on). */
       toggleChat: () => chat.toggle(),
+      /**
+       * Economy mode (`screens/economy.js`, Stage 7) — a root mode, not a panel opened into
+       * `state.panel`'s single slot: the render-suppression seam (`core/render.js`'s
+       * `setPaused`) and the board's own mount/unmount both live here so a save-slice, a
+       * showcase or a test can flip it from one place. `economyMode` is declared below, the
+       * same lazy-reference pattern `toggleChat`/`chat` already use.
+       */
+      setEconomyMode(on) {
+        on = !!on;
+        if (on === state.economyMode) return;
+        state.economyMode = on;
+        ctx.three?.view?.setPaused?.(on);
+        economyMode.setActive(on);
+        screen.markDirty();
+      },
+      economyModeActive: () => state.economyMode,
+      /** The real screen Y just below the HUD's trainer/party/wallet chrome
+       *  (`dom/hud.js`'s own `topBottom()`, already real DOM pixels — no `toBufferY`
+       *  conversion needed since the economy board lives in the same real-pixel `#ui-dom`
+       *  layer) — `null` while that chrome is hidden. `screens/economy.js` clears its own
+       *  top content of this, the same reason `hudReserved()` exists for canvas panels. */
+      hudTopBottom: () => domHud.topBottom(),
     };
 
     // The always-on HUD chrome (Stage 3a) — mounted once, updated off the same `state.hud`
@@ -253,6 +279,9 @@ export default {
     // The chat mockup (Stage 3c) — see dom/chat.js's own header for what is real in it and
     // what is placeholder for a backend that does not exist yet.
     const chat = makeChat(domLayer, app, { minimal });
+    // Economy mode's own board (Stage 7) — mounted/unmounted through `app.setEconomyMode`
+    // above, never through `PANELS`/`state.panel`.
+    const economyMode = makeEconomyMode(app, domLayer);
 
     const PANELS = {
       menu: makeMenu(app),
@@ -505,7 +534,7 @@ export default {
           if (dockY != null) state.stripBox = { y: dockY };
         }
       }
-      if (!minimal && bars) {
+      if (!minimal && bars && !state.economyMode) {
         if (!input.hasMoved() && !state.panel) {
           // Centred, with a short fallback for a narrow buffer (426 px at 720p) where the
           // long string would run off either edge. Simpler than it used to be: wallet, clock,
@@ -548,7 +577,8 @@ export default {
       // (a docked card and a column that says outright "the city stays readable behind it"),
       // so they are the only two a plate may still show around — clipped to the box each
       // panel's own `draw()` just handed back, the same discipline `partyBox`/`stripBox` use.
-      const platesShow = !minimal && bars && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
+      const platesShow = !minimal && bars && !state.economyMode
+        && (!state.panel || state.panel.id === 'battle' || state.panel.id === 'menu');
       if (platesShow) {
         const plateFloor = Math.min(
           state.partyBox ? state.partyBox.y : g.height,
@@ -595,6 +625,9 @@ export default {
       acc += dt;
       if (acc >= 0.2) {
         acc = 0;
+        // The wallet and the per-hour figures on the economy board, ticked at the same 0.2s
+        // cadence as every other HUD poll here — a no-op while the board is not mounted.
+        economyMode.step();
         const next = hud.read();
         const prev = state.hud;
         // The party is compared on everything the bar draws, not on the lead's name: a
@@ -686,6 +719,10 @@ export default {
       evolution,
       isOpen: () => !!state.panel,
       openPanel: () => state.panel?.id ?? null,
+      /** Economy mode (`screens/economy.js`, Stage 7) — a Settings toggle and a showcase both
+       *  need this from outside `app`. */
+      setEconomyMode: (on) => app.setEconomyMode(on),
+      isEconomyMode: () => state.economyMode,
       /** The away card, on demand — the menu's REPORT entry and the showcase both use it. */
       showReport: () => app.openReport(),
       /** What the HUD is currently reading, for a probe or a test. */
@@ -744,6 +781,7 @@ export default {
         // node does not take with it.
         domHud.dispose();
         chat.dispose();
+        economyMode.dispose();
         domLayer.dispose();
         live = null;
       },

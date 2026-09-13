@@ -585,6 +585,47 @@
 .ci-shelf-picker__row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .ci-shelf-picker__row-name { font-size: 12.5px; font-weight: 600; color: var(--c-ink); }
 
+/* --------------------------------------------------------------------------- economy (Stage 7) */
+/* No dark scrim, no blur — unlike every modal above, this fills the space the 3D world used to
+ * occupy (`core/render.js`'s `setPaused` hides the canvas entirely), so it needs its own solid
+ * ground rather than a translucent film over it. `z-index: 0`: below the dock/HUD chrome and
+ * every modal (both explicit, `hud.css`'s `3` and this file's own `4`), so Bag, Shop and
+ * Automation all still open correctly on top of it. */
+
+.ci-economy-board {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--c-bg);
+  overflow-y: auto;
+  pointer-events: auto;
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px;
+}
+.ci-economy-inner { width: min(760px, 100%); display: flex; flex-direction: column; gap: 18px; }
+/* Column, not `justify-content: space-between` with the exit button on the right — the always-
+ * on HUD chrome (`hud.css`'s wallet/clock, `z-index: 3`) sits in that exact top-right corner,
+ * above this board's own `z-index: 0` by design, and a button placed there would be silently
+ * unreachable the same way Bag/Shop's own bottom-right actions were before Stage 5's z-index
+ * fix — caught here in review rather than shipped, by keeping every interactive element on
+ * this board out of the HUD's own top/bottom strips instead of fighting their stacking order. */
+.ci-economy-head { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding-top: 8px; }
+.ci-economy-wallet { display: flex; flex-wrap: wrap; gap: 8px; }
+.ci-economy-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ci-economy-stat {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--c-fill); color: var(--c-amber);
+}
+.ci-economy-stat__value { display: block; font-family: var(--font-mono); font-size: 17px; font-weight: 700; color: var(--c-ink-strong); }
+.ci-economy-stat__label { font-size: 11px; color: var(--c-ink-mute); }
+.ci-economy-log { display: flex; flex-direction: column; gap: 4px; }
+.ci-economy-log-row {
+  padding: 9px 12px; border-radius: var(--r-sm); background: var(--c-fill); font-size: 13px; color: var(--c-ink);
+}
+.ci-economy-log-row--good { color: var(--c-good-light); }
+.ci-economy-log-row--info { color: var(--c-ink-dim); }
+
 /* ---------------------------------------------------------------------------- routes (Stage 6) */
 
 .ci-routes-card {

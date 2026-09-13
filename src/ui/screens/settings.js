@@ -156,6 +156,8 @@ export function makeSettingsDomScreen(app, domLayer) {
     const set = (patch) => { config.set(patch); config.persist(); };
     return h('div', { class: 'ci-settings-section' }, [
       h('h3', { class: 'ci-settings-section__title' }, 'Interface'),
+      toggleRow('Economy mode', 'Hides the 3D world and pauses rendering — the party keeps going without you watching.',
+        app.economyModeActive(), (on) => app.setEconomyMode(on), 'settings-toggle-economy'),
       toggleRow('Larger UI', 'Doubles the size of every panel and label', Number(config.get('uiScale')) >= 2,
         (on) => set({ uiScale: on ? 2 : 1 }), 'settings-toggle-uiscale'),
       h('h3', { class: 'ci-settings-section__title' }, 'Rendering'),
