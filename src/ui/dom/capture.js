@@ -17,6 +17,7 @@
  * nothing about that outcome, only how long a player has to act before it happens.
  */
 import { h, setText } from './el.js';
+import { POKEMON_LIFT } from '../plates.js';
 
 const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -71,7 +72,7 @@ export function makeCaptureTooltip(ctx) {
       const { enc, scene } = on;
 
       const at = typeof projectClient === 'function'
-        ? projectClient(scene.at.cx + 0.5, scene.at.y + (scene.headLift ?? 1.6) + 0.6, scene.at.cz + 0.5)
+        ? projectClient(scene.at.cx + 0.5, scene.at.y + (scene.headLift ?? POKEMON_LIFT), scene.at.cz + 0.5)
         : null;
       if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) { anchor.hidden = true; return false; }
       anchor.hidden = false;

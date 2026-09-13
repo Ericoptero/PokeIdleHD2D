@@ -19,7 +19,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, calc(-100% - 4px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -44,29 +44,27 @@
 
 /* ---- battle balloons (replaces ui/callout.js's canvas panel+tail+text) ---- */
 
-/* The anchor sits exactly at the projected point with zero size; the tail and the balloon are
- * its two SIBLING children (`callout.js`'s own comment on why: nesting the tail inside the
- * balloon would carry it along with the lean). The tail stays put at the anchor's own origin;
- * the balloon leans away from it (`--lean: -1` ally/left, `1` wild/right) and floats clear
- * above it — the same split the canvas version's "the tail still points at the true anchor, so
- * the lean never reads as a balloon belonging to the wrong speaker" was written for. */
+/* The anchor sits exactly at the projected point with zero size; the balloon is its only child
+ * and leans away from it (`--lean: -1` ally/left, `1` wild/right, `data-side` mirrors the same
+ * split for CSS that would rather not do nested `calc()` on `--lean` alone). The tail is now
+ * nested INSIDE the balloon (a child of `.ci-balloon`, not a sibling of it) so it moves — and
+ * stays attached to the bubble — as one shape; what keeps the tail's tip pointed at the true
+ * head is arithmetic, not DOM position: the balloon's own `translateX` pulls its NEAR edge in
+ * by a fixed 14px inset (rather than pushing the far edge out), so the anchor's `(0,0)` origin
+ * always lands 14px inside the balloon's near-bottom corner, and the tail is placed by the same
+ * 14px from that corner so its rotated tip lands back on `(0,0)` exactly. See the two rules
+ * below for the rest of the derivation. */
 .ci-balloon-anchor { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
-.ci-balloon__tail {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 8px;
-  height: 8px;
-  background: var(--c-panel-3);
-  border-right: 1px solid var(--c-line);
-  border-bottom: 1px solid var(--c-line);
-  transform: translate(-50%, 50%) rotate(45deg);
-}
 .ci-balloon {
-  position: absolute;
+  position: relative;
   left: 0;
   bottom: 10px;
-  transform: translate(calc(-50% + var(--lean, -1) * 50% + var(--lean, -1) * 6px), 0);
+  /* Near-corner inset, not far-edge push: at `--lean: -1` (ally) this resolves to
+   * `translateX(-100% + 14px)`, i.e. the balloon's RIGHT edge sits 14px to the right of the
+   * anchor's x=0 — the anchor is 14px inside the balloon's near corner, not outside it. `--nudge`
+   * is the viewport-clamp escape hatch `callout.js` writes in `px` when the balloon would
+   * overflow the screen edge; it defaults to `0px` so an untouched balloon is unaffected. */
+  transform: translateX(calc(-50% + var(--lean, -1) * (50% - 14px) + var(--nudge, 0px)));
   max-width: 220px;
   width: max-content;
   padding: 5px 9px;
@@ -80,6 +78,27 @@
   color: var(--c-ink);
 }
 .ci-balloon__move { font-weight: 700; }
+/* The tail is a 9px square rotated 45deg about its own center, so its rotated bounding
+ * half-diagonal is 9/sqrt(2) ≈ 6.36px. The balloon's own `bottom: 10px` above puts the anchor
+ * 10px below the balloon's bottom border, so solving `-bottom - 4.5 + 6.36 = 10` for the CSS
+ * `bottom` offset gives -8.14px — that lands the diamond's downward tip exactly on the anchor's
+ * `(0,0)`, while its upward vertex (at -bottom - 4.5 - 6.36, i.e. ~2.7px above the border) pokes
+ * up into the balloon's own bottom edge so the two read as one continuous shape. Horizontally,
+ * `right`/`left: 9.5px` (= the balloon's own 14px near-corner inset minus half the tail's 9px
+ * width) centers the un-rotated box so its post-rotation tip sits on the same 14px-inset x the
+ * balloon's `transform` above already put the anchor at. */
+.ci-balloon__tail {
+  position: absolute;
+  bottom: -8.14px;
+  width: 9px;
+  height: 9px;
+  background: var(--c-panel-3);
+  border-right: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line);
+  transform: rotate(45deg);
+}
+.ci-balloon[data-side='a'] .ci-balloon__tail { right: 9.5px; }  /* near corner = right: balloon leans left of the head */
+.ci-balloon[data-side='b'] .ci-balloon__tail { left: 9.5px; }   /* near corner = left: balloon leans right of the head */
 
 /* ---- post-battle capture tooltip (dom/capture.js) ---- */
 
@@ -107,7 +126,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, calc(-100% - 4px));
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 13px;
@@ -120,3 +139,4 @@
 .ci-floater--weak { color: var(--c-ink-dim); }
 .ci-floater--miss, .ci-floater--status { color: var(--c-ink-dim); }
 .ci-floater--effectiveness { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.ci-floater--faint { color: var(--c-bad); font-weight: 700; text-transform: uppercase; }

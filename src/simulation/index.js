@@ -32,7 +32,7 @@
  */
 
 import { SIM_DT } from '../core/clock.js';
-import { SOUTH } from '../core/dir.js';
+import { SOUTH, opposite } from '../core/dir.js';
 import { Line } from './line.js';
 import { Cast } from './cast.js';
 import { makeSurface } from './surface.js';
@@ -78,6 +78,14 @@ const MIN_READABLE_GAP = 2;
 
 const MAX_NPCS = 32;
 
+/**
+ * Fallback head height, in world units, for `lineup()`/`npcs()` entries when no live sprite
+ * can report one — a cast slot that has not finished staging yet, or a quarantined `pokemon`.
+ * Close to a trainer's own measured lift (`ui/plates.js`'s `TRAINER_LIFT`, ~2.83) so a plate
+ * that falls back never lands somewhere obviously wrong.
+ */
+const DEFAULT_HEAD_LIFT = 2.8;
+
 export default {
   id: 'simulation',
   needs: ['terrain', 'pokemon'],
@@ -118,12 +126,35 @@ export default {
     /**
      * Steps the party owes before the autopilot is consulted again.
      *
-     * A detour pushes BOTH legs at commit time — out and back — so nothing has to run when the
-     * fight ends to bring the party home. A `hunts` that is quarantined mid-duel therefore
-     * cannot strand the queue off its own circuit; the return leg is already in the queue and
-     * `pause(false)` drains it.
+     * `out` is queued by `detour()` — the APPROACH ONLY, one way. `advance()` drains it a step
+     * at a time and, every time a step actually lands (`line.step` returns `true`), copies the
+     * direction it just walked onto `taken` as it leaves `out`. So `taken` is never the plan —
+     * it is the exact, verified record of how far the queue actually got. `back` is generated
+     * from `taken`, never from `out`, the moment the approach ends: fully spent (the last queued
+     * step landed and nothing is left to take), cut short on purpose (`detourHome()`, for a
+     * fight that engaged mid-approach), or cut short by a blocked step (below). Either way `back`
+     * is the reverse of `taken` with every direction inverted (`opposite`), so the return trip
+     * always retraces cells the queue is KNOWN to have crossed rather than replaying a plan that
+     * may have gone stale the instant one of its own steps met something solid.
+     *
+     * **This split is the fix for a stall that used to be permanent.** The old contract queued
+     * both legs up front at commit time — `[step, opposite(step)]` — trusting a `line.step`
+     * partway through never fails. When it did (another wild's own claimed cell, or a target's
+     * tether drift closing a gap the plan assumed was open), the blocked step turned the head's
+     * facing and did NOT move it (`Line.step`'s own contract) — but the old drain shifted it off
+     * the queue regardless, so the return leg then ran one cell short and the head came home off
+     * its own cell on the `strict` scripted circuit. `route.next()` then found the very next
+     * scripted direction blocked, forever. A return leg is never queued now until the matching
+     * outbound step has actually been walked, which removes the failure mode outright: `back` is
+     * built from where the head demonstrably is, never from where a plan assumed it would be.
      */
-    const detour = [];
+    const detour = { out: [], taken: [], back: [] };
+    /** Drops every queued detour step and everything recorded about the one in progress. */
+    function resetDetour() {
+      detour.out.length = 0;
+      detour.taken.length = 0;
+      detour.back.length = 0;
+    }
     let frozen = false;
     let paused = false;
     let placed = false;
@@ -270,7 +301,7 @@ export default {
       line.place(trainerIndex, cx, cz, dir & 3, passable);
       intent = null;
       // A queued detour belongs to the cell it was queued from; an absolute move abandons it.
-      detour.length = 0;
+      resetDetour();
       route.reset?.();
       placed = true;
       restage();
@@ -313,15 +344,62 @@ export default {
         // to the route: `route.next` is never called on a detour step, so its index cannot
         // advance, and the head comes home to the cell it left with the route owing exactly
         // the step it owed before.
-        // `paused` gates the detour too, and that is the whole point of queuing both legs at
-        // once: the party walks OUT, the fight starts, `pause(true)` freezes the queue with the
-        // return leg still in it, and `pause(false)` on `encounter:resolved` walks it home. Left
-        // ungated the head strolled back to the path while the duel was still being fought, and
-        // the wild was left punching an empty cell.
-        const cmd = intent ?? (paused ? null
-          : (detour.length ? { dir: detour.shift() } : route.next(head, world)));
-        intent = null;
-        if (cmd) line.step(cmd.dir, stepOptions());
+        // `paused` gates the detour too, and that is what makes `pause(true)` a clean freeze:
+        // the party walks OUT, the fight starts, `pause(true)` stops the drain wherever `out`
+        // and `back` happen to be, and `pause(false)` on `encounter:resolved` picks the drain
+        // back up. Left ungated the head strolled back to the path while the duel was still
+        // being fought, and the wild was left punching an empty cell.
+        //
+        // `out` and `back` are drained by separate branches below rather than one shared
+        // "shift the next queued step" branch, because a step from each has to be handled
+        // differently once `line.step` reports whether it actually landed — and the two are
+        // mutually exclusive by construction: `back` is only ever populated at the instant
+        // `out` empties (below, and in `detourHome()`), so at most one of them is ever
+        // non-empty when this runs.
+        if (intent) {
+          const cmd = intent;
+          intent = null;
+          if (cmd) line.step(cmd.dir, stepOptions());
+        } else if (paused) {
+          // Frozen exactly where it stands — see the comment above.
+        } else if (detour.out.length) {
+          // Peek, don't shift: a blocked step must not be consumed as though it were taken.
+          const dir = detour.out[0];
+          if (line.step(dir, stepOptions())) {
+            detour.out.shift();
+            detour.taken.push(dir);
+            if (!detour.out.length) {
+              // The approach is fully spent — the return trip is exactly its mirror.
+              detour.back = detour.taken.slice().reverse().map(opposite);
+              detour.taken.length = 0;
+            }
+          } else {
+            // Blocked mid-approach (Cause 2 of the old permanent stall: a multi-step path can
+            // route through a cell another solid wild has since claimed). Abandon the rest of
+            // the plan immediately rather than retry it — the cell that blocked it is not
+            // going anywhere before the next tick either — and go home from exactly as far as
+            // the queue actually got, not from where the plan assumed it would be. No step is
+            // attempted this same tick; the next `advance()` call drains `back`.
+            detour.out.length = 0;
+            detour.back = detour.taken.slice().reverse().map(opposite);
+            detour.taken.length = 0;
+          }
+        } else if (detour.back.length) {
+          const dir = detour.back[0];
+          if (line.step(dir, stepOptions())) {
+            detour.back.shift();
+          } else {
+            // A step the queue itself just walked is now blocked — a genuine wedge, not
+            // something to retry forever. Loud once, then let the route resume from wherever
+            // the head actually is.
+            log.warn('simulation: a detour could not retrace its own step home '
+              + `(dir ${dir}) — abandoning the return leg where the party stands`);
+            detour.back.length = 0;
+          }
+        } else {
+          const cmd = route.next(head, world);
+          if (cmd) line.step(cmd.dir, stepOptions());
+        }
       }
 
       for (const npc of npcs) {
@@ -344,6 +422,21 @@ export default {
     }
 
     // ----------------------------------------------------------- the render
+
+    /**
+     * How high above a staged actor's own feet its plate/balloon sits — the measured quad
+     * height (`pokemon/sprites.js`'s `headLiftOf`, reached through `cast.sprites.get()`, which
+     * is `pokemon.sprites.get()`'s published API), never a second guess at the same number.
+     * `cast.sprites` already answers `null` for a quarantined or not-yet-live `pokemon`
+     * (`Cast`'s own `isLive` guard), so this only has to cover *that* and a slot that has not
+     * finished staging (`actorId` is 0 until `Cast.sync` spawns it).
+     */
+    function headLiftFor(actorId) {
+      const sprites = cast.sprites;
+      if (!sprites || !actorId) return DEFAULT_HEAD_LIFT;
+      const a = sprites.get(actorId);
+      return Number.isFinite(a?.headLift) ? a.headLift : DEFAULT_HEAD_LIFT;
+    }
 
     /** Walk phase from distance walked: two phases per tile keeps feet locked to the grid. */
     const walkPhase = (tiles) => Math.floor(tiles * 2);
@@ -447,7 +540,7 @@ export default {
           label: next.label ?? 'simulation/wander',
         };
         intent = null;
-        detour.length = 0;
+        resetDetour();
         paused = false;
         // A showcase always starts still and stages its own walk, and `?autowalk=0` pins a
         // frame — both guards are the ones the boot-time wander used to carry.
@@ -557,7 +650,7 @@ export default {
        * chose (`spawnNpc`'s `display` option), for the NPCs a bare slug or a species id would
        * not read as (a city local, Nurse Joy); `null` when there is none to give.
        */
-      npcs: () => npcs.map((n) => {
+      npcs: () => npcs.map((n, i) => {
         const c = n.line.cellOf(0);
         const { p, patch } = poseWalker(n.line, 0, 0, { kind: n.spec.trainer ? 'trainer' : 'pokemon' });
         return {
@@ -565,6 +658,7 @@ export default {
           moving: n.line.moving, name: n.spec.name ?? null,
           species: n.spec.species?.name ?? (typeof n.spec.species === 'string' ? n.spec.species : null),
           shiny: !!n.spec.shiny, trainer: n.spec.trainer ?? null, display: n.spec.display ?? null,
+          headLift: headLiftFor(cast.actorId(npcOffset + i)),
         };
       }),
       removeNpc(id) {
@@ -582,7 +676,7 @@ export default {
        *
        * `hunts` holds a wild the instant the party commits to walking at it: the creature
        * drifts a tile around its slot, and a target that steps aside between the commit and the
-       * arrival turns a two-step detour into a miss.
+       * arrival turns a detour — however many steps long — into a miss.
        */
       holdNpc(id, on = true) {
         const npc = npcs.find((n) => n.id === id);
@@ -592,32 +686,68 @@ export default {
       },
 
       /**
-       * Queues steps the party takes before the autopilot is asked again.
+       * Queues the party's APPROACH — **the out leg only**, one way. `route.next` is never
+       * called on a queued step, so the scripted route's own index does not advance while the
+       * party is off its own circuit, and the head comes home to the cell it left owing exactly
+       * the step it owed before — that is still the whole mechanism by which a hunt can leave
+       * its closed circuit to reach a creature and come home to the same lap (src/hunts/index.js).
        *
-       * Hand it a **round trip** — `[step, opposite(step)]` — and the route never learns it
-       * happened: `route.next` is not called on a queued step, so its index does not advance,
-       * and the head returns to the cell it left owing exactly the step it owed before. That is
-       * the whole mechanism by which a hunt can leave its closed circuit to reach a creature
-       * and still come home to the same lap (src/hunts/index.js).
+       * The return trip is no longer part of the call. `advance()` walks `out` a step at a
+       * time, records every step that actually lands, and generates the way home itself from
+       * that record the moment the approach ends — see the long comment on `detour`, above, for
+       * why a replayed plan turned one blocked step into a permanent stall and a record of what
+       * was actually walked cannot.
        */
       detour(dirs) {
         const list = (Array.isArray(dirs) ? dirs : [dirs]).filter((d) => Number.isFinite(d));
         if (!list.length) return false;
-        detour.push(...list.map((d) => d & 3));
+        detour.out.push(...list.map((d) => d & 3));
         return true;
       },
-      detouring: () => detour.length > 0,
+      detouring: () => detour.out.length > 0 || detour.back.length > 0,
+      /**
+       * Cuts a queued approach short and walks home from wherever the head actually got to,
+       * right now — the same "reverse and invert what was actually taken" the approach's own
+       * natural end uses (see `detour`, above), just triggered on demand instead of by `out`
+       * running out on its own.
+       *
+       * `hunts` calls this the moment a fight starts: the party can engage as soon as it is
+       * `config.slotEngageTiles` off a slot — as little as one cell — which can land mid-approach
+       * on a multi-step detour, and the steps `out` still had queued would otherwise walk the
+       * party on toward a creature that will not be there once the duel ends. Harmless to call
+       * with nothing queued: `taken` is then empty and the generated `back` comes out empty too.
+       */
+      detourHome() {
+        detour.out.length = 0;
+        detour.back = detour.taken.slice().reverse().map(opposite);
+        detour.taken.length = 0;
+        return api;
+      },
+      /**
+       * The exact passability the party's own walker steps with — terrain passability AND the
+       * `solid` cell-occupancy map — for a caller (`hunts`) that wants to plan a path the walker
+       * can actually complete, not just one that is clear of terrain alone. `ignoreNpcId`
+       * excludes one creature's own claimed cell from the solid check, so a target's own tether
+       * drift cannot make the very cell being walked TO read as blocked.
+       *
+       * `clear(cx, cz, dir, ignoreNpcId)` is exactly `world`'s own passability with the mover id
+       * swapped from the party's placeholder (0) to the creature a caller wants to walk up to —
+       * the same function, not a second guess at what it does.
+       */
+      passableFor(ignoreNpcId) {
+        return (cx, cz, dir) => clear(cx, cz, dir, ignoreNpcId);
+      },
 
       placePlayer,
       teleport: placePlayer,
 
       // --- the walk --------------------------------------------------------
       /** Follows a fixed path forever: `walk('n8 w6 s8 e6')`. */
-      walk(spec, opts = {}) { detour.length = 0; route = makeScriptedRoute(spec, opts); return api; },
+      walk(spec, opts = {}) { resetDetour(); route = makeScriptedRoute(spec, opts); return api; },
       /** Strolls, seeded. Prefers the tags it is given, so a town walker keeps to the road. */
       wander(opts = {}) { route = makeWander(ctx.rng.fork(opts.label ?? 'simulation/wander'), opts); return api; },
       /** Stands still. */
-      halt() { detour.length = 0; route = STILL; return api; },
+      halt() { resetDetour(); route = STILL; return api; },
       /** What the autopilot is doing: `'route' | 'wander' | 'still'`. */
       autopilot: () => route.kind,
 
@@ -669,6 +799,7 @@ export default {
           who: m.kind === 'trainer' ? m.trainer : (m.species?.name ?? null),
           cx: p.cx, cz: p.cz, dir: p.dir, x: p.x, y: patch.y, z: p.z,
           gait: patch.gait, phase: patch.phase, moving: p.moving,
+          headLift: headLiftFor(cast.actorId(i)),
         };
       }),
       trail: () => line.trail.map((c) => ({ ...c })),

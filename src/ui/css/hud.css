@@ -82,6 +82,11 @@
 .ci-hud-left { display: flex; flex-direction: column; gap: 10px; width: 236px; max-width: 44vw; }
 
 .ci-trainer-card {
+  /* Slice 5: this is now a `<button>` (it opens the trainer popup), not a plain `<div>` — the
+   * `all: unset` reset the icon/dock buttons above use would also strip the `--c-amber-line`
+   * border and `box-shadow` that are this card's own visual identity, so only the specific
+   * browser-button chrome that fights those (default background/font/text-align/cursor) is
+   * reset here instead. */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -90,6 +95,19 @@
   background: rgba(24, 20, 17, 0.9);
   border: 1px solid var(--c-amber-line);
   box-shadow: var(--shadow-card);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ci-trainer-card:hover { border-color: var(--c-amber-light); }
+}
+.ci-trainer-card:focus-visible { outline: 2px solid var(--c-info); outline-offset: 2px; }
+/* The popup is open — same amber "on" convention the dock's own `automation` button uses
+ * (`.ci-dock-btn[data-active='true']` below) for "this thing is currently running/showing". */
+.ci-trainer-card[data-active='true'] {
+  border-color: var(--c-amber);
+  box-shadow: var(--shadow-card), 0 0 0 1px var(--c-amber-line) inset;
 }
 .ci-trainer-card__portrait {
   width: 40px;
@@ -161,6 +179,16 @@
 .ci-hp-meter__fill[data-band='high'] { background: var(--c-good); }
 .ci-hp-meter__fill[data-band='mid']  { background: var(--c-amber); }
 .ci-hp-meter__fill[data-band='low']  { background: var(--c-bad); }
+/* A faint is visible, scoped to this one row — nothing else in the game greys out for it. */
+.ci-party-row[data-fainted='true'] .ci-party-row__portrait { filter: grayscale(1); opacity: 0.55; }
+.ci-party-row[data-fainted='true'] .ci-party-row__name     { color: var(--c-ink-dim); }
+.ci-party-row__faint {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-bad);
+}
 
 .ci-hud-right {
   display: flex;

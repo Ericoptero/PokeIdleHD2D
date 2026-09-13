@@ -22,22 +22,23 @@ import { h, setText, syncList } from './dom/el.js';
 const isLive = (api) => !!api && api.__missing === undefined;
 
 /**
- * How high above a Pokémon's feet its plate floats, in world units. Exported: `ui/index.js`
- * reuses it to anchor a balloon *above* the plate rather than guessing a second constant for
- * the same head.
- *
- * A measured constant, not a computed one — sprite frames vary in texel size per species
- * (src/pokemon/index.js), so no single constant is exact for all of them; 3.1 clears the tallest
- * ones with air to spare and does not float over the shortest.
+ * How high above a Pokémon's feet its plate floats, in world units — the **fallback** now,
+ * not the primary source. Every entry `simulation.lineup()`/`simulation.npcs()` hands back
+ * carries its own `headLift`, measured off the live actor's quad
+ * (`pokemon/sprites.js`'s `headLiftOf`), and `partyPlates()`/`wanderingPlates()`/`npcPlates()`
+ * below prefer that; this constant only steps in when a headLift is not available — a
+ * quarantined `pokemon`, or a slot that has not spawned its sprite yet. Kept a touch generous
+ * (clears the tallest sheets rather than being exact for any one of them) because a fallback
+ * that came in short would clip the plate into the sprite's own head. Exported: `ui/index.js`
+ * reuses it as the same fallback for a balloon anchored *above* the plate.
  */
 export const POKEMON_LIFT = 3.1;
 /**
- * How high above the trainer's feet its plate floats. Exported for the same reason as
- * `POKEMON_LIFT`.
- *
- * Trainer sheets are one fixed size (32×768, 32-texel frames) — 16 texels/unit stretched by
- * `1/cos(45°)` is 2 world units tall — so a constant here is exact rather than
- * measured-to-fit, unlike `POKEMON_LIFT`. A quarter-tile of air above the crown.
+ * How high above the trainer's feet its plate floats — the fallback, for the same reason and
+ * the same callers as `POKEMON_LIFT`. The trainer sheet is one fixed size (32×768, 32-texel
+ * frames) — 16 texels/unit stretched by `1/cos(45°)` is 2 world units tall — so this constant
+ * happens to be exact rather than merely generous, but it is still only reached when a
+ * `headLift` measured off the live actor is not available.
  */
 export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
 
@@ -81,7 +82,7 @@ export function makePlates(ctx) {
       if (m.role === 'trainer') {
         const t = isLive(economy) && typeof economy.trainer === 'function' ? economy.trainer() : null;
         out.push({
-          key: 'trainer', x: m.x, y: m.y, z: m.z, lift: TRAINER_LIFT,
+          key: 'trainer', x: m.x, y: m.y, z: m.z, lift: m.headLift ?? TRAINER_LIFT,
           name: 'Trainer', level: Number.isFinite(t?.level) ? t.level : null, bar: null,
         });
       } else if (m.role === 'pokemon') {
@@ -100,7 +101,7 @@ export function makePlates(ctx) {
         const hp = Math.max(0, (side ?? lead)?.hp ?? 0);
         const maxHp = Math.max(1, (side ?? lead)?.maxHp ?? 1);
         out.push({
-          key: 'party-pokemon', x: m.x, y: m.y, z: m.z, lift: POKEMON_LIFT,
+          key: 'party-pokemon', x: m.x, y: m.y, z: m.z, lift: m.headLift ?? POKEMON_LIFT,
           name, level: side?.level ?? lead.level ?? null,
           shiny: side ? !!side.shiny : !!lead.shiny, bar: { hp, maxHp },
         });
@@ -117,7 +118,7 @@ export function makePlates(ctx) {
       const live = npcs.find((n) => n.id === s.npcId);
       if (!live) continue; // a slot can report occupied for one tick after its npc is gone
       out.push({
-        key: `wild:${s.npcId}`, x: live.x, y: live.y, z: live.z, lift: POKEMON_LIFT,
+        key: `wild:${s.npcId}`, x: live.x, y: live.y, z: live.z, lift: live.headLift ?? POKEMON_LIFT,
         name: s.display ?? titleCase(s.species ?? ''), level: s.level ?? null,
         shiny: !!s.shiny, bar: { hp: 1, maxHp: 1 }, // full — nothing has struck it yet
       });
@@ -164,7 +165,8 @@ export function makePlates(ctx) {
       if (!name) name = titleCase(String(n.name ?? '').split('/').pop() ?? '');
       if (!name) continue;
       out.push({
-        key: `npc:${n.id}`, x: n.x, y: n.y, z: n.z, lift: n.species ? POKEMON_LIFT : TRAINER_LIFT,
+        key: `npc:${n.id}`, x: n.x, y: n.y, z: n.z,
+        lift: n.headLift ?? (n.species ? POKEMON_LIFT : TRAINER_LIFT),
         name, level: null, bar: null,
       });
     }

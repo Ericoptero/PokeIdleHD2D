@@ -51,18 +51,27 @@ export function makeHud(ctx) {
 
     let party = [];
     if (isLive(pokemon) && typeof pokemon.party === 'function') {
-      party = (pokemon.party() ?? []).map((p) => ({
-        instanceId: p?.instanceId ?? null,
-        name: p?.species?.name ?? '?',
-        display: displayName(p?.species),
-        level: p?.level ?? 1,
-        shiny: !!p?.shiny,
-        hp: Math.max(0, Number(p?.hp) || 0),
-        maxHp: Math.max(1, Number(p?.maxHp) || 1),
-        status: p?.status ?? null,
-        url: typeof pokemon.spriteUrl === 'function' && p?.species
-          ? pokemon.spriteUrl(p.species, { shiny: !!p.shiny }) : null,
-      }));
+      party = (pokemon.party() ?? []).map((p) => {
+        const hp = Math.max(0, Number(p?.hp) || 0);
+        return {
+          instanceId: p?.instanceId ?? null,
+          name: p?.species?.name ?? '?',
+          display: displayName(p?.species),
+          level: p?.level ?? 1,
+          shiny: !!p?.shiny,
+          hp,
+          maxHp: Math.max(1, Number(p?.maxHp) || 1),
+          status: p?.status ?? null,
+          // Whether `dom/hud.js`'s party row greys out and shows the "Fainted" tag. Computed
+          // from `hp` right here rather than read off `p.status`, because a faint is not a
+          // status condition (`p.status` names brn/psn/par/etc, never a 0-hp member) and
+          // because this same field is recomputed below, after the live-combatant overlay, for
+          // whichever member that overlay touches — see that block's own comment for why.
+          fainted: hp <= 0,
+          url: typeof pokemon.spriteUrl === 'function' && p?.species
+            ? pokemon.spriteUrl(p.species, { shiny: !!p.shiny }) : null,
+        };
+      });
     }
 
     /**
@@ -91,11 +100,19 @@ export function makeHud(ctx) {
         activeId = side.instanceId;
         const i = party.findIndex((m) => m.instanceId === side.instanceId);
         if (i >= 0) {
+          const hp = Math.max(0, Number(side.hp) || 0);
           party[i] = {
             ...party[i],
-            hp: Math.max(0, Number(side.hp) || 0),
+            hp,
             maxHp: Math.max(1, Number(side.maxHp) || 1),
             status: side.status ?? null,
+            // Recomputed off the LIVE combatant's hp, not the initial mapping loop's — a
+            // member that just fainted this very tick is still full-hp in `pokemon.party()`
+            // until `encounter/index.js`'s `writeBackOne` lands the real number (on the swap,
+            // or at `endFight()`), so `fainted` has to be re-derived from `side.hp` here too or
+            // the HUD row would keep its healthy tag for exactly the member this whole overlay
+            // exists to correct.
+            fainted: hp <= 0,
           };
         }
       }

@@ -65,15 +65,6 @@ import { makeEvolutionOverlay } from './evolution.js';
  */
 const isLive = (api) => !!api && api.__missing === undefined;
 
-/**
- * How much higher than its speaker's plate a balloon floats, in world units — clear of the
- * name/level/HP row `plates.js` draws at the same lift, plus a little air. Measured against
- * the plate's own on-screen height (about a third of a world unit at this project's fixed
- * `pixelsPerUnit`), not computed exactly: the plate's own width and whether it carries a bar
- * both vary the row's pixel height by a point or two, and this only has to clear the tallest.
- */
-const BALLOON_CLEARANCE = 0.6;
-
 let live = null;
 
 /**
@@ -285,6 +276,17 @@ export default {
        *  — `null` while that chrome is hidden. Any screen anchored to the top clears its own
        *  content of this (`screens/economy.js`, `screens/menu.js`, `screens/battle.js`). */
       hudTopBottom: () => domHud.topBottom(),
+      /** The trainer card's own live rect (`dom/hud.js`'s `trainerRect()`) — the trainer
+       *  popup (Slice 5, non-modal) anchors its `draw()` off this every frame. */
+      hudTrainerRect: () => domHud.trainerRect(),
+      /** Whether the currently open panel is modal — the default, true, for every panel
+       *  except one that opts out with `modal: false` (today, only `trainer`). `input.js`
+       *  reads this to decide whether an unhandled key falls through to the rest of its
+       *  priority chain (movement, interact, chat) instead of being swallowed the way a
+       *  modal panel swallows it — `state.panel` itself is not reachable from `input.js`
+       *  (only `app` is), so this is the minimal accessor that generalizes past `trainer`
+       *  being the only non-modal panel today. */
+      panelModal: () => state.panel?.modal !== false,
     };
 
     // The always-on HUD chrome (Stage 3a) — mounted once, updated off the same `state.hud`
@@ -399,12 +401,12 @@ export default {
           // voluntarily switches out a wild), so it is always the player's own send-out line.
           callouts.say(isSwap
             ? { name: `${s2.attackerSpecies}, I choose you!`, side: s2.attacker ?? 'a',
-              x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5, y: groundY(speakerAt) + lift + BALLOON_CLEARANCE }
+              x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5, y: groundY(speakerAt) + lift }
             : {
               name: s2.attackerSpecies, verb: wild ? 'uses' : 'use', move: s2.struggle ? 'Struggle' : s2.name, ink,
               side: s2.attacker ?? 'a',
               x: speakerAt.cx + 0.5, z: speakerAt.cz + 0.5,
-              y: groundY(speakerAt) + lift + BALLOON_CLEARANCE,
+              y: groundY(speakerAt) + lift,
             });
         }
         if (isSwap) return;
@@ -412,20 +414,25 @@ export default {
         if (targetAt) {
           // Both possible targets are Pokémon (the wild, or the ally the trainer sends out) —
           // never the trainer itself, so this is always `POKEMON_LIFT`, precisely
-          // `scene.headLift` when the target is the wild being fought. Cleared above the
-          // plate by the same margin the balloon uses — the first cut spawned a floater right
-          // on the plate's own lift and it printed straight across the HP bar.
-          const lift = ((s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT) + BALLOON_CLEARANCE;
+          // `scene.headLift` when the target is the wild being fought.
+          const lift = (s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT;
           const at3 = { x: targetAt.cx + 0.5, y: groundY(targetAt) + lift, z: targetAt.cz + 0.5 };
           if (s2.damage > 0) {
             floaters.push({
               text: `-${s2.damage}`, ...at3, scale: s2.crit ? CRIT_FLOATER_SCALE : 1,
               tone: s2.crit ? 'crit' : null,
             });
-            // A second, shorter-lived floater just for the effectiveness callout
-            // ("Super Effective!"/"Not very effective…") — kept separate from the damage
-            // number itself so the number stays the thing a player reads first and fastest.
-            if (s2.effectiveness > 1) {
+            // A second, shorter-lived floater in the same slot above the damage number —
+            // the effectiveness callout ("Super Effective!"/"Not very effective…"), or, when
+            // this very blow is the one that ended the target, "Fainted!" instead. The two
+            // never stack: a fainting blow's effectiveness is old news next to the fact that
+            // the thing it hit is down, so the faint check goes first and wins the slot.
+            if (s2.fainted === s2.target) {
+              floaters.push({
+                text: 'Fainted!', x: at3.x, y: at3.y + 0.35, z: at3.z,
+                tone: 'faint', life: Math.round(FLOATER_STEPS * 1.25),
+              });
+            } else if (s2.effectiveness > 1) {
               floaters.push({
                 text: 'Super Effective!', x: at3.x, y: at3.y + 0.35, z: at3.z,
                 tone: 'super effectiveness', life: Math.round(FLOATER_STEPS * 0.75),
@@ -560,15 +567,21 @@ export default {
       // still show around. A hunt fight itself opens no panel any more — the battle card is
       // gone (balloons/floaters/the capture tooltip are the whole on-screen account now) — so
       // plates stay up through a fight exactly the way they do through ordinary walking.
+      // `state.panel.modal === false` (Slice 5: the trainer popup) joins `menu` as a second
+      // exception to "any open panel covers the world" — both leave the world fully visible
+      // and clickable behind them, `menu`'s own transparent scrim and the trainer popup's own
+      // lack of one being two different routes to the same rule.
       const platesShow = !minimal && bars && !state.economyMode
-        && (!state.panel || state.panel.id === 'menu');
+        && (!state.panel || state.panel.modal === false || state.panel.id === 'menu');
       plates.draw(worldLayer.plates, projectClient, platesShow ? state.plates : []);
       callouts.draw(worldLayer.balloons, projectClient);
       floaters.draw(worldLayer.floaters, projectClient);
-      // Only when nothing else is open — a panel or economy mode covers the world anyway,
-      // and the throw window's own timing (`encounter/index.js`'s `leaveSteps()`) does not
-      // care whether this happened to be visible for all of it.
-      captureTooltip.update(!minimal && bars && !state.economyMode && !state.panel ? projectClient : null);
+      // Only when nothing else is open, or the open panel declares itself non-modal (the
+      // trainer popup) — a modal panel or economy mode covers the world anyway, and the throw
+      // window's own timing (`encounter/index.js`'s `leaveSteps()`) does not care whether this
+      // happened to be visible for all of it.
+      captureTooltip.update(!minimal && bars && !state.economyMode
+        && (!state.panel || state.panel.modal === false) ? projectClient : null);
       updateDebug();
     }
 

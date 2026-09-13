@@ -78,16 +78,19 @@ export function makeCallouts() {
       if (!lines.length || typeof projectClient !== 'function') { container.replaceChildren(); return; }
       syncList(container, lines, (l) => l.side,
         () => {
-          // The tail is a SIBLING of the balloon, both children of the zero-size anchor — not
-          // nested inside it — so it stays pinned to the true projected point while the
-          // balloon itself leans away from it (`--lean`, `world.css`). Nesting it inside the
-          // balloon would carry it along with the lean, which is exactly the "belongs to the
-          // wrong speaker" reading this split exists to avoid.
-          const tail = h('div', { class: 'ci-balloon__tail' });
+          // The tail is a CHILD of the balloon (not a sibling under the zero-size anchor
+          // anymore) — it has to move with the balloon's own `--lean` offset so its base stays
+          // glued to the balloon's bottom border instead of floating off toward the true head.
+          // What still keeps the tail's tip pointed at the real anchor point is geometry, not
+          // DOM position: `world.css`'s `.ci-balloon` insets its NEAR corner by a fixed amount
+          // instead of leaning its far edge out, so the anchor's `(0,0)` origin always falls
+          // inside that near corner, and the tail is placed by that same inset so its rotated
+          // tip lands back on it exactly. See `world.css`'s own comment for the arithmetic.
           const move = h('span', { class: 'ci-balloon__move' });
           const body = h('span', { class: 'ci-balloon__body' });
-          const balloon = h('div', { class: 'ci-balloon' }, [body, move]);
-          return h('div', { class: 'ci-balloon-anchor' }, [tail, balloon]);
+          const tail = h('div', { class: 'ci-balloon__tail' });
+          const balloon = h('div', { class: 'ci-balloon' }, [body, move, tail]);
+          return h('div', { class: 'ci-balloon-anchor' }, [balloon]);
         },
         (el, l) => {
           const at = projectClient(l.x, l.y, l.z);
@@ -95,15 +98,17 @@ export function makeCallouts() {
           if (el.hidden) return;
           el.style.left = `${at.x}px`;
           el.style.top = `${at.y}px`;
-          const [, balloon] = el.children;
+          const [balloon] = el.children;
           const [body, move] = balloon.children;
           // **The two sides lean apart, and that is not decoration.** A sprite is 2.83 world
           // units tall, which under the 45-degree camera is exactly two tiles of ground depth
           // — and `encounter` stages the wild two cells in front of the party's Pokemon. So a
           // balloon anchored at the wild's own head lands close to where the Pokemon is
           // standing too; leaning the ally's line left and the wild's right (`--lean` in
-          // `world.css`) separates them.
+          // `world.css`) separates them. `data-side` mirrors the same split for the CSS that
+          // places the now-nested tail off the balloon's near corner.
           balloon.style.setProperty('--lean', l.side === 'b' ? '1' : '-1');
+          balloon.dataset.side = l.side === 'b' ? 'b' : 'a';
           if (l.move) {
             // The trailing space is deliberate — `body` and `move` are adjacent inline runs
             // with no separator of their own between them.
@@ -115,6 +120,19 @@ export function makeCallouts() {
             setText(body, l.name);
             move.hidden = true;
           }
+          // Clamp the balloon's own resting spot into the viewport, never the anchor: the
+          // anchor has to stay at the true projected head position or the tail stops pointing
+          // at anything real. Reset `--nudge` first so a *previous* frame's clamp doesn't bias
+          // this frame's measurement (a balloon that scrolled back on-screen must be able to
+          // let go of its old nudge), then measure and re-clamp against the fresh box. At most
+          // two balloons ever exist (see this file's own header comment), so a layout read per
+          // side per frame is cheap.
+          balloon.style.setProperty('--nudge', '0px');
+          const rect = balloon.getBoundingClientRect();
+          const overflowLeft = Math.max(0, 8 - rect.left);
+          const overflowRight = Math.max(0, rect.right - (window.innerWidth - 8));
+          if (overflowLeft > 0) balloon.style.setProperty('--nudge', `${overflowLeft}px`);
+          else if (overflowRight > 0) balloon.style.setProperty('--nudge', `${-overflowRight}px`);
         });
     },
   };

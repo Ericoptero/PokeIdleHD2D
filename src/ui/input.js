@@ -171,11 +171,14 @@ export function makeInput({ ctx, app }) {
     if (app.captureKey(ev)) { ev.preventDefault(); return; }
 
     // A panel swallows movement: walking blind behind a full-frame shop is the classic bug.
+    // The one exception is a panel that declares itself non-modal (`app.panelModal()`, today
+    // only the trainer popup, Slice 5): the world stays visible and walkable behind it by
+    // design, so an unhandled key falls through to the rest of this chain below — movement,
+    // interact, chat — instead of being swallowed here the way a modal panel's is.
     if (app.panelOpen()) {
-      clear();
-      if (app.panelKey(ev)) { ev.preventDefault(); return; }
-      if (code === 'Escape' || code === 'KeyX') { app.close(); ev.preventDefault(); return; }
-      return;
+      if (app.panelKey(ev)) { clear(); ev.preventDefault(); return; }
+      if (code === 'Escape' || code === 'KeyX') { clear(); app.close(); ev.preventDefault(); return; }
+      if (app.panelModal()) { clear(); return; }
     }
 
     // Economy mode (`screens/economy.js`, Stage 7) is a root mode, not a panel — it has no

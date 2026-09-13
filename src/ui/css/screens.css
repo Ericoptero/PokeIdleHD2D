@@ -856,23 +856,30 @@
 .ci-routes-row__status--kind { color: var(--c-ink-dim); }
 
 /* --------------------------------------------------------------------------- trainer (Stage 6) */
-/* `.ci-trainer-screen`, not `.ci-trainer-card` — `hud.css` already owns that name for the
+/* `.ci-trainer-pop`, not `.ci-trainer-card` — `hud.css` already owns that name for the
  * always-on chrome's small trainer widget (`dom/hud.js`'s `data-ui="hud-trainer"`); a second,
  * unrelated `.ci-trainer-card` rule here would win every property the cascade lets it (this
  * file loads after `hud.css`) and silently repaint that small widget with THIS screen's own
- * 420px-card sizing, border-radius and background — caught in this stage's own review via a
+ * card sizing, border-radius and background — caught in this stage's own review via a
  * computed-style check (`border-radius: 20px` where the always-on widget wants `13px`, a
- * solid `--c-panel-2` fill where it wants a translucent one), not by eye. */
-.ci-trainer-screen {
-  width: min(420px, 100%);
-  max-height: min(640px, 100%);
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--r-xl);
+ * solid `--c-panel-2` fill where it wants a translucent one), not by eye.
+ *
+ * Slice 5: this used to be `.ci-trainer-screen`, a full-screen `.ci-offline-scrim` card like
+ * every other screen. It is now `.ci-trainer-pop`, an anchored, non-modal popup with no scrim
+ * — `screens/trainer.js`'s own header on why, and its `draw()` for the `position: fixed`
+ * `left`/`top`/`max-height` this rule leaves for JS to set every frame. */
+.ci-trainer-pop {
+  position: fixed;
+  z-index: 4;                 /* above HUD chrome (3), below toasts (5) */
+  width: min(420px, 92vw);
   background: var(--c-panel-2);
   border: 1px solid var(--c-line);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  pointer-events: auto;
 }
 .ci-trainer-head {
   display: flex; align-items: center; gap: 14px; padding: 20px; border-bottom: 1px solid var(--c-line); flex-shrink: 0;

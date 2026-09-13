@@ -173,3 +173,17 @@ export function frameWorldSize(frameTexels, pitchDeg = 45) {
   const h = w / Math.cos((pitchDeg * Math.PI) / 180);
   return { w, h };
 }
+
+/**
+ * World-units from an actor's feet to the top of its quad — what a nameplate sits on.
+ *
+ * The one measured head height every caller used to guess at separately (a nameplate, a
+ * trainer's plate, a wild's battle balloon): `frameWorldSize` already gives the quad's full
+ * stretched height, and dropping it back down by the same foot pad `field.js` drops the quad
+ * itself by (`FOOT_PAD_TEXELS / TEXELS_PER_UNIT`) lands exactly on the crown of the art, not
+ * on the empty margin above it.
+ */
+export function headLiftOf(frameTexels, pitch, scale = 1) {
+  return frameWorldSize(frameTexels, pitch).h * scale
+       - (FOOT_PAD_TEXELS / TEXELS_PER_UNIT) * scale;
+}

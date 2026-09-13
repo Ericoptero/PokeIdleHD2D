@@ -62,7 +62,12 @@ export function makeDomHud(domLayer, app) {
   // --- the trainer card --------------------------------------------------------------
   const xpFill = h('div', { class: 'ci-meter__fill' });
   const levelText = h('span', { class: 'ci-trainer-card__level' }, '');
-  const trainerCard = h('div', { class: 'ci-trainer-card', 'data-ui': 'hud-trainer' }, [
+  const trainerCard = h('button', {
+    type: 'button', class: 'ci-trainer-card', 'data-ui': 'hud-trainer',
+    // Same toggle rule as the dock buttons and the settings gear just below — the popup
+    // (`screens/trainer.js`, non-modal per Slice 5) opens/closes off this same click.
+    onClick: () => (app.panelId() === 'trainer' ? app.close() : app.open('trainer')),
+  }, [
     h('div', { class: 'ci-trainer-card__portrait' }, icon('person', { size: 22 })),
     h('div', { class: 'ci-trainer-card__body' }, [
       h('span', { class: 'ci-trainer-card__name' }, 'Trainer'),
@@ -154,6 +159,9 @@ export function makeDomHud(domLayer, app) {
     minimalFlag = minimal;
     applyVisibility();
     // -- trainer + XP --
+    // `dataset.active`, not `toggleAttribute` — same explicit-string convention as the dock's
+    // own `automation` button below, so `hud.css`'s `[data-active='true']` selector matches.
+    trainerCard.dataset.active = String(app.panelId() === 'trainer');
     if (s.trainer) {
       const frac = s.trainer.need > 0 ? Math.max(0, Math.min(1, s.trainer.into / s.trainer.need)) : 0;
       xpFill.style.width = `${frac * 100}%`;
@@ -172,12 +180,21 @@ export function makeDomHud(domLayer, app) {
           h('div', { class: 'ci-party-row__head' }, [
             h('span', { class: 'ci-party-row__name' }, ''),
             h('span', { class: 'ci-party-row__level' }, ''),
+            // Hidden by default — `update()` below toggles it against `m.fainted`. Lives in
+            // the head row beside the name/level rather than the HP meter row: the meter
+            // already reads 0 for a fainted member, so this is the label for readers who are
+            // scanning names, not bars.
+            h('span', { class: 'ci-party-row__faint' }, 'Fainted'),
           ]),
           h('div', { class: 'ci-hp-meter' }, h('div', { class: 'ci-hp-meter__fill' })),
         ]),
       ]),
       (row, m) => {
         row.dataset.active = String(m.instanceId === s.activeId);
+        // Scope-limited to the HUD party row, per the user-approved brief: a grey portrait/name
+        // and this tag, and nothing else in the game greys out for a faint.
+        row.dataset.fainted = String(m.fainted);
+        row.querySelector('.ci-party-row__faint').hidden = !m.fainted;
         // `''` removes the inline longhand entirely (rather than setting it to `none`), so
         // the CSS placeholder gradient (`hud.css`'s `.ci-party-row__portrait`) shows through
         // when there is no sprite URL yet, instead of a flat colour.
@@ -245,6 +262,9 @@ export function makeDomHud(domLayer, app) {
     /** The real screen Y just above the dock — the bottom half of the same reservation, or
      *  `null` while the dock is hidden, which is not a reservation at all. */
     dockTop: () => (dock.hidden ? null : dock.getBoundingClientRect().top),
+    /** The trainer card's own live rect — `screens/trainer.js`'s popup (Slice 5) anchors its
+     *  `draw()` off this every frame, the same `null`-while-hidden contract as `topBottom()`. */
+    trainerRect: () => (top.hidden ? null : trainerCard.getBoundingClientRect()),
     dispose() {
       dnd.dispose();
       feed.dispose();

@@ -187,12 +187,12 @@ export const DEFAULTS = {
    * reach of one could never fire from a cell on the path, and 23 encounters over four laps all
    * came from tall grass with the proximity trigger silent throughout.
    *
-   * What changed is the walk. The head leaves the circuit for one cell to make contact
-   * (`hunts` queues the pair; `simulation.detour` walks it), so from the approach cell the wild
-   * is exactly one step away — and a fight that begins because the trainer's Pokemon *reached*
-   * the creature is what the brief asks for, rather than one that begins because it came within
-   * shouting distance. At 2 the encounter would fire from the path before the detour was ever
-   * taken, and the party would never leave the circuit at all.
+   * What changed is the walk. The head leaves the circuit to make contact (`hunts` plans the
+   * approach with `bfsPath`, `simulation.detour` walks it), so by the time it lands on the
+   * approach cell the wild is exactly one step away — and a fight that begins because the
+   * trainer's Pokemon *reached* the creature is what the brief asks for, rather than one that
+   * begins because it came within shouting distance. At 2 the encounter would fire from the
+   * path before the detour was ever taken, and the party would never leave the circuit at all.
    */
   slotEngageTiles: 1,
 
@@ -201,7 +201,7 @@ export const DEFAULTS = {
    * (Chebyshev) — the "notice and approach" radius, Tibia-style, distinct from
    * `slotEngageTiles`'s own "contact" one. `hunts/index.js`'s `player:enteredTile` trigger
    * scans every occupied slot's own LIVE position within this range, picks the nearest, and
-   * paths to it with a real search (`simulation/path.js`'s `bfsPath`) around collision —
+   * paths to it with a real search (`core/path.js`'s `bfsPath`) around collision —
    * replacing the old fixed two-step detour, which only ever reacted to the one slot the
    * current lap happened to be walking past.
    */

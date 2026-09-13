@@ -13,7 +13,6 @@
 import { makePalette, isLive } from './palette.js';
 import { findLoop, slotsForLoop } from './compose.js';
 import { bfsPath } from '../core/path.js';
-import { opposite } from '../core/dir.js';
 
 /** `core/dir.js`'s deltas, for walking a route string back over the draft in `audit()`. */
 const LOOP_DX = [0, -1, 0, 1];
@@ -153,6 +152,24 @@ export default {
      */
     const triedThisLap = new Set();
 
+    /**
+     * The NPC id `holdNpc(id, true)` currently has frozen for an in-progress approach, or
+     * `null` when nothing is held.
+     *
+     * A wild is held from the instant the party commits to walking at it (so its own tether
+     * drift cannot step it out from under a multi-step path) until one of two things closes
+     * the story: a fight actually starts on it (`encounter:resolved` releases it once the duel
+     * is over), or the approach ends with no fight at all — a blocked step abandoned it, the
+     * lap moved on, `sim.detourHome()` cut it short. That second case has no event of its own
+     * to hang a release on, so it is caught by watching `sim.detouring()` fall from `true` to
+     * `false` (see `wasDetouring`, and `_refill`, below) — the one thing every ending of a
+     * detour has in common. Without this a wild whose approach ended by any means other than a
+     * fight would stay `held: true` forever: frozen, visible, and never fought again.
+     */
+    let heldNpcId = null;
+    /** `sim.detouring()` as of the last tick, so `_refill` can catch its `true -> false` edge. */
+    let wasDetouring = false;
+
     /** How many times each slot has refilled — the index its respawn roll is addressed by. */
     const generations = new Map();
     /** Seconds of simulated time this module has seen, accumulated from its own `tick`. */
@@ -250,34 +267,59 @@ export default {
 
     /**
      * **The party leaves the circuit to reach what it is hunting — Tibia-style: whichever
-     * living wild is nearest within `config.aggroTiles` pulls the trainer off the path,
-     * routed around collision by a real search rather than a fixed cell pair — bounded to a
-     * single step each way.**
+     * living wild is nearest within `config.aggroTiles` pulls the trainer off the path, routed
+     * around collision by a real search rather than a fixed cell pair, however many steps the
+     * search actually takes to close the distance.**
      *
      * The brief asks that a battle begin when the trainer's Pokemon *physically reaches* a
      * living wild. What changed from the fixed-slot detour this replaced: that one fired only
      * when the head landed on the ONE cell the CURRENT lap's next slot happened to be authored
      * two cells off of. This fires from ANY tile entered while ANY occupied slot sits within
-     * `aggroTiles`, picks the nearest one by its own LIVE position (a wild drifts a tile
-     * around its tether — the same lookup `wanderingPlates()` already does), and paths to it
-     * with `bfsPath` (`core/path.js`) against the terrain's real passability.
+     * `aggroTiles`, picks the nearest one by its own LIVE position (a wild drifts a tile around
+     * its tether — the same lookup `wanderingPlates()` already does), and paths to it with
+     * `bfsPath` (`core/path.js`) — bounded to `aggroTiles`, so a plan is never accepted for a
+     * target `bfsPath` had to notice was in range but the party would have to leave the loop
+     * further than it was ever asked to go to reach.
      *
-     * **Why only a one-cell approach is walked, when `bfsPath` will happily plan a longer
-     * one.** Measured, not assumed: queuing a longer round trip as one `sim.detour()` call —
-     * this feature's own first cut, matching the shape `bfsPath` naturally returns — reliably
-     * corrupted the circuit's own `strict` scripted route into a **permanent** stall the
-     * instant the round trip ran longer than a single step each way; `hunt-recovers.spec.js`'s
-     * "a lap of the circuit" case (a fainted party walking a full lap unattended) reproduced it
-     * deterministically, every run, the moment a multi-step path was involved, and never once
-     * with a single-step one — the exact shape the fixed-slot detour this replaces always used
-     * in production. Draining a multi-step path one direction per tile across several ticks
-     * (an earlier revision of this fix) did **not** avoid it either — the corruption tracks
-     * total distance travelled off the route, not the size of one `detour()` call. The exact
-     * mechanism inside `line.js`'s conga-line trail is not something this fix set out to chase
-     * down under the time this task had; a one-cell approach is the shape already proven safe,
-     * and is what this stays inside. The practical cost: a wild more than about two tiles away
-     * is noticed (it is inside `aggroTiles`) but not walked to until something else — the
-     * party's own ordinary progress round the loop — brings it within that one-cell reach.
+     * **This used to be a one-cell approach, and only a one-cell approach, on purpose — the
+     * comment that stood here documented a real, measured corruption and a real workaround for
+     * it. Both premises turned out to be wrong about WHERE the bug lived, not about whether it
+     * existed.** `hunt-recovers.spec.js`'s "a lap of the circuit" case reliably turned a
+     * multi-step round trip into a **permanent** stall of the circuit's own `strict` scripted
+     * route, every run — that measurement was real. What it was blamed on — "the exact
+     * mechanism inside `line.js`'s conga-line trail" — was not where it lived. Two real causes,
+     * both in this module's own neighbourhood:
+     *
+     *  1. `simulation`'s `advance()` used to queue a detour as **both legs at once** —
+     *     `[step, opposite(step)]` — and shift a step off that queue and hand it to `line.step`
+     *     without checking the boolean `line.step` returns. `Line.step` returns `false` when
+     *     the cell ahead fails `passable` and, in that case, only turns the head's facing — it
+     *     does NOT move it. A blocked step was consumed from the queue anyway, so the return
+     *     leg then ran one cell short and the head came home off the very cell its own `strict`
+     *     route expected it to be standing on. `route.next()` then found the next scripted
+     *     direction blocked, forever — a permanent stall caused by a silently dropped step, not
+     *     by anything unresolved in the trail itself.
+     *  2. This module planned the path with terrain passability alone, but the walker steps
+     *     with terrain **and** the `solid` cell-occupancy map every wild NPC is spawned onto
+     *     (`solid: true`, `spawnWild`/`_refill`, below). A multi-step BFS path can legitimately
+     *     route through a cell another wild is currently standing on — invisible to a
+     *     terrain-only plan — and that is exactly the kind of blocked step that triggers cause 1
+     *     on a crowded lap. A one-cell approach almost never hits this, because `bfsPath` stops
+     *     at Chebyshev distance 1 of the target and the one verified step is nearly always
+     *     clear — which is why the workaround looked like it was addressing the trail and was
+     *     actually just avoiding cause 2 by accident.
+     *
+     * Both are fixed at the source rather than avoided: `simulation.detour()` now takes the
+     * out leg only and generates the return trip itself from the steps it actually walked (see
+     * `simulation/index.js`'s own long comment on `detour`), so a blocked step can never leave a
+     * return leg short again; and the path here is planned with `sim.passableFor(held.npcId)`
+     * — the walker's own terrain-AND-solid check, minus the target's own claimed cell — so a
+     * plan cannot route through a body the walker would actually refuse to step into. With both
+     * fixed, the one-step guard was a bound on the SYMPTOM rather than the FIX, and lifting it
+     * is what actually delivers the Tibia-style aggro the brief asked for: `range`, below, is
+     * `aggroTiles` itself, not 1, and a wild anywhere inside that radius is walked to and walked
+     * home from — cleanly, however long the approach turns out to be — rather than merely
+     * noticed and left for ordinary progress round the loop to stumble into.
      */
     bus.on('player:enteredTile', ({ cx, cz }) => {
       const sim = ctx.get('simulation');
@@ -316,22 +358,64 @@ export default {
       candidates.sort((a, b) => a.dist - b.dist || a.k - b.k);
       const { k, held, live } = candidates[0];
 
+      // Plan against the SAME passability the walker steps with — terrain AND the `solid`
+      // occupancy map, minus the target's own claimed cell — not terrain alone: see cause 2 in
+      // this handler's own header comment. Falls back to a terrain-only predicate for a
+      // quarantined or pre-slice `simulation` that has not shipped `passableFor` yet, so this
+      // never throws on an older registry.
       const terrain = ctx.get('terrain');
-      const passable = isLive(terrain) && typeof terrain.passable === 'function'
-        ? terrain.passable : () => true;
+      const passable = isLive(sim) && typeof sim.passableFor === 'function'
+        ? sim.passableFor(held.npcId)
+        : (isLive(terrain) && typeof terrain.passable === 'function' ? terrain.passable : () => true);
       const path = bfsPath({ cx, cz }, { cx: live.cx, cz: live.cz }, passable);
-      if (!path || path.length !== 1) {
+      if (!path || path.length > range) {
         // No path at all: either already in contact (the generic engage check on this same
         // event handles that, `encounter/index.js`'s `slotNear`) or genuinely unreachable.
-        // A path longer than one cell: outside the safe shape (this function's own header) —
-        // left for ordinary progress round the loop to close the rest of the distance.
+        // Longer than `range`: `bfsPath` had to detour so far around collision that the real
+        // walk would leave the loop further than `aggroTiles` was ever meant to reach for this
+        // target — left for ordinary progress round the loop to close the rest of the way.
         // Either way, not worth re-trying every single tile for the rest of the lap.
         triedThisLap.add(k);
         return;
       }
       if (typeof sim.holdNpc === 'function') sim.holdNpc(held.npcId, true);
+      heldNpcId = held.npcId;
       triedThisLap.add(k);
-      sim.detour([path[0], opposite(path[0])]);
+      // The out leg only — `simulation` generates and walks the return leg on its own now,
+      // from whatever it actually walks, so it always comes home clean even if this plan turns
+      // out to be stale by the time the party is partway along it.
+      sim.detour(path);
+    });
+
+    /**
+     * Cuts a mid-approach detour short the instant a fight actually starts.
+     *
+     * `config.slotEngageTiles` is 1: the party can engage as soon as it is one cell off a slot,
+     * which can land well before a multi-step detour above finishes walking every queued step —
+     * the target's own tether drift can also close the last cell of the gap on its own. Either
+     * way, the moment a fight is on, the rest of the plan is chasing a creature that will not be
+     * standing there once the duel resolves. `detourHome()` drops whatever `out` still has
+     * queued and generates `back` from exactly what the party actually walked, so the return
+     * trip is always correct even though the approach was cut off partway through — the same
+     * safety net a blocked step gets inside `simulation` itself.
+     */
+    bus.on('encounter:started', () => {
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.detourHome === 'function') sim.detourHome();
+    });
+
+    /**
+     * Releases whatever wild `holdNpc(id, true)` froze for the approach that just ended in a
+     * fight. The other way an approach can end — no fight, the party comes home empty-handed —
+     * has no event of its own; `_refill`, below, catches that by watching `sim.detouring()` fall
+     * from `true` to `false` instead. Between the two, a wild is never left `held: true` forever
+     * because its approach was interrupted or simply failed to land a fight.
+     */
+    bus.on('encounter:resolved', () => {
+      if (heldNpcId == null) return;
+      const sim = ctx.get('simulation');
+      if (isLive(sim) && typeof sim.holdNpc === 'function') sim.holdNpc(heldNpcId, false);
+      heldNpcId = null;
     });
 
     /**
@@ -975,11 +1059,28 @@ export default {
         // it. Timing a respawn off `simTime` meant a slot emptied under the screenshot
         // harness or a stepped sim never came back at all.
         elapsed += Math.max(0, dt);
+
+        // Catches the ending of an approach that never became a fight (a blocked step that
+        // abandoned the plan, `detourHome()` firing for someone else's fight, ordinary progress
+        // round the loop rendering the target unreachable) — the `true -> false` edge of
+        // `sim.detouring()` is the one thing every such ending has in common, unlike
+        // `encounter:started`/`encounter:resolved`, which only fire for the ending that DOES
+        // become a fight. Runs every tick, ahead of the respawn loop's own early return, because
+        // the hold has to be released whether or not anything is waiting to refill.
+        const sim = ctx.get('simulation');
+        if (isLive(sim) && typeof sim.detouring === 'function') {
+          const detouring = sim.detouring();
+          if (wasDetouring && !detouring && heldNpcId != null) {
+            if (typeof sim.holdNpc === 'function') sim.holdNpc(heldNpcId, false);
+            heldNpcId = null;
+          }
+          wasDetouring = detouring;
+        }
+
         if (!refills.length || !currentId) return;
         const now = elapsed;
         const biome = byId(currentId);
         const list = built.get(currentId)?.slots ?? [];
-        const sim = ctx.get('simulation');
         const pokemon = ctx.get('pokemon');
         if (!isLive(sim) || !isLive(pokemon)) return;
 
