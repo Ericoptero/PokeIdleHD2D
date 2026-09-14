@@ -36,7 +36,7 @@ import { SOUTH, opposite } from '../core/dir.js';
 import { Line } from './line.js';
 import { Cast } from './cast.js';
 import { makeSurface } from './surface.js';
-import { makeScriptedRoute, makeWander, makeTether, STILL } from './route.js';
+import { makeScriptedRoute, makeWander, makeTether, makePilotRoute, STILL } from './route.js';
 
 /** The registry's null object answers every property with a function — this is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -617,6 +617,20 @@ export default {
       },
 
       /**
+       * Swaps the current route for a **pilot** — same slot `setRoute` writes, but there is no
+       * fixed step list to record: `fn` is asked fresh every tick (`head`, `world`) and answers
+       * `{ dir }` or `null`, the shape `hunts`'s waypoint-index A* re-planning needs instead of a
+       * pre-computed circuit (see `makePilotRoute`, route.js). `formation.route` is cleared to
+       * `null` rather than left holding a stale scripted-route spec, so `sim.formation()` never
+       * reports a fixed path that is no longer what is actually being walked.
+       */
+      setPilot(fn) {
+        formation = { ...formation, route: null };
+        route = makePilotRoute(fn);
+        return api;
+      },
+
+      /**
        * Stops the party where it stands, **keeping the route's place in its loop**.
        *
        * Three ways to stop and they are not interchangeable (src/simulation/index.js): `halt()` replaces the
@@ -798,6 +812,26 @@ export default {
        */
       passableFor(ignoreNpcId) {
         return (cx, cz, dir) => clear(cx, cz, dir, ignoreNpcId);
+      },
+
+      /**
+       * Same contract as `passableFor`, above, but through `terrain.canStep(cx, cz, dir)`
+       * instead of `terrain.passable` — a stricter step-legality check some terrains expose
+       * (slopes, one-way ledges) that plain tile passability does not capture. `terrain` may not
+       * carry `canStep` yet (a quarantined or pre-slice module), so this falls back to the exact
+       * same `passable`-based check the existing `passable()` helper already falls back to,
+       * rather than assuming the method exists and throwing against an older terrain.
+       */
+      canStepFor(ignoreNpcId) {
+        return (cx, cz, dir) => {
+          const terrain = terrainApi();
+          const ok = isLive(terrain) && typeof terrain.canStep === 'function'
+            ? !!terrain.canStep(cx, cz, dir)
+            : passable(cx, cz, dir);
+          if (!ok) return false;
+          const who = solid.get(cellKey(cx, cz));
+          return who === undefined || who === ignoreNpcId;
+        };
       },
 
       placePlayer,

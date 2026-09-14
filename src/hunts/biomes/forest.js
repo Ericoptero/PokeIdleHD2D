@@ -191,8 +191,58 @@ export const FOREST = {
    * slots placed — `path → glade → deep` and `clearing → deep → glade` also stitch cleanly at
    * 82 cells, but at 18/6 and 20/9 corners/slots respectively, so this is the tightest ring of
    * the three that actually close.
+   *
+   * **Re-measured against the current build (same throwaway harness, seed 1337, stub
+   * tileset): still 82 cells, 16 corners — unchanged by this round, as expected, since neither
+   * the markers nor `stitchLoop`'s inputs moved.** `waypointsForLoop` (`hunts/index.js`) takes
+   * every 7th ring cell, wrapping, which is 12 waypoints off this ring
+   * (⌈82/7⌉) at roughly 7 cells apart on the straights and a shorter final wrap segment; walked
+   * out from `deep` they land at (24,18) (31,18) (38,18) (43,20) (43,27) (44,31) (43,37)
+   * (37,38) (30,38) (28,33) (26,28) (24,23) — i.e. one waypoint near each of the four
+   * authored markers plus seven more spaced along the two rides and the two N-S connectors.
+   *
+   * **Fixed spawns (this round): 9, authored as `{at, dx, dz}` offsets off the four `loop.via`
+   * markers plus `spawn`, verified against the real build the same way (`draft.passable`,
+   * `draft.inside`, `standTiles` all checked per cell — see the harness this comment is
+   * derived from), every one landing on a `tallgrass`-tagged cell (never on `trodden`, which
+   * `grassField` already excludes by construction) within a few cells of a derived waypoint
+   * above:
+   *
+   *  - `clearing` (-6,+3) → (21,42) and (+3,-4) → (30,35): the horseshoe's own undergrowth,
+   *    one south-west of the mouth (day bugs sunning at the opening) and one north of it under
+   *    the near canopy (the clearing's own grass-type table).
+   *  - `path` (-1,-3) → (39,35) and (+4,+3) → (44,41): the south ride's verge either side of
+   *    the `path` marker — one on the shaded north shoulder (soft/berry types), one on the
+   *    open south shoulder (common ground types).
+   *  - `deep` (-4,-3) → (20,15) and (+6,+2) → (30,20): the north-west conifer stand either
+   *    side of the ride junction — mossy/fungal types in the shade, a sparser two-species pool
+   *    (rarer pool) at the eastern fringe where the canopy opens back towards `glade`.
+   *  - `glade` (-3,+3) → (40,21) and (+1,+4) → (44,22): the second opening's own edge, mirroring
+   *    the `clearing` pools with one substitution each (`applin` for the glade's own orchard
+   *    reading) so the two openings do not read as the same room.
+   *  - `spawn` (-2,-6) → (29,44): the one spawn near the party's own entrance, so the first
+   *    grass a fresh hunt walks past already has something in it.
+   *
+   *  `standTiles` came back 1 for `deep`(-4,-3) — a single approachable side rather than the
+   *  usual 4, because that cell sits against the conifer stand's own tree line — and 4 for
+   *  every other cell; 1 is still a pass (`validSpawnCell` only asks for `> 0`), and a lone
+   *  approach is in character for a spawn tucked at the edge of a dense stand rather than out
+   *  in the open. No two spawns share a cell. Respawn is staggered 18-32s rather than pinned to
+   *  one number, for the same "the wood feels alive, not on a metronome" reasoning `tether`'s
+   *  one-tile drift already applies to the wild themselves.
    */
   loop: { via: ['path', 'deep', 'glade'] },
+  spawns: [
+    { at: 'clearing', dx: -6, dz: 3, species: ['caterpie', 'weedle', 'sewaddle'], respawn: 19 },
+    { at: 'clearing', dx: 3, dz: -4, species: ['oddish', 'bellsprout', 'budew'], respawn: 26 },
+    { at: 'path', dx: -1, dz: -3, species: ['cherubi', 'sunkern', 'combee'], respawn: 22 },
+    { at: 'path', dx: 4, dz: 3, species: ['seedot', 'deerling', 'kricketot'], respawn: 31 },
+    { at: 'deep', dx: -4, dz: -3, species: ['shroomish', 'paras', 'foongus'], respawn: 18 },
+    { at: 'deep', dx: 6, dz: 2, species: ['pansage', 'ferroseed'], respawn: 29 },
+    { at: 'glade', dx: -3, dz: 3, species: ['weedle', 'sewaddle', 'applin'], respawn: 24 },
+    { at: 'glade', dx: 1, dz: 4, species: ['bellsprout', 'budew', 'cherubi'], respawn: 21 },
+    { at: 'spawn', dx: -2, dz: -6, species: ['deerling', 'seedot', 'oddish'], respawn: 32 },
+  ],
 };
 
 export function buildForest(draft, ctx, palette, rng, _log) {

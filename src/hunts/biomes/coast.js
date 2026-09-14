@@ -83,9 +83,48 @@ export const COAST = {
    * after them, so the ring reaches the corridor from the side once rather than doubling back
    * through it: measured on the shipped seed-1337 map, `shore -> sea -> loop/bluff -> point`
    * stitches to an 86-cell, 8-corner ring and `slotsForLoop` places all 9 of the 9 slots asked
-   * for.
+   * for. Re-measured against this file's current build (below, unchanged by the fixed spawns
+   * added under it): still 86 cells, 8 corners.
+   *
+   * **The patrol's actual waypoints** (`hunts/index.js`'s `waypointsForLoop`, every 7th ring
+   * cell) come out to 13 of them on this ring: (49,37) (42,37) (35,37) (28,37) (26,32) (30,29)
+   * (33,25) (36,21) (43,21) (46,17) (49,21) (49,28) (49,35), each 7 cells (manhattan) from the
+   * next except the closing wrap back to (49,37), which is 2. That is the south edge along
+   * `cz` 37 (four waypoints), the climb up the bay's inner shore past `sea` to `loop/bluff`
+   * (four more), the run along the top past `point` (two), and the east edge back down (three)
+   * — which is why the fixed spawns below cluster on the south edge and the loop/bluff-to-point
+   * stretch: those are the two long legs the party actually walks, and the sea-side diagonal
+   * between `shore` and `loop/bluff` carries no dune grass at all (probed: every offset tried
+   * off `sea` in that band landed on bare strand/dunes ground, not on a `tallgrass`-tagged
+   * cell — that part of the coast is too close to the water for `dunes`' `d < 5` floor).
+   *
+   * **Fixed spawns (this pass).** Eight cells, all pulled from this build's own `wildCells()`
+   * output (the decorative dune-grass scatter this file already computed) and kept only where
+   * they sit within Chebyshev 6 of the stitched ring — close enough that a spawn is something
+   * the patrol actually walks past, not a hike into the dunes. Verified against a real
+   * `MapDraft` built the way `hunts/index.js` builds one (same RNG stream, same stub tileset
+   * `selftest.js` uses): every one of the eight is `inside`, `passable(cx,cz,0)`, unoccupied,
+   * carries the `tallgrass`/`encounter` tags, offers all 4 `standTiles()` approaches, and sits
+   * off (not on) the ring. Four ride the south strand off `shore` (two hugging the ring at
+   * Chebyshev 1, two a little deeper in the dune grass at Chebyshev 4); three ride the
+   * `loop/bluff` corner where the ring turns along the top of the map; one sits off `point`
+   * itself. Species are drawn from `encounter/tables.js`'s own `coast` table and split into
+   * eight two-name pools with no name repeated across pools, so no two spawns roll the same
+   * creature; respawn timers are staggered 18-31s rather than one flat number, for the same
+   * "the map feels alive, not mechanical" reasoning this file already applies to the tint
+   * jitter and the scatter spacing above.
    */
   loop: { via: ['shore', 'sea', 'loop/bluff', 'point'] },
+  spawns: [
+    { at: 'shore', dx: -1, dz: -2, species: ['wingull', 'krabby'], respawn: 19 },
+    { at: 'shore', dx: -1, dz: 4, species: ['corphish', 'shellder'], respawn: 24 },
+    { at: 'shore', dx: 6, dz: -1, species: ['tentacool', 'staryu'], respawn: 21 },
+    { at: 'shore', dx: 8, dz: 4, species: ['psyduck', 'marill'], respawn: 29 },
+    { at: 'loop/bluff', dx: -1, dz: 6, species: ['buizel', 'finneon'], respawn: 26 },
+    { at: 'loop/bluff', dx: 1, dz: 1, species: ['wooper', 'shellos'], respawn: 18 },
+    { at: 'loop/bluff', dx: 4, dz: 5, species: ['magikarp', 'alomomola'], respawn: 31 },
+    { at: 'point', dx: 1, dz: 3, species: ['spheal', 'wailmer'], respawn: 23 },
+  ],
 };
 
 /** Where the sea's surface sits, so the deep water is flush with the shallows sheet. */

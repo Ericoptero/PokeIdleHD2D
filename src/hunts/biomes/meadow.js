@@ -103,9 +103,50 @@ export const MEADOW = {
    * way, `copse` in or out, failed the same way (`(45,33)`, `(30,31)`, `(4,22)`, `(21,47)` —
    * each a different revisited cell, same cause). Dropping to the three markers that never
    * need to cross the brook at all stitches clean: 102 cells, 10 corners, and
-   * `slotsForLoop` seats all 9 of 9 shoulders on it.
+   * `slotsForLoop` seats all 9 of 9 shoulders on it. Re-measured against the seed-1337 draft
+   * this run (nothing here changed the ring): still 102 cells, still 10 corners.
+   * `hunts/index.js`'s `waypointsForLoop` (stride 7) turns that ring into 15 patrol
+   * waypoints, 14 of them 7 cells apart along the ring and the last a 4-cell remainder
+   * closing back to waypoint 0 -- that spacing is what the spawns below were placed against,
+   * so a lap actually passes near each cluster rather than past it.
+   *
+   * **The nine spawns below are now the PRIMARY source of this biome's slots**
+   * (`authoredSpawns` in `hunts/index.js` runs ahead of `slotsForLoop`'s derived geometry
+   * once `spawns` is non-empty), so the "9 of 9 shoulders" figure above is a historical fact
+   * about the ring's own geometry and no longer what actually seats the wildlife.
+   *
+   * Every cell was checked against the same seed-1337 stub draft `hunts/selftest.js` builds
+   * (a throwaway Node script mirroring its `stubTiles()`/`MapDraft` setup): `draft.inside`,
+   * `draft.passable(cx,cz,0)`, tagged `'tallgrass'`, and at least one `standTiles()` result
+   * under `draft.canStep` (each came back 3 or 4) -- the same three checks
+   * `authoredSpawns()` itself runs at build time, so nothing here is asserted from a guess.
+   *
+   * The first pass anchored one spawn at `fence + (-1,-3)` = (19,44), the nearest tallgrass
+   * cell to patrol waypoint 10 -- every per-cell check passed, but it sat Chebyshev 1 from
+   * the ring itself, closer to the patrol's own path than `slotsForLoop`'s derived shoulders
+   * ever sit (those are pinned at exactly 2). Moved to `fence + (2,-3)` = (22,44), Chebyshev
+   * 2 off the ring and just as walkable -- the fix is the offset, not the marker.
+   *
+   * Spread: two off `lane` (13,34 nine cells in from the marker, and 7,29 out along the
+   * lane's own western reach, where the waypoint list otherwise thins); three off `grass`
+   * (41,30 and 38,26 flank the crossing the old `wildCells` scatter used to sit on, 49,40
+   * gives the field's south-east corner -- barely touched by the ring's own waypoints --
+   * something to hunt); two off `fence` south of the boundary (22,44 and 11,39); two off
+   * `brook` either side of the crossing (32,30 and 23,37). Every pair sits at least
+   * Chebyshev 4 apart, so no two spawns crowd the same handful of cells.
    */
   loop: { via: ['lane', 'grass', 'fence'] },
+  spawns: [
+    { at: 'lane', dx: -3, dz: -1, species: ['patrat', 'lillipup', 'sentret'], respawn: 20 },
+    { at: 'lane', dx: -9, dz: -6, species: ['starly', 'pidgey'], respawn: 24 },
+    { at: 'grass', dx: -5, dz: -3, species: ['bunnelby', 'skwovet', 'lechonk'], respawn: 22 },
+    { at: 'grass', dx: -8, dz: -7, species: ['oddish', 'hoppip', 'cottonee'], respawn: 28 },
+    { at: 'grass', dx: 3, dz: 7, species: ['buneary', 'minccino', 'audino'], respawn: 32 },
+    { at: 'fence', dx: 2, dz: -3, species: ['rattata', 'petilil'], respawn: 18 },
+    { at: 'fence', dx: -9, dz: -8, species: ['deerling', 'sunkern'], respawn: 26 },
+    { at: 'brook', dx: 2, dz: -2, species: ['marill', 'wooper'], respawn: 21 },
+    { at: 'brook', dx: -7, dz: 5, species: ['azurill', 'wooper'], respawn: 30 },
+  ],
 };
 
 export function buildMeadow(draft, ctx, palette, rng, _log) {

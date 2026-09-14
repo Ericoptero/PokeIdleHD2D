@@ -76,8 +76,69 @@ export const CAVE = {
    * revisit (R9). Reversing the middle two legs to `mouth -> terrace -> gallery -> chamber`
    * routes around the hall instead of back across it and stitches clean: 22 cells, 6 corners,
    * and `slotsForLoop` seats 8 of 9 shoulders on it.
+   *
+   * **Re-measured for the fixed spawns below, same seed-1337 draft, unchanged by this round:**
+   * still 22 cells / 6 corners, route `e6 s1 w8 n3 e2 s2`. `hunts/index.js`'s
+   * `waypointsForLoop` (stride 7) derives 4 patrol waypoints off that ring — `(20,37)`,
+   * `(26,38)`, `(19,38)`, `(20,36)` — at Manhattan spacing 7 / 7 / 3 / 1 going round, so the
+   * patrol's longest unwatched leg is seven tiles and its shortest one. The eight spawns
+   * below sit off their own markers rather than off those four waypoints — a spawn needs to
+   * be near *some* cell the party walks between two waypoints, not specifically near a
+   * waypoint itself, and every marker this biome has already sits within a few cells of the
+   * ring (see the paragraph above).
    */
   loop: { via: ['mouth', 'terrace', 'gallery', 'chamber'] },
+  /**
+   * **Eight fixed spawns (`hunts/index.js`'s `authoredSpawns`), replacing `slotsForLoop`'s
+   * derived eight for this biome.** Each is a marker name plus an integer `{dx,dz}`, resolved
+   * fresh against the built draft the same way `loop.via` already is above — never a bare
+   * `{cx,cz}`, since a hard-coded cell only survives until the next thing that shifts the
+   * noise. Every one of the eight below was checked against the real seed-1337 draft with
+   * `hunts/index.js`'s own `validSpawnCell` (`draft.inside`, `draft.passable(cx,cz,0)`,
+   * `draft.occupied` clear, and `patrol.js`'s `standTiles` reporting at least one approachable
+   * side) before being kept; none was assumed.
+   *
+   *  - `gallery+(2,-2)` = `(22,35)`, `chamber+(2,-1)` = `(28,37)`, `mouth+(2,2)` = `(23,40)`:
+   *    three shoulders of the hall/gallery/mouth cluster, each exactly 2 cells off the ring —
+   *    the same clearance `slotsForLoop` itself always used.
+   *  - `terrace+(-2,0)` = `(16,35)` and `terrace+(1,-2)` = `(19,33)`: the western terrace, 2
+   *    and 3 cells off the ring. The pair was first tried at `terrace+(-2,0)` and
+   *    `terrace+(0,-2)` — `(16,35)` and `(18,33)` — both individually valid, but only
+   *    Chebyshev 2 apart, so their `tether: radius 1` drift bubbles can both reach `(17,34)`;
+   *    moved the second to `(19,33)` for a clean 3-cell gap between the two.
+   *  - `close+(1,0)` = `(26,33)`: the hall's own centre, 4 cells off the ring — `close` sits
+   *    closer to the middle of the room than `chamber` or `terrace` do, so this reads as "the
+   *    floor of the hall" rather than another shoulder of it.
+   *  - `deep+(-1,0)` = `(22,28)`: the HALL-DEEP corridor. `deep`'s own marker resolves here
+   *    rather than in the room it is named for — `laneNear` moved it off `(18,22)` to find an
+   *    east-west lane — and reaching the actual DEEP chamber (rows 9-20 around x 12-24, which
+   *    `validSpawnCell` confirms is generously open ground) from here needs a dx/dz around
+   *    `(-6,-15)`: a large, fragile offset for one spawn, tried and rejected in favour of the
+   *    modest corridor cell, seven cells off the ring.
+   *  - `pool+(0,0)` = `(38,23)`, the pool room's own marker cell, 14 cells off the ring: the
+   *    one spawn `slotsForLoop` could never have placed, since its two-cells-off-the-ring rule
+   *    cannot reach a room the ring never visits at all.
+   *
+   * Species are drawn straight from `encounter/tables.js`'s `cave` table, grouped by the room
+   * each spawn stands in rather than repeated uniformly across all eight: bats down the
+   * gallery (`zubat`/`woobat`), common rubble through the hall and mouth
+   * (`geodude`/`machop`, `sandshrew`/`zubat`, `aron`/`drilbur`), harder rock on the terrace
+   * shelves (`roggenrola`/`nosepass`, `carbink`/`sableye`), a ghost trio in the dark corridor
+   * toward the deep chamber (`gastly`/`litwick`/`yamask`), and the pool's own
+   * `dwebble`/`onix` for the one room with water in it. Respawn seconds are staggered
+   * 18-31s rather than one shared number, the same "the map feels alive, not mechanical"
+   * reasoning `wildCells`' own tether jitter already applies elsewhere in this file.
+   */
+  spawns: [
+    { at: 'gallery', dx: 2, dz: -2, species: ['zubat', 'woobat'], respawn: 20 },
+    { at: 'chamber', dx: 2, dz: -1, species: ['geodude', 'machop'], respawn: 24 },
+    { at: 'mouth', dx: 2, dz: 2, species: ['sandshrew', 'zubat'], respawn: 18 },
+    { at: 'terrace', dx: -2, dz: 0, species: ['roggenrola', 'nosepass'], respawn: 29 },
+    { at: 'pool', dx: 0, dz: 0, species: ['dwebble', 'onix'], respawn: 31 },
+    { at: 'close', dx: 1, dz: 0, species: ['aron', 'drilbur'], respawn: 22 },
+    { at: 'deep', dx: -1, dz: 0, species: ['gastly', 'litwick', 'yamask'], respawn: 26 },
+    { at: 'terrace', dx: 1, dz: -2, species: ['carbink', 'sableye'], respawn: 28 },
+  ],
 };
 
 /** A rounded room. Rooms plus the corridors between them is a cave; noise is a sponge. */

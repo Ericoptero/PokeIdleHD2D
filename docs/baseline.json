@@ -160,15 +160,15 @@
    "fps": 60,
    "drawCalls": 221,
    "consoleErrors": 0,
-   "mean": 80.94,
+   "mean": 80.93,
    "p50": 78,
    "p95": 159,
    "p99": 186,
    "max": 255,
-   "belowL8Pct": 2.3,
-   "pureBlackPct": 0.128,
+   "belowL8Pct": 2.311,
+   "pureBlackPct": 0.121,
    "over200Pct": 0.283,
-   "saturation": 0.5351
+   "saturation": 0.5352
   },
   "environment/12": {
    "fps": 60,
