@@ -243,10 +243,14 @@ function drive(line, route, ticks, { passable = open() } = {}) {
 //
 // Mirrors `simulation/index.js`'s `canStepFor` verbatim (no ctx, no three.js, matching the
 // `detourHome` mirror tests above) rather than booting the whole module. Covers: a terrain
-// that exposes `canStep` and refuses a cell, the `solid` occupancy map refusing a cell terrain
-// allows, `ignoreNpcId` excluding exactly that npc's own claimed cell, and the same defensive
-// fallback to `passable`-based checking the module's own `passable()` helper already uses when
-// `terrain` is not live or does not (yet) expose `canStep`.
+// that exposes `canStep` and refuses a cell, the `solid` occupancy map refusing the
+// DESTINATION cell terrain allows (the argument is the FROM cell plus a direction —
+// `terrain.canStep`'s own convention, matching `hunts/patrol.js`'s `standTiles` contract — so
+// the solid check has to land on the same cell `terrain.canStep` itself resolved passability
+// against, not on the FROM cell), `ignoreNpcId` excluding exactly that npc's own claimed
+// destination, and the same defensive fallback to `passable`-based checking the module's own
+// `passable()` helper already uses when `terrain` is not live or does not (yet) expose
+// `canStep`.
 {
   const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -260,18 +264,22 @@ function drive(line, route, ticks, { passable = open() } = {}) {
         ? !!terrain.canStep(cx, cz, dir)
         : fallbackPassable(cx, cz, dir);
       if (!ok) return false;
-      const who = solid.get(`${cx},${cz}`);
+      const nx = cx + DIR_DX[dir], nz = cz + DIR_DZ[dir];
+      const who = solid.get(`${nx},${nz}`);
       return who === undefined || who === ignoreNpcId;
     };
   }
 
-  const solid = new Map([['5,5', 42]]);
+  // EAST (`DIR_DX[EAST] === 1`, `DIR_DZ[EAST] === 0`) steps from (5,5) to the claimed (6,5).
+  const solid = new Map([['6,5', 42]]);
   const terrain = { canStep: (cx) => cx !== 9, passable: () => true };
   const canStepFor = makeCanStepFor(terrain, solid);
   check('canStepFor: terrain.canStep refusal blocks the step',
     canStepFor(0)(9, 5, EAST) === false);
-  check('canStepFor: solid occupancy blocks a cell terrain.canStep allows',
+  check('canStepFor: solid occupancy blocks a step INTO a claimed cell terrain.canStep allows',
     canStepFor(0)(5, 5, EAST) === false);
+  check("canStepFor: the FROM cell's own claim never blocks stepping OUT of it",
+    canStepFor(0)(6, 5, EAST) === true);
   check('canStepFor: ignoreNpcId lets the walker step onto its own claimed cell',
     canStepFor(42)(5, 5, EAST) === true);
   check('canStepFor: a clear, unclaimed cell is allowed',

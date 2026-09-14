@@ -30,7 +30,7 @@
 import { makeScreen } from './screen.js';
 import { makeHud } from './hud.js';
 import { makeCallouts } from './callout.js';
-import { makeFloaters, CRIT_FLOATER_SCALE, FLOATER_STEPS, STATUS_NAME } from './floaters.js';
+import { makeFloaters, CRIT_FLOATER_SCALE, FLOATER_STEPS, FLOATER_LIFT_FRACTION, STATUS_NAME } from './floaters.js';
 import { makePlates, POKEMON_LIFT, TRAINER_LIFT } from './plates.js';
 import { makeInput, PANEL_IDS } from './input.js';
 import { reportSelfTest } from '../core/log.js';
@@ -154,16 +154,32 @@ export default {
      * letterboxed, internal-resolution buffer, so a plate/balloon/floater built as a DOM node
      * (`dom/world.js`) positions itself with this, not with `project()`. Same contract:
      * `null` behind the camera or before the view has a size.
+     *
+     * **Quantized onto the same internal-pixel grid every sprite is snapped to**
+     * (`pokemon/field.js`'s own `(Math.round(px) - px) * upp` snap, and the camera's own snap
+     * in `core/render.js`) before scaling up to CSS pixels, rather than left as the raw
+     * fractional CSS position that math alone gives. Skipping this left a residual
+     * sub-internal-pixel offset between a DOM-positioned plate/balloon/floater and the sprite
+     * it names — up to half an internal pixel, a few CSS pixels at typical `pixelScale` — that
+     * drifted continuously as the camera moved and re-rasterized the label's text at a new
+     * subpixel phase every frame, on top of whatever motion was real. Rounding here once, in
+     * the same grid the sprite itself is rounded to, is what makes the two agree exactly.
      */
     function projectClient(x, y, z) {
       const three = ctx.three;
       const cam = three?.camera;
       const rect = three?.view?.displayRect;
-      if (!cam || !rect || !rect.w || typeof ctx.THREE?.Vector3 !== 'function') return null;
+      const [inW, inH] = three?.view?.internalSize ?? [0, 0];
+      if (!cam || !rect || !rect.w || !(inW > 0) || !(inH > 0) || typeof ctx.THREE?.Vector3 !== 'function') return null;
       const v = new ctx.THREE.Vector3(x, y, z);
       v.project(cam);
       if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || v.z > 1) return null;
-      return { x: rect.left + (v.x * 0.5 + 0.5) * rect.w, y: rect.top + (1 - (v.y * 0.5 + 0.5)) * rect.h };
+      const ix = Math.round((v.x * 0.5 + 0.5) * inW);
+      const iy = Math.round((1 - (v.y * 0.5 + 0.5)) * inH);
+      return {
+        x: Math.round(rect.left + ix * (rect.w / inW)),
+        y: Math.round(rect.top + iy * (rect.h / inH)),
+      };
     }
 
     const state = {
@@ -416,7 +432,11 @@ export default {
           // never the trainer itself, so this is always `POKEMON_LIFT`, precisely
           // `scene.headLift` when the target is the wild being fought.
           const lift = (s2.target === 'b' ? enc.scene?.()?.headLift : null) ?? POKEMON_LIFT;
-          const at3 = { x: targetAt.cx + 0.5, y: groundY(targetAt) + lift, z: targetAt.cz + 0.5 };
+          // Mid-body, not the crown: the crown is exactly where the NAMEPLATE anchors
+          // (`ui/plates.js`), and a floater spawned there popped up on top of the tag it
+          // shares a target with instead of over the sprite's own body.
+          // `FLOATER_LIFT_FRACTION`'s own comment.
+          const at3 = { x: targetAt.cx + 0.5, y: groundY(targetAt) + lift * FLOATER_LIFT_FRACTION, z: targetAt.cz + 0.5 };
           if (s2.damage > 0) {
             floaters.push({
               text: `-${s2.damage}`, ...at3, scale: s2.crit ? CRIT_FLOATER_SCALE : 1,
@@ -546,8 +566,15 @@ export default {
      * it), unconditionally rather than gated behind a canvas-style dirty flag: a DOM sync of a
      * handful of nodes is not the render-budget cost a canvas repaint was, and `syncList`
      * (`dom/el.js`) already no-ops on anything that has not actually changed.
+     *
+     * `alpha` is the render frame's own sub-tick fraction (`registry.frame`/`lateFrame`'s own
+     * argument, `src/main.js`), forwarded only to `floaters.draw` — the one consumer here whose
+     * motion is smooth enough between sim ticks to need it (`ui/floaters.js`'s own header
+     * comment on why). Zeroed for a showcase/frozen capture the same way `simulation`'s own
+     * `renderPose` zeroes its interpolation, so a screenshot is reproducible rather than
+     * catching a floater mid-drift depending on when the shutter happened to land.
      */
-    function drawWorld() {
+    function drawWorld(alpha = 0) {
       const bars = !state.panel?.hidesHud;
       domHud.setBarsVisible(bars);
       chat.setBarsVisible(bars);
@@ -575,7 +602,7 @@ export default {
         && (!state.panel || state.panel.modal === false || state.panel.id === 'menu');
       plates.draw(worldLayer.plates, projectClient, platesShow ? state.plates : []);
       callouts.draw(worldLayer.balloons, projectClient);
-      floaters.draw(worldLayer.floaters, projectClient);
+      floaters.draw(worldLayer.floaters, projectClient, config.showcase || config.timeFrozen ? 0 : alpha);
       // Only when nothing else is open, or the open panel declares itself non-modal (the
       // trainer popup) — a modal panel or economy mode covers the world anyway, and the throw
       // window's own timing (`encounter/index.js`'s `leaveSteps()`) does not care whether this
@@ -616,9 +643,9 @@ export default {
      * against last frame's camera trails a moving sprite by exactly one frame of motion, a
      * different sub-pixel offset every time, which reads as the plate swimming.
      */
-    function lateFrame() {
+    function lateFrame(alpha) {
       state.plates = minimal ? [] : plates.read();
-      drawWorld();
+      drawWorld(alpha);
     }
 
     live = {
@@ -765,7 +792,7 @@ export default {
 
   frame(dt) { live?._frame(dt); },
 
-  lateFrame() { live?._lateFrame(); },
+  lateFrame(dt, alpha) { live?._lateFrame(alpha); },
 
   dispose() { live?.dispose?.(); },
 

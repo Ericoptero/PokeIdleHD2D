@@ -224,6 +224,18 @@ export default {
     const generations = new Map();
     /** Seconds of simulated time this module has seen, accumulated from its own `tick`. */
     let elapsed = 0;
+    /**
+     * Bumped by every `spawnWild()` call, and captured by `_refill`'s own deferred spawn
+     * (`Promise.resolve(pokemon.sprites?.prepare?.(...)).then(...)`) at the moment it is
+     * queued. `spawnWild()` itself `await`s a sprite-prepare before it ever writes `occupancy`
+     * (its own comment on why), which leaves a window where a refill queued on the biome being
+     * LEFT can still be in flight when the biome being ENTERED starts writing fresh occupancy —
+     * `occupancy.has(k) || currentId !== biome.id` alone does not close it, because the new
+     * `spawnWild()` clears `occupancy` before its own await too. The epoch is the one thing
+     * that is guaranteed to differ across that boundary even when the slot key and the biome id
+     * both happen to coincide.
+     */
+    let spawnEpoch = 0;
 
     /** @type {Map<string, object>} what the last build of each map reported. */
     const built = new Map();
@@ -285,13 +297,29 @@ export default {
     }
     bus.on('world:unloaded', disposeExtras);
 
-    /** Takes the wild Pokemon off the map. Called before every re-entry, so they never stack. */
+    /**
+     * Takes the wild Pokemon off the map. Called before every re-entry (`spawnWild`) and on
+     * `world:unloaded`, so they never stack.
+     *
+     * Clears `occupancy`/`refills`/`generations`/`pendingResolve` too, not only `wildIds` —
+     * this used to only remove the bodies, which meant `hunts.slots()` kept reporting every
+     * slot occupied by a now-dead `npcId` for the whole gap between leaving a biome and the
+     * next `spawnWild()` resolving it (an `await` away, see that function's own comment).
+     * `slotNear`'s `npcs.find(...) ?? s2` fallback (`encounter/index.js`) would engage that
+     * ghost occupancy against the slot's bare cell, and a stale `refills`/`generations` entry
+     * from the map just left could fire against the next map's own slot indices.
+     */
     function clearWild() {
       const sim = ctx.get('simulation');
       if (isLive(sim) && typeof sim.removeNpc === 'function') {
         for (const id of wildIds) sim.removeNpc(id);
       }
       wildIds = [];
+      occupancy.clear();
+      refills.length = 0;
+      generations.clear();
+      pendingResolve = null;
+      spawnEpoch++;
     }
     bus.on('world:unloaded', clearWild);
 
@@ -480,7 +508,12 @@ export default {
      * construction happens to agree with.
      */
     function huntPilot(head) {
-      const canStep = canStepFor(0);
+      // `ignoreNpcId` exists precisely for this: while `'APPROACH'` is closing on a locked
+      // target (`heldNpcId`), that target's own claimed cell must not itself read as blocked —
+      // its tether drift can put it on a stand tile the walker is trying to step onto, and
+      // `0` (nothing) never excludes it. `patrolStep`, which never approaches anyone, keeps
+      // the plain `canStepFor(0)`.
+      const canStep = canStepFor(huntState === 'APPROACH' ? heldNpcId : 0);
       return huntState === 'APPROACH' ? approachStep(head, canStep) : patrolStep(head, canStep);
     }
 
@@ -611,11 +644,7 @@ export default {
      * itself. Preparing every sheet first leaves `Cast.sync` with nothing but microtasks.
      */
     async function spawnWild(biome) {
-      clearWild();
-      occupancy.clear();
-      refills.length = 0;
-      generations.clear();
-      pendingResolve = null;
+      clearWild(); // also resets occupancy/refills/generations/pendingResolve — see its own comment
       const sim = ctx.get('simulation');
       const pokemon = ctx.get('pokemon');
       if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
@@ -1275,10 +1304,13 @@ export default {
                 + 'clear/standable',
             });
           }
-          // `chooseTarget`'s own default `maxManhattan`/`maxSteps` (`hunts/patrol.js`) — the
-          // same reachability question the aggro trigger itself asks, not a new number invented
-          // for the audit.
-          const unreachable = slots.filter((s2) => !waypoints.some((wp) => !!chooseTarget(wp, [s2], canStepAudit)));
+          // The runtime aggro trigger's own `maxManhattan` (`config.aggroTiles`, the
+          // `player:enteredTile` listener below) — not `chooseTarget`'s wider default of 6,
+          // which used to let this audit pass a spawn the aggro check itself would already
+          // reject as too far.
+          const aggroRange = Math.max(1, Math.round(Number(config?.aggroTiles) || 5));
+          const unreachable = slots.filter((s2) => !waypoints.some(
+            (wp) => !!chooseTarget(wp, [s2], canStepAudit, { maxManhattan: aggroRange })));
           if (unreachable.length) {
             fails.push({
               preset: 'slots',
@@ -1305,6 +1337,33 @@ export default {
                   why: `authored spawn at "${entry.at}" names unknown species "${name}"`,
                 });
               }
+            }
+          }
+        }
+
+        // **Live invariant: every `wild/<biome>/…` body on the map is a slot this module can
+        // hand to a fight.** The build-time checks above ask whether the geometry is sound;
+        // this asks whether the runtime bookkeeping actually agrees with it right now — the
+        // user-facing shape of the bug the leaks above (a `takeSlot` whose fight never started,
+        // a stale refill racing a biome switch, a wild sprite `showWild` lost track of) all
+        // produce: a Pokemon standing in the grass with no slot behind it, which `slotNear`
+        // (`encounter/index.js`) can never engage. Only meaningful for the LIVE biome — `audit`
+        // can be asked about one that is not currently entered, and `sim.npcs()` only ever
+        // reflects whatever the map actually has standing on it.
+        if (id === currentId && currentId != null) {
+          const sim = ctx.get('simulation');
+          if (isLive(sim) && typeof sim.npcs === 'function') {
+            checked++;
+            const prefix = `wild/${currentId}/`;
+            const liveWild = sim.npcs().filter((n) => typeof n.name === 'string' && n.name.startsWith(prefix));
+            const occupied = [...occupancy.values()].map((o) => o.npcId);
+            const orphaned = liveWild.filter((n) => !occupied.includes(n.id));
+            if (orphaned.length) {
+              fails.push({
+                preset: 'wild',
+                why: `${orphaned.length} live wild Pokemon on the map have no occupied slot `
+                  + `behind them and cannot be engaged (ids: ${orphaned.map((n) => n.id).join(',')})`,
+              });
             }
           }
         }
@@ -1382,6 +1441,30 @@ export default {
           cz: Number.isFinite(live?.cz) ? live.cz : held.cz,
           dir: Number.isFinite(live?.dir) ? live.dir : (held.dir ?? 0),
         };
+      },
+
+      /**
+       * Undoes exactly one `takeSlot(k)` — for a caller that took a slot's creature and then
+       * failed to actually start a fight with it (`encounter`'s own `engage()`: an empty
+       * encounter table, a party with nothing conscious). Without this the body `takeSlot`
+       * handed over stays on the map with no occupancy entry and no scene ever tracking it —
+       * visible, standing in the grass, and un-engageable forever, exactly the "Pokemon that
+       * cannot be fought" defect this module exists to prevent.
+       *
+       * `taken` is `takeSlot`'s own return value, handed straight back — this only re-inserts
+       * what that call removed, at the LIVE cell it reported (not a re-guess), and only if
+       * nothing has already refilled `k` in the meantime (a caller that stalls past the next
+       * tick loses the race to `_refill`, which is correct: the slot is not left double-booked).
+       */
+      releaseSlot(k, taken) {
+        if (!taken || occupancy.has(k)) return false;
+        occupancy.set(k, {
+          npcId: taken.npcId, species: taken.species, shiny: !!taken.shiny, level: taken.level,
+          cx: taken.cx, cz: taken.cz, dir: taken.dir ?? 0,
+        });
+        if (taken.npcId && !wildIds.includes(taken.npcId)) wildIds.push(taken.npcId);
+        if (pendingResolve === k) pendingResolve = null;
+        return true;
       },
 
       /** Seconds an emptied slot stays empty. `encounter` times its own beats against it. */
@@ -1466,9 +1549,14 @@ export default {
           const level = levelForSlot(biome.id, k, gen);
 
           // Fire and forget: the atlas may need the sheet and `spawnNpc` is synchronous, so
-          // the sprite is prepared first and the NPC lands a microtask later.
+          // the sprite is prepared first and the NPC lands a microtask later. `epoch` guards
+          // against a `spawnWild()` on either this biome or the next one clearing the state
+          // this refill was queued against while the prepare is still in flight — `spawnEpoch`'s
+          // own comment has the exact window this closes that `occupancy`/`currentId` alone do
+          // not.
+          const epoch = spawnEpoch;
           Promise.resolve(pokemon.sprites?.prepare?.([{ species, shiny }])).then(() => {
-            if (occupancy.has(k) || currentId !== biome.id) return;
+            if (epoch !== spawnEpoch || occupancy.has(k) || currentId !== biome.id) return;
             const npc = sim.spawnNpc({
               species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
               tether: { cx: cell.cx, cz: cell.cz, radius: 1 },
