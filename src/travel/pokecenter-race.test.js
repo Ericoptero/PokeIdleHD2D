@@ -1,10 +1,10 @@
 /**
  * `travel.go()` racing itself — the exact shape a player produces by stepping onto the city's
- * `door:pokecenter` tile twice in quick succession (`src/pokecenter/index.js`'s door listener
- * calls `nav.go('pokecenter')` from a `queueMicrotask` on every `player:enteredTile`, and
- * nothing stops two of those microtasks queuing back to back if the player oscillates on and
- * off the door cell before the first hop's `terrain.load()` resolves), and the shape a console
- * user produces by calling `travel.go()` twice without awaiting the first.
+ * `door:pokecenter` tile twice in quick succession (`travel/index.js`'s own `player:enteredTile`
+ * link listener calls `go(link.to.map, ...)` from a `queueMicrotask` on every landing cell,
+ * and nothing stops two of those microtasks queuing back to back if the player oscillates on
+ * and off the door cell before the first hop's `terrain.load()` resolves), and the shape a
+ * console user produces by calling `travel.go()` twice without awaiting the first.
  *
  * `src/travel/selftest.js` never calls `go()` a second time before
  * the first has settled, and never round-trips a save whose `sceneId` is the hidden `pokecenter`

@@ -1,16 +1,17 @@
 /**
- * The Pokemon Center's door, both ways: walking onto the city's `door:pokecenter` tile warps
- * into the room, and walking onto the room's own exit tile warps back out onto the pavement.
- * Healing is handled separately by the cure to Nurse Joy at the counter
- * (`tests/flows/hunt-recovers.spec.js` exercises the cure itself) and deleted `city.enter()`'s
- * free lobby heal, so walking the door alone still changes nothing about the party's HP.
+ * The Pokemon Center's door, both ways: walking onto the cell the city's map authors as a
+ * door `Link`'s `from` (`src/travel/links.js`) warps into the room, and walking onto the
+ * room's own equivalent link warps back out onto the pavement. Healing is handled separately
+ * by the cure to Nurse Joy at the counter (`tests/flows/hunt-recovers.spec.js` exercises the
+ * cure itself) and deleted `city.enter()`'s free lobby heal, so walking the door alone still
+ * changes nothing about the party's HP.
  *
  * Movement goes through a real `KeyboardEvent` (`__HOOKS__.key`, `ui/input.js`), which only
  * reaches `simulation.moveIntent` from the render loop's own per-frame tick
  * (`ui/index.js`'s `frame()` → `input.frame()`) — `__HOOKS__.step()` drives `registry.tick`
  * directly and never touches it. `boot()` leaves the render loop paused (`harness.js`), so
- * this file resumes it around each walk and pauses nothing after: the door listener
- * (`src/pokecenter/index.js`) fires from `simulation`'s own tick regardless.
+ * this file resumes it around each walk and pauses nothing after: the generic link listener
+ * (`src/travel/index.js`) fires from `simulation`'s own tick regardless.
  */
 import { test, expect } from '@playwright/test';
 import { installEventLog, boot, events, key, call } from './harness.js';
