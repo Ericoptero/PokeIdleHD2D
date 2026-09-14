@@ -68,6 +68,12 @@ describe('validateMap', () => {
     expect(errors.some((e) => e.code === 'marker-missing')).toBe(true);
   });
 
+  it('does not flag an inline {cx,cz} loop.via waypoint as a missing marker', () => {
+    const map = baseMap({ loop: { via: [{ cx: 1, cz: 1 }, { cx: 2, cz: 1 }] } });
+    const { errors } = validateMap(map);
+    expect(errors.some((e) => e.code === 'marker-missing')).toBe(false);
+  });
+
   it('finds an unreachable walkable island behind a wall of blocked cells', () => {
     const map = baseMap({ spawn: { cx: 0, cz: 0, dir: 0 } });
     // Wall off column 2 entirely so column 3 is unreachable from spawn at (0,0).

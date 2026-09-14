@@ -6,9 +6,9 @@
  * `src/`, see `tools/seams/run.js`) get the same answers.
  *
  * Checks that need more than the file itself (a tileset catalog, another map, the encounter
- * table, the loop-stitching algorithm) take it through `env` and self-report as `skipped`
- * rather than silently passing — a check that always says "fine" because it was never asked
- * a real question is worse than one that says nothing.
+ * table) take it through `env` and self-report as `skipped` rather than silently passing — a
+ * check that always says "fine" because it was never asked a real question is worse than one
+ * that says nothing.
  */
 
 import { decodeRuns } from './mapfile.js';
@@ -162,6 +162,7 @@ const CHECKS = [
       const names = markerNames(map);
       const out = [];
       for (const name of map.loop?.via ?? []) {
+        if (typeof name !== 'string') continue; // an inline {cx,cz} waypoint, not a marker reference
         if (!names.has(name)) out.push({ at: { marker: name }, message: `loop.via cita o marcador "${name}", que não existe` });
       }
       for (const [id, preset] of Object.entries(map.cameras?.presets ?? {})) {
@@ -421,26 +422,12 @@ const CHECKS = [
       return out;
     },
   },
-  {
-    code: 'loop-stale', severity: 'warn', needs: ['loop'],
-    run(map, env) {
-      if (!map.loop?.via?.length) return [];
-      const fresh = env.loop.stitch(map, map.loop.via);
-      const cached = map.loop.resolved;
-      if (!fresh && cached) return [{ message: 'o loop de patrulha autorado não fecha mais contra o mapa atual — repinte ou reordene os marcadores' }];
-      if (fresh && cached && JSON.stringify(fresh.cells) !== JSON.stringify(cached.cells)) {
-        return [{ message: 'o loop de patrulha em cache está desatualizado — clique em "revalidar" para recalcular' }];
-      }
-      return [];
-    },
-  },
 ];
 
 /**
  * @param {object} map a parsed map file
  * @param {{catalogs?: Record<string,{byName:Map<string,object>, autotileSets?:string[]}>,
- *   maps?: Record<string,object>, tables?: Record<string,object[]>,
- *   loop?: {stitch:(map:object, via:string[]) => object|null}}} [env]
+ *   maps?: Record<string,object>, tables?: Record<string,object[]>}} [env]
  * @returns {{errors:Issue[], warnings:Issue[], infos:Issue[], skipped:string[], stats:object}}
  */
 export function validateMap(map, env = {}) {
