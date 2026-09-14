@@ -303,8 +303,20 @@ export class InstancedWorld {
     this.group = new THREE.Group();
     this.group.name = name;
     this.meshes = [];
+    // `patch()` needs to find-and-remove one bucket by its `${modelId}:${groupIndex}` key
+    // without a linear scan of `this.meshes` — a big map has 100+ of them and a paint stroke
+    // patches one. Kept in lockstep with `this.meshes` by `_buildBucket`/`_removeBucket`;
+    // `this.meshes` itself stays the flat array every existing caller (`dispose()`,
+    // `setTint`, `src/tiles/dressing.js`) already iterates.
+    this.bucketsByKey = new Map();
     this.placements = placements;
     this.stats = { placements: placements.length, meshes: 0, triangles: 0, skipped: 0 };
+    // The options a bucket's own construction needs, parked here so `_buildBucket` and
+    // `patch()` can rebuild a single bucket after the constructor has returned, with the same
+    // options the rest of the world was built with. Named `_opts` rather than reusing the
+    // bare option names because `contact` (the 0..1 strength) collides with `this.contact`
+    // (the built contact-shadow mesh `addContactShadows` assigns below).
+    this._opts = { castShadow, receiveShadow, variety, contact, keepBaked, viewYawQuarter };
 
     /** @type {Map<string, {model:object, groupIndex:number, items:Placement[]}>} */
     const buckets = new Map();
@@ -323,114 +335,205 @@ export class InstancedWorld {
       }
     }
 
-    for (const { model, groupIndex, items } of buckets.values()) {
-      const g = model.groups[groupIndex];
-      const mesh = new THREE.InstancedMesh(g.geometry, g.material, items.length);
-      mesh.name = `${model.name}#${groupIndex}`;
-      // A baked shadow decal is a *picture* of a shadow lying on the ground. Letting it into
-      // the shadow map stamps a second, harder shadow next to the sun's own.
-      mesh.castShadow = castShadow && !model.tags.includes('flat') && !g.material.userData?.decal;
-      mesh.receiveShadow = receiveShadow;
-      mesh.frustumCulled = false;      // one mesh spans the whole map; culling it is all-or-nothing
-      mesh.userData.model = model;
-
-      // Ground variety: a quarter turn per cell on a square of one surface, which costs a
-      // different matrix in an array of matrices we were writing anyway.
-      const vary = variety > 0 && varies(model, tileset.scatter?.flatVary ?? true);
-      // A palette's centre tile gets tone and phase but never a quarter turn: its twelve
-      // siblings meet it at a seam the artist drew, and spinning it would break that join
-      // wherever the texture is not isotropic.
-      // A globally-mapped tile is one cell of a *larger* pattern the artist drew across
-      // `1/uvScale` cells (grass runs 4x4). Spinning one cell of that pattern, or phasing it
-      // independently of its neighbours, tears the pattern at every cell edge — which is
-      // invisible at the game camera and reads as a grid of green squares at three times the
-      // zoom. So a global tile is varied by
-      // its **block**: the whole 4x4 patch shifts together and stays continuous inside itself,
-      // and the repeat is broken at the scale it actually repeats at.
-      // Measured off the model's own vertices, not read off `uvScale`: `globalUvStep` records
-      // why, and the V half of it is a four-round-old bug. `null` on `?uvstep=0` or on a group
-      // whose UVs do not move with X or Z, and the old assumption is the fallback.
-      const step = g.uvStep ?? (model.globalUv && model.uvScale
-        ? { u: model.uvScale, v: model.uvScale } : null);
-      const block = step ? Math.max(1, Math.round(1 / Math.abs(step.u))) : 1;
-      const spin = vary && model.autotile == null && block === 1;
-      // A sheet that spans more than one cell is the one that shows a *field* period, and it is
-      // the one the panels keep naming. Its repeat is broken in the fragment shader instead —
-      // off the cell grid entirely — so it must not also take the block phase, which is what put
-      // the cut on the grid in the first place. `?scatter=0` swaps them back.
-      const scatters = vary && block > 1 && (tileset.scatter?.on ?? false)
-        && g.material.userData?.alphaClass === 'opaque';
-
-      let needsColor = false;
-      for (let i = 0; i < items.length; i++) {
-        const p = items[i];
-        const rot = spin && p.rot === undefined ? (hash2(p.cx, p.cz, 11) * 4) | 0 : (p.rot ?? 0);
-        this.constructor.composeMatrix(_m, p, model, cameraFacingRot(model, rot, viewYawQuarter));
-        mesh.setMatrixAt(i, _m);
-        if (p.tint !== undefined && p.tint !== 0xffffff) needsColor = true;
-      }
-
-      // Whole-texel phase, so the art stays on the pixel grid at every zoom: a 64px texture
-      // shifts in sixty-fourths, and anything finer would resample the pixel art and blur it.
-      //
-      // Only a fully opaque texture may be phased. `dirt`, `rot_dirtpatch` and `sterr_patch`
-      // are cutout *decals* — a crack, a bald patch — and shifting one under RepeatWrapping
-      // wraps it around the cell edge, so a centred crack comes back as two torn halves on
-      // opposite sides of the square. They keep the turn and the tone and lose the phase.
-      const phasable = vary && !scatters && g.material.userData?.alphaClass === 'opaque';
-      const tw = g.material.map?.image?.width || 16;
-      const th = g.material.map?.image?.height || tw;
-      const phase = phasable
-        ? (cx, cz, axis) => {
-          const n = axis ? th : tw;
-          const bx = Math.floor(cx / block), bz = Math.floor(cz / block);
-          return Math.floor(hash2(bx, bz, 3 + axis) * n) / n * variety;
-        }
-        : null;
-      if (vary && !phasable && !scatters) mesh.userData.noPhase = true;
-      if (step || phasable) {
-        const s = tileset.scatter;
-        attachUvOffset(mesh, uvOffsets(items, step, phase), tileset,
-          scatters ? 'scatter' : step ? 'globalUv' : 'phase',
-          scatters ? {
-            tex: new THREE.Vector2(tw, th),
-            step: new THREE.Vector2(step.u, step.v),
-            cfg: new THREE.Vector4(Math.max(0.25, s.region),
-              Math.cos(s.angleDeg * Math.PI / 180), Math.sin(s.angleDeg * Math.PI / 180),
-              Math.max(0, s.jitter)),
-            amount: variety,
-          } : null);
-      }
-      if (needsColor || vary) {
-        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(items.length * 3), 3);
-        for (let i = 0; i < items.length; i++) {
-          _c.set(items[i].tint ?? 0xffffff);
-          // A field of one texture reads as wallpaper however well it is phased, because
-          // every cell comes back the same brightness. A few percent of tone, hashed by
-          // cell, is what turns it into ground. Green is moved least: the eye reads a hue
-          // shift in a lawn long before it reads a luminance one.
-          if (vary) {
-            const { cx, cz } = items[i];
-            const t = blotch(cx, cz, 29);           // light and shade, across many cells
-            const u = blotch(cx, cz, 31);           // and a slower swing of hue with it
-            _c.r *= 1 + (t * 0.065 + u * 0.026) * variety;
-            _c.g *= 1 + (t * 0.040) * variety;
-            _c.b *= 1 + (t * 0.065 - u * 0.038) * variety;
-          }
-          mesh.setColorAt(i, _c);
-        }
-        mesh.instanceColor.needsUpdate = true;
-      }
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.computeBoundingSphere();
-
-      this.group.add(mesh);
-      this.meshes.push({ mesh, model, groupIndex, items });
-      this.stats.triangles += (g.count / 3) * items.length;
+    for (const [key, { model, groupIndex, items }] of buckets) {
+      this._buildBucket(key, model, groupIndex, items);
     }
     if (contact > 0) this.addContactShadows(placements, contact);
     this.stats.meshes = this.meshes.length;
     parent.add(this.group);
+  }
+
+  /**
+   * Builds one `InstancedMesh` for a single (model, groupIndex) bucket — geometry, material,
+   * shadow flags, the ground-variety spin/phase/tint pass — and wires it into the world:
+   * `this.group`, `this.meshes`, `this.bucketsByKey` and `this.stats` all pick up the new
+   * bucket here. This was the constructor's own per-bucket loop body until this slice; it is
+   * pulled out, unchanged line for line, so `patch()` can call it a second time, later, for
+   * exactly the bucket(s) a Studio paint stroke touched instead of every bucket a big map has.
+   * `key` is the bucket's own `${modelId}:${groupIndex}` — not recomputed here because both
+   * callers (the constructor's loop, `patch()`) already have it from deciding a bucket exists.
+   */
+  _buildBucket(key, model, groupIndex, items) {
+    const { castShadow, receiveShadow, variety, viewYawQuarter } = this._opts;
+    const g = model.groups[groupIndex];
+    const mesh = new THREE.InstancedMesh(g.geometry, g.material, items.length);
+    mesh.name = `${model.name}#${groupIndex}`;
+    // A baked shadow decal is a *picture* of a shadow lying on the ground. Letting it into
+    // the shadow map stamps a second, harder shadow next to the sun's own.
+    mesh.castShadow = castShadow && !model.tags.includes('flat') && !g.material.userData?.decal;
+    mesh.receiveShadow = receiveShadow;
+    mesh.frustumCulled = false;      // one mesh spans the whole map; culling it is all-or-nothing
+    mesh.userData.model = model;
+
+    // Ground variety: a quarter turn per cell on a square of one surface, which costs a
+    // different matrix in an array of matrices we were writing anyway.
+    const vary = variety > 0 && varies(model, this.tileset.scatter?.flatVary ?? true);
+    // A palette's centre tile gets tone and phase but never a quarter turn: its twelve
+    // siblings meet it at a seam the artist drew, and spinning it would break that join
+    // wherever the texture is not isotropic.
+    // A globally-mapped tile is one cell of a *larger* pattern the artist drew across
+    // `1/uvScale` cells (grass runs 4x4). Spinning one cell of that pattern, or phasing it
+    // independently of its neighbours, tears the pattern at every cell edge — which is
+    // invisible at the game camera and reads as a grid of green squares at three times the
+    // zoom. So a global tile is varied by
+    // its **block**: the whole 4x4 patch shifts together and stays continuous inside itself,
+    // and the repeat is broken at the scale it actually repeats at.
+    // Measured off the model's own vertices, not read off `uvScale`: `globalUvStep` records
+    // why, and the V half of it is a four-round-old bug. `null` on `?uvstep=0` or on a group
+    // whose UVs do not move with X or Z, and the old assumption is the fallback.
+    const step = g.uvStep ?? (model.globalUv && model.uvScale
+      ? { u: model.uvScale, v: model.uvScale } : null);
+    const block = step ? Math.max(1, Math.round(1 / Math.abs(step.u))) : 1;
+    const spin = vary && model.autotile == null && block === 1;
+    // A sheet that spans more than one cell is the one that shows a *field* period, and it is
+    // the one the panels keep naming. Its repeat is broken in the fragment shader instead —
+    // off the cell grid entirely — so it must not also take the block phase, which is what put
+    // the cut on the grid in the first place. `?scatter=0` swaps them back.
+    const scatters = vary && block > 1 && (this.tileset.scatter?.on ?? false)
+      && g.material.userData?.alphaClass === 'opaque';
+
+    let needsColor = false;
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i];
+      const rot = spin && p.rot === undefined ? (hash2(p.cx, p.cz, 11) * 4) | 0 : (p.rot ?? 0);
+      this.constructor.composeMatrix(_m, p, model, cameraFacingRot(model, rot, viewYawQuarter));
+      mesh.setMatrixAt(i, _m);
+      if (p.tint !== undefined && p.tint !== 0xffffff) needsColor = true;
+    }
+
+    // Whole-texel phase, so the art stays on the pixel grid at every zoom: a 64px texture
+    // shifts in sixty-fourths, and anything finer would resample the pixel art and blur it.
+    //
+    // Only a fully opaque texture may be phased. `dirt`, `rot_dirtpatch` and `sterr_patch`
+    // are cutout *decals* — a crack, a bald patch — and shifting one under RepeatWrapping
+    // wraps it around the cell edge, so a centred crack comes back as two torn halves on
+    // opposite sides of the square. They keep the turn and the tone and lose the phase.
+    const phasable = vary && !scatters && g.material.userData?.alphaClass === 'opaque';
+    const tw = g.material.map?.image?.width || 16;
+    const th = g.material.map?.image?.height || tw;
+    const phase = phasable
+      ? (cx, cz, axis) => {
+        const n = axis ? th : tw;
+        const bx = Math.floor(cx / block), bz = Math.floor(cz / block);
+        return Math.floor(hash2(bx, bz, 3 + axis) * n) / n * variety;
+      }
+      : null;
+    if (vary && !phasable && !scatters) mesh.userData.noPhase = true;
+    if (step || phasable) {
+      const s = this.tileset.scatter;
+      attachUvOffset(mesh, uvOffsets(items, step, phase), this.tileset,
+        scatters ? 'scatter' : step ? 'globalUv' : 'phase',
+        scatters ? {
+          tex: new THREE.Vector2(tw, th),
+          step: new THREE.Vector2(step.u, step.v),
+          cfg: new THREE.Vector4(Math.max(0.25, s.region),
+            Math.cos(s.angleDeg * Math.PI / 180), Math.sin(s.angleDeg * Math.PI / 180),
+            Math.max(0, s.jitter)),
+          amount: variety,
+        } : null);
+    }
+    if (needsColor || vary) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(items.length * 3), 3);
+      for (let i = 0; i < items.length; i++) {
+        _c.set(items[i].tint ?? 0xffffff);
+        // A field of one texture reads as wallpaper however well it is phased, because
+        // every cell comes back the same brightness. A few percent of tone, hashed by
+        // cell, is what turns it into ground. Green is moved least: the eye reads a hue
+        // shift in a lawn long before it reads a luminance one.
+        if (vary) {
+          const { cx, cz } = items[i];
+          const t = blotch(cx, cz, 29);           // light and shade, across many cells
+          const u = blotch(cx, cz, 31);           // and a slower swing of hue with it
+          _c.r *= 1 + (t * 0.065 + u * 0.026) * variety;
+          _c.g *= 1 + (t * 0.040) * variety;
+          _c.b *= 1 + (t * 0.065 - u * 0.038) * variety;
+        }
+        mesh.setColorAt(i, _c);
+      }
+      mesh.instanceColor.needsUpdate = true;
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+
+    this.group.add(mesh);
+    const entry = { mesh, model, groupIndex, items, triangles: (g.count / 3) * items.length };
+    this.meshes.push(entry);
+    this.bucketsByKey.set(key, entry);
+    this.stats.triangles += entry.triangles;
+    this.stats.meshes = this.meshes.length;
+  }
+
+  /**
+   * Tears down one bucket: pulls its `InstancedMesh` out of the scene graph and out of this
+   * world's own bookkeeping, and reverses the `stats` contribution `_buildBucket` made for it.
+   *
+   * The geometry and material a bucket's mesh points at belong to the tileset's own model
+   * group — every bucket ever built from that (model, groupIndex) pair, past or future, shares
+   * those same two objects — so neither is disposed here, exactly as the whole-world `dispose()`
+   * below already knows: `mesh.dispose()` only dispatches the `InstancedMesh`'s own 'dispose'
+   * event, which frees the GPU buffers this one mesh privately owns (`instanceMatrix`,
+   * `instanceColor`) and nothing it shares with any other bucket. This is `dispose()`'s
+   * one-bucket sibling, for `patch()`.
+   */
+  _removeBucket(key) {
+    const entry = this.bucketsByKey.get(key);
+    if (!entry) return;
+    entry.mesh.dispose();
+    this.group.remove(entry.mesh);
+    this.bucketsByKey.delete(key);
+    const i = this.meshes.indexOf(entry);
+    if (i >= 0) this.meshes.splice(i, 1);
+    this.stats.triangles -= entry.triangles;
+    this.stats.meshes = this.meshes.length;
+  }
+
+  /**
+   * Rebuilds only the InstancedMesh bucket(s) for the given model id(s), from a fresh full
+   * placement list, leaving every other bucket in the world completely untouched. For a Studio
+   * paint stroke that touches one or two models out of the ~100+ buckets a big map has, this is
+   * the difference between a sub-millisecond update and a full multi-thousand-placement rebuild.
+   *
+   * `newPlacements` is the CURRENT full placement list, not a delta: each dirty bucket's item
+   * list is re-derived by filtering it for the dirty model id, the same predicate the
+   * constructor's own bucketing loop uses for every model on first build. `dirtyModelIds` is a
+   * caller-supplied hint rather than something diffed here — the Studio already knows which
+   * model(s) it just painted, erased or moved — and a model id with zero current placements is
+   * valid: it correctly removes that model's bucket(s) instead of being a no-op.
+   *
+   * An `InstancedMesh`'s instance count is fixed at construction, so a bucket whose item count
+   * changed cannot be resized in place. Every dirty (model, groupIndex) pair that is a real
+   * bucket (surviving the same `dropBakedShadowDecals` check the constructor's bucketing loop
+   * applies) is therefore always torn down with `_removeBucket` first, if it currently exists,
+   * and rebuilt from scratch with `_buildBucket` if it still has items — even when the item
+   * count happens to match the old one. Simpler and safer for a first cut than diffing
+   * individual instances inside an existing mesh.
+   *
+   * Contact shadows are explicitly out of scope for `patch()`. `addContactShadows` builds one
+   * whole-map `InstancedMesh` from every eligible placement across every model — not a bucket
+   * per model — so patching it per dirty model would need its own diffing logic for what is a
+   * purely cosmetic effect. It is left untouched here and goes stale until the next full
+   * rebuild (`terrain.load()`), which the Studio's debounced correctness backstop already
+   * provides: a few hundred milliseconds of stale shadow position costs nothing next to the
+   * complexity of patching a mesh that was never bucketed to begin with.
+   *
+   * @param {Placement[]} newPlacements the CURRENT full placement list for this world (same
+   *   shape `buildInstances`/the constructor take) — not a delta.
+   * @param {Iterable<number>} dirtyModelIds the model id(s) whose buckets need rebuilding.
+   */
+  patch(newPlacements, dirtyModelIds) {
+    const { contact, keepBaked } = this._opts;
+    for (const modelId of dirtyModelIds) {
+      const model = this.tileset.byId.get(modelId);
+      if (!model) { this.stats.skipped++; continue; }
+      const items = newPlacements.filter((p) => p.modelId === modelId);
+      for (let gi = 0; gi < model.groups.length; gi++) {
+        if (dropBakedShadowDecals(model, model.groups[gi], contact, keepBaked)) continue;
+        const key = `${modelId}:${gi}`;
+        if (this.bucketsByKey.has(key)) this._removeBucket(key);
+        if (items.length > 0) this._buildBucket(key, model, gi, items);
+      }
+    }
+    this.placements = newPlacements;
   }
 
   /**
@@ -553,6 +656,7 @@ export class InstancedWorld {
       mesh.removeFromParent();
     }
     this.meshes.length = 0;
+    this.bucketsByKey.clear();
     this.group.removeFromParent();
   }
 }
