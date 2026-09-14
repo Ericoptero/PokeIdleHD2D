@@ -13,7 +13,7 @@
 import { SOUTH, WEST, NORTH, EAST, DIR_DX, DIR_DZ, DIR_NAME, opposite } from '../core/dir.js';
 import { makeRng } from '../core/rng.js';
 import { Line } from './line.js';
-import { parseRoute, makeScriptedRoute, makeWander } from './route.js';
+import { parseRoute, makeScriptedRoute, makeWander, makePilotRoute } from './route.js';
 
 const SIM_DT = 1 / 20;
 const WALK = 0.25;
@@ -206,6 +206,94 @@ function drive(line, route, ticks, { passable = open() } = {}) {
   const walled = makeScriptedRoute('n4');
   check('route: a blocked direction is skipped, not retried forever',
     walled.next(head, { passable: (cx, cz, d) => d !== NORTH, tagsAt: () => [] }) === null);
+}
+
+// --- 9b. the pilot route: a thin adapter onto an injected plan --------------------------
+//
+// `hunts` needs a fresh decision every tick (waypoint-index A* re-planning) instead of a
+// fixed pre-computed step list, so a pilot route holds no plan of its own — it hands `head`
+// and `world` straight through to `plan` and returns whatever comes back.
+{
+  const world = { passable: () => true, tagsAt: () => [] };
+  check('pilot: kind is pilot', makePilotRoute(() => null).kind === 'pilot');
+
+  const seen = [];
+  const pilot = makePilotRoute((h) => { seen.push({ ...h }); return { dir: EAST }; });
+  const head = { cx: 3, cz: 4 };
+  eq('pilot: a step direction from the plan is returned untouched', pilot.next(head, world), { dir: EAST });
+  eq('pilot: the plan is called with the current head cell', seen[0], { cx: 3, cz: 4 });
+
+  const idle = makePilotRoute(() => null);
+  check('pilot: a plan returning null answers null, without throwing', idle.next(head, world) === null);
+  idle.reset(); // a no-op — must not throw either.
+
+  // Driven through a real Line, exactly as `simulation`'s tick drives any other route: a
+  // direction from the plan actually steps the walker, and a null causes no further movement.
+  const line = new Line({ gap: 1, members: 1 }).place(0, 10, 10, SOUTH, open());
+  let calls = 0;
+  const drivenPilot = makePilotRoute(() => { calls++; return calls === 1 ? { dir: EAST } : null; });
+  drive(line, drivenPilot, 5 * 3);
+  eq('pilot: a plan\'s direction steps the walker one cell', { cx: line.cellOf(0).cx, cz: line.cellOf(0).cz },
+    { cx: 11, cz: 10 });
+  check('pilot: the plan is asked again once the step lands, and a null issues no further step',
+    calls >= 2);
+}
+
+// --- 9c. canStepFor: terrain.canStep AND solid-occupancy, minus the ignored id -----------
+//
+// Mirrors `simulation/index.js`'s `canStepFor` verbatim (no ctx, no three.js, matching the
+// `detourHome` mirror tests above) rather than booting the whole module. Covers: a terrain
+// that exposes `canStep` and refuses a cell, the `solid` occupancy map refusing the
+// DESTINATION cell terrain allows (the argument is the FROM cell plus a direction —
+// `terrain.canStep`'s own convention, matching `hunts/patrol.js`'s `standTiles` contract — so
+// the solid check has to land on the same cell `terrain.canStep` itself resolved passability
+// against, not on the FROM cell), `ignoreNpcId` excluding exactly that npc's own claimed
+// destination, and the same defensive fallback to `passable`-based checking the module's own
+// `passable()` helper already uses when `terrain` is not live or does not (yet) expose
+// `canStep`.
+{
+  const isLive = (api) => !!api && api.__missing === undefined;
+
+  function makeCanStepFor(terrain, solid) {
+    function fallbackPassable(cx, cz, dir) {
+      if (!isLive(terrain) || typeof terrain.passable !== 'function') return true;
+      return !!terrain.passable(cx, cz, dir);
+    }
+    return (ignoreNpcId) => (cx, cz, dir) => {
+      const ok = isLive(terrain) && typeof terrain.canStep === 'function'
+        ? !!terrain.canStep(cx, cz, dir)
+        : fallbackPassable(cx, cz, dir);
+      if (!ok) return false;
+      const nx = cx + DIR_DX[dir], nz = cz + DIR_DZ[dir];
+      const who = solid.get(`${nx},${nz}`);
+      return who === undefined || who === ignoreNpcId;
+    };
+  }
+
+  // EAST (`DIR_DX[EAST] === 1`, `DIR_DZ[EAST] === 0`) steps from (5,5) to the claimed (6,5).
+  const solid = new Map([['6,5', 42]]);
+  const terrain = { canStep: (cx) => cx !== 9, passable: () => true };
+  const canStepFor = makeCanStepFor(terrain, solid);
+  check('canStepFor: terrain.canStep refusal blocks the step',
+    canStepFor(0)(9, 5, EAST) === false);
+  check('canStepFor: solid occupancy blocks a step INTO a claimed cell terrain.canStep allows',
+    canStepFor(0)(5, 5, EAST) === false);
+  check("canStepFor: the FROM cell's own claim never blocks stepping OUT of it",
+    canStepFor(0)(6, 5, EAST) === true);
+  check('canStepFor: ignoreNpcId lets the walker step onto its own claimed cell',
+    canStepFor(42)(5, 5, EAST) === true);
+  check('canStepFor: a clear, unclaimed cell is allowed',
+    canStepFor(0)(1, 1, EAST) === true);
+
+  const missingTerrain = { __missing: true };
+  check('canStepFor: falls back to passable (true) when terrain is not live',
+    makeCanStepFor(missingTerrain, solid)(0)(1, 1, EAST) === true);
+
+  const terrainNoCanStep = { passable: (cx) => cx !== 3 };
+  check('canStepFor: falls back to terrain.passable when canStep is not (yet) a function',
+    makeCanStepFor(terrainNoCanStep, solid)(0)(3, 1, EAST) === false);
+  check('canStepFor: the passable fallback still allows a clear cell',
+    makeCanStepFor(terrainNoCanStep, solid)(0)(1, 1, EAST) === true);
 }
 
 // --- 10. interpolation is monotone and lands on cell centres -----------------------------

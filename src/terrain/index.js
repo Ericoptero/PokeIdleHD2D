@@ -84,6 +84,14 @@ export default {
        */
       passable(cx, cz, fromDir) { return current ? current.draft.passable(cx, cz, fromDir) : false; },
 
+      /**
+       * @param {number} cx @param {number} cz
+       * @param {number} fromDir  the direction being stepped in, out of (cx,cz).
+       * passable() plus an elevation rule: same-height ground connects, stairs bridge a
+       * height change, and a ledge's own one-way check (in passable()) already covers itself.
+       */
+      canStep(cx, cz, fromDir) { return current ? current.draft.canStep(cx, cz, fromDir) : false; },
+
       tagsAt(cx, cz) { return current ? current.draft.tagsAt(cx, cz) : []; },
       collisionAt(cx, cz) { return current ? current.draft.collisionAt(cx, cz) : 'block'; },
 

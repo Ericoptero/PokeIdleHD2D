@@ -140,7 +140,9 @@ export class SpriteAtlas {
     for (const c of cells) {
       let e = this.entries.get(c.key);
       if (!e) {
-        e = { ...c.layout, rects: new Float32Array(c.layout.count * 4), boxes: new Float32Array(c.layout.count * 2) };
+        // `crown` starts at 1 (nothing trimmed) and only ever falls as `#measure` below finds
+        // an emptier margin on one of this sheet's frames — see that method's own comment.
+        e = { ...c.layout, rects: new Float32Array(c.layout.count * 4), boxes: new Float32Array(c.layout.count * 2), crown: 1 };
         this.entries.set(c.key, e);
       }
       const px = c.x + PAD, py = c.y + PAD, f = c.layout.frame;
@@ -179,21 +181,31 @@ export class SpriteAtlas {
   }
 
   /**
-   * One read of the finished atlas gives every frame's content box. Doing it here rather
-   * than per sheet costs a single getImageData instead of one per species.
+   * One read of the finished atlas gives every frame's content box, and (`e.crown`) how far
+   * every sheet's authored art sits below the top of its frame — a Pokemon frame is a fixed
+   * 32x32 cell regardless of the creature's actual size, so the sheet leaves a transparent
+   * margin above a small one's head, and `pokemon/sprites.js`'s `headLiftOf` needs that
+   * margin trimmed off or a nameplate floats over empty space (see that function's own
+   * comment). `crown` is the MINIMUM over every frame of the sheet, not per-frame, so a walk
+   * cycle's own head bob cannot make a plate bounce with it — a plate anchored to the
+   * shallowest margin the sheet ever shows still clears every deeper one.
    */
   #measure(g, cells, size) {
     const data = g.getImageData(0, 0, size, size).data;
     for (const c of cells) {
       const e = this.entries.get(c.key);
       const f = c.layout.frame;
-      let x0 = f, x1 = -1;
+      let x0 = f, x1 = -1, y0 = -1;
       for (let y = 0; y < f; y++) {
         const row = ((c.py + y) * size + c.px) * 4 + 3;
         for (let x = 0; x < f; x++) {
-          if (data[row + x * 4] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+          if (data[row + x * 4] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y0 < 0) y0 = y;
+          }
         }
       }
+      e.crown = Math.min(e.crown, y0 < 0 ? 0 : y0 / f);
       const o = c.index * 2;
       if (x1 < x0) { e.boxes[o] = 0.5; e.boxes[o + 1] = 0.5; }
       else { e.boxes[o] = (x0 + x1 + 1) / 2 / f; e.boxes[o + 1] = (x1 - x0 + 1) / f; }

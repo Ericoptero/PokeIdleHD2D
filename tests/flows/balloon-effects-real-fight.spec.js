@@ -23,7 +23,7 @@
  *      through a real `battle:strike`.
  */
 import { test, expect } from '@playwright/test';
-import { installEventLog, boot, step, events } from './harness.js';
+import { installEventLog, boot, step, events, call } from './harness.js';
 
 const peekUi = (page, key) => page.evaluate((k) => window.__CTX__.get('ui')?.[k]?.peek?.() ?? [], key);
 
@@ -156,6 +156,19 @@ test('a real crit doubles the floater scale, and real effectiveness tints its co
     if (found.crit && found.superEff && found.resisted && found.neutral) break;
     expect(ticks, `did not observe crit/super-effective/resisted/neutral within budget — found so far: `
       + JSON.stringify(Object.fromEntries(Object.entries(found).map(([k, v]) => [k, !!v])))).toBeLessThan(3000);
+    // A starting level-5 party wiping out at `hunt-meadow` on this seed is a pre-existing,
+    // documented property of this exact map (see `hunt-loop.spec.js`'s own header: "wipes after
+    // its 3rd encounter with no intervention"), not something this rework introduced. This test
+    // predates that guard and used to get away without it because the OLD engagement order
+    // happened to survive long enough, by luck, to see all four categories first. The path-aware
+    // aggro this rework adds picks a different (and here, harder) fight order on this seed, so
+    // the same keep-alive `hunt-loop.spec.js`/`hunt-recovers.spec.js` already use is needed here
+    // too — measured directly: without it the party now wipes after its 2nd encounter (19
+    // strikes, 0 crit/super-effective/resisted seen) and the rest of the budget is spent idling
+    // at the Pokemon Center it was travelled to, which is what made even a 12000-tick budget look
+    // identically stuck to a 3000-tick one.
+    const conscious = await call(page, 'pokemon', 'firstConscious');
+    if (!conscious) await call(page, 'pokemon', 'reviveAll');
     await step(page, 6);
     ticks += 6;
   }

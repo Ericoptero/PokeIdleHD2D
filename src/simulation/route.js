@@ -169,5 +169,29 @@ export function makeWander(rng, {
   };
 }
 
+/**
+ * A route that asks someone else. `hunts` needs to re-plan a waypoint-index A* path against a
+ * map that can change between ticks (a wild's tether drift, another hunt's detour claiming a
+ * cell) — a fixed, pre-computed step list the way `makeScriptedRoute` walks is the wrong shape
+ * for that, because a plan built once goes stale the moment the world it was planned against
+ * moves. A pilot route carries no plan of its own at all: it hands `head` and `world` straight
+ * to the injected `plan` function and returns whatever it says, every tick. Re-planning is then
+ * just asking again next tick — there is no special re-sync protocol to get wrong, because
+ * there is nothing here to resync.
+ *
+ * The state a real planner needs (the waypoint index, the in-flight A* path) lives entirely on
+ * the `hunts` side, closed over by `plan` itself — this object is a thin, stateless adapter and
+ * `reset()` has nothing of its own to clear.
+ *
+ * @param {(head:{cx:number,cz:number}, world:{passable:Function, tagsAt:Function}) => ({dir:number}|null)} plan
+ */
+export function makePilotRoute(plan) {
+  return {
+    kind: 'pilot',
+    reset() {},
+    next(head, world) { return plan(head, world); },
+  };
+}
+
 /** Stands still. The default, so a scene has to ask for motion rather than inherit it. */
 export const STILL = { kind: 'still', reset() {}, next: () => null };

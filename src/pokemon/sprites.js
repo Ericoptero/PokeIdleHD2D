@@ -180,10 +180,20 @@ export function frameWorldSize(frameTexels, pitchDeg = 45) {
  * The one measured head height every caller used to guess at separately (a nameplate, a
  * trainer's plate, a wild's battle balloon): `frameWorldSize` already gives the quad's full
  * stretched height, and dropping it back down by the same foot pad `field.js` drops the quad
- * itself by (`FOOT_PAD_TEXELS / TEXELS_PER_UNIT`) lands exactly on the crown of the art, not
- * on the empty margin above it.
+ * itself by (`FOOT_PAD_TEXELS / TEXELS_PER_UNIT`) lands on the top of the QUAD, not on the
+ * top of the ART drawn inside it.
+ *
+ * `crown` (`pokemon/atlas.js`'s `#measure`, `0..1` as a fraction of the frame) closes that
+ * gap: every Pokemon sheet is a fixed 32x32 cell regardless of the creature's actual size, so
+ * a small body — an Oshawott, a Wooper — leaves a third or more of the cell transparent above
+ * its head, and a plate anchored to the quad's own top floats over that empty margin (this
+ * was measured: 12-16 texels of a 32-texel frame on several shipped sheets). Scaling the
+ * quad's height down by `(1 - crown)` before the foot-pad subtraction moves the anchor to the
+ * shallowest margin the sheet ever shows (the atlas already takes the min across frames, so a
+ * walk cycle's own head bob cannot make a plate bounce with it) — the crown of the art, same
+ * as this function's own name always promised.
  */
-export function headLiftOf(frameTexels, pitch, scale = 1) {
-  return frameWorldSize(frameTexels, pitch).h * scale
+export function headLiftOf(frameTexels, pitch, scale = 1, crown = 0) {
+  return frameWorldSize(frameTexels, pitch).h * scale * (1 - crown)
        - (FOOT_PAD_TEXELS / TEXELS_PER_UNIT) * scale;
 }

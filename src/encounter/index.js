@@ -399,14 +399,15 @@ export default {
      *
      * Measured off the actor rather than guessed: `pokemon.sprites.get()` now reports
      * `headLift` straight from `pokemon/sprites.js`'s `headLiftOf()` (the quad's own stretched
-     * height, less the same foot pad `field.js` drops the sprite by), the one true head height
-     * every caller used to guess at with its own fudge factor. `1.62` survives only as the
-     * fallback for a sprite that has not spawned yet.
+     * height, trimmed to the art's own crown and less the same foot pad `field.js` drops the
+     * sprite by), the one true head height every caller used to guess at with its own fudge
+     * factor. `1.6` (`ui/plates.js`'s own `POKEMON_LIFT`) survives only as the fallback for a
+     * sprite that has not spawned yet.
      */
     function headLiftOf(actorId) {
       const pokemon = ctx.get('pokemon');
       const a = isLive(pokemon) ? pokemon.sprites.get?.(actorId) : null;
-      return Number.isFinite(a?.headLift) ? a.headLift : 1.62;
+      return Number.isFinite(a?.headLift) ? a.headLift : 1.6;
     }
 
     function clearWild() {
@@ -879,7 +880,14 @@ export default {
       if (!taken) return null;
       const index = encounters++;
       const enc = rollIndex(index);
-      if (!enc) return null;
+      if (!enc) {
+        // `takeSlot` already took the slot's occupancy and its place in `wildIds` on the
+        // strength of engaging it — an empty encounter table means no fight is actually
+        // starting, so give it back rather than leaving the body standing there un-engageable
+        // (`hunts.releaseSlot`'s own doc comment has the failure this undoes).
+        hunts.releaseSlot?.(slot.k, taken);
+        return null;
+      }
       // **The species and the level are the slot's; everything else is the index's.** The level
       // owned by the field actor: it is a property of the creature that walked onto the
       // slot, printed over its head before anybody touched it, so rolling a different one at
@@ -921,7 +929,13 @@ export default {
         const at = want ? roster.findIndex((m) => m.instanceId === want) : -1;
         if (at > 0) pokemon.setLead(at);
       }
-      return begin(merged);
+      const started = begin(merged);
+      // `begin()` has its own `firstConscious` refusal (a race with `slotNear`'s own check, or
+      // a caller other than the slot trigger) and returns null before ever creating a `scene` —
+      // so, same as the `!enc` guard above, give the slot back rather than leaving its body
+      // standing there with nothing tracking it.
+      if (!started) hunts.releaseSlot?.(slot.k, taken);
+      return started;
     }
 
     /**
@@ -1263,22 +1277,38 @@ export default {
         ball: ballId, shakes: 0, caught: false, throwAt: Infinity, shake: 0,
         shiny: !!active.shiny,
         // Overwritten once the actor exists and its real frame size is known.
-        headLift: 1.62,
+        headLift: 1.6,
       };
       // The sprite sheet may not be in the atlas yet, so the actor arrives a microtask (or
       // a fetch) later. The promise is kept so a showcase can await it before it freezes the
       // timeline — a scene frozen before the wild exists is a screenshot of empty grass.
-      // `if (scene)`: a `cancel()` racing this promise (a travel out mid-fetch) already leaves
-      // whatever `showWild` spawns unclaimed — pre-existing, not touched here; a leaked actor
-      // costs a sprite slot, not correctness; the asynchronous spawn can still race cancellation.
+      //
+      // `mine` — not the ambient `scene` — is what this closure checks and mutates: `scene` is
+      // reassigned by the very next `begin()`, and a `cancel()`/new-fight racing this promise
+      // used to (a) let `scene.wildActor`/`headLift` land on whatever fight is live BY THEN,
+      // silently mislabelling its plate/balloon anchor, and (b) leave `showWild`'s own actor
+      // standing on the map with nothing tracking it — a Pokemon sprite with no NPC, no plate
+      // and no slot behind it, un-removable by `clearWild()` (`hunts/index.js`'s only sweep is
+      // `wildIds`) for the rest of the session.
+      const mine = scene;
       scene.ready = showWild(active, at).then((id) => {
-        if (scene) { scene.wildActor = id; scene.headLift = headLiftOf(id); }
+        if (scene !== mine) {
+          // This fight ended (or was replaced) before its own actor arrived — `mine`'s own
+          // `npcId` is not this module's to retire any more (that would race the LIVE scene's
+          // own handover), but the sprite `showWild` just spawned is still this promise's own
+          // to clean up.
+          if (id) {
+            const pokemon = ctx.get('pokemon');
+            if (isLive(pokemon)) pokemon.sprites?.remove?.(id);
+          }
+          return id;
+        }
+        scene.wildActor = id;
+        scene.headLift = headLiftOf(id);
         // The handover, in this order and not the other one: the map's creature leaves the
         // walker's cast only now that this module's actor is drawn on the cell it was standing
-        // on. Unconditional even when `showWild` failed (it answers 0 at `warn`) or `scene` is
-        // already gone: a wild left in the cast would be refilled over 26 s later and stand
-        // inside its own replacement, and a failed spawn is a wild with no visible body either
-        // way — the pre-existing gap `showWild` already had, not a new one.
+        // on. Unconditional even when `showWild` failed (it answers 0 at `warn`): a wild left
+        // in the cast would be refilled over 26 s later and stand inside its own replacement.
         retireNpc();
         return id;
       });

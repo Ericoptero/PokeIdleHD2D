@@ -255,6 +255,10 @@ export class SpriteField {
       phase: spec.phase ?? 0,
       scale: spec.scale ?? 1,
       frameTexels: layout.frame,
+      // How much of the frame's own top margin `headLiftOf` (`sprites.js`) trims off before
+      // measuring the head — the atlas's own `#measure`, carried on `layout` alongside
+      // `frame`/`cols`/`rows`, never re-derived here.
+      crown: layout.crown ?? 0,
       w: size.w * (spec.scale ?? 1),
       h: size.h * (spec.scale ?? 1),
       shadow: spec.shadow ?? 1,
@@ -286,7 +290,7 @@ export class SpriteField {
   get(id) {
     const a = this.actors.get(id);
     if (!a) return null;
-    return { ...a, headLift: headLiftOf(a.frameTexels, this._pitch, a.scale) };
+    return { ...a, headLift: headLiftOf(a.frameTexels, this._pitch, a.scale, a.crown) };
   }
   remove(id) { this.actors.delete(id); }
   clear() { this.actors.clear(); this.mesh.count = 0; this.blobs.count = 0; }
