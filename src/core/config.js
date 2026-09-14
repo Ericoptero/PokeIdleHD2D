@@ -89,6 +89,8 @@ export const DEFAULTS = {
    * Off restores the free lerp.
    */
   cameraSnap: true,
+  /** Studio-only yaw override, degrees, orbited about the fixed pitch — the game and every showcase boot at 0. */
+  cameraYaw: 0,
 
   // --- ui ---------------------------------------------------------------------
   /**

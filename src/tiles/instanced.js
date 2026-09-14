@@ -109,13 +109,24 @@ export function footprint(model, rot = 0) {
  * never written back, because `terrain/draft.js` and `simulation/surface.js` read it for
  * the collision footprint and must keep seeing what the author asked for.
  *
+ * `viewYawQuarter` is the Studio's own camera yaw, in quarter-turns (0..3) — `render.js`'s
+ * `makeCameraRig` only ever steps the debug rig 90° at a time, so the view's own rotation is
+ * always one of these four cases and never an arbitrary angle. At quarter 0 (the game, and
+ * every showcase) the Z-facing card is still the one facing the camera and the low bit stays
+ * 0, so this is a no-op. At quarter 1 or 3 the view has rotated onto what used to be the
+ * X axis, so the surviving card — snapped to the Z plane by the line above — has to follow it
+ * there: the low bit is ORed in to flip a snapped-even `rot` onto the odd quarter that now
+ * faces the (rotated) camera, the same way an un-snapped odd `rot` already would.
+ *
  * @param {{twinDropped?:string, w?:number, h?:number}} model
  * @param {number} rot
+ * @param {number} [viewYawQuarter] Studio-only: the view's own 90°-step yaw, in quarter-turns
+ *   (0..3). Default 0 is bit-identical to the game, which never yaws.
  */
-export function cameraFacingRot(model, rot) {
+export function cameraFacingRot(model, rot, viewYawQuarter = 0) {
   if (model?.twinDropped !== 'x') return rot;
   if ((model.w ?? 1) !== (model.h ?? 1)) return rot;
-  return rot & 2;
+  return (rot & 2) | (viewYawQuarter & 1);
 }
 
 /**
@@ -273,17 +284,21 @@ export class InstancedWorld {
    * @param {object} tileset  the loaded tileset from tiles/index.js
    * @param {Placement[]} placements
    * @param {{name?:string, castShadow?:boolean, receiveShadow?:boolean, variety?:number,
-   *          contact?:number, keepBaked?:boolean}} [opts]
+   *          contact?:number, keepBaked?:boolean, viewYawQuarter?:number}} [opts]
    *   `variety` is 0..1 and scales the per-cell ground variation (quarter turns, texture
    *   phase and a tonal jitter). 0 reproduces the old, visibly tiled lawn.
    *   `contact` is 0..1 and scales the generated contact shadows; 0 turns them off, which is
    *   what an indoor scene with no ground under it wants.
    *   `keepBaked` draws the tileset's own hand-painted `kage` shadow quads as well as the
    *   generated ones — the round-3 behaviour, kept only for the A/B (`?kage=1`).
+   *   `viewYawQuarter` is Studio-only: the view's own 90°-step camera yaw, in quarter-turns
+   *   (0..3), threaded straight through to `cameraFacingRot` so a crossed billboard's
+   *   surviving card keeps facing the camera after the Studio rig yaws. 0 in the game and
+   *   every showcase, which is bit-identical to today.
    */
   constructor(T, parent, tileset, placements,
     { name = 'world', castShadow = true, receiveShadow = true, variety = 1, contact = 1,
-      keepBaked = false } = {}) {
+      keepBaked = false, viewYawQuarter = 0 } = {}) {
     this.tileset = tileset;
     this.group = new THREE.Group();
     this.group.name = name;
@@ -350,7 +365,7 @@ export class InstancedWorld {
       for (let i = 0; i < items.length; i++) {
         const p = items[i];
         const rot = spin && p.rot === undefined ? (hash2(p.cx, p.cz, 11) * 4) | 0 : (p.rot ?? 0);
-        this.constructor.composeMatrix(_m, p, model, cameraFacingRot(model, rot));
+        this.constructor.composeMatrix(_m, p, model, cameraFacingRot(model, rot, viewYawQuarter));
         mesh.setMatrixAt(i, _m);
         if (p.tint !== undefined && p.tint !== 0xffffff) needsColor = true;
       }
