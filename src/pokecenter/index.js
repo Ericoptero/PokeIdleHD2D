@@ -52,7 +52,11 @@ export default {
   init(ctx) {
     const { bus, log } = ctx;
     const terrain = ctx.get('terrain');
-    terrain.register(MAP_ID, (draft, c) => buildPokecenterMap(draft, c));
+    // `?mapFiles=1` — see the identical seam in `src/city/index.js` / `src/hunts/index.js`.
+    terrain.register(MAP_ID, async (draft, c) => {
+      const mapFile = await terrain.tryLoadMapFile(MAP_ID);
+      return mapFile ? terrain.applyMapFile(draft, c, mapFile) : buildPokecenterMap(draft, c);
+    });
 
     /** @type {{dispose:() => void, stats:object}|null} */
     let dressing = null;

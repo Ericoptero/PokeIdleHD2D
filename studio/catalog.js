@@ -75,3 +75,75 @@ export function colorFor(model) {
   const light = model?.collision === 'water' ? 30 : model?.collision === 'block' ? 24 : 30;
   return `hsl(${hue} ${sat}% ${light}%)`;
 }
+
+// --- real tile previews -----------------------------------------------------------------------
+//
+// Every `catalog.materials[i]` names a standalone PNG (8×8 to 64×64 — a per-material sheet,
+// never a UV atlas, so it is safe to show whole with no cropping). A model is usually
+// multi-material (66% of them, measured on bw2-adastra), so `model.materials[0]` is the wrong
+// pick a third of the time and, for 15 models, is literally a baked contact-shadow sheet
+// (filename contains "kage" — the same discriminator `src/tiles/materials.js`'s `shadowDecal`
+// flag already keys on). The pipeline's own rule for "what a tile actually looks like" is the
+// dominant group by vertex count (`tools/assets/build-tiles.js` ~L124); this mirrors it.
+
+/** @param {object} model a `catalog.models[i]` entry (carries `groups`/`materials`) @param {object} catalog from `loadCatalog` */
+export function dominantMaterialId(model, catalog) {
+  const mats = catalog?.raw?.materials ?? [];
+  const isShadow = (id) => /kage/i.test(mats[id]?.image ?? '');
+  const groups = model?.groups ?? [];
+  if (!groups.length) return model?.materials?.[0] ?? null;
+  const lit = groups.filter((g) => !isShadow(g.material));
+  const pool = lit.length ? lit : groups; // every group a shadow -> fall back to all of them
+  return pool.reduce((a, g) => (g.count > a.count ? g : a), pool[0]).material;
+}
+
+/** @returns {string|null} the bare PNG filename — the de-dupe/cache key, not the material id. */
+export function dominantImage(model, catalog) {
+  const id = dominantMaterialId(model, catalog);
+  return id != null ? catalog?.raw?.materials?.[id]?.image ?? null : null;
+}
+
+/** @returns {string|null} `/generated/tiles/<slug>/tex/<image>` */
+export function textureUrlFor(model, catalog) {
+  const image = dominantImage(model, catalog);
+  return image ? `/generated/tiles/${catalog.tileset}/tex/${image}` : null;
+}
+
+const bitmapCache = new Map(); // 'slug/image' -> ImageBitmap | Promise<ImageBitmap>
+
+/**
+ * Preloads one tileset's distinct dominant textures as `ImageBitmap`s, for the 2D canvas
+ * (which cannot use a CSS `background-image`). At most one fetch per distinct PNG, not per
+ * model — the largest tileset (`hgss-overworld`) has 445 models but only 63 materials.
+ */
+export async function loadTextureBitmaps(slug, { onProgress } = {}) {
+  const catalog = await loadCatalog(slug);
+  const images = new Set();
+  for (const m of catalog.models) {
+    const img = dominantImage(m, catalog);
+    if (img) images.add(img);
+  }
+  let done = 0;
+  await Promise.all([...images].map(async (image) => {
+    const key = `${slug}/${image}`;
+    if (bitmapCache.has(key)) { done++; return; }
+    const promise = fetch(`/generated/tiles/${slug}/tex/${image}`)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`${r.status}`))))
+      .then((blob) => createImageBitmap(blob))
+      .catch(() => null);
+    bitmapCache.set(key, promise);
+    const bm = await promise;
+    if (bm) bitmapCache.set(key, bm);
+    else bitmapCache.delete(key);
+    done++;
+    onProgress?.(done, images.size);
+  }));
+  return catalog;
+}
+
+/** Synchronous peek for the canvas render loop — never awaits inside `render()`. */
+export function peekBitmap(slug, image) {
+  if (!image) return null;
+  const entry = bitmapCache.get(`${slug}/${image}`);
+  return entry instanceof Promise ? null : (entry ?? null);
+}

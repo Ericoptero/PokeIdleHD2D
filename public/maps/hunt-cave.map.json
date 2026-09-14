@@ -15,7 +15,7 @@
   "environmentPreset": "cave",
   "source": {
     "builder": "src/hunts/biomes/cave.js",
-    "snapshotAt": "2026-09-14T03:20:56.613Z"
+    "snapshotAt": "2026-09-14T05:05:51.172Z"
   },
   "grid": {
     "collision": {

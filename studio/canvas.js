@@ -12,20 +12,19 @@
  */
 
 import { cellKey } from './state.js';
-import { colorFor, peekCatalog } from './catalog.js';
+import { colorFor, peekCatalog, dominantImage, peekBitmap } from './catalog.js';
+import { COLLISION_COLOR } from './kinds.js';
 import {
   paintCell, eraseCell, paintRect, fillRegion, setCollision, adjustHeight, toggleTag,
   setSpawn, placeMarker, placeObject, stackAt,
 } from './tools.js';
 
-const COLLISION_COLOR = {
-  walk: 'rgba(127,201,140,0.0)', block: 'rgba(214,104,91,0.38)', water: 'rgba(95,168,220,0.40)',
-  shallow: 'rgba(158,203,230,0.30)', door: 'rgba(224,166,75,0.42)', stairs: 'rgba(178,142,220,0.42)',
-  ledge: 'rgba(226,150,80,0.46)', none: 'rgba(255,255,255,0.05)',
-};
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 const DIR_DX = [0, -1, 0, 1];
 const DIR_DZ = [1, 0, -1, 0];
+/** Below this cell size a 32² texture is noise, and drawImage-per-cell over a 64×64 map is
+ *  the slow path — fall back to the flat swatch. */
+const TEXTURE_MIN_PX = 6;
 
 function hashColor(name) {
   let h = 0;
@@ -66,14 +65,18 @@ export function makeEditorCanvas({ canvas, history }) {
   const ctx2d = canvas.getContext('2d');
   let doc = null;
   const view = { ox: 8, oy: 8, cell: 14 };
-  const overlays = { grid: true, collision: false, height: false, tags: false, footprints: true,
-    markers: true, cameras: false, loop: true, encounters: true, lights: true, reach: false };
+  const overlays = { grid: true, textures: true, collision: false, height: false, tags: false,
+    footprints: true, markers: true, cameras: false, loop: true, encounters: true, lights: true, reach: false };
   let tool = 'select';
   let activeLayer = 0;
-  let brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25 };
+  let brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
+    claimFootprint: false, keepCollision: true };
   let selectedAsset = null; // { name, tileset, w, h }
-  let selection = { cell: null, objectId: null, markerName: null };
+  let selection = { cell: null, objectId: null, markerName: null, lightIndex: null };
   let drag = null;
+  let editCount = 0;
+  const hiddenLayers = new Set();
+  const lockedLayers = new Set();
   const listeners = new Set();
 
   function notify() { for (const fn of listeners) fn(); }
@@ -81,6 +84,16 @@ export function makeEditorCanvas({ canvas, history }) {
   function modelInfo(name) {
     const cat = peekCatalog(doc.tileset);
     return cat?.byName?.get(name) ?? null;
+  }
+
+  /** Draws one cell/footprint's art: the real texture when loaded and large enough on screen,
+   *  else the instant-paint flat swatch (`catalog.js`'s `colorFor`/local `hashColor`). */
+  function drawArt(c, name, info, x, y, w, h) {
+    const image = overlays.textures && info ? dominantImage(info, peekCatalog(doc.tileset)) : null;
+    const bitmap = view.cell >= TEXTURE_MIN_PX ? peekBitmap(doc.tileset, image) : null;
+    if (bitmap) { c.drawImage(bitmap, x, y, w, h); return; }
+    c.fillStyle = info ? colorFor(info) : hashColor(name);
+    c.fillRect(x, y, w, h);
   }
 
   function toScreen(cx, cz) { return [view.ox + cx * view.cell, view.oy + cz * view.cell]; }
@@ -117,13 +130,12 @@ export function makeEditorCanvas({ canvas, history }) {
     c.save();
 
     // --- base: tile layers, ascending order ---
-    for (const [, grid] of [...doc.tileLayers.entries()].sort((a, b) => a[0] - b[0])) {
+    for (const [layerNum, grid] of [...doc.tileLayers.entries()].sort((a, b) => a[0] - b[0])) {
+      if (hiddenLayers.has(layerNum)) continue;
       for (const [key, cell] of grid) {
         const [cx, cz] = key.split(',').map(Number);
         const [x, y] = toScreen(cx, cz);
-        const info = modelInfo(cell.m);
-        c.fillStyle = info ? colorFor(info) : hashColor(cell.m);
-        c.fillRect(x, y, view.cell, view.cell);
+        drawArt(c, cell.m, modelInfo(cell.m), x, y, view.cell, view.cell);
       }
     }
 
@@ -174,13 +186,13 @@ export function makeEditorCanvas({ canvas, history }) {
 
     // --- objects ---
     for (const obj of doc.objects) {
+      if (hiddenLayers.has(obj.layer)) continue;
       const info = modelInfo(obj.m);
       const rot = (obj.rot ?? 0) & 3;
       const fw = rot & 1 ? (info?.h ?? 1) : (info?.w ?? 1);
       const fh = rot & 1 ? (info?.w ?? 1) : (info?.h ?? 1);
       const [x, y] = toScreen(obj.cx, obj.cz);
-      c.fillStyle = info ? colorFor(info) : hashColor(obj.m);
-      c.fillRect(x, y, fw * view.cell, fh * view.cell);
+      drawArt(c, obj.m, info, x, y, fw * view.cell, fh * view.cell);
       if (overlays.footprints) {
         c.strokeStyle = 'rgba(224,166,75,0.6)';
         c.setLineDash([3, 2]);
@@ -239,7 +251,7 @@ export function makeEditorCanvas({ canvas, history }) {
 
     // --- lights ---
     if (overlays.lights) {
-      for (const l of doc.lights) {
+      doc.lights.forEach((l, i) => {
         const [x, y] = toScreen(l.x, l.z);
         const r = (l.radius ?? 6) * view.cell;
         const grad = c.createRadialGradient(x, y, 0, x, y, r);
@@ -249,7 +261,12 @@ export function makeEditorCanvas({ canvas, history }) {
         c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
         c.fillStyle = hex;
         c.beginPath(); c.arc(x, y, 3, 0, Math.PI * 2); c.fill();
-      }
+        if (selection.lightIndex === i) {
+          c.strokeStyle = '#E0A64B'; c.lineWidth = 2;
+          c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.stroke();
+          c.lineWidth = 1;
+        }
+      });
     }
 
     // --- markers ---
@@ -290,45 +307,72 @@ export function makeEditorCanvas({ canvas, history }) {
     c.restore();
   }
 
+  /** A light dot is hit-tested in cell space at ~half a cell radius — close enough for a click. */
+  function lightNear(cx, cz) {
+    let best = -1; let bestD = 1.2;
+    doc.lights.forEach((l, i) => {
+      const d = Math.hypot(l.x - (cx + 0.5), l.z - (cz + 0.5));
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+
+  const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
+
   function applyToolAt(cx, cz, kind) {
     if (kind === 'down') selection.cell = { cx, cz };
+    if (LOCKED_TOOLS.has(tool) && lockedLayers.has(activeLayer)) {
+      selection.cell = { cx, cz }; notify(); render(); return;
+    }
     switch (tool) {
       case 'select': {
         const stack = stackAt(doc, cx, cz);
         selection.cell = { cx, cz };
         selection.objectId = stack.find((s) => s.kind === 'object')?.id ?? null;
+        selection.lightIndex = overlays.lights ? lightNear(cx, cz) : -1;
+        if (selection.lightIndex < 0) selection.lightIndex = null;
         break;
       }
       case 'pencil':
-        if (selectedAsset) paintCell(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint });
+        if (selectedAsset) {
+          paintCell(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint,
+            collision: selectedAsset.collision, claimFootprint: brush.claimFootprint, keepCollision: brush.keepCollision });
+          editCount++;
+        }
         break;
       case 'eraser':
         eraseCell(doc, history, { layer: activeLayer, cx, cz });
+        editCount++;
         break;
       case 'fill':
-        if (selectedAsset) fillRegion(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint });
+        if (selectedAsset) { fillRegion(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint }); editCount++; }
         break;
       case 'coll':
         setCollision(doc, history, { cx, cz, kind: brush.collision });
+        editCount++;
         break;
       case 'height':
         adjustHeight(doc, history, { cx, cz, delta: brush.heightStep });
+        editCount++;
         break;
       case 'tag':
         toggleTag(doc, history, { cx, cz, tag: brush.tag });
+        editCount++;
         break;
       case 'spawn':
         setSpawn(doc, history, { cx, cz });
+        editCount++;
         break;
       case 'marker': {
         const name = prompt('Nome do marcador:');
-        if (name) placeMarker(doc, history, { name, cx, cz });
+        if (name) { placeMarker(doc, history, { name, cx, cz }); editCount++; }
         break;
       }
       case 'object':
         if (selectedAsset) {
           const obj = placeObject(doc, history, { m: selectedAsset.name, cx, cz, layer: activeLayer, rot: brush.rot, tint: brush.tint });
           selection.objectId = obj.id;
+          editCount++;
         }
         break;
       case 'eyedrop': {
@@ -392,10 +436,17 @@ export function makeEditorCanvas({ canvas, history }) {
   let hoverCell = null;
 
   return {
-    setDoc(d) { doc = d; selection = { cell: null, objectId: null, markerName: null }; fitView(); render(); notify(); },
+    setDoc(d) {
+      doc = d; selection = { cell: null, objectId: null, markerName: null, lightIndex: null };
+      editCount = 0; hiddenLayers.clear(); lockedLayers.clear();
+      fitView(); render(); notify();
+    },
     render,
     fitView() { fitView(); render(); },
     zoomBy(mult) { if (!doc) return; view.cell = Math.max(3, Math.min(48, Math.round(view.cell * mult))); render(); },
+    /** The 2D canvas's own cell-pixel-size presets (16/32/64 px per cell) — distinct from the
+     *  3D preview's `pixelsPerUnit` ladder, but the same three round numbers for consistency. */
+    setZoomPreset(px) { if (!doc) return; view.cell = Math.max(3, Math.min(48, px)); render(); },
     setOverlay(name, value) { overlays[name] = value; render(); },
     toggleOverlay(name) { overlays[name] = !overlays[name]; render(); notify(); },
     overlays: () => ({ ...overlays }),
@@ -403,10 +454,26 @@ export function makeEditorCanvas({ canvas, history }) {
     getTool: () => tool,
     setActiveLayer(n) { activeLayer = n; },
     getActiveLayer: () => activeLayer,
+    setLayerVisible(n, on) { if (on) hiddenLayers.delete(n); else hiddenLayers.add(n); render(); notify(); },
+    isLayerVisible: (n) => !hiddenLayers.has(n),
+    setLayerLocked(n, on) { if (on) lockedLayers.add(n); else lockedLayers.delete(n); notify(); },
+    isLayerLocked: (n) => lockedLayers.has(n),
     setSelectedAsset(a) { selectedAsset = a; },
     getSelectedAsset: () => selectedAsset,
     setBrush(patch) { Object.assign(brush, patch); },
     getBrush: () => ({ ...brush }),
+    getEditCount: () => editCount,
+    getReachStats() {
+      if (!doc) return { unreachable: 0 };
+      const seen = reachableFrom(doc, doc.spawn);
+      let unreachable = 0;
+      for (let cz = 0; cz < doc.h; cz++) for (let cx = 0; cx < doc.w; cx++) {
+        const kind = doc.collision[cz * doc.w + cx];
+        if (kind === 'block' || kind === 'water') continue;
+        if (!seen[cz * doc.w + cx]) unreachable++;
+      }
+      return { unreachable };
+    },
     getSelection: () => ({ ...selection }),
     setSelection(patch) { Object.assign(selection, patch); render(); notify(); },
     getHover: () => hoverCell,

@@ -9,7 +9,7 @@
 
 import { MapDraft } from './draft.js';
 import { parseMapFile } from './mapfile.js';
-import { builderFor } from './frommap.js';
+import { applyMapFile, builderFor } from './frommap.js';
 
 export default {
   id: 'terrain',
@@ -109,6 +109,27 @@ export default {
 
       /** Scenes compose maps through a draft; exposed for showcases and tools. */
       MapDraft,
+
+      /**
+       * Fetches and parses `/maps/<mapId>.map.json` when `ctx.config.mapFiles` is on
+       * (`?mapFiles=1`) — a scene's registered builder calls this at the top of its own
+       * closure and, on a hit, replays the file with `applyMapFile` instead of building from
+       * code. Null on any miss (flag off, 404, a malformed file) so the caller's existing
+       * hand-written builder is always the fallback, never a hard failure.
+       */
+      async tryLoadMapFile(mapId) {
+        if (!ctx.config.mapFiles) return null;
+        try {
+          const res = await fetch(`/maps/${mapId}.map.json`);
+          if (!res.ok) return null;
+          return parseMapFile(await res.json());
+        } catch (err) {
+          log.warn(`terrain: could not load map file for "${mapId}" — ${err?.message ?? err}`);
+          return null;
+        }
+      },
+      /** Replays a parsed map file onto an in-progress draft — see `./frommap.js`. */
+      applyMapFile: (draft, c, map) => applyMapFile(draft, c, map),
     };
     return api;
   },

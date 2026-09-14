@@ -15,7 +15,7 @@
   "environmentPreset": "interior",
   "source": {
     "builder": "src/pokecenter/map.js + src/pokecenter/dress.js",
-    "snapshotAt": "2026-09-14T03:20:56.450Z"
+    "snapshotAt": "2026-09-14T05:05:51.004Z"
   },
   "grid": {
     "collision": {

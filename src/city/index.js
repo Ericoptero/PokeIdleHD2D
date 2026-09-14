@@ -39,7 +39,14 @@ export default {
   init(ctx) {
     const { bus } = ctx;
     const terrain = ctx.get('terrain');
-    terrain.register('demo-city', (draft, c) => buildCityMap(draft, c));
+    // `?mapFiles=1`: replay a Studio-exported `.map.json` instead of `buildCityMap` — see the
+    // identical seam in `src/hunts/index.js` for why this is safe to swap at just this one
+    // call site. `structures.js`'s buildings/lamps/props are unaffected either way: they are
+    // dressed from `layout.js` afterwards, in `enter()`, independent of the draft's own origin.
+    terrain.register('demo-city', async (draft, c) => {
+      const mapFile = await terrain.tryLoadMapFile('demo-city');
+      return mapFile ? terrain.applyMapFile(draft, c, mapFile) : buildCityMap(draft, c);
+    });
 
     /** @type {{dispose:() => void, stats:object}|null} */
     let dressing = null;

@@ -15,7 +15,7 @@
   "environmentPreset": "forest",
   "source": {
     "builder": "src/hunts/biomes/forest.js",
-    "snapshotAt": "2026-09-14T03:20:56.515Z"
+    "snapshotAt": "2026-09-14T05:05:51.069Z"
   },
   "grid": {
     "collision": {

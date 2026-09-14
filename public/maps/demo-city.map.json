@@ -15,7 +15,7 @@
   "environmentPreset": "city",
   "source": {
     "builder": "src/city/map.js + src/city/structures.js",
-    "snapshotAt": "2026-09-14T03:20:56.416Z"
+    "snapshotAt": "2026-09-14T05:05:50.968Z"
   },
   "grid": {
     "collision": {

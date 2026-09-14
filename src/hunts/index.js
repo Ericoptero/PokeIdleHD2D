@@ -701,7 +701,15 @@ export default {
         for (const extra of biome.alsoLoad ?? []) await tiles.load(extra);
         const palette = makePalette(tiles, draft.tileset, log);
         const rng = c.rng.fork(`hunts/${biome.id}/${draft.seed}`);
-        const report = biome.build(draft, c, palette, rng, log) ?? {};
+        // `?mapFiles=1`: a Studio-exported `.map.json` replaces the hand-written builder for
+        // this one draft-building step only — everything below (the loop stitched against
+        // `draft.marker()`, wild slots, `built.set`) reads the finished draft the same way
+        // either path leaves it, because the round trip (`tools/mapstudio/roundtrip.js`)
+        // already proves a replayed draft is cell-for-cell identical to a built one.
+        const mapFile = await terrain.tryLoadMapFile(`hunt-${biome.id}`);
+        const report = mapFile
+          ? await terrain.applyMapFile(draft, c, mapFile)
+          : (biome.build(draft, c, palette, rng, log) ?? {});
 
         // The circuit and its slots are computed HERE, against the finished draft, because
         // this is the only place that has one. `showcaseDefault`'s marker is the biome's own

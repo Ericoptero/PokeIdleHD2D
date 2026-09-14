@@ -199,6 +199,7 @@ export function createHistory() {
     /** @param {{label:string, undo:() => void, redo:() => void}} cmd applied immediately */
     push(cmd) {
       cmd.redo();
+      cmd.at = Date.now();
       undoStack.push(cmd);
       redoStack.length = 0;
     },
@@ -208,7 +209,20 @@ export function createHistory() {
     canRedo: () => redoStack.length > 0,
     clear() { undoStack.length = 0; redoStack.length = 0; },
     size: () => ({ undo: undoStack.length, redo: redoStack.length }),
+    /** The log the bottom panel's Histórico tab renders — most recent first. */
+    entries: () => ({
+      undo: undoStack.map((c) => ({ label: c.label, at: c.at })).reverse(),
+      redo: redoStack.map((c) => ({ label: c.label, at: c.at })).reverse(),
+    }),
   };
+}
+
+/** Bumps `doc`'s revision counter and dirty flag — the one thing every mutating call site
+ *  (`tools.js` commands, the inspector's direct field writes) calls instead of setting
+ *  `doc.dirty = true` by hand, so `validation.js`'s `runValidation` can memoize correctly. */
+export function touch(doc) {
+  doc._rev = (doc._rev ?? 0) + 1;
+  doc.dirty = true;
 }
 
 export { cellKey };
