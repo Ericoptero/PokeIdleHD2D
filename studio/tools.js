@@ -182,53 +182,55 @@ export function setLoopVia(doc, history, { via }) {
 }
 
 /**
- * Replaces `doc.encounters.rows` wholesale — the per-map inline encounter table's add/remove/
- * edit-row controls (`bottom.js`'s Jogabilidade tab) all funnel through this one command,
- * keeping the undo log coarse-grained the same way `setLoopVia` already does for `loop.via`
- * rather than adding a separate command per field. `doc.encounters.table` (the shared
- * `TABLES[name]` lookup) is left untouched — a map can carry both, with `rows` taking
- * precedence at read time when present (checked first everywhere this reads the effective
- * table: `bottom.js`'s preview, and eventually the runtime).
+ * Adds a spawn point at `(cx,cz)` — a wild Pokémon respawn point that owns its own
+ * `respawnSeconds` and its own weighted `species[]` list (`@/terrain/mapfile.js`'s
+ * `spawnPoints[]`). Placed directly by the author; nothing derives it from the loop any more.
  */
-export function setEncounterRows(doc, history, { rows }) {
-  const before = doc.encounters ? { ...doc.encounters } : null;
-  const after = { ...(doc.encounters ?? {}), rows };
+export function addSpawnPoint(doc, history, { cx, cz, dir = 0 }) {
+  const point = {
+    id: `spawn-${doc.spawnPoints.length}-${Date.now().toString(36)}`,
+    cx, cz, dir, respawnSeconds: 26, species: [],
+  };
   history.push({
-    label: 'tabela de encontro (linhas)',
-    redo() { doc.encounters = after; touch(doc); },
-    undo() { doc.encounters = before; touch(doc); },
+    label: 'ponto de spawn',
+    redo() { doc.spawnPoints.push(point); touch(doc); },
+    undo() { doc.spawnPoints = doc.spawnPoints.filter((p) => p !== point); touch(doc); },
+  });
+  return point;
+}
+
+/** Removes one spawn point. Takes the point object itself (the same reference
+ *  `doc.spawnPoints` holds), the same identity-based match `removeNpc`/`removeLight` use. */
+export function removeSpawnPoint(doc, history, point) {
+  history.push({
+    label: 'remover ponto de spawn',
+    redo() { doc.spawnPoints = doc.spawnPoints.filter((p) => p !== point); touch(doc); },
+    undo() { doc.spawnPoints.push(point); touch(doc); },
   });
 }
 
-/**
- * Appends a hand-placed wild-spawn slot at `(cx,cz)` to `doc.wild.slots` — the authored
- * counterpart to `wild.resolved.slots`, which stays whatever `slotsForLoop` last computed and
- * cached (derived, not editable here), exactly parallel to how `loop.via` (authored) and
- * `loop.resolved` (derived cache) already coexist. Creates `doc.wild` if the map had none yet.
- */
-export function addWildSlot(doc, history, { cx, cz }) {
-  const before = doc.wild;
-  const after = { ...(doc.wild ?? {}), slots: [...(doc.wild?.slots ?? []), { cx, cz }] };
+/** Merges `patch` into one spawn point — position, direction, `respawnSeconds`, or a whole
+ *  new `species[]` list (the inspector's species-row editor replaces the array wholesale,
+ *  the same coarse-grained undo grain every other row-editor command in this file uses). */
+export function updateSpawnPoint(doc, history, { point, patch }) {
+  const before = { ...point };
+  const after = { ...point, ...patch };
   history.push({
-    label: 'vaga selvagem',
-    redo() { doc.wild = after; touch(doc); },
-    undo() { doc.wild = before; touch(doc); },
+    label: 'editar ponto de spawn',
+    redo() { Object.assign(point, after); touch(doc); },
+    undo() { Object.assign(point, before); touch(doc); },
   });
 }
 
-/**
- * Removes one authored wild-spawn slot. Takes the slot object itself (the same reference
- * `doc.wild.slots` holds) rather than an index or a name — a slot has no unique name field the
- * way a marker does, so this mirrors `removeNpc`/`removeLight`'s identity-based match instead
- * of `removeMarker`'s name-keyed one.
- */
-export function removeWildSlot(doc, history, slot) {
-  const before = doc.wild;
-  const after = { ...doc.wild, slots: doc.wild.slots.filter((s) => s !== slot) };
+/** Replaces the map's own economy profile wholesale — the Economy card's number fields and
+ *  its type -> multiplier `favours` list all funnel through this one command. */
+export function setEconomy(doc, history, { economy }) {
+  const before = doc.economy;
+  const after = economy;
   history.push({
-    label: 'remover vaga selvagem',
-    redo() { doc.wild = after; touch(doc); },
-    undo() { doc.wild = before; touch(doc); },
+    label: 'economia',
+    redo() { doc.economy = after; touch(doc); },
+    undo() { doc.economy = before; touch(doc); },
   });
 }
 

@@ -17,11 +17,11 @@ import { DIR_LABEL } from './kinds.js';
 function studioRoot() { return document.getElementById('ui-dom') ?? document.body; }
 
 const TEMPLATES = [
-  { kind: 'city', name: 'Cidade', icon: 'layers', tileset: 'sylvan-town', biome: 'town', w: 48, h: 48,
+  { kind: 'city', name: 'Cidade', icon: 'layers', tileset: 'sylvan-town', environmentPreset: 'city', w: 48, h: 48,
     bullets: ['Colisão inicial andável', 'Módulo city', 'Preset de ambiente urbano'] },
-  { kind: 'hunt', name: 'Caça', icon: 'paw-print', tileset: 'bw2-adastra', biome: 'meadow', w: 64, h: 60,
-    bullets: ['Colisão inicial andável', 'Módulo hunts', 'Loop e vagas selvagens esperados'] },
-  { kind: 'interior', name: 'Interior', icon: 'door-open', tileset: 'pt-house-indoor', biome: 'interior', w: 13, h: 10,
+  { kind: 'hunt', name: 'Caça', icon: 'paw-print', tileset: 'bw2-adastra', environmentPreset: 'meadow', w: 64, h: 60,
+    bullets: ['Colisão inicial andável', 'Módulo hunts', 'Loop e pontos de spawn esperados'] },
+  { kind: 'interior', name: 'Interior', icon: 'door-open', tileset: 'pt-house-indoor', environmentPreset: 'interior', w: 13, h: 10,
     bullets: ['Colisão inicial andável', 'Sem módulo de mundo', 'Luzes internas'] },
 ];
 
@@ -35,7 +35,7 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
   const nameInput = h('input', { class: 'ms-field-input', value: 'Novo Mapa' });
   const wInput = h('input', { class: 'ms-field-input', value: String(selected.w) });
   const hInput = h('input', { class: 'ms-field-input', value: String(selected.h) });
-  const biomeInput = h('input', { class: 'ms-field-input', value: selected.biome });
+  const presetInput = h('input', { class: 'ms-field-input', value: selected.environmentPreset });
   const tilesetInput = h('input', { class: 'ms-field-input', value: selected.tileset });
   const groundSelect = h('select', { class: 'ms-select' }, [h('option', { value: '' }, '—')]);
   const seedInput = h('input', { class: 'ms-field-input', value: '1337' });
@@ -63,9 +63,9 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
     ]);
     card.onclick = () => {
       selected = t;
-      // A template sets the fields it owns (biome/tileset/size); it never touches the name,
-      // id or seed the admin may already have typed.
-      biomeInput.value = t.biome; tilesetInput.value = t.tileset;
+      // A template sets the fields it owns (environment preset/tileset/size); it never
+      // touches the name, id or seed the admin may already have typed.
+      presetInput.value = t.environmentPreset; tilesetInput.value = t.tileset;
       wInput.value = String(t.w); hInput.value = String(t.h);
       refreshGroundOptions();
       for (const [tpl, c] of cardChecks) c.classList.toggle('ms-hidden', tpl !== selected);
@@ -84,7 +84,7 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
         h('div', { class: 'ms-field-grid' }, [
           field('Nome do mapa', nameInput), field('Map ID', idInput),
           field('Largura', wInput), field('Altura', hInput),
-          field('Bioma', biomeInput), field('Tileset primário', tilesetInput),
+          field('Preset de ambiente', presetInput), field('Tileset primário', tilesetInput),
           field('Tile de solo', groundSelect), field('Seed', seedInput),
         ]),
       ]),
@@ -95,7 +95,8 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
           const doc = createBlankDocument({
             id: idInput.value.trim() || 'novo_mapa', name: nameInput.value.trim() || 'Novo Mapa',
             w: Math.max(4, Number(wInput.value) || selected.w), h: Math.max(4, Number(hInput.value) || selected.h),
-            tileset: tilesetInput.value.trim() || selected.tileset, biome: biomeInput.value.trim() || selected.biome,
+            tileset: tilesetInput.value.trim() || selected.tileset,
+            environmentPreset: presetInput.value.trim() || selected.environmentPreset,
             kind: selected.kind, groundModel: groundSelect.value || null,
           });
           doc.seed = Number(seedInput.value) || 1337;

@@ -142,15 +142,18 @@ export default {
     function idleState() {
       const idle = ctx.get('idle');
       const live = isLive(idle) && typeof idle.state === 'function' ? idle.state() : null;
-      // P5: `terrain.handle().encounterTable` — the loaded map's own gameplay-profile id —
-      // replaces the old fixed-enum `.biome`.
-      const biome = live?.biome ?? ctx.get('terrain').handle?.()?.encounterTable ?? 'meadow';
+      // The loaded map's own id and yield profile (`terrain.handle().mapId`/`.economy`) —
+      // there is no more fixed enum to fall back into.
+      const handle = ctx.get('terrain').handle?.();
+      const biome = live?.biome ?? handle?.mapId ?? null;
+      const economy = live?.economy ?? handle?.economy ?? null;
       const base = live ?? {
         party: ctx.get('pokemon').party?.() ?? [],
         biome,
+        economy,
         luck: 1,
       };
-      const state = { ...base, biome };
+      const state = { ...base, biome, economy };
       if (state.pure === undefined) {
         // The same three pure functions `idle` injects, so a closed-tab replay and a live
         // session share one index space. Back-filled here rather than saved,

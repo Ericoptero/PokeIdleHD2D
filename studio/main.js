@@ -13,7 +13,7 @@ import { createDocument, createBlankDocument, serializeDocument, createHistory }
 import { makeEditorCanvas } from './canvas.js';
 import { makeLibraryPanel } from './library.js';
 import { makePreview } from './preview.js';
-import { setSpawn, placeMarker, updateLight, moveNpc } from './tools.js';
+import { setSpawn, placeMarker, updateLight, moveNpc, updateSpawnPoint } from './tools.js';
 import { loadTextureBitmaps } from './catalog.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
@@ -164,6 +164,9 @@ function commitGizmoDrag(gizmo, e) {
     // Lights are otherwise free-floating world coordinates (`state.js`'s header) — dragging one
     // in 3D still snaps it to a cell center like every other gizmo, and keeps its own `y`.
     updateLight(currentDoc, history, { index: gizmo.index, patch: { x: cx + 0.5, z: cz + 0.5 } });
+  } else if (gizmo.kind === 'spawnPoint') {
+    const point = currentDoc.spawnPoints[gizmo.index];
+    if (point) updateSpawnPoint(currentDoc, history, { point, patch: { cx, cz } });
   }
   refreshAll(); // same pattern `inspector.js`'s onChange callback uses after its own tools.js calls
 }
@@ -174,18 +177,21 @@ function commitGizmoDrag(gizmo, e) {
 function selectGizmo(gizmo) {
   if (!currentDoc) return;
   if (gizmo.kind === 'spawn') {
-    editorCanvas.setSelection({ cell: { cx: currentDoc.spawn.cx, cz: currentDoc.spawn.cz }, markerName: null, lightIndex: null });
+    editorCanvas.setSelection({ cell: { cx: currentDoc.spawn.cx, cz: currentDoc.spawn.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'marker') {
     const m = currentDoc.markers[gizmo.index];
-    if (m) editorCanvas.setSelection({ cell: { cx: m.cx, cz: m.cz }, markerName: m.name, lightIndex: null });
+    if (m) editorCanvas.setSelection({ cell: { cx: m.cx, cz: m.cz }, markerName: m.name, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'npc') {
     // No dedicated NPC inspector card yet (out of scope for this phase) — cell selection at
     // least brings up the cell/"Objetos" inspector for where the NPC stands.
     const n = currentDoc.npcs[gizmo.index];
-    if (n) editorCanvas.setSelection({ cell: { cx: n.cx, cz: n.cz }, markerName: null, lightIndex: null });
+    if (n) editorCanvas.setSelection({ cell: { cx: n.cx, cz: n.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'light') {
     const l = currentDoc.lights[gizmo.index];
-    if (l) editorCanvas.setSelection({ cell: { cx: Math.floor(l.x), cz: Math.floor(l.z) }, markerName: null, lightIndex: gizmo.index });
+    if (l) editorCanvas.setSelection({ cell: { cx: Math.floor(l.x), cz: Math.floor(l.z) }, markerName: null, lightIndex: gizmo.index, spawnPointIndex: null });
+  } else if (gizmo.kind === 'spawnPoint') {
+    const p = currentDoc.spawnPoints[gizmo.index];
+    if (p) editorCanvas.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: gizmo.index });
   }
 }
 
@@ -395,7 +401,7 @@ if (new URLSearchParams(location.search).get('hooks') === '1') {
   gameMapsCache = await listGameMaps();
   const doc = gameMapsCache.length
     ? createDocument(await loadGameMap(gameMapsCache[0].id))
-    : createBlankDocument({ id: 'novo_mapa', name: 'Novo Mapa', w: 32, h: 32, tileset: 'bw2-adastra', biome: 'meadow', kind: 'hunt' });
+    : createBlankDocument({ id: 'novo_mapa', name: 'Novo Mapa', w: 32, h: 32, tileset: 'bw2-adastra', environmentPreset: 'meadow', kind: 'hunt' });
   await library.init(doc.tileset);
   setDocument(doc);
 })();

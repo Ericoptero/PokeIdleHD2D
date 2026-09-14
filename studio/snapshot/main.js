@@ -1,18 +1,19 @@
 /**
- * studio/snapshot/main.js — boots the real game module stack, headless, to freeze each of
- * the six shipped maps into a `.map.json` (`src/terrain/mapfile.js`).
+ * studio/snapshot/main.js — proves a `.map.json` round-trips exactly through the real engine.
  *
- * Why this has to be a browser page and not a Node script: `src/hunts/selftest.js`'s own
- * header documents the two traps a Node-side stand-in falls into. Loading the real tile pack
- * needs `THREE.TextureLoader` and a DOM, so a stub tileset gives every multi-cell model the
- * stub's footprint, not AdAstra's — and the buffer fixups a real load runs
- * (`rewindDownwardFaces`, `liftNormalsAboveHorizon`, `dropEdgeOnTwins`, `src/tiles/index.js`)
- * feed `armsOf`, which the fence autotile solver reads. Worse: the RNG stream a scene forks
- * (`root/hunts/<biome>/<seed>`, `src/main.js`) is a different label path than a hand-rolled
- * `makeRng(seed, 'hunts/<biome>')` — a different stream, therefore a different map, cell for
- * cell, silently. Only a real boot sees the real stream.
+ * Every map is authored in the Map Studio and loaded straight from its own file now — nothing
+ * generates one from code, so this page no longer "freezes" a code-built scene the way it
+ * once did. What is still worth proving, and the only thing this page does now: fetch a
+ * shipped map file (`before`), replay it onto a fresh draft through the real `terrain`/`tiles`
+ * modules (`src/terrain/frommap.js`), freeze the result the same way the Studio's own exporter
+ * does (`src/terrain/mapfile.js`), and hand both back so `tools/mapstudio/roundtrip.js` can
+ * assert they are semantically identical. That guarantee is what makes a map file trustworthy
+ * at all — the Studio, and every scene that loads one, rest on it.
  *
- * Driven by `tools/mapstudio/snapshot.js` over `puppeteer-core`, the same way
+ * A minimal boot, not the full game: only `tiles`, `terrain` and `environment` register, the
+ * same subset `studio/preview.js` uses — replaying a map needs no NPCs, no battle, no economy.
+ *
+ * Driven by `tools/mapstudio/roundtrip.js` over `puppeteer-core`, the same way
  * `tools/shots/shoot.js` drives a capture — this page never runs on its own.
  */
 
@@ -28,40 +29,10 @@ import { makeRenderer, makeCameraRig, makeSunShadow } from '@/core/render.js';
 import tiles from '@/tiles/index.js';
 import terrain from '@/terrain/index.js';
 import environment from '@/environment/index.js';
-import pokemon from '@/pokemon/index.js';
-import simulation from '@/simulation/index.js';
-import travel from '@/travel/index.js';
-import battle from '@/battle/index.js';
-import encounter from '@/encounter/index.js';
-import economy from '@/economy/index.js';
-import collection from '@/collection/index.js';
-import idle from '@/idle/index.js';
-import offline from '@/offline/index.js';
-import automation from '@/automation/index.js';
-import ui from '@/ui/index.js';
-import city from '@/city/index.js';
-import hunts from '@/hunts/index.js';
-import pokecenter from '@/pokecenter/index.js';
-import preview from '@/preview/index.js';
 
-import { draftToMapFile } from '@/terrain/mapfile.js';
-import { NPCS as CITY_NPCS, PRESETS as CITY_PRESETS, FORMATION as CITY_FORMATION } from '@/city/layout.js';
-import { NURSE, PRESETS as PC_PRESETS, FORMATION as PC_FORMATION } from '@/pokecenter/layout.js';
+import { draftToMapFile, parseMapFile } from '@/terrain/mapfile.js';
 
-const MODULES = [
-  tiles, terrain, environment, pokemon, simulation, travel, battle, encounter,
-  economy, collection, idle, offline, automation, ui, city, hunts, pokecenter, preview,
-];
-
-/** The six shipped maps and how to build each — mirrors `travel/index.js`'s destination list. */
-const TARGETS = [
-  { mapId: 'demo-city', owner: 'city', kind: 'city', name: 'Demo City' },
-  { mapId: 'pokecenter', owner: 'pokecenter', kind: 'interior', name: 'Pokémon Center' },
-  { mapId: 'hunt-forest', owner: 'hunts', kind: 'hunt', biomeId: 'forest' },
-  { mapId: 'hunt-meadow', owner: 'hunts', kind: 'hunt', biomeId: 'meadow' },
-  { mapId: 'hunt-cave', owner: 'hunts', kind: 'hunt', biomeId: 'cave' },
-  { mapId: 'hunt-coast', owner: 'hunts', kind: 'hunt', biomeId: 'coast' },
-];
+const MODULES = [tiles, terrain, environment];
 
 async function boot() {
   const config = makeConfig();
@@ -89,119 +60,53 @@ async function boot() {
   await registry.init(ctx);
   window.__READY__ = true;
 
-  /** Teed lamp specs — `city`/`pokecenter` register lights with `environment` rather than
-   *  returning them, unlike `hunts` (`hunts.stats(id).lights` is already public). Patched
-   *  once, at module scope, so it survives across every `enter()` call this page makes. */
-  let capturedLights = [];
-  const env = ctx.get('environment');
-  if (env?.lamps && typeof env.lamps.add === 'function') {
-    const realAdd = env.lamps.add.bind(env.lamps);
-    env.lamps.add = (spec) => { capturedLights.push(spec); return realAdd(spec); };
-  }
-
   const resolveModel = (slug, id) => ctx.get('tiles').byId(slug, id);
 
-  async function snapshot(mapId) {
-    const t = TARGETS.find((x) => x.mapId === mapId);
-    if (!t) throw new Error(`snapshot: unknown map "${mapId}"`);
-    capturedLights = [];
-
-    if (t.owner === 'city') {
-      await ctx.get('city').enter();
-      const stats = ctx.get('city').stats();
-      const draft = ctx.get('terrain').draft();
-      return draftToMapFile(draft, {
-        name: t.name, kind: t.kind, module: t.owner, resolveModel,
-        source: { builder: 'src/city/map.js + src/city/structures.js', snapshotAt: new Date().toISOString() },
-        extras: stats.extras ?? [],
-        lights: capturedLights,
-        npcs: CITY_NPCS.map((n) => ({ ...n })),
-        cameras: { default: 'default', presets: CITY_PRESETS },
-        formation: CITY_FORMATION,
-        environmentPreset: 'city',
-      });
-    }
-
-    if (t.owner === 'pokecenter') {
-      await ctx.get('pokecenter').enter();
-      const stats = ctx.get('pokecenter').stats();
-      const draft = ctx.get('terrain').draft();
-      return draftToMapFile(draft, {
-        name: t.name, kind: t.kind, module: t.owner, resolveModel,
-        source: { builder: 'src/pokecenter/map.js + src/pokecenter/dress.js', snapshotAt: new Date().toISOString() },
-        extras: stats.extras ?? [],
-        lights: capturedLights,
-        // `solid: true` matches `pokecenter/index.js`'s own inline spawn call — the nurse blocks
-        // the counter tile in the code build, and a map-file NPC with no `solid` field spawns
-        // as passable-through (`simulation.spawnNpc`'s default), which would otherwise silently
-        // regress under `?mapFiles=1` (`src/terrain/populate.js` forwards whatever `solid` a map
-        // file's npc entry carries, verbatim).
-        npcs: [{ name: 'nurse', display: 'Nurse Joy', trainer: 'heroine', cx: NURSE.cx, cz: NURSE.cz, dir: NURSE.dir, solid: true }],
-        cameras: { default: 'default', presets: PC_PRESETS },
-        formation: PC_FORMATION,
-        environmentPreset: 'interior',
-      });
-    }
-
-    // hunts
-    const hunts_ = ctx.get('hunts');
-    await hunts_.enter(t.biomeId);
-    const descriptor = hunts_.descriptor(t.biomeId);
-    const report = hunts_.stats(t.biomeId);
-    const draft = ctx.get('terrain').draft();
-    return draftToMapFile(draft, {
-      name: descriptor.name, kind: 'hunt', module: 'hunts', resolveModel,
-      source: { builder: `src/hunts/biomes/${t.biomeId}.js`, snapshotAt: new Date().toISOString() },
-      requiredLevel: descriptor.requiredLevel ?? 0,
-      weather: descriptor.weather ?? null,
-      environmentPreset: descriptor.preset,
-      extras: report?.extras ?? [],
-      lights: report?.lights ?? [],
-      // `report.loop`/`report.slots` are exactly `stitchLoop`/`slotsForLoop`'s own output
-      // (`src/hunts/index.js`'s `built` map) — cached verbatim so validation and the Studio's
-      // loop/encounter overlays run off pure JSON (`src/terrain/validate.js`'s own header).
-      loop: report?.loop ? { via: descriptor.loop?.via ?? null, resolved: { derived: true, ...report.loop } } : null,
-      wild: report?.slots?.length ? { resolved: { derived: true, slots: report.slots } } : null,
-      encounters: { table: t.biomeId },
-      // The descriptor's own category tags (`src/hunts/biomes/cave.js`'s `tags:['cave']`,
-      // etc. — P5) — without this, a fresh snapshot of cave/coast would silently drop the
-      // field a shipped file never had to begin with, and the Studio would have nothing to
-      // show or round-trip for it (`economy/items.js`'s Dusk/Dive Ball still work off the
-      // descriptor fallback either way — `terrain.handle().tags` — this only makes the
-      // exported file self-describing instead of relying on that fallback forever).
-      tags: descriptor.tags ?? [],
-      cameras: { default: descriptor.showcaseDefault ?? null, presets: descriptor.presets ?? {} },
-      formation: hunts_.biome(t.biomeId)?.formation ?? null,
-    });
+  /**
+   * Fetches and parses `/maps/<id>.map.json` — the same fetch `terrain.loadMapFile` does at
+   * runtime, kept separate here so `before` is the file exactly as shipped, untouched by any
+   * replay.
+   */
+  async function fetchMap(mapId) {
+    const res = await fetch(`/maps/${mapId}.map.json`);
+    if (!res.ok) throw new Error(`snapshot: /maps/${mapId}.map.json ${res.status}`);
+    return parseMapFile(await res.json());
   }
 
-  window.__SNAPSHOT_LIST__ = () => TARGETS.map((t) => t.mapId);
-  window.__SNAPSHOT__ = async (mapId) => snapshot(mapId);
-
   /**
-   * The round-trip proof `tools/mapstudio/roundtrip.js` drives: freeze a map the normal way
-   * (`before`), replay that JSON through `terrain.registerMapFile` + `frommap.js`, freeze the
-   * result the same way (`after`). Exact equality between the two is what makes the format
-   * trustworthy — see `src/terrain/frommap.js`'s own header for the replay-order argument.
+   * The round-trip proof `tools/mapstudio/roundtrip.js` drives: fetch a shipped map file
+   * (`before`), replay it through `terrain.registerMapFile` + `applyMapFile` onto a fresh
+   * draft, freeze the result the same way the Studio's own exporter does (`after`). Exact
+   * equality between the two — on everything that matters, not byte-for-byte JSON — is what
+   * makes the format trustworthy.
    */
   window.__ROUNDTRIP__ = async (mapId) => {
-    const before = await snapshot(mapId);
+    const before = await fetchMap(mapId);
     const rtId = `${mapId}::roundtrip`;
     ctx.get('terrain').registerMapFile(rtId, before);
     await ctx.get('terrain').load(rtId, {
-      w: before.w, h: before.h, tileset: before.tileset, biome: before.biome, seed: before.seed,
+      w: before.w, h: before.h, tileset: before.tileset, seed: before.seed,
     });
     const draft = ctx.get('terrain').draft();
     const report = ctx.get('terrain').report();
     const after = draftToMapFile(draft, {
       name: before.name, kind: before.kind, module: before.module, resolveModel,
-      source: before.source, requiredLevel: before.requiredLevel, weather: before.weather,
-      environmentPreset: before.environmentPreset,
-      extras: report?.extras ?? [], lights: report?.lights ?? [],
-      loop: before.loop, wild: before.wild, encounters: before.encounters,
-      npcs: before.npcs, links: before.links, cameras: before.cameras, formation: before.formation,
+      requiredLevel: before.requiredLevel, weather: before.weather,
+      environmentPreset: before.environmentPreset, economy: before.economy,
+      extras: report?.extras ?? [],
+      spawnPoints: before.spawnPoints, loop: before.loop,
+      npcs: before.npcs, links: before.links, lights: report?.lights ?? before.lights,
+      cameras: before.cameras, formation: before.formation, tags: before.tags,
     });
     return { before, after };
+  };
+
+  /** Every map the manifest lists, for `roundtrip.js` to iterate without a hardcoded list. */
+  window.__SNAPSHOT_LIST__ = async () => {
+    const res = await fetch('/maps/index.json');
+    if (!res.ok) return [];
+    const list = await res.json();
+    return Array.isArray(list) ? list.map((m) => m.id) : [];
   };
 }
 

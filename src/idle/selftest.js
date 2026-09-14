@@ -8,7 +8,7 @@
  * in one call. If it breaks, the two disagree and the player is the one who finds out.
  */
 
-import { simulate, production, digest, BIOMES, UNLOCKS } from './accrual.js';
+import { simulate, production, digest, UNLOCKS, NEUTRAL_ECONOMY } from './accrual.js';
 import { makeDrain } from './drain.js';
 
 /** A fixed party, so a check never depends on what the pokemon module happens to hold. */
@@ -23,6 +23,7 @@ export function fixtureState(patch = {}) {
   return {
     party: FIXTURE_PARTY,
     biome: 'forest',
+    economy: NEUTRAL_ECONOMY,
     luck: 1,
     efficiency: 1,
     tod: 21.5,
@@ -111,27 +112,30 @@ export function runSelfTest({ seed = 1337, gapS = 3 * 3600 } = {}) {
     check('deterministic: seeds diverge', a !== c, `${a} vs ${c}`);
   }
 
-  // 4. Party composition and biome actually move the number.
+  // 4. Party composition and the map's own economy profile actually move the number.
   //
   // **Measured on `exp`, not on `money`**. Money is no longer produced per
   // second by anything — it is earned by selling what a hunt produced — so a check
-  // that compares two biomes' money rates now compares 0 with 0 and passes or fails for no
+  // that compares two profiles' money rates now compares 0 with 0 and passes or fails for no
   // reason. Experience is the channel that still accrues, and it is the one these three
-  // properties were ever really about: that the *place* and the *party* matter.
+  // properties were ever really about: that the *place* (now an authored `economy` object,
+  // not a fixed biome enum) and the *party* matter.
   {
-    const forest = production(fixtureState({ biome: 'forest' })).perSecond.exp;
-    const city = production(fixtureState({ biome: 'city' })).perSecond.exp;
+    const richExp = { ...NEUTRAL_ECONOMY, exp: 1.45, favours: { grass: 1.38 } };
+    const poorExp = { ...NEUTRAL_ECONOMY, exp: 0.55, favours: {} };
+    const forest = production(fixtureState({ economy: richExp })).perSecond.exp;
+    const city = production(fixtureState({ economy: poorExp })).perSecond.exp;
     const empty = production(fixtureState({ party: [] })).perSecond.exp;
     const full = production(fixtureState()).perSecond.exp;
-    check('biome changes production', rel(forest, city) > 0.2,
-      `forest ${forest.toFixed(2)}/s vs city ${city.toFixed(2)}/s`);
+    check('a map\'s own economy profile changes production', rel(forest, city) > 0.2,
+      `rich-exp map ${forest.toFixed(2)}/s vs poor-exp map ${city.toFixed(2)}/s`);
     check('party changes production', full > empty * 3,
       `party ${full.toFixed(2)}/s vs solo trainer ${empty.toFixed(2)}/s`);
     check('empty party still earns', empty > 0, `${empty.toFixed(3)}/s`);
     check('money is not produced by the clock at all',
       production(fixtureState()).perSecond.money === 0
-      && production(fixtureState({ biome: 'city' })).perSecond.money === 0,
-      'every biome, every party');
+      && production(fixtureState({ economy: poorExp })).perSecond.money === 0,
+      'every economy profile, every party');
   }
 
   // 5. Unlocks compose multiplicatively and none of them are on by default.
@@ -220,14 +224,6 @@ export function runSelfTest({ seed = 1337, gapS = 3 * 3600 } = {}) {
     check('drain: nothing owed, nothing happens',
       empty.appliedS === 0 && empty.gains === null && stillEmpty.appliedS === 0 && drain.pending() === 0,
       'negative and NaN queues ignored');
-  }
-
-  // 10. Every biome in the table is complete, so a hunt cannot silently fall back.
-  {
-    const bad = Object.entries(BIOMES).filter(([, b]) =>
-      !Number.isFinite(b.money) || !Number.isFinite(b.exp) || !Number.isFinite(b.encounters) || !b.favours);
-    check('every biome profile complete', bad.length === 0,
-      bad.length ? bad.map(([k]) => k).join(', ') : Object.keys(BIOMES).join(', '));
   }
 
   return out;

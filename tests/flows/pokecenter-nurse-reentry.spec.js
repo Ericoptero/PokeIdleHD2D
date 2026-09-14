@@ -1,9 +1,10 @@
 /**
- * Nurse Joy is spawned in `pokecenter.enter()` after every `terrain.load()`, and
- * `world:unloaded` resets the module's own `nurseId` to `null` first (`src/pokecenter/index.js`).
- * Nothing in the cure flow tests walks the door twice in a real boot and asks
- * `simulation.npcs()` whether she came back doubled — `index.test.js` calls `enter()` at most
- * once per `makeWorld()`, and the flow specs that do walk the door twice
+ * Nurse Joy is spawned in `pokecenter.enter()` after every `terrain.load()`, through
+ * `terrain.populateFromMap` reading the room's own authored `npcs[]` (named `'nurse'` in
+ * `public/maps/pokecenter.map.json`) — and `world:unloaded` disposes the previous cast first
+ * (`src/pokecenter/index.js`). Nothing in the cure flow tests walks the door twice in a real
+ * boot and asks `simulation.npcs()` whether she came back doubled — `index.test.js` calls
+ * `enter()` at most once per `makeWorld()`, and the flow specs that do walk the door twice
  * (`tests/flows/pokecenter.spec.js`, `tests/flows/pokecenter-scene.spec.js`) never look at
  * `simulation.npcs()` at all. This does, against the real module chain, across three visits.
  */
@@ -16,7 +17,7 @@ async function goTo(page, sceneId) {
 }
 
 const nurses = async (page) => (await call(page, 'simulation', 'npcs'))
-  .filter((n) => n.name === 'pokecenter/nurse');
+  .filter((n) => n.name === 'nurse');
 
 test('re-entering the Pokemon Center never leaves a second Nurse Joy standing at the counter', async ({ page }) => {
   await installEventLog(page);

@@ -72,14 +72,15 @@ export function createDocument(map) {
   return {
     w, h, tileset: draftTileset,
     id: map.id, name: map.name, kind: map.kind ?? 'hunt', module: map.module ?? null,
-    biome: map.biome, seed: map.seed, requiredLevel: map.requiredLevel ?? 0,
-    weather: map.weather ?? null, environmentPreset: map.environmentPreset ?? map.biome,
-    source: map.source ?? {},
+    seed: map.seed, requiredLevel: map.requiredLevel ?? 0,
+    weather: map.weather ?? null, environmentPreset: map.environmentPreset ?? 'meadow',
+    // The map's own yield-multiplier profile (`idle/accrual.js` reads this off
+    // `terrain.handle().economy` — no more fixed biome enum to pick one from).
+    economy: map.economy ? JSON.parse(JSON.stringify(map.economy)) : { money: 1, exp: 1, research: 1, encounters: 1, favours: {} },
     // `map.tags` (`mapfile.js`) is a top-level, map-wide category list — `'cave'`,
-    // `'coastal'` — that `economy/items.js`'s ball bonuses key off since P5. Named `mapTags`
-    // here, not `tags`, because that name is already taken by the per-cell tag array
-    // (`grid.tags`) three lines below — the two have coexisted in the file format since
-    // before this field existed and are unrelated concepts.
+    // `'coastal'` — that `economy/items.js`'s ball bonuses key off. Named `mapTags` here, not
+    // `tags`, because that name is already taken by the per-cell tag array (`grid.tags`)
+    // three lines below — the two are unrelated concepts.
     mapTags: map.tags ?? [],
     collision, height, tags, occupied,
     tileLayers, objects, nextObjectId: objects.length, extras,
@@ -87,8 +88,9 @@ export function createDocument(map) {
     spawn: map.spawn ? { ...map.spawn } : { cx: w >> 1, cz: h >> 1, dir: 0 },
     markers: (map.markers ?? []).map((m) => ({ ...m })),
     loop: map.loop ? JSON.parse(JSON.stringify(map.loop)) : null,
-    wild: map.wild ? JSON.parse(JSON.stringify(map.wild)) : null,
-    encounters: map.encounters ? { ...map.encounters } : null,
+    // Wild spawn points — each one owns its own respawn timer and its own weighted list of
+    // species (`{id, cx, cz, dir, respawnSeconds, species:[{name, chance, when?, bump?}]}`).
+    spawnPoints: (map.spawnPoints ?? []).map((p) => ({ ...p, species: (p.species ?? []).map((s) => ({ ...s })) })),
     npcs: (map.npcs ?? []).map((x) => ({ ...x })),
     links: (map.links ?? []).map((x) => ({ ...x })),
     lights: (map.lights ?? []).map((x) => ({ ...x })),
@@ -154,11 +156,11 @@ export function serializeDocument(doc) {
   }
 
   return {
-    format: 'pokeidle.map', version: 1,
+    format: 'pokeidle.map', version: 2,
     id: doc.id, name: doc.name, kind: doc.kind, module: doc.module,
-    w: doc.w, h: doc.h, tileset: doc.tileset, biome: doc.biome, seed: doc.seed,
+    w: doc.w, h: doc.h, tileset: doc.tileset, seed: doc.seed,
     requiredLevel: doc.requiredLevel, weather: doc.weather, environmentPreset: doc.environmentPreset,
-    source: doc.source,
+    economy: doc.economy,
     tags: doc.mapTags ?? [],
     grid: {
       collision: encodeRuns(doc.collision),
@@ -170,19 +172,20 @@ export function serializeDocument(doc) {
     regions: doc.regions,
     spawn: { ...doc.spawn },
     markers: doc.markers.map((m) => ({ ...m })),
-    loop: doc.loop, wild: doc.wild, encounters: doc.encounters,
+    loop: doc.loop,
+    spawnPoints: doc.spawnPoints.map((p) => ({ ...p, species: (p.species ?? []).map((s) => ({ ...s })) })),
     npcs: doc.npcs.map((x) => ({ ...x })), links: doc.links.map((x) => ({ ...x })),
     lights: doc.lights.map((x) => ({ ...x })), cameras: doc.cameras, formation: doc.formation,
   };
 }
 
 /** A blank document for "Novo mapa" — a flat, entirely walkable field. */
-export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-adastra', biome = 'meadow', kind = 'hunt', groundModel = null }) {
+export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-adastra', environmentPreset = 'meadow', kind = 'hunt', groundModel = null }) {
   const n = w * h;
   return {
     w, h, tileset, id, name, kind, module: kind === 'hunt' ? 'hunts' : kind === 'city' ? 'city' : null,
-    biome, seed: 1337, requiredLevel: 0, weather: null, environmentPreset: biome,
-    source: { builder: 'studio (novo mapa)', snapshotAt: new Date().toISOString() },
+    seed: 1337, requiredLevel: 0, weather: null, environmentPreset,
+    economy: { money: 1, exp: 1, research: 1, encounters: 1, favours: {} },
     mapTags: [],
     collision: new Array(n).fill('walk'), height: new Array(n).fill(0),
     tags: new Array(n).fill(null).map(() => []), occupied: new Array(n).fill(0),
@@ -193,7 +196,7 @@ export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-a
     objects: [], nextObjectId: 0, extras: [],
     regions: [],
     spawn: { cx: w >> 1, cz: h >> 1, dir: 0 },
-    markers: [], loop: null, wild: null, encounters: null, npcs: [], links: [], lights: [],
+    markers: [], loop: null, spawnPoints: [], npcs: [], links: [], lights: [],
     cameras: { default: null, presets: {} }, formation: null, dirty: true,
   };
 }

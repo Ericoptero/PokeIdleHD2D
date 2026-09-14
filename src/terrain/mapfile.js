@@ -2,9 +2,11 @@
  * mapfile.js — the declarative `.map.json` format and its codec (src/terrain/mapfile.js).
  *
  * A map file is what a `MapDraft` (`./draft.js`) looks like frozen: the four cell-indexed
- * arrays, the placement list split into per-cell "tile" grids and a list of "objects", the
- * spawn/marker/light/NPC/link authoring data, and whatever a scene (`hunts`, `city`,
- * `pokecenter`) attached on top (loop, wild slots, camera presets, encounter table).
+ * arrays, the placement list split into per-cell "tile" grids and a list of "objects", and
+ * every other thing that defines the map — spawn, markers, lights, NPCs, links, camera
+ * presets, the patrol loop, per-spawn-point wildlife, and the map's own economy profile.
+ * There is exactly one map structure: every map is authored in the Studio and loaded from
+ * this file, with nothing left implicit in code (`ARCHITECTURE.md`).
  *
  * Two things this file deliberately does NOT try to do:
  *
@@ -31,14 +33,31 @@
  *     keeps the ids it saw at export time as `modelIds`, used only as a diagnostic fallback
  *     when a name fails to resolve (`frommap.js`).
  *  4. A map is rarely one tileset. `MapDraft` only ever builds one `InstancedWorld`, so the
- *     extra tilesets a scene composites on top (`city/structures.js`, `hunts/props.js`,
- *     `pokecenter/dress.js`) are their own `layers[]` entries with `role:"extra"`, encoded as
- *     an objects-only list (extras are decorative and routinely multi-cell in practice).
+ *     extra tilesets a scene composites on top (buildings, props, dressing) are their own
+ *     `layers[]` entries with `role:"extra"`, encoded as an objects-only list (extras are
+ *     decorative and routinely multi-cell in practice).
+ *
+ * **Version 2** retired the `biome` enum (there is no procedural generator left to key off
+ * it — every map is authored, not generated) along with the shared `encounters.table`
+ * lookup and the loop-derived `wild.resolved.slots` cache. In their place: `economy`, the
+ * map's own yield-multiplier profile (`idle/accrual.js` used to key this off a fixed 5-entry
+ * `biome` enum; now every map declares its own), and `spawnPoints[]`, where each entry owns
+ * its own respawn timer and its own weighted list of species (`src/hunts/index.js`).
  */
 
 const FORMAT = 'pokeidle.map';
-const VERSION = 1;
+const VERSION = 2;
 const DEFAULT_TINT = 0xffffff;
+
+/** A map that declares no `economy` block gets this — the neutral profile
+ *  `economy/pacing.js` already projects its pricing against. */
+export const DEFAULT_ECONOMY = Object.freeze({
+  money: 1, exp: 1, research: 1, encounters: 1, favours: Object.freeze({}),
+});
+
+/** The environment/lighting preset (`src/environment/presets.js`) a map that names none
+ *  falls back to — a plain default, not a "biome": any map may pick any preset. */
+export const DEFAULT_ENVIRONMENT_PRESET = 'meadow';
 
 // --- run-length codec, generic over any JSON-serializable per-cell value -------------------
 
@@ -221,8 +240,11 @@ function buildDraftLayer(draft, resolveModel) {
   return { tileset: draft.tileset, role: 'draft', models: modelNames, modelIds, tiles, objects };
 }
 
-/** @param {string} tileset @param {object[]} placements @param {Function} resolveModel */
-function buildExtraLayer(tileset, placements, resolveModel) {
+/** @param {string} tileset @param {object[]} placements @param {Function} resolveModel
+ *  @param {object} [options] `InstancedWorld` build options this group needs (`castShadow`,
+ *  `variety`) — carried so a round trip does not lose "this tileset's lamps don't cast
+ *  shadows" once it's a plain file-authored extras layer instead of a hand-built world. */
+function buildExtraLayer(tileset, placements, resolveModel, options) {
   const modelNames = [];
   const modelIds = [];
   const modelIndex = new Map();
@@ -245,7 +267,9 @@ function buildExtraLayer(tileset, placements, resolveModel) {
     if (p.y !== undefined) obj.y = round3(p.y);
     return obj;
   });
-  return { tileset, role: 'extra', models: modelNames, modelIds, objects };
+  const entry = { tileset, role: 'extra', models: modelNames, modelIds, objects };
+  if (options && Object.keys(options).length) entry.options = { ...options };
+  return entry;
 }
 
 function buildGrid(draft) {
@@ -270,24 +294,27 @@ function buildGrid(draft) {
  * @param {(tileset:string, modelId:number) => {name:string,w?:number,h?:number}|null} opts.resolveModel
  *   looks a placement's numeric model id up in its tileset's catalog — `(slug,id) =>
  *   tiles.byId(slug,id)` from the caller's loaded `tiles` module.
- * @param {{tileset:string, placements:object[]}[]} [opts.extras] the second/third/fourth
- *   `InstancedWorld`s a scene composited on top (`city/structures.js` etc).
+ * @param {{tileset:string, placements:object[], options?:object}[]} [opts.extras] the second/
+ *   third/fourth `InstancedWorld`s a scene composited on top (buildings, props, dressing).
  */
 export function draftToMapFile(draft, opts) {
   const layers = [buildDraftLayer(draft, opts.resolveModel)];
-  // A scene can build several separate `InstancedWorld`s off the same extra tileset (`city`
-  // pushes one `{tileset:'structures',...}` extras entry for its buildings and a second for
-  // its lamp posts — `src/city/structures.js`). `frommap.js`'s replay always buckets by
-  // tileset on the way back in, so the exporter merges here too — one `layers[]` entry per
-  // distinct extra tileset — or a snapshot and its own round trip disagree on layer count
-  // for no reason a diff can explain.
-  const extrasByTileset = new Map();
+  // A scene can build several separate `InstancedWorld`s off the same extra tileset with
+  // different build options (`city`'s buildings cast shadows, its lamp posts and paving do
+  // not — `src/terrain/populate.js`'s `buildExtras`). `frommap.js`'s replay buckets by
+  // `(tileset, options)` on the way back in, so the exporter groups here the same way — one
+  // `layers[]` entry per distinct (tileset, options) pair — or a snapshot and its own round
+  // trip disagree on layer count for no reason a diff can explain.
+  const extrasByGroup = new Map();
   for (const ex of opts.extras ?? []) {
-    const list = extrasByTileset.get(ex.tileset) ?? [];
-    if (!extrasByTileset.has(ex.tileset)) extrasByTileset.set(ex.tileset, list);
-    list.push(...ex.placements);
+    const key = `${ex.tileset} ${JSON.stringify(ex.options ?? {})}`;
+    let group = extrasByGroup.get(key);
+    if (!group) { group = { tileset: ex.tileset, options: ex.options ?? {}, placements: [] }; extrasByGroup.set(key, group); }
+    group.placements.push(...ex.placements);
   }
-  for (const [tileset, placements] of extrasByTileset) layers.push(buildExtraLayer(tileset, placements, opts.resolveModel));
+  for (const { tileset, options, placements } of extrasByGroup.values()) {
+    layers.push(buildExtraLayer(tileset, placements, opts.resolveModel, options));
+  }
 
   const markers = [...draft.markers.entries()].map(([name, m]) => {
     const { cx, cz, ...rest } = m;
@@ -304,23 +331,26 @@ export function draftToMapFile(draft, opts) {
     w: draft.w,
     h: draft.h,
     tileset: draft.tileset,
-    biome: draft.biome,
     seed: draft.seed,
     requiredLevel: opts.requiredLevel ?? 0,
     weather: opts.weather ?? null,
-    environmentPreset: opts.environmentPreset ?? draft.biome,
-    source: opts.source ?? {},
+    environmentPreset: opts.environmentPreset ?? DEFAULT_ENVIRONMENT_PRESET,
+    // The map's own yield-multiplier profile — `idle/accrual.js` reads this off
+    // `terrain.handle().economy`. See this file's own header (version 2).
+    economy: opts.economy ?? { ...DEFAULT_ECONOMY, favours: { ...DEFAULT_ECONOMY.favours } },
     grid: buildGrid(draft),
     layers,
     regions: opts.regions ?? [],
     spawn: opts.spawn ? { ...opts.spawn } : { ...draft.spawn },
     markers,
     loop: opts.loop ?? null,
-    wild: opts.wild ?? null,
-    encounters: opts.encounters ?? null,
+    // Wild spawn points — each one owns its own respawn timer and its own weighted list of
+    // species (`{id, cx, cz, dir, respawnSeconds, species:[{name, chance, when?, bump?}]}`).
+    // Placed directly by the Studio author; no longer derived from the patrol loop.
+    spawnPoints: opts.spawnPoints ?? [],
     // Free-form category tags (`'cave'`, `'coastal'`, …) a consumer checks with `.includes`
-    // rather than an identity lookup — see `terrain.handle()`'s own doc for why this is a
-    // separate field from `encounters.table` rather than folded into it (P5).
+    // rather than an identity lookup — see `terrain.handle()`'s own doc for why this is not
+    // folded into a single lookup key.
     tags: opts.tags ?? [],
     npcs: opts.npcs ?? [],
     links: opts.links ?? [],

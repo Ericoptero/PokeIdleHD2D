@@ -42,7 +42,12 @@ test('a plate over the party tracks the live duel, not the stale party record', 
     await step(page, 20);
     ticks += 20;
   }
-  await step(page, 90); // a few turns in
+  // A few turns in, but not so many that a weaker wild (this map's own authored
+  // `spawnPoints[]` can draw a different one than the old shared table did, on the same seed)
+  // has already been finished off — `ACTION_STEPS` (config.actionSteps, default 18) ticks per
+  // turn, so this is comfortably inside a first exchange without assuming how many more it
+  // takes to resolve.
+  await step(page, 20);
 
   // 3. The plate's identity AND HP must match the live duel state, not the untouched party
   //    record — `active.duel.ally` is the combatant the fight OPENED with and is never

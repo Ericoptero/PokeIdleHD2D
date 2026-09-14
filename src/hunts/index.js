@@ -1,27 +1,28 @@
 /**
- * hunts — the biomes a party actually hunts in (src/hunts/index.js).
+ * hunts — the places a party actually hunts in (src/hunts/index.js).
  *
- * A hunt map is composed, never sampled: every region in it exists because the place has a
- * reason for its shape. The authoring lives in `biomes/<id>.js`, one file per biome, and
- * everything they share — region algebra, palettes, the auto-tile guard rails — lives in
- * `compose.js` and `palette.js`.
+ * A hunt map is entirely authored in the Map Studio and loaded from its own `.map.json`
+ * (`@/terrain/mapfile.js`); nothing about its terrain is generated. This file is the seam: it
+ * discovers every `kind:'hunt'` entry in `/maps/index.json`, registers each with `terrain`,
+ * drives `environment`'s look preset, stands the party's wildlife up from each map's own
+ * authored `spawnPoints[]`, hands the party to `simulation`, and owns the camera framings a
+ * critic shoots.
  *
- * This file is the seam: it registers each map with `terrain`, drives `environment`'s biome
- * preset, hands the party to `simulation`, and owns the camera framings a critic shoots.
- *
- * **Two kinds of hunt, one registry (P5).** `BIOMES` below is the four hand-authored places
- * — a procedural build function plus hand-tuned presets/loop/formation. Any OTHER
- * `kind:'hunt'` entry in `/maps/index.json` — a map created and saved in the Map Studio with
- * no code behind it at all — is discovered at `init` and registered the same way, as a
- * synthetic descriptor with no build function (see `manifestBiomes`, in `init`, below). Both
- * kinds are entered, listed and audited through the exact same functions in this file; the
- * only place they differ is which of the two has a `build` to fall back on when `?mapFiles=1`
- * is off or the file 404s.
+ * **One kind of hunt, discovered from the manifest.** Any `.map.json` with `kind:'hunt'` is a
+ * playable hunt the moment it exists in `public/maps/` — there is no code-side registry to
+ * also update. `compose.js`'s `findLoop`/`stitchLoop` still run here as the fallback that
+ * computes a map's patrol circuit when its own `loop.resolved` has not been stitched and
+ * saved yet (the Studio can also run them ahead of time, the same functions, and save the
+ * result) — everything else `compose.js` used to offer (noise, region algebra, prop
+ * scattering) belonged to procedural generation and left with it.
  */
 
-import { makePalette, isLive } from './palette.js';
-import { findLoop, slotsForLoop, stitchLoop } from './compose.js';
+import { findLoop, stitchLoop } from './compose.js';
 import { bfsPath, bfsCells } from '../core/path.js';
+
+/** The registry hands out a null-object proxy for a dead module, and it answers
+ *  `typeof api.foo === 'function'` with true. `__missing` is the only honest tell. */
+const isLive = (api) => !!api && api.__missing === undefined;
 
 /** `core/dir.js`'s deltas, for walking a route string back over the draft in `audit()`. */
 const LOOP_DX = [0, -1, 0, 1];
@@ -36,31 +37,17 @@ const parseLoop = (spec) => {
   }
   return out;
 };
-import { FOREST, buildForest } from './biomes/forest.js';
-import { MEADOW, buildMeadow } from './biomes/meadow.js';
-import { CAVE, buildCave } from './biomes/cave.js';
-import { COAST, buildCoast } from './biomes/coast.js';
 
-/** @type {Array<object>} the biomes, in the order the showcase lists them. */
-export const BIOMES = [
-  { ...FOREST, build: buildForest },
-  { ...MEADOW, build: buildMeadow },
-  { ...CAVE, build: buildCave },
-  { ...COAST, build: buildCoast },
-];
+/** Night is 18:00–04:00 — the same band `economy/items.js`'s Dusk Ball asks about. Kept here
+ *  (not a cross-import) so a spawn point's optional per-species `when` needs nothing from
+ *  `encounter`. */
+function todBand(tod) {
+  const t = ((Number(tod) || 0) % 24 + 24) % 24;
+  if (t >= 18 || t < 4) return 'night';
+  if (t < 10) return 'morning';
+  return 'day';
+}
 
-/**
- * How the party walks when nothing says otherwise: **east**, and only a few tiles in.
- *
- * `dir` is `core/dir.js`'s EAST. Every biome overrides `route` with a leg its own map can
- * actually walk (see each `biomes/*.js`), but the direction is not a per-biome taste call:
- * a party walking north files straight up the screen under a camera whose yaw never
- * changes, so each sprite stands in front of the one behind it and the only thing the
- * camera can see of the trainer is the back of the cap — a cream lozenge with no face on
- * it. That is the single defect all three blind A/B rounds named. Walking east strings the
- * queue out left-to-right across the frame: nobody occludes anybody, and the trainer shows
- * the side of the sheet that has a face, a brim and two arms on it.
- */
 /**
  * How a hunt is played (`simulation.setFormation`).
  *
@@ -80,51 +67,49 @@ const HUNT_FORMATION = {
 };
 
 /**
- * How much of the map a circuit may take, and how many creatures stand beside it.
+ * How much of the map a circuit may take.
  *
- * A biome may AUTHOR its own circuit: an ordered list of its own marker names in `loop.via`
+ * A map may AUTHOR its own circuit: an ordered list of its own marker names in `loop.via`
  * (`authoredLoop`, below, and `stitchLoop` in `compose.js`) gets stitched into a ring through
  * exactly those markers, in the order asked, on the draft that was actually built — a route
- * string could not do this (a list of relative directions has no idea where it is, and one
- * authored against a map stays correct only until the composition changes; that is why the old
- * `walk.route` strings drifted, see `stageOnLoop`'s own comment below), but a marker NAME is
- * resolved fresh on every build.
+ * string could not do this (a list of relative directions has no idea where it is), but a
+ * marker NAME is resolved fresh on every build.
  *
- * `findLoop` is the fallback, not the plan: it runs when a biome declares no `via`, or when the
- * authored circuit could not be stitched over the shipped map (a missing marker, a leg that
- * would not stitch, a rejected ring — `authoredLoop` warns and `audit()` below fails loudly on
- * any of those, so a degraded biome cannot ship quietly green).
+ * `findLoop` is the fallback, not the plan: it runs only when a map's `loop.resolved` has not
+ * been stitched and saved yet (a fresh Studio map, or one whose `loop.via` could not be
+ * stitched over its own markers — a missing marker, a leg that would not stitch, a rejected
+ * ring — `authoredLoop` warns and `audit()` below fails loudly on any of those, so a degraded
+ * map cannot ship quietly green).
  */
 const LOOP = { min: 6, max: 22, margin: 11 };
 
 /**
- * The shape knobs, resolved per biome — and read only by the `findLoop` FALLBACK.
+ * The shape knobs, resolved per map — and read only by the `findLoop` FALLBACK.
  *
- * `corners`, `depth` and the rest of this bag shape the rectangle `findLoop` grows; a biome
+ * `corners`, `depth` and the rest of this bag shape the rectangle `findLoop` grows; a map
  * with an authored `loop.via` is stitched straight through its own markers instead and never
- * consults them. Three layers, most specific first: whatever the biome's own `loop` field
+ * consults them. Three layers, most specific first: whatever the map's own `loop` field
  * says, then `config` (which `?loopCorners=` reaches without touching code), then the defaults
- * above. A biome that wants a plain rectangle fallback asks for `loop: { corners: 4 }` and
- * gets one.
+ * above.
  */
-const loopOptions = (biome, config) => ({
+const loopOptions = (report, config) => ({
   ...LOOP,
-  corners: biome.loop?.corners ?? config.loopCorners ?? 12,
-  depth: biome.loop?.depth ?? config.loopDepth ?? 3,
-  preferTags: biome.loop?.preferTags ?? ['path', 'tallgrass'],
+  corners: report.loop?.corners ?? config.loopCorners ?? 12,
+  depth: report.loop?.depth ?? config.loopDepth ?? 3,
+  preferTags: report.loop?.preferTags ?? ['path', 'tallgrass'],
   // The queue is `gap` walkers long, so the ring has to open with at least that many steps in
   // one direction or the head is placed off its own path.
   straightLead: (config.followerGapTiles ?? 2) + 2,
-  ...(biome.loop ?? {}),
+  ...(report.loop ?? {}),
 });
-/** Slots per lap. `WILD_CAP` is the ceiling; a lap wants encounters, not a wall of them. */
-const SLOTS = 9;
-/** Seconds an emptied slot stays empty before something new walks onto it. */
-const RESPAWN_S = 26;
 
-/** How many wild Pokemon a biome stands up, and how they are chosen. */
-const WILD_CAP = 11;          // MAX_NPCS is 32 and `city` uses a dozen of them
-const WILD_SPECIES_CAP = 6;   // one atlas sheet each; the rest are repeats
+/** A safety ceiling on how many wild Pokemon stand up at once — a map with more authored
+ *  `spawnPoints` than this just does not stand all of them up simultaneously (MAX_NPCS is 32
+ *  and `city` uses a dozen of them). Not authored; nothing in a hunt map needs to name it. */
+const WILD_CAP = 11;
+
+/** A spawn point that names no `respawnSeconds` of its own gets this. */
+const DEFAULT_RESPAWN_S = 26;
 
 export default {
   id: 'hunts',
@@ -210,15 +195,16 @@ export default {
 
     /** @type {Map<string, object>} what the last build of each map reported. */
     const built = new Map();
-    /** Worlds drawn from a tileset that is not the draft's — see the note in `enter`. */
-    let extraWorlds = [];
+    /** @type {{stats:object, dispose:() => void}|null} buildings/props built from a tileset
+     *  that is not the draft's own — see `terrain.buildExtras` in `enter`. */
+    let extraWorlds = null;
     let currentId = null;
 
     /** @type {number[]} the wild Pokemon standing in this map's grass, by NPC id. */
     let wildIds = [];
 
     /**
-     * The level of the creature that walks onto slot `k` on its `gen`-th refill.
+     * The level of the creature that walks onto spawn point `k` on its `gen`-th refill.
      *
      * **Rolled when it arrives, not when it is fought.** `encounter.engage` used to take the
      * species from the slot and the level from the encounter index, which was invisible while
@@ -230,20 +216,24 @@ export default {
      * respawn stream: sibling streams cannot perturb each other (src/core/rng.js), so every
      * species and shiny this module has ever rolled from a seed still rolls the same.
      * The band is `encounter`'s own (`levelBand` of the party's best member), so a hunt does
-     * not suddenly stand up level-40 wildlife for a level-5 party.
+     * not suddenly stand up level-40 wildlife for a level-5 party. `bump` is the spawn point's
+     * own species row's optional field — extra levels for a rare that should out-class the
+     * band it walked onto (the old shared encounter tables' `bump` column, now authored per
+     * spawn point instead of per table row).
      */
-    function levelForSlot(biomeId, k, gen) {
+    function levelForSlot(mapId, k, gen, bump = 0) {
       const encounter = ctx.get('encounter');
       const band = (isLive(encounter) && typeof encounter.band === 'function')
         ? encounter.band() : null;
       const min = Math.max(1, Math.round(Number(band?.min) || 3));
       const max = Math.max(min, Math.round(Number(band?.max) || min + 3));
-      return ctx.rng.fork(`hunts/level/${biomeId}/${k}/${gen}`).int(min, max);
+      const level = ctx.rng.fork(`hunts/level/${mapId}/${k}/${gen}`).int(min, max);
+      return level + (Number(bump) || 0);
     }
 
     function disposeExtras() {
-      for (const w of extraWorlds) w.dispose?.();
-      extraWorlds = [];
+      extraWorlds?.dispose();
+      extraWorlds = null;
     }
     bus.on('world:unloaded', disposeExtras);
 
@@ -373,7 +363,7 @@ export default {
       const canFight = !isLive(pokemon) || typeof pokemon.firstConscious !== 'function'
         || !!pokemon.firstConscious();
       if (!canFight) return;
-      const list = built.get(currentId)?.slots ?? [];
+      const list = built.get(currentId)?.spawnPoints ?? [];
       if (!list.length) return;
       const npcs = typeof sim.npcs === 'function' ? sim.npcs() : [];
       const range = Math.max(1, Math.round(Number(config?.aggroTiles) || 5));
@@ -542,7 +532,7 @@ export default {
     });
 
     /**
-     * Stands wild Pokemon in the biome's own grass.
+     * Stands wild Pokemon in the map's own authored `spawnPoints[]`.
      *
      * The whole-game critic's headline: *"not one wild Pokemon appears in any of the sixteen
      * hunt frames across four biomes and four hours; the city plaza has more creatures in it
@@ -551,12 +541,12 @@ export default {
      *
      * Three seams, and no fourth:
      *
-     *  - **which species** is `encounter.tablesFor(biome, tod)` — the same weighted table the
-     *    idle loop rolls against, so what is standing in the grass at 21:00 is what you would
-     *    actually meet there at 21:00. It comes back weight-expanded (`tables.js`), so a
-     *    uniform pick from it is the weighted pick;
-     *  - **where** is the biome's own build report: each `biomes/*.js` returns `wild`, a list
-     *    of cells inside its encounter grass and clear of the route the party walks;
+     *  - **which species** is that spawn point's own `species[]` — a weighted pick, one
+     *    species entry's `chance` against the sum of all of them (an optional `when` filters
+     *    a row to a time-of-day band first, the same `morning|day|night` split the old shared
+     *    encounter tables used);
+     *  - **where** is the spawn point's own `cx,cz` — placed directly by the map's author in
+     *    the Studio, not derived from the patrol loop;
      *  - **how it is drawn** is `simulation.spawnNpc`, which stages through `pokemon`'s sprite
      *    field — one InstancedMesh for the whole cast, so eleven creatures cost zero extra
      *    draw calls and pick up contact shadows and the idle animation for free.
@@ -566,9 +556,8 @@ export default {
      * which is 4.4 tiles at `walkSecondsPerTile` 0.25 — so a creature placed two cells off the
      * lane can be anywhere within four of it by the time the shutter opens, and in
      * `coast-route-21` one walked onto the trainer's head. Standing keeps every one of them
-     * exactly where `wildCells` put it, which is the placement this module can actually
-     * reason about. They still animate: `poseWalker` gives a stationary Pokemon the idle
-     * shuffle off simulated time.
+     * exactly where its spawn point put it. They still animate: `poseWalker` gives a
+     * stationary Pokemon the idle shuffle off simulated time.
      *
      * The atlas is built **before** the spawn loop rather than by it. `Cast.sync` awaits
      * `pokemon.sprites.prepare` internally, so spawning eleven NPCs one at a time would leave
@@ -576,7 +565,21 @@ export default {
      * field half-populated — a determinism hole that shows up as a shot that differs from
      * itself. Preparing every sheet first leaves `Cast.sync` with nothing but microtasks.
      */
-    async function spawnWild(biome) {
+    function rollSpeciesFor(point, tod, rng) {
+      const band = todBand(tod);
+      const rows = (point.species ?? []).filter((r) => !r.when || r.when === 'any' || r.when === band);
+      const pool = rows.length ? rows : (point.species ?? []);
+      const total = pool.reduce((n, r) => n + (Number(r.chance) || 0), 0);
+      if (!pool.length || total <= 0) return null;
+      let roll = rng.next() * total;
+      for (const row of pool) {
+        roll -= Number(row.chance) || 0;
+        if (roll <= 0) return row;
+      }
+      return pool[pool.length - 1];
+    }
+
+    async function spawnWild(id) {
       clearWild();
       occupancy.clear();
       refills.length = 0;
@@ -585,78 +588,56 @@ export default {
       const pokemon = ctx.get('pokemon');
       if (!isLive(sim) || typeof sim.spawnNpc !== 'function') return 0;
       if (!isLive(pokemon) || typeof pokemon.species !== 'function') return 0;
-      // The SLOTS, not `wildCells`' scenery scatter. A slot is a fixed respawn point two
-      // cells off the circuit (src/hunts/index.js) and the creature on it drifts one tile around it, so the
-      // party meets the same wildlife in the same places on every lap — which is what makes a
-      // hunt a route rather than a lucky dip. Falls back to the old scatter when a map could
-      // not be given a loop, so a biome with no circuit still has animals in it.
-      /**
-       * **Slots only.** The old fallback spawned the biome's decorative `wildCells` scatter
-       * when a map got no circuit — and those creatures are scenery: they sit at no slot, so
-       * `takeSlot` has nothing to hand over and a player can walk past them forever. The brief
-       * is explicit that every wild visible on a hunt map must be huntable, so a map with no
-       * loop now stands empty and says so. A wood with no animals is a legible bug; a wood full
-       * of animals that cannot be fought is not.
-       */
-      const cells = (built.get(biome.id)?.slots ?? []).map((c, i) => ({ ...c, k: i }));
-      if (!cells.length) {
-        log.warn(`hunts/${biome.id}: no spawn slots (no circuit was found) — the wood stands empty`);
+      const points = (built.get(id)?.spawnPoints ?? []).map((p, i) => ({ ...p, k: i }));
+      if (!points.length) {
+        log.warn(`hunts/${id}: no spawn points authored on this map — the wood stands empty`);
         return 0;
       }
 
       const env = ctx.get('environment');
       const tod = (isLive(env) && typeof env.getTimeOfDay === 'function')
         ? env.getTimeOfDay() : (ctx.config.tod ?? 12);
-      const encounter = ctx.get('encounter');
-      const table = (isLive(encounter) && typeof encounter.tablesFor === 'function')
-        ? (encounter.tablesFor(biome.id, tod) ?? []) : [];
-      if (!table.length) {
-        log.warn(`hunts/${biome.id}: encounter has no table at tod ${tod} — the grass stays empty`);
-        return 0;
-      }
 
-      // Seeded off the biome *and the hour*, so the same URL gives the same creatures and a
+      // Seeded off the map *and the hour*, so the same URL gives the same creatures and a
       // different hour gives the nocturnal ones. Never `Math.random` (src/core/rng.js).
-      const rng = ctx.rng.fork(`hunts/wild/${biome.id}/${Math.round(tod * 4)}`);
-      /** A short cast, so a frame reads as a place with animals in it rather than a zoo. */
-      const roster = [];
-      for (let i = 0; i < WILD_SPECIES_CAP * 4 && roster.length < WILD_SPECIES_CAP; i++) {
-        const s = pokemon.species(table[rng.int(0, table.length - 1)]);
-        if (s && !roster.some((r) => r.name === s.name)) roster.push(s);
-      }
-      if (!roster.length) return 0;
-
-      const n = Math.min(WILD_CAP, cells.length);
+      const rng = ctx.rng.fork(`hunts/wild/${id}/${Math.round(tod * 4)}`);
+      const n = Math.min(WILD_CAP, points.length);
       // At most one shiny, and usually none. One is a reward for looking; two in a frame is a
       // bug report. Both rolls are seeded, so whether this map has one is a property of the
       // seed and the hour rather than of when the shutter opened.
       const shinyAt = rng.next() < 0.35 ? rng.int(0, n - 1) : -1;
-      const picked = cells.slice(0, n).map((c, i) => ({
-        ...c, k: c.k ?? i, species: roster[i % roster.length], shiny: i === shinyAt,
-        level: levelForSlot(biome.id, c.k ?? i, 0),
-      }));
+      const picked = [];
+      for (const p of points.slice(0, n)) {
+        const row = rollSpeciesFor(p, tod, ctx.rng.fork(`hunts/wild/${id}/${p.k}/species`));
+        const species = row ? pokemon.species(row.name) : null;
+        if (!species) continue;
+        picked.push({
+          ...p, species, shiny: picked.length === shinyAt,
+          level: levelForSlot(id, p.k, 0, row.bump),
+        });
+      }
+      if (!picked.length) return 0;
 
       await pokemon.sprites?.prepare?.(picked.map((p) => ({ species: p.species, shiny: p.shiny })));
 
       for (const p of picked) {
         const npc = sim.spawnNpc({
           species: p.species, shiny: p.shiny, cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
-          // One tile of drift around the slot and no further: far enough that the wood is
-          // alive, near enough that the slot is still where the player learned it was.
+          // One tile of drift around the spawn point and no further: far enough that the wood
+          // is alive, near enough that it is still where the player learned it was.
           tether: { cx: p.cx, cz: p.cz, radius: 1 },
-          // Blocks the party's step (src/simulation/index.js). Safe because a slot is at Chebyshev exactly 2 from
-          // the circuit and the tether radius is 1, so a wild can never stand on a loop cell.
+          // Blocks the party's step (src/simulation/index.js).
           solid: true,
           // Named, because `simulation` forks its stream off the name: an unnamed NPC keys off
           // an incrementing id, so adding one more would reshuffle the walk of every creature
           // already on the map.
-          name: `wild/${biome.id}/${p.cx},${p.cz}`,
+          name: `wild/${id}/${p.cx},${p.cz}`,
         });
         if (npc) {
           wildIds.push(npc.id);
-          // The slot remembers what is standing on it, so `encounter` can engage it by index
-          // and this module can put something new there when the fight is over.
-          occupancy.set(p.k ?? wildIds.length - 1, {
+          // The spawn point remembers what is standing on it, so `encounter` can engage it by
+          // index and this module can put something new there when the fight is over.
+          occupancy.set(p.k, {
             npcId: npc.id, species: p.species, shiny: !!p.shiny, level: p.level,
             cx: p.cx, cz: p.cz, dir: p.dir ?? 0,
           });
@@ -666,214 +647,137 @@ export default {
     }
 
     /**
-     * A biome's own predetermined circuit — `stitchLoop` (`compose.js`) run through the marker
+     * A map's own predetermined circuit — `stitchLoop` (`compose.js`) run through the marker
      * names it names in `loop.via`, in order, closed last-to-first. Tried before `findLoop`'s
-     * rectangle-grown fallback below; `null` (never throws) when the biome declares no `via`,
+     * rectangle-grown fallback below; `null` (never throws) when the map declares no `via`,
      * names fewer than three markers, names one this draft does not have, or `stitchLoop`
      * itself rejects the ring (a leg that would not stitch, a revisited or too-close-to-the-edge
      * cell, no opening straight run) — every one of those is a `log.warn`, because a caller
      * that falls back to a found circuit without saying so is exactly what `audit()`, below,
      * exists to catch when it happens.
      */
-    function authoredLoop(draft, biome, c) {
-      const via = biome.loop && biome.loop.via;
+    function authoredLoop(draft, id, report, c) {
+      const via = report.loop && report.loop.via;
       if (!Array.isArray(via) || via.length < 3) return null;
       const points = [];
       for (const name of via) {
         const m = draft.marker(name);
         if (!m) {
           const known = [...draft.markers.keys()].join(', ') || 'none';
-          log.warn(`hunts/${biome.id}: authored circuit names marker "${name}", `
+          log.warn(`hunts/${id}: authored circuit names marker "${name}", `
             + `which this draft does not have (has: ${known}) -- falling back to a found circuit`);
           return null;
         }
         points.push({ cx: m.cx, cz: m.cz });
       }
-      const opts = loopOptions(biome, c.config);
+      const opts = loopOptions(report, c.config);
       return stitchLoop(draft, points, {
         straightLead: opts.straightLead, preferTags: opts.preferTags, margin: opts.margin,
         onLegFailed: ({ index, from, to }) => log.warn(
-          `hunts/${biome.id}: authored circuit leg ${via[index]} (${from.cx},${from.cz}) `
+          `hunts/${id}: authored circuit leg ${via[index]} (${from.cx},${from.cz}) `
           + `-> ${via[(index + 1) % via.length]} (${to.cx},${to.cz}) could not be stitched `
           + 'over the shipped map -- falling back to a found circuit'),
         onReject: (reason) => log.warn(
-          `hunts/${biome.id}: authored circuit rejected (${reason}) -- falling back to a found circuit`),
+          `hunts/${id}: authored circuit rejected (${reason}) -- falling back to a found circuit`),
       });
     }
 
-    /**
-     * Camera presets for a biome, preferring what its last map-file build reported
-     * (`report.presets`, from `map.cameras.presets`) over the biome descriptor's own
-     * hand-authored `presets` object — the same "the authored map wins, the descriptor is the
-     * fallback" rule `authoredLoop`/`findLoop` already follow for the circuit itself. Falls
-     * back to the descriptor whenever this biome has never been built from a map file (the
-     * flag is off, the file 404s, or it has not been entered at all yet).
-     */
+    /** Camera presets for a map — its last build's own report (`map.cameras.presets`). */
     function presetsFor(biome) {
-      return built.get(biome.id)?.presets ?? biome.presets ?? {};
+      return built.get(biome.id)?.presets ?? {};
     }
 
-    /** Same preference order as `presetsFor`, merged over `HUNT_FORMATION`'s own defaults. */
+    /** The map's own authored formation, merged over `HUNT_FORMATION`'s defaults. */
     function formationFor(biome) {
-      return { ...HUNT_FORMATION, ...(built.get(biome.id)?.formation ?? biome.formation ?? {}) };
+      return { ...HUNT_FORMATION, ...(built.get(biome.id)?.formation ?? {}) };
     }
 
     /**
-     * **Manifest-driven hunt maps (P5 item 2).** `BIOMES` above is four *hand-authored*
-     * descriptors — a procedural build function, hand-tuned `presets`/`loop.via`/
-     * `requiredLevel` — and until now it was also the only source of "what hunts exist":
-     * `terrain.register`, `hunts.list()` and therefore `travel.destinations()` all iterated
-     * it directly. That made "any map can be entered without a code change" false: a fifth
-     * map dropped into `public/maps/` with `kind:'hunt'` had nowhere to be registered.
+     * **Every hunt map is discovered from the manifest — there is no code-side registry.**
      *
      * This reads `/maps/index.json` — the same manifest `studio/io.js`'s `listGameMaps`
-     * reads, and the same one `terrain.tryLoadMapFile` assumes exists for any map it is asked
-     * to load — for every `kind:'hunt'` entry that has NO matching `BIOMES` descriptor, and
-     * builds a **synthetic** descriptor for it: no `build` function (there is no code-build
-     * fallback for one of these — `mapFiles` must be on and the file must exist, which it
-     * does, since it is in the manifest), no hand-authored `presets`/`loop.via` (the map
-     * file's own `report` supplies those at build time, exactly like a Studio-edited shipped
-     * hunt already does — see `presetsFor`/`formationFor`, above). `w`/`h`/`tileset` are read
-     * off the map file itself (`terrain.tryLoadMapFile`, not just the manifest's summary row)
-     * because `MapDraft`'s dimensions have to match the file's `grid.*` runs exactly
-     * (`frommap.js`'s `stampGrids` throws on a mismatch) and its tileset has to match the
-     * file's own `layers[]` for `role:'draft'` placements to resolve against the right
-     * catalog (`mapfile.js`'s header) — the manifest's summary row alone (`{id,name,kind,w,h}`)
-     * is not authoritative enough for either.
+     * reads — for every `kind:'hunt'` entry, and fetches each one's own file (not just the
+     * manifest's summary row) because `MapDraft`'s dimensions have to match the file's
+     * `grid.*` runs exactly (`frommap.js`'s `stampGrids` throws on a mismatch) and its
+     * tileset has to match the file's own `layers[]` for `role:'draft'` placements to resolve
+     * against the right catalog (`mapfile.js`'s header).
      *
-     * Gated on `ctx.config.mapFiles`: a map with no code-build fallback is only ever playable
-     * with the flag that makes `terrain.tryLoadMapFile` actually fetch anything, so
-     * registering one while the flag is off would publish a travel destination that always
-     * loads an empty map.
-     *
-     * A hunt map's own id already carries the `hunt-` prefix in the manifest (`hunt-forest`,
-     * …, and a new one is expected to follow the same convention — see the throwaway
-     * `hunt-test-arena` this phase's own verification adds and removes). Stripped here to a
-     * bare id so it lives in the exact same id space as `BIOMES`' own `.id` — `hunts.list()`,
-     * `built`, `byId` and `travel`'s `hunt-${b.id}` reconstruction never have to know which
-     * kind of entry they are looking at.
+     * A hunt map's own id carries the `hunt-` prefix in the manifest (`hunt-forest`, …).
+     * Stripped here to a bare id — `hunts.list()`, `built`, `byId` and `travel`'s
+     * `hunt-${b.id}` reconstruction all use the bare form.
      * @type {Map<string, object>}
      */
-    const manifestBiomes = new Map();
-    if (config.mapFiles) {
-      try {
-        const res = await fetch('/maps/index.json');
-        if (res.ok) {
-          const list = await res.json();
-          for (const entry of Array.isArray(list) ? list : []) {
-            if (entry?.kind !== 'hunt') continue;
-            const bare = String(entry.id ?? '').replace(/^hunt-/, '');
-            if (!bare || BIOMES.some((b) => b.id === bare)) continue;
-            const mapFile = await terrain.tryLoadMapFile(entry.id);
-            if (!mapFile) {
-              log.warn(`hunts: manifest lists "${entry.id}" as a hunt map but its file could not be read — skipped`);
-              continue;
-            }
-            manifestBiomes.set(bare, {
-              id: bare,
-              name: mapFile.name ?? entry.name ?? bare,
-              tileset: mapFile.tileset ?? 'bw2-adastra',
-              w: Number(mapFile.w) || Number(entry.w) || 64,
-              h: Number(mapFile.h) || Number(entry.h) || 64,
-              requiredLevel: Number(mapFile.requiredLevel) || 0,
-              weather: Array.isArray(mapFile.weather) ? mapFile.weather : null,
-              // No hand-authored presets/loop/formation/tags to fall back on — every one of
-              // these is read from the map file's own `report` first anyway
-              // (`presetsFor`/`formationFor`, and the `encounters`/`tags` default below), so
-              // an empty object here only ever matters for a map whose author has not
-              // authored one of these yet, exactly like a brand-new Studio map today.
-              presets: {}, loop: null, formation: null, tags: [],
-              showcaseDefault: null,
-            });
-          }
+    const descriptors = new Map();
+    try {
+      const res = await fetch('/maps/index.json');
+      if (res.ok) {
+        const list = await res.json();
+        for (const entry of Array.isArray(list) ? list : []) {
+          if (entry?.kind !== 'hunt') continue;
+          const bare = String(entry.id ?? '').replace(/^hunt-/, '');
+          if (!bare) continue;
+          const mapFile = await terrain.loadMapFile(entry.id).catch((err) => {
+            log.warn(`hunts: manifest lists "${entry.id}" as a hunt map but its file could not be read — skipped`, err);
+            return null;
+          });
+          if (!mapFile) continue;
+          descriptors.set(bare, {
+            id: bare,
+            name: mapFile.name ?? entry.name ?? bare,
+            tileset: mapFile.tileset ?? 'bw2-adastra',
+            w: Number(mapFile.w) || Number(entry.w) || 64,
+            h: Number(mapFile.h) || Number(entry.h) || 64,
+            requiredLevel: Number(mapFile.requiredLevel) || 0,
+            weather: Array.isArray(mapFile.weather) ? mapFile.weather : null,
+            map: mapFile,
+          });
         }
-      } catch (err) {
-        log.warn(`hunts: could not read the map manifest — ${err?.message ?? err}`);
       }
+    } catch (err) {
+      log.warn(`hunts: could not read the map manifest — ${err?.message ?? err}`);
     }
 
-    /** The biome/hunt descriptor for `id` — a hand-authored `BIOMES` entry, a synthetic
-     *  `manifestBiomes` one, or (for a truly unknown id) the first hand-authored one, the
-     *  same graceful fallback every other `byId(garbage)` call site already relied on. */
-    const byId = (id) => BIOMES.find((b) => b.id === id) ?? manifestBiomes.get(id) ?? BIOMES[0];
+    /** The hunt descriptor for `id`, or (for a truly unknown id) the first discovered one —
+     *  the same graceful fallback every other `byId(garbage)` call site already relied on. */
+    const byId = (id) => descriptors.get(id) ?? [...descriptors.values()][0] ?? { id, w: 64, h: 64 };
 
-    for (const biome of [...BIOMES, ...manifestBiomes.values()]) {
-      terrain.register(`hunt-${biome.id}`, async (draft, c) => {
-        const tiles = c.get('tiles');
-        await tiles.load(draft.tileset);
-        for (const extra of biome.alsoLoad ?? []) await tiles.load(extra);
-        const palette = makePalette(tiles, draft.tileset, log);
-        const rng = c.rng.fork(`hunts/${biome.id}/${draft.seed}`);
-        // `?mapFiles=1`: a Studio-exported `.map.json` replaces the hand-written builder for
-        // this one draft-building step only — everything below (the loop stitched against
-        // `draft.marker()`, wild slots, `built.set`) reads the finished draft the same way
-        // either path leaves it, because the round trip (`tools/mapstudio/roundtrip.js`)
-        // already proves a replayed draft is cell-for-cell identical to a built one.
-        const mapFile = await terrain.tryLoadMapFile(`hunt-${biome.id}`);
-        // A manifest-only entry (`manifestBiomes`, above) has no `build` at all — it exists
-        // in this loop only because its file exists, so `mapFile` should never actually be
-        // null for one of these; the guard is what stops a transient fetch failure (the
-        // manifest said it exists, the individual file 404s at load time) from throwing
-        // `biome.build is not a function` instead of degrading to an empty draft.
-        const report = mapFile
-          ? await terrain.applyMapFile(draft, c, mapFile)
-          : (typeof biome.build === 'function' ? (biome.build(draft, c, palette, rng, log) ?? {}) : {});
-
-        // The circuit and its slots are computed HERE, against the finished draft, because
-        // this is the only place that has one. `showcaseDefault`'s marker is the biome's own
-        // idea of where the good ground is, so the loop is grown around that.
-        // Every marker the biome placed, its own favourite first, then the spawn. A cave is a
-        // system of galleries and searching only around the showcase marker found nothing.
-        // Anchors for the FOUND fallback only — the authored path (above) resolves its own
-        // markers by name and never touches this list.
-        const preferred = biome.presets?.[biome.showcaseDefault]?.marker;
-        const anchors = [...draft.markers.entries()]
-          .sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0))
-          .map(([, m]) => m);
-        anchors.push(draft.spawn);
+    for (const biome of descriptors.values()) {
+      terrain.register(`hunt-${biome.id}`, async (draft, c, opts) => {
+        const report = await terrain.applyMapFile(draft, c, opts.map ?? biome.map);
 
         /**
          * **A map file that has already been stitched carries its own answer, and it wins.**
          *
-         * `report.loop`/`report.wild` are `map.loop`/`map.wild` verbatim (`frommap.js`) —
-         * `{ via, resolved }`, where `resolved` is exactly the shape `stitchLoop`/`findLoop`
-         * and `slotsForLoop` already produce (`start, route, cells, corners, w, h, source` and
-         * a `slots` list), because the Studio wrote it by running those same functions once
-         * and freezing the answer. Recomputing them here anyway is what silently discarded
-         * every Studio edit to the loop or the wild slots: a waypoint dragged, a slot moved, a
-         * route re-stitched in the Studio round-tripped through `applyMapFile` perfectly and
-         * then got thrown away the instant this code ran `findLoop`/`slotsForLoop` again over
-         * the replayed draft, landing back on whatever the fallback search happened to grow.
+         * `report.loop` is `map.loop` verbatim (`frommap.js`) — `{ via, resolved }`, where
+         * `resolved` is exactly the shape `stitchLoop`/`findLoop` already produce (`start,
+         * route, cells, corners, w, h, source`), because the Studio wrote it by running that
+         * function once and freezing the answer. Recomputing it here anyway would discard
+         * every Studio edit to the loop: a waypoint dragged or a route re-stitched in the
+         * Studio round-trips through `applyMapFile` perfectly and would then be thrown away
+         * the instant this code ran `findLoop` again over the replayed draft.
          *
-         * So a resolved loop/wild is trusted VERBATIM instead of shape-translated, and
-         * `authoredLoop`/`findLoop`/`slotsForLoop` run only for the two cases with no resolved
-         * answer to trust: no map file at all, or a freshly authored Studio map whose loop has
-         * not been stitched yet (`resolved` absent). Loop and wild are gated on the SAME
-         * condition — trusting one without the other would pair slots computed off one circuit
-         * with a route drawn from a different one.
+         * `authoredLoop`/`findLoop` run only for the one case with no resolved answer to
+         * trust: a freshly authored Studio map whose loop has not been stitched yet.
          */
         const resolvedLoop = report.loop?.resolved;
-        const resolvedSlots = report.wild?.resolved?.slots;
         let loop;
-        let slots;
-        if (resolvedLoop?.cells?.length && resolvedSlots) {
+        if (resolvedLoop?.cells?.length) {
           loop = resolvedLoop;
-          slots = resolvedSlots;
         } else {
+          // Every marker on the map, no favourite — a hunt map has no `showcaseDefault` any
+          // more (that was a code descriptor's own idea of where the good ground was).
+          const anchors = [...draft.markers.values()];
+          anchors.push(draft.spawn);
           // Authored first, found as the fallback — see the `LOOP` header comment above.
-          loop = authoredLoop(draft, biome, c) ?? findLoop(draft, anchors, {
-            ...loopOptions(biome, c.config),
-            // Seeded off the biome and the map seed, so the bends are a property of the world
+          loop = authoredLoop(draft, biome.id, report, c) ?? findLoop(draft, anchors, {
+            ...loopOptions(report, c.config),
+            // Seeded off the map and its own seed, so the bends are a property of the world
             // rather than of when the page happened to load.
             rng: c.rng.fork(`hunts/loop/${biome.id}/${draft.seed}`),
           });
           // `stitchLoop` always stamps `source: 'authored'`; `findLoop` knows nothing about
           // provenance at all, so a loop that comes back without one was found, not authored.
           if (loop && loop.source == null) loop.source = 'found';
-          slots = loop
-            ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
-              { count: SLOTS })
-            : [];
         }
         if (!loop) {
           log.warn(`hunts/${biome.id}: no closed circuit fits this map between `
@@ -882,19 +786,11 @@ export default {
         // The "is this cell on the loop" lookup `lapSteps` and `resyncToLoop`'s off-loop streak
         // both share (points 4/5) — built once, here, rather than scanned per tile.
         const onLoopSet = loop ? new Set(loop.cells.map((cell) => `${cell.cx},${cell.cz}`)) : null;
-        built.set(biome.id, { ...report, loop, slots, missing: palette.missing(), onLoopSet });
-        // **`terrain.handle()`'s `encounterTable`/`tags` (P5) are sourced from whatever this
-        // closure returns**, not from `draft.biome` — this used to return nothing at all
-        // (`terrain.report()` was always `null` for a hunt), which was harmless while nothing
-        // read it. Defaulting `encounters.table` to this biome's own id and `tags` to its
-        // descriptor's own (`src/hunts/biomes/cave.js`'s `tags:['cave']`, etc.) keeps every
-        // shipped hunt's wildlife/loot/yield exactly what it was before this phase for the
-        // proc-gen path, and lets a Studio-authored file override either explicitly.
-        return {
-          ...report,
-          encounters: report.encounters ?? { table: biome.id },
-          tags: report.tags?.length ? report.tags : (biome.tags ?? []),
-        };
+        built.set(biome.id, {
+          ...report, loop, spawnPoints: report.spawnPoints ?? [], onLoopSet,
+          via: report.loop?.via ?? null,
+        });
+        return report;
       });
     }
 
@@ -1010,7 +906,7 @@ export default {
       //.
       if (ppu != null) ctx.config.set({ pixelsPerUnit: ppu });
       const sim = ctx.get('simulation');
-      const biome = byId(currentId ?? 'forest');
+      const biome = byId(currentId);
       // The camera follows the trainer every frame, so a framing that only
       // moves the rig is undone before the shutter; the city has the same constraint. Move the
       // party, and the rig follows it.
@@ -1032,20 +928,18 @@ export default {
 
     const api = {
       /**
-       * The biome/hunt menu `ui`, `travel.destinations()` and the showcase all read.
-       *
-       * Includes `manifestBiomes` alongside the four hand-authored `BIOMES` (P5 item 2) —
-       * `travel` enumerates maps through this one call, never `BIOMES` directly, so a
-       * manifest-only hunt becomes a real destination (`travel.destinations()` builds
-       * `hunt-${b.id}` from each entry's own `id`) the moment it is registered above, with no
-       * change needed in `travel/index.js` itself.
+       * The hunt menu `ui`, `travel.destinations()` and the showcase all read — one entry per
+       * `kind:'hunt'` map the manifest lists (`descriptors`, above). `travel` enumerates maps
+       * through this one call, so a new map saved in the Studio becomes a real destination
+       * (`travel.destinations()` builds `hunt-${b.id}` from each entry's own `id`) the moment
+       * it exists in `public/maps/`, with no change needed in `travel/index.js` itself.
        */
-      list: () => [...BIOMES, ...manifestBiomes.values()].map((b) => ({
-        id: b.id, name: b.name, preset: b.preset, tileset: b.tileset,
+      list: () => [...descriptors.values()].map((b) => ({
+        id: b.id, name: b.name, tileset: b.tileset,
         w: b.w, h: b.h, presets: Object.keys(presetsFor(b)),
         formation: formationFor(b),
         requiredLevel: b.requiredLevel ?? 0,
-        // Only known once the map has been built — a biome that has never been entered
+        // Only known once the map has been built — a hunt that has never been entered
         // reports null rather than a guess.
         loop: built.get(b.id)?.loop
           ? {
@@ -1053,63 +947,38 @@ export default {
             corners: built.get(b.id).loop.corners, length: built.get(b.id).loop.cells.length,
           }
           : null,
-        slots: built.get(b.id)?.slots?.length ?? 0,
+        spawnPoints: built.get(b.id)?.spawnPoints?.length ?? 0,
       })),
 
       current: () => currentId,
-      /**
-       * The raw biome descriptor (`biomes/*.js`'s own export) — `presets` with its `{marker,
-       * ppu}` shape intact, `loop.via`, `weather`, `showcaseDefault`. `biome()` below only
-       * ever exposed a display-shaped subset; this is for tooling that has to freeze a biome
-       * exactly, not present it — the Map Studio snapshot exporter (`studio/snapshot/main.js`).
-       */
-      descriptor: (id) => ({ ...byId(id) }),
-      biome: (id) => {
-        const b = byId(id);
-        return {
-          id: b.id, name: b.name, preset: b.preset, tileset: b.tileset, w: b.w, h: b.h,
-          requiredLevel: b.requiredLevel ?? 0,
-          formation: formationFor(b),
-        };
-      },
 
       /**
-       * Loads a biome and stands the party at its entrance.
+       * Loads a hunt map and stands the party at its entrance.
        * @param {string} id
        * @returns {Promise<object|null>} the terrain handle
        */
-      async enter(id = 'forest') {
-        const biome = byId(id);
+      async enter(id) {
+        const biome = byId(id ?? [...descriptors.keys()][0]);
         const env = ctx.get('environment');
+        const map = await terrain.loadMapFile(`hunt-${biome.id}`);
         // Liveness is tested on a *value*, never on `typeof`: the registry's null object
         // answers a typeof check with true even when the module is dead.
         if (isLive(env)) {
-          env.setBiomePreset?.(biome.preset);
-          env.setWeather?.(biome.weather?.[0] ?? 'clear', biome.weather?.[1] ?? 0);
+          env.setBiomePreset?.(map.environmentPreset);
+          env.setWeather?.(map.weather?.[0] ?? 'clear', map.weather?.[1] ?? 0);
         }
         const handle = await terrain.load(`hunt-${biome.id}`, {
-          w: biome.w, h: biome.h, tileset: biome.tileset,
-          biome: biome.id, seed: ctx.config.seed,
+          w: map.w, h: map.h, tileset: map.tileset, seed: map.seed, map,
         });
         currentId = biome.id;
-      // Reset with the scene: it used to carry across a biome change, so the first lap of a
-      // new hunt healed early by however many steps the previous one had banked.
+        terrain.setDefaultProfile?.({ economy: built.get(biome.id)?.economy });
+      // Reset with the scene: it used to carry across a hunt change, so the first lap of a
+      // new one healed early by however many steps the previous one had banked.
       lapSteps = 0;
       offLoopStreak = 0;
       resyncPending = false;
 
-        // `terrain.load` builds one `InstancedWorld` from one tileset, and `InstancedWorld`
-        // resolves every placement's id against that tileset alone. A model from `props` put
-        // through an AdAstra draft therefore draws AdAstra's model of the same number, with
-        // no warning anywhere, because both ids exist. Anything from another
-        // set gets its own world here, disposed on `world:unloaded`.
-        disposeExtras();
-        for (const extra of built.get(biome.id)?.extras ?? []) {
-          if (!extra.placements?.length) continue;
-          extraWorlds.push(ctx.get('tiles').buildInstances(
-            ctx.three.scene, extra.tileset, extra.placements, { name: `hunt:${biome.id}:${extra.tileset}` },
-          ));
-        }
+        extraWorlds = await terrain.buildExtras(ctx, built.get(biome.id));
 
         // Practical lights. A cave is "lit by its openings and by whatever glows down there"
         // (`environment`'s own preset note), and a point light is the only thing that can
@@ -1123,7 +992,7 @@ export default {
         // The grass gets its animals before the party is stood in it, so the sprite atlas is
         // built once for the whole cast — party and wildlife together — rather than rebuilt
         // eleven more times behind a `__READY__` that has already flipped.
-        const wild = await spawnWild(biome);
+        const wild = await spawnWild(biome.id);
 
         const draft = terrain.draft();
         const spawn = draft?.spawn ?? { cx: biome.w >> 1, cz: biome.h >> 1, dir: 2 };
@@ -1207,7 +1076,7 @@ export default {
        */
       preset(name) {
         if (!name) return false;
-        const biome = byId(currentId ?? 'forest');
+        const biome = byId(currentId);
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name));
         if (literal) {
           // **Staged exactly like a named preset, and that is not tidiness.** A critic points
@@ -1269,7 +1138,7 @@ export default {
        * @returns {{ok:boolean, checked:number, fails:object[]}}
        */
       audit(id = currentId) {
-        const biome = byId(id ?? 'forest');
+        const biome = byId(id);
         const draft = terrain.draft();
         const fails = [];
         if (!draft) return { ok: false, checked: 0, fails: [{ preset: '*', why: 'no map loaded' }] };
@@ -1299,11 +1168,11 @@ export default {
           fails.push({ preset: 'loop', why: 'no closed circuit was found for this map' });
         } else {
           checked++;
-          // **Provenance.** A biome that authored a circuit and silently fell back to a found
+          // **Provenance.** A map that authored a circuit and silently fell back to a found
           // one ships a shape nobody reviewed — `stitchLoop` always stamps `source: 'authored'`
           // on success, so anything else here means the authored attempt failed or was never
           // tried (`authoredLoop`, above, already warned which).
-          if (biome.loop?.via && loop.source !== 'authored') {
+          if (built.get(biome.id)?.via && loop.source !== 'authored') {
             fails.push({ preset: 'loop', why: 'declares loop.via but is running a found circuit' });
           }
 
@@ -1332,9 +1201,8 @@ export default {
             fails.push({ preset: 'loop', why: `${reversed} 180-degree reversal(s) back to back in the route` });
           }
 
-          // **Every cell distinct.** A doubled-back stretch sterilises both its shoulders for
-          // `slotsForLoop` and quietly yields fewer than the biome's `SLOTS` — see `stitchLoop`'s
-          // own R9 check in `compose.js`, held here to the found loop as well.
+          // **Every cell distinct.** A doubled-back stretch reads as a shorter, tangled ring —
+          // see `stitchLoop`'s own R9 check in `compose.js`, held here to the found loop too.
           const seen = new Set();
           let revisited = 0;
           for (const c of loop.cells) {
@@ -1342,20 +1210,6 @@ export default {
             if (seen.has(k)) revisited++; else seen.add(k);
           }
           if (revisited) fails.push({ preset: 'loop', why: `${revisited} cell(s) on the ring visited more than once` });
-        }
-
-        // --- the slots, measured -------------------------------------------
-        // Distance EXACTLY 2 is the arithmetic the encounter trigger rests on (src/hunts/index.js): a
-        // tether of 1 plus a trigger of 1. A slot at 1 puts the party permanently in a battle
-        // and a slot at 3 is never met.
-        const slots = built.get(biome.id)?.slots ?? [];
-        if (loop && slots.length) {
-          checked++;
-          const d = (s2) => Math.min(...loop.cells.map((c) => Math.max(Math.abs(c.cx - s2.cx), Math.abs(c.cz - s2.cz))));
-          const wrong = slots.filter((s2) => d(s2) !== 2);
-          if (wrong.length) {
-            fails.push({ preset: 'slots', why: `${wrong.length} of ${slots.length} are not 2 cells off the path` });
-          }
         }
 
         for (const f of fails) {
@@ -1367,7 +1221,7 @@ export default {
 
       /** The circuit this biome is played on: `{ start, route, cells, w, h }` or `null`. */
       loop: (id = currentId) => {
-        const l = built.get(id ?? 'forest')?.loop ?? null;
+        const l = built.get(id)?.loop ?? null;
         return l ? {
           start: { ...l.start }, route: l.route, w: l.w, h: l.h,
           corners: l.corners, length: l.cells.length, source: l.source ?? 'found',
@@ -1375,17 +1229,14 @@ export default {
         } : null;
       },
 
-      /** The fixed respawn points on it, with whatever is standing on each right now. */
+      /** The authored spawn points, with whatever is standing on each right now. */
       slots: (id = currentId) => {
-        const list = built.get(id ?? 'forest')?.slots ?? [];
+        const list = built.get(id)?.spawnPoints ?? [];
         return list.map((s2, k) => {
           const held = id == null || id === currentId ? occupancy.get(k) : null;
           return {
             k, cx: s2.cx, cz: s2.cz, dir: s2.dir ?? 0,
-            // Where the party leaves the circuit for this slot, and which way it steps.
-            from: s2.from ? { ...s2.from } : null,
-            step: s2.step ?? null,
-            approach: s2.approach ? { ...s2.approach } : null,
+            respawnSeconds: Number(s2.respawnSeconds) || DEFAULT_RESPAWN_S,
             occupied: !!held,
             species: held?.species?.name ?? null,
             display: held?.species?.display ?? held?.species?.name ?? null,
@@ -1397,18 +1248,21 @@ export default {
       },
 
       /**
-       * Hands the creature on slot `k` over, **leaving its sprite standing where it is**.
+       * Hands the creature on spawn point `k` over, **leaving its sprite standing where it
+       * is**.
        *
-       * This is what makes a slot a *respawn point* rather than scenery: the wild that fights
-       * is the one that was standing there. It used to be the *identity* that carried over and
-       * not the body — this method deleted the NPC and `encounter` spawned a second sprite that
-       * burst out of the grass over twenty sim steps. There is no burst any more, so deleting the body here would leave one or two frames of empty grass: the
-       * caller retires `npcId` itself, the moment its own actor is in place.
+       * This is what makes a spawn point a *respawn point* rather than scenery: the wild that
+       * fights is the one that was standing there. It used to be the *identity* that carried
+       * over and not the body — this method deleted the NPC and `encounter` spawned a second
+       * sprite that burst out of the grass over twenty sim steps. There is no burst any more,
+       * so deleting the body here would leave one or two frames of empty grass: the caller
+       * retires `npcId` itself, the moment its own actor is in place.
        *
-       * `cx,cz` is where the creature **is**, not the cell the slot was authored on: it drifts
-       * one tile around its tether (src/hunts/index.js), and staging the fight on the authored cell would
-       * teleport it up to a tile at the moment of contact. The slot is scheduled to refill on
-       * this module's own tick, so the next lap meets something new in the same place.
+       * `cx,cz` is where the creature **is**, not the cell the spawn point was authored on: it
+       * drifts one tile around its tether (`spawnWild`, above), and staging the fight on the
+       * authored cell would teleport it up to a tile at the moment of contact. The spawn point
+       * is scheduled to refill on this module's own tick, using its own authored
+       * `respawnSeconds`, so the next lap meets something new in the same place.
        */
       takeSlot(k) {
         const held = occupancy.get(k);
@@ -1419,7 +1273,9 @@ export default {
           ? sim.npcs().find((n) => n.id === held.npcId) : null;
         const i = wildIds.indexOf(held.npcId);
         if (i >= 0) wildIds.splice(i, 1);
-        refills.push({ k, at: elapsed + RESPAWN_S });
+        const point = built.get(currentId)?.spawnPoints?.[k];
+        const respawnSeconds = Number(point?.respawnSeconds) || DEFAULT_RESPAWN_S;
+        refills.push({ k, at: elapsed + respawnSeconds });
         return {
           species: held.species, shiny: held.shiny, level: held.level, k,
           npcId: held.npcId,
@@ -1429,8 +1285,10 @@ export default {
         };
       },
 
-      /** Seconds an emptied slot stays empty. `encounter` times its own beats against it. */
-      respawnSeconds: RESPAWN_S,
+      /** Seconds an emptied spawn point stays empty, by default — `encounter` times its own
+       *  beats against it. Each spawn point may name its own `respawnSeconds` instead
+       *  (`takeSlot`, above); this is only the fallback for one that does not. */
+      respawnSeconds: DEFAULT_RESPAWN_S,
 
       /** Driven by the descriptor's `tick`; not part of the src/hunts/index.js surface. */
       _refill(dt = 0) {
@@ -1500,8 +1358,8 @@ export default {
 
         if (!refills.length || !currentId) return;
         const now = elapsed;
-        const biome = byId(currentId);
-        const list = built.get(currentId)?.slots ?? [];
+        const mapId = currentId;
+        const list = built.get(mapId)?.spawnPoints ?? [];
         const pokemon = ctx.get('pokemon');
         if (!isLive(sim) || !isLive(pokemon)) return;
 
@@ -1511,39 +1369,36 @@ export default {
           const cell = list[k];
           if (!cell || occupancy.has(k)) continue;
 
-          // Rolled fresh, from a stream addressed by the slot and how many times it has
-          // refilled — so a respawn is reproducible from the seed rather than from when the
-          // player happened to walk past.
+          // Rolled fresh, from a stream addressed by the spawn point and how many times it
+          // has refilled — so a respawn is reproducible from the seed rather than from when
+          // the player happened to walk past.
           const gen = (generations.get(k) ?? 0) + 1;
           generations.set(k, gen);
-          const encounter = ctx.get('encounter');
           const env = ctx.get('environment');
           const tod = isLive(env) && typeof env.getTimeOfDay === 'function' ? env.getTimeOfDay() : (ctx.config.tod ?? 12);
-          const table = isLive(encounter) && typeof encounter.tablesFor === 'function'
-            ? (encounter.tablesFor(biome.id, tod) ?? []) : [];
-          if (!table.length) continue;
-          const rng = ctx.rng.fork(`hunts/slot/${biome.id}/${k}/${gen}`);
-          const species = pokemon.species(table[rng.int(0, table.length - 1)]);
+          const row = rollSpeciesFor(cell, tod, ctx.rng.fork(`hunts/slot/${mapId}/${k}/${gen}/species`));
+          const species = row ? pokemon.species(row.name) : null;
           if (!species) continue;
+          const rng = ctx.rng.fork(`hunts/slot/${mapId}/${k}/${gen}`);
           const shiny = rng.next() < 1 / 512;
-          const level = levelForSlot(biome.id, k, gen);
+          const level = levelForSlot(mapId, k, gen, row.bump);
 
           // Fire and forget: the atlas may need the sheet and `spawnNpc` is synchronous, so
           // the sprite is prepared first and the NPC lands a microtask later.
           Promise.resolve(pokemon.sprites?.prepare?.([{ species, shiny }])).then(() => {
-            if (occupancy.has(k) || currentId !== biome.id) return;
+            if (occupancy.has(k) || currentId !== mapId) return;
             const npc = sim.spawnNpc({
               species, shiny, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
               tether: { cx: cell.cx, cz: cell.cz, radius: 1 },
               solid: true,
-              name: `wild/${biome.id}/${cell.cx},${cell.cz}/${gen}`,
+              name: `wild/${mapId}/${cell.cx},${cell.cz}/${gen}`,
             });
             if (!npc) return;
             wildIds.push(npc.id);
             occupancy.set(k, {
               npcId: npc.id, species, shiny, level, cx: cell.cx, cz: cell.cz, dir: cell.dir ?? 0,
             });
-            bus.emit('slot:respawned', { biome: biome.id, slot: k, species: species.name, shiny, level });
+            bus.emit('slot:respawned', { biome: mapId, slot: k, species: species.name, shiny, level });
           }).catch(() => {});
         }
       },
@@ -1564,6 +1419,6 @@ export default {
 
   async showcase(mode, ctx) {
     const { showcaseHunt } = await import('./showcase.js');
-    return showcaseHunt(mode, ctx, BIOMES);
+    return showcaseHunt(mode, ctx);
   },
 };

@@ -16,6 +16,7 @@ import {
   liftNormalsInShader, makeFoliagePatch, foliageHueScales, applyShaderPatches,
   FOLIAGE_LIT_KNEE_DEG, FOLIAGE_LIT_NIGHT_LIFT,
 } from './materials.js';
+import { dressExtraWorld } from './dressing.js';
 
 const STRIDE = 11;            // px py pz nx ny nz u v r g b
 
@@ -380,6 +381,15 @@ export default {
       load,
       get: (slug) => loaded.get(slug) ?? null,
       loaded: () => [...loaded.keys()],
+
+      /**
+       * Applies this tileset's own material touch-ups (a repaint, a shadow exclusion —
+       * `./dressing.js`) to a just-built `InstancedWorld`. The one seam a scene reaches this
+       * through instead of a deep import into `tiles/dressing.js` (`tools/seams/run.js` rule
+       * 2) — see `terrain/populate.js`'s `buildExtras`.
+       * @returns {(() => void)|null} undoes the repaint, or `null` if this tileset has none.
+       */
+      dressExtras: (slug, world) => dressExtraWorld(loaded.get(slug) ?? null, world, log),
 
       models: (slug) => loaded.get(slug)?.models ?? [],
 

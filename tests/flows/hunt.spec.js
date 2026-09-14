@@ -25,7 +25,7 @@ test('a hunt reaches an encounter, fights it, and resolves it', async ({ page })
   // 1. The circuit walk produces an encounter.
   const started = await stepUntil(page, 'encounter:started', { chunk: 20, maxTicks: 3000 });
   const enc = started.hit.payload;
-  expect(enc).toEqual(expect.objectContaining({ species: expect.any(String), level: expect.any(Number), biome: 'meadow' }));
+  expect(enc).toEqual(expect.objectContaining({ species: expect.any(String), level: expect.any(Number), biome: 'hunt-meadow' }));
   expect(typeof enc.index).toBe('number');
   const battleStarted = started.log.find((e) => e.type === 'battle:started' && e.at < started.hit.at);
   expect(battleStarted, 'battle:started precedes encounter:started').toBeTruthy();

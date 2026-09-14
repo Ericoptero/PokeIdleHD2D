@@ -138,13 +138,11 @@ export default {
       const terrain = mod('terrain');
       const environment = mod('environment');
 
-      // P5: `terrain.handle().encounterTable` — the loaded map's own gameplay-profile id —
-      // replaces the old `.biome`, and nothing here restricts it to a fixed list any more
-      // (`worldFacts`/`encounter/tables.js`'s own `?? TABLES.meadow` fallback covers an
-      // id this module has never heard of). `tags` is the same handle's category list, for
-      // `ballContext()` below.
+      // The loaded map's own id (`terrain.handle().mapId`) — a label a rule's "Hunt in"
+      // condition matches against, not a lookup key into any catalog. `tags` is the same
+      // handle's category list, for `ballContext()` below.
       const handle = terrain.handle?.();
-      const biome = handle?.encounterTable ?? mod('idle').state?.()?.biome ?? 'meadow';
+      const biome = handle?.mapId ?? mod('idle').state?.()?.biome ?? 'meadow';
       const tags = Array.isArray(handle?.tags) ? handle.tags : [];
       const tod = environment.getTimeOfDay?.() ?? config.tod;
       const used = num(collection.count?.(), 0);

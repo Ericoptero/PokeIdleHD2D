@@ -25,7 +25,7 @@
  * answer, because the answer always comes from the wall clock and never from the pulse.
  */
 
-import { simulate, production, rateOf, digest, BIOMES, UNLOCKS, UPGRADES, BALL_ITEM, DEFAULT_BIOME } from './accrual.js';
+import { simulate, production, rateOf, digest, NEUTRAL_ECONOMY, UNLOCKS, UPGRADES, BALL_ITEM } from './accrual.js';
 import { makeHeartbeat } from './heartbeat.js';
 import { makeDrain, emptyGains, mergeGains, CATCHUP_S } from './drain.js';
 
@@ -64,6 +64,7 @@ export default {
     // --- idle-owned state ----------------------------------------------------
     const own = {
       biome: null,                    // set only when nothing else knows better
+      economy: null,                  // ditto — a map's own yield profile
       luck: 1,
       efficiency: 1,
       unlocks: new Set(),
@@ -104,10 +105,12 @@ export default {
       const environment = ctx.get('environment');
 
       const handle = terrain.handle?.();
-      // P5: sourced from the loaded map's own gameplay-profile id (`terrain.handle()`'s
-      // `encounterTable`, not the old fixed-enum `biome`) — see `accrual.js`'s own `BIOMES`
-      // doc for why the yield profile is keyed by this same id rather than a second one.
-      const biome = handle?.encounterTable ?? own.biome ?? DEFAULT_BIOME;
+      // The loaded map's own id (a label, not a lookup key any more) and its own yield
+      // profile (`@/terrain/mapfile.js`'s `economy`, authored in the Map Studio) — falls
+      // back to `own.biome`/`own.economy` (`setBiome`, below) for a showcase with no map
+      // loaded, and finally to the neutral profile.
+      const biome = handle?.mapId ?? own.biome ?? null;
+      const economyProfile = handle?.economy ?? own.economy ?? NEUTRAL_ECONOMY;
       const tod = environment.getTimeOfDay?.() ?? config.tod;
       const party = pokemon.party?.() ?? [];
       const tables = encounter.tablesFor?.(biome, tod) ?? [];
@@ -115,7 +118,8 @@ export default {
 
       return {
         party: Array.isArray(party) ? party : [],
-        biome: BIOMES[biome] ? biome : DEFAULT_BIOME,
+        biome,
+        economy: economyProfile,
         tod: Number.isFinite(tod) ? tod : 12,
         luck: Number.isFinite(own.luck) ? own.luck : 1,
         efficiency: own.efficiency,
@@ -458,7 +462,12 @@ export default {
       formatDuration,
 
       // --- depth: driving the model ------------------------------------------
-      catalog: () => ({ unlocks: { ...UNLOCKS }, upgrades: { ...UPGRADES }, biomes: { ...BIOMES } }),
+      // `biomes` is kept as an (always empty) field for `ui/screens/travel.js`'s optional
+      // relative-yield line, which already degrades to showing nothing when it finds no
+      // entry — there is no more static per-destination catalog to fill it from now that
+      // economy is authored per map (`@/terrain/mapfile.js`) rather than picked from a fixed
+      // five-entry table; only the currently loaded map's own profile is ever known.
+      catalog: () => ({ unlocks: { ...UNLOCKS }, upgrades: { ...UPGRADES }, biomes: {} }),
       unlocks: () => [...own.unlocks],
       has: (id) => own.unlocks.has(id),
       /** Grants an unlock. `economy`/`automation` decide when; `idle` only applies it. */
@@ -474,8 +483,9 @@ export default {
         own.upgrades[id] = Math.max(0, Math.min(spec.cap, Math.floor(level)));
         invalidate(); return true;
       },
-      /** Only used when no map is loaded; a loaded map's biome always wins. */
-      setBiome(b) { own.biome = BIOMES[b] ? b : null; invalidate(); return own.biome; },
+      /** Only used when no map is loaded; a loaded map's own id/economy always win. */
+      setBiome(b) { own.biome = b || null; invalidate(); return own.biome; },
+      setEconomy(e) { own.economy = e && typeof e === 'object' ? e : null; invalidate(); return own.economy; },
       setLuck(n) { own.luck = Number.isFinite(n) ? Math.max(0, n) : 1; invalidate(); },
       setEfficiency(n) { own.efficiency = Number.isFinite(n) ? Math.max(0, n) : 1; invalidate(); },
 

@@ -54,7 +54,7 @@ import {
 } from './rolls.js';
 import { dropsFor, tableFor as dropTableFor } from './drops.js';
 import {
-  todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
+  todBand, rowsFromSpawnPoints, expand, bumpsFor, summary,
 } from './tables.js';
 import { runSelfTest, summarise } from './selftest.js';
 import { reportSelfTest } from '../core/log.js';
@@ -165,28 +165,27 @@ export default {
    */
   showcaseNeeds: ['simulation', 'collection', 'battle'],
 
-  init(ctx) {
+  async init(ctx) {
     const { bus, config, log } = ctx;
     const seed = config.seed;
+
+    // --- the drop catalog -----------------------------------------------------
+    // One committed snapshot, fetched once — `public/generated/drops.json`
+    // (`src/pokemon/tools/build-drops.js`), the same pattern `pokemon/index.js` uses for
+    // `species.json`. A missing/failed fetch degrades to "nothing drops" rather than a
+    // thrown error — a handled path, so a `warn` and not an `error` (tools/shots/shoot.js's
+    // zero-error budget).
+    let dropsCatalog = {};
+    try {
+      const res = await fetch('/generated/drops.json');
+      if (res.ok) dropsCatalog = await res.json();
+      else log.warn('encounter: /generated/drops.json missing — nothing will drop. Run `node src/pokemon/tools/build-drops.js`.');
+    } catch (err) {
+      log.warn('encounter: could not load /generated/drops.json — nothing will drop', err);
+    }
     /** One action's beat, in sim steps. Read once; a mid-fight config change
      *  finishes the fight it started in, which is the harness's own `?actionSteps=` contract. */
     const ACTION_STEPS = Math.max(1, Math.round(config.actionSteps ?? 18));
-
-    // --- the tables ---------------------------------------------------------
-    // Checked once, out loud. A typo in a species name is invisible at runtime — the
-    // encounter is simply dropped and the grass quietly stops working — and this is a
-    // handled path, so it is a `warn`: tools/shots/shoot.js counts console errors and behaving correctly must
-    // not cost the budget.
-    {
-      const pokemon = ctx.get('pokemon');
-      const lookup = isLive(pokemon) && typeof pokemon.species === 'function' ? pokemon.species : null;
-      if (lookup) {
-        const bad = validate(lookup);
-        if (bad.length) log.warn(`encounter: ${bad.length} bad table rows — ${bad.slice(0, 4).join('; ')}`);
-      } else {
-        log.warn('encounter: pokemon is not live, so the spawn tables could not be validated');
-      }
-    }
 
     // --- persistent state (the whole of it) ---------------------------------
     /** How many cells of tall grass the lead has walked. Indexes the "is there one?" roll. */
@@ -225,17 +224,11 @@ export default {
     // --- helpers ------------------------------------------------------------
 
     /**
-     * The active map's own gameplay-profile id (P5) — `terrain.handle().encounterTable`,
-     * which is the loaded map's own `encounters.table` when it has one, or whatever a
-     * proc-gen builder defaulted it to before returning (`src/hunts/index.js`'s `biome.id`,
-     * `src/city/index.js`'s/`src/pokecenter/index.js`'s `'city'`). **No membership check
-     * against a fixed list any more** — that used to live here (`BIOMES.includes(b) ? b :
-     * 'meadow'`), which is exactly the "fixed 5-entry enum" this phase removes. An id this
-     * module has never heard of is not an error: `tableFor`, below, and `rowsFor`
-     * (`tables.js`) already fall back to `TABLES.meadow` for one, so a map that has not been
-     * authored a table yet degrades to the same safety net a typo used to.
+     * The active map's own id, doubling as the `tableFor` cache key label — there is no
+     * shared table catalog any more (`./tables.js`'s own header): every map's wildlife is its
+     * own `spawnPoints[]`, read fresh off `terrain.report()` inside `tableFor`, below.
      */
-    const biomeNow = () => ctx.get('terrain').handle?.()?.encounterTable ?? 'meadow';
+    const biomeNow = () => ctx.get('terrain').handle?.()?.mapId ?? 'meadow';
     /** The active map's category tags (`'cave'`, `'coastal'`, …) — see `terrain.handle()`'s
      *  own doc. Read by `ballContext()`, below, for the two balls that key off a category
      *  rather than an id (`economy/items.js`'s Dive/Dusk Ball). */
@@ -270,8 +263,10 @@ export default {
       const pokemon = ctx.get('pokemon');
       return isLive(pokemon) ? (pokemon.species?.(name) ?? null) : null;
     };
-    /** The mainline rate if a table lists it, the BST proxy otherwise (`rolls.js`). */
-    const catchRateOf = (name, sheet) => authoredCatchRate(name) ?? catchRateFor(sheet?.bst);
+    /** The mainline rate straight off the species record (`public/generated/species.json`
+     *  already carries the real one), the BST proxy otherwise (`rolls.js`) for anything with
+     *  no species record at all. */
+    const catchRateOf = (name, sheet) => (Number.isFinite(sheet?.catchRate) ? sheet.catchRate : catchRateFor(sheet?.bst));
 
     function multipliers() {
       const economy = ctx.get('economy');
@@ -294,21 +289,19 @@ export default {
     }
 
     /**
-     * The weight-expanded table for a table id and hour, memoised per (id, band).
-     *
-     * No membership check against a fixed list — `rowsFor` (`tables.js`) already falls back
-     * to `TABLES.meadow` for an id it does not recognise, so trusting whatever `biome` names
-     * (an authored id from the map file, or `biomeNow()`'s own default) is enough: an unknown
-     * id still resolves to a real table, it just is not this file's job to decide which ones
-     * are "real" any more (P5).
+     * The weight-expanded table for the currently loaded map and hour, memoised per
+     * (map id, band, `_rev`). `biome` is only a cache-key label now (`biomeNow()`'s own
+     * doc) — the actual rows come from `terrain.report()?.spawnPoints`, pooled across every
+     * spawn point the map authored (`./tables.js`'s `rowsFromSpawnPoints`).
      */
     const tableCache = new Map();
     function tableFor(biome, tod) {
       const b = String(biome ?? 'meadow');
       const key = `${b}/${todBand(tod)}`;
       if (!tableCache.has(key)) {
-        const rows = rowsFor(b, tod);
-        tableCache.set(key, { table: expand(rows, { slots: 120, biome: b, tod }), bumps: bumpsFor(rows) });
+        const points = ctx.get('terrain').report()?.spawnPoints ?? [];
+        const rows = rowsFromSpawnPoints(points, tod);
+        tableCache.set(key, { table: expand(rows, { slots: 120, mapId: b, tod }), bumps: bumpsFor(rows) });
       }
       return tableCache.get(key);
     }
@@ -923,7 +916,7 @@ export default {
         sheet: species,
         level: Number.isFinite(taken.level) ? taken.level : enc.level,
         shiny: enc.shiny || !!taken.shiny,
-        catchRate: authoredCatchRate(species.name) ?? catchRateFor(species.bst) ?? enc.catchRate,
+        catchRate: Number.isFinite(species.catchRate) ? species.catchRate : (catchRateFor(species.bst) ?? enc.catchRate),
         slot: slot.k,
         // Where the creature **is**, not where the slot was authored: it drifts a tile around
         // its tether, and the fight happens on the cell it is standing on.
@@ -1518,7 +1511,7 @@ export default {
           // The species' own record, so its table is its own. `sheet` is what
           // `rollIndex` already resolved, so this costs no lookup and no new plumbing.
           species: enc.sheet ?? null,
-          biome: enc.biome, catchRate: enc.catchRate, level: enc.level, shiny: enc.shiny,
+          catalog: dropsCatalog, level: enc.level, shiny: enc.shiny,
         });
         if (loot.length && isLive(economy) && typeof economy.give === 'function') {
           for (const drop of loot) economy.give(drop.id, drop.n, 'drop');
@@ -1779,7 +1772,7 @@ export default {
       },
 
       // --- reporting --------------------------------------------------------
-      tables: () => summary(),
+      tables: () => summary(tableFor(biomeNow(), todNow()).table.rows),
       rows: (biome = biomeNow(), tod = todNow()) => tableFor(biome, tod).table.rows,
       band: () => levelBand(topLevel()),
       shinyRate,
@@ -1893,20 +1886,18 @@ export default {
          */
         dropAt: (index, opts = {}) => dropsFor(seed, index, {
           species: speciesRecord(opts.species),
-          biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
-          level: opts.level ?? 5, shiny: !!opts.shiny,
+          catalog: dropsCatalog, level: opts.level ?? 5, shiny: !!opts.shiny,
         }),
       }),
 
       /** What encounter `index` drops. Pure and index-addressed; `idle` replays it verbatim. */
       dropsFor: (index, opts = {}) => dropsFor(seed, index, {
         species: speciesRecord(opts.species),
-        biome: opts.biome ?? biomeNow(), catchRate: opts.catchRate ?? 45,
-        level: opts.level ?? 5, shiny: !!opts.shiny,
+        catalog: dropsCatalog, level: opts.level ?? 5, shiny: !!opts.shiny,
       }),
       /** The table a species drops from, for a readout that wants the rows and not a roll. */
-      dropTableFor: (species, biome = biomeNow(), opts = {}) =>
-        dropTableFor(speciesRecord(species), biome, opts),
+      dropTableFor: (species, opts = {}) =>
+        dropTableFor(speciesRecord(species), dropsCatalog, opts),
 
       /** The last fight's turn-by-turn transcript, for a battle panel to replay. */
       transcript: () => (last?.battle?.transcript ?? []).map((e) => ({ ...e })),
@@ -1935,7 +1926,7 @@ export default {
       selfTest() {
         const pokemon = ctx.get('pokemon');
         const species = isLive(pokemon) ? pokemon.all?.() ?? null : null;
-        const results = runSelfTest({ species });
+        const results = runSelfTest({ species, catalog: dropsCatalog });
         reportSelfTest('encounter', results);
         return { ...summarise(results), results };
       },
@@ -1948,8 +1939,8 @@ export default {
       },
     };
 
-    log.info(`encounter: ${summary().map((s) => `${s.biome}:${s.rows}`).join(' ')} rows, ` +
-      `seed ${seed}, passive encounters ${armed ? 'armed' : 'held (another module\'s showcase)'}`);
+    log.info(`encounter: ready, seed ${seed}, passive encounters `
+      + `${armed ? 'armed' : 'held (another module\'s showcase)'}`);
 
     return api;
   },

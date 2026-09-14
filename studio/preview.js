@@ -74,7 +74,7 @@ export async function makePreview({ container }) {
     try {
       ctx.get('terrain').registerMapFile('studio-preview', map);
       await ctx.get('terrain').load('studio-preview', {
-        w: map.w, h: map.h, tileset: map.tileset, biome: map.biome, seed: map.seed,
+        w: map.w, h: map.h, tileset: map.tileset, seed: map.seed,
       });
       if (gen !== generation) return; // a newer load started while this one was in flight
 
@@ -89,7 +89,7 @@ export async function makePreview({ container }) {
       rebuildGizmos(map);
 
       const env = ctx.get('environment');
-      env.setBiomePreset?.(map.environmentPreset ?? map.biome);
+      env.setBiomePreset?.(map.environmentPreset);
       env.setWeather?.(map.weather?.[0] ?? 'clear', map.weather?.[1] ?? 0);
       if (env.lamps) {
         env.lamps.clear();
@@ -281,6 +281,12 @@ export async function makePreview({ container }) {
     ));
     (map.npcs ?? []).forEach((n, i) => addGizmo(
       'npc', i, n.cx + 0.5, terrain.height(n.cx, n.cz) + GIZMO_LIFT, n.cz + 0.5, 0x9ECBE6, dotTexture, 0.6,
+    ));
+    // Wild spawn points — each a real respawn point with its own species list now, placed
+    // directly by the author rather than derived from the patrol loop. Same magenta the 2D
+    // canvas's own "encounters" overlay uses (`kinds.js`'s OVERLAYS).
+    (map.spawnPoints ?? []).forEach((p, i) => addGizmo(
+      'spawnPoint', i, p.cx + 0.5, terrain.height(p.cx, p.cz) + GIZMO_LIFT, p.cz + 0.5, 0xE38FB0, dotTexture, 0.7,
     ));
     // Lights are already world-space (`state.js`'s header) — no `+0.5` here, unlike the
     // cell-based gizmos above.

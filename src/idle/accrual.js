@@ -89,25 +89,16 @@ export const SHINY_RATE = 1 / 4096;
 export const SHINY_RATE_CHARM = 1 / 1365;
 
 /**
- * Yield profiles. A destination is a *choice*: the city pays well and spawns almost nothing,
- * caves are rare-hunting grounds, forests train fastest.
- *
- * Keyed by the same id `encounter/tables.js`'s `TABLES` uses (P5: `src/idle/index.js` reads
- * it off `terrain.handle().encounterTable`, the loaded map's own gameplay-profile id, rather
- * than a fixed enum) — a map's wildlife and its yield profile are not allowed to disagree
- * about which place it is, so there is exactly one id and not two. Kept as `BIOMES` rather
- * than renamed: the *shape* is unchanged (a small catalog of named profiles with a
- * documented default for an id that is not in it, `DEFAULT_BIOME` below) — only where the
- * id now comes from moved.
+ * Yield profile. A destination is a *choice*: a map that pays well spawns almost nothing, a
+ * map that is a rare-hunting ground trains slowly — but that trade is authored on the map
+ * itself now (`@/terrain/mapfile.js`'s `economy` field, edited in the Map Studio), not picked
+ * from a fixed catalog of five hand-tuned places. `src/idle/index.js` reads it straight off
+ * `terrain.handle().economy`; this is only the neutral fallback for a map that declares none
+ * (a fresh Studio map, or nothing loaded at all).
  */
-export const BIOMES = {
-  city:   { label: 'City',   money: 1.55, exp: 0.55, research: 0.80, encounters: 0.35, favours: { normal: 1.20, electric: 1.30, steel: 1.12, psychic: 1.15 } },
-  meadow: { label: 'Meadow', money: 1.00, exp: 1.00, research: 1.00, encounters: 1.00, favours: { normal: 1.18, fairy: 1.28, grass: 1.15, flying: 1.12 } },
-  forest: { label: 'Forest', money: 0.85, exp: 1.45, research: 1.20, encounters: 1.35, favours: { grass: 1.38, bug: 1.32, poison: 1.14, dark: 1.08 } },
-  cave:   { label: 'Cave',   money: 0.70, exp: 1.20, research: 1.75, encounters: 1.60, favours: { rock: 1.42, ground: 1.36, steel: 1.22, dark: 1.18 } },
-  coast:  { label: 'Coast',  money: 1.15, exp: 1.05, research: 1.30, encounters: 1.15, favours: { water: 1.40, flying: 1.22, ice: 1.15, fighting: 1.06 } },
-};
-export const DEFAULT_BIOME = 'meadow';
+export const NEUTRAL_ECONOMY = Object.freeze({
+  label: 'Neutral', money: 1, exp: 1, research: 1, encounters: 1, favours: Object.freeze({}),
+});
 
 /**
  * Unlocks. Multiplicative, permanent, and never on by default — src/automation/index.js says
@@ -168,13 +159,14 @@ export const MAX_RESOLVED = 20000;
  *
  * @typedef {Object} IdleState
  * @property {PartyMember[]} [party]
- * @property {string} [biome]
+ * @property {string} [biome]       the loaded map's own id — a label now, not a lookup key
+ * @property {object} [economy]     the loaded map's own yield profile (`terrain.handle().economy`)
  * @property {number} [luck]        1 = neutral; automation buffs may raise it
  * @property {number} [efficiency]  1 online; offline passes config.offlineEfficiency
  * @property {number} [tod]         hours 0..24, for time-of-day unlocks
  * @property {string[]} [unlocks]
  * @property {Object<string,number>} [upgrades]  id -> level
- * @property {string[]} [tables]    species names available in this biome (encounter.tablesFor)
+ * @property {string[]} [tables]    species names this map's spawn points can produce (encounter.tablesFor)
  * @property {number} [balls]       balls in the bag; auto-catch cannot exceed them
  * @property {{encounters:number, seconds:number}} [progress] cumulative, carried between calls
  */
@@ -258,8 +250,15 @@ function multiplierChain(unlocks, upgrades, tod) {
  */
 export function production(state) {
   const party = state?.party ?? EMPTY;
-  const biomeId = state?.biome && BIOMES[state.biome] ? state.biome : DEFAULT_BIOME;
-  const biome = BIOMES[biomeId];
+  const biomeId = state?.biome ?? null;
+  const biome = {
+    label: biomeId ?? NEUTRAL_ECONOMY.label,
+    money: Number.isFinite(state?.economy?.money) ? state.economy.money : NEUTRAL_ECONOMY.money,
+    exp: Number.isFinite(state?.economy?.exp) ? state.economy.exp : NEUTRAL_ECONOMY.exp,
+    research: Number.isFinite(state?.economy?.research) ? state.economy.research : NEUTRAL_ECONOMY.research,
+    encounters: Number.isFinite(state?.economy?.encounters) ? state.economy.encounters : NEUTRAL_ECONOMY.encounters,
+    favours: state?.economy?.favours ?? NEUTRAL_ECONOMY.favours,
+  };
   const luck = Number.isFinite(state?.luck) ? state.luck : 1;
   const efficiency = Number.isFinite(state?.efficiency) ? state.efficiency : 1;
   const tod = Number.isFinite(state?.tod) ? state.tod : 12;

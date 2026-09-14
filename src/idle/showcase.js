@@ -23,7 +23,6 @@
  */
 
 import { runSelfTest, summarise } from './selftest.js';
-import { BIOMES } from './accrual.js';
 import { renderPanel } from './panel.js';
 
 /** The party the showcase stages when the game has not got one yet. */
@@ -219,11 +218,10 @@ export async function showcaseIdle(mode = 'default', ctx) {
     const prod = idle.production?.();
     if (!prod) return;
     model.production = prod;
-    model.biomeMoneyMult = BIOMES[prod.biome]?.money ?? 1;
-    model.biomes = Object.entries(BIOMES).map(([id, b]) => ({
-      id, label: b.label, current: id === prod.biome,
-      money: idle.simulate ? rateForBiome(idle, id) : 0,
-    }));
+    // No more fixed catalog of places to compare against — economy is authored per map now
+    // (`@/terrain/mapfile.js`). The panel shows the currently loaded map's own profile only.
+    model.biomeMoneyMult = 1;
+    model.biomes = [{ id: prod.biome ?? '(none)', label: prod.biomeLabel ?? 'Neutral', current: true, money: prod.perSecond?.money ?? 0 }];
     model.api = API_SURFACE.map((a) => ({ ...a, ok: typeof idle[a.key] === 'function' || typeof idle[a.key] === 'object' }));
     model.heartbeat = idle.heartbeat?.() ?? { transport: 'none', beats: 0, missed: 0, lastDriftMs: 0, maxDriftMs: 0, fallbacks: 0, workerErrors: 0, intervalMs: 0 };
     model.heartbeat.intervalMs = model.heartbeat.intervalMs || (ctx.config.idleHeartbeatMs ?? 1000);
@@ -248,12 +246,4 @@ export async function showcaseIdle(mode = 'default', ctx) {
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
-}
-
-/** The current party's money rate as if it were standing in `biomeId`. */
-function rateForBiome(idle, biomeId) {
-  const state = idle.state?.();
-  if (!state) return 0;
-  const g = idle.simulate({ ...state, biome: biomeId }, 1, 0);
-  return g.perSecond.money;
 }

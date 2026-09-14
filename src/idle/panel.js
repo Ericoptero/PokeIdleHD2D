@@ -246,10 +246,13 @@ export function renderPanel(model) {
   partyCard.appendChild(table);
   left.appendChild(partyCard);
 
-  // --- biome matrix --------------------------------------------------------
-  const biomeCard = card('The same party, every biome', 'why the destination matters');
+  // --- current map's economy profile ----------------------------------------
+  // Economy is authored per map now (`@/terrain/mapfile.js`'s `economy` field, edited in the
+  // Map Studio) rather than picked from a fixed catalog of places, so there is no more matrix
+  // to compare against — only the currently loaded map's own profile.
+  const biomeCard = card('This map\'s economy profile', 'why the destination matters');
   const rows = el('div', 'rows');
-  const best = Math.max(...model.biomes.map((b) => b.money));
+  const best = Math.max(1, ...model.biomes.map((b) => b.money));
   for (const b of model.biomes) {
     const row = el('div', b.current ? 'row' : 'row dim');
     row.innerHTML =
@@ -260,8 +263,8 @@ export function renderPanel(model) {
   }
   biomeCard.appendChild(rows);
   biomeCard.appendChild(el('div', 'note',
-    `The same party re-priced by <b>production(state)</b>: each member's best matching type ` +
-    `wins, so where you hunt is a real decision.`));
+    `<b>production(state)</b>: each member's best matching type wins against the map's own ` +
+    `\`favours\`, so where you hunt is still a real decision — just an authored one now.`));
   left.appendChild(biomeCard);
 
   // --- heartbeat -----------------------------------------------------------

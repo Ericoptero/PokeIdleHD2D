@@ -9,9 +9,8 @@
 
 import { h } from '@/ui/dom/el.js';
 import { validateMap } from '@/terrain/validate.js';
-import { TABLES } from '@/encounter/tables.js';
 import { serializeDocument } from './state.js';
-import { loadedCatalogs } from './catalog.js';
+import { loadedCatalogs, peekSpeciesNames } from './catalog.js';
 import { icon } from './icons.js';
 
 let cache = null; // { rev, doc, result }
@@ -39,14 +38,16 @@ export function runValidation(doc, { force = false } = {}) {
 export function invalidateValidation() { cache = null; }
 
 /**
- * The context `validateMap` needs for its non-pure checks. `tables: TABLES` un-skips
- * `encounter-weights`; `catalogs`/`maps` un-skip the catalog- and cross-map-dependent checks
- * once those are loaded. `loop` (for `loop-stale`) is intentionally not provided — re-stitching
- * needs `src/hunts/compose.js`, which the Studio does not import (see the plan's own note on
- * why that check stays `skipped`).
+ * The context `validateMap` needs for its non-pure checks. `species` un-skips
+ * `spawn-point-species` once the snapshot has loaded (`peekSpeciesNames`, `null` until then,
+ * in which case the key is omitted so the check reports `skipped` rather than passing on an
+ * empty set); `catalogs`/`maps` un-skip the catalog- and cross-map-dependent checks. `loop`
+ * (for `loop-stale`) is intentionally not provided — re-stitching needs `src/hunts/compose.js`,
+ * which the Studio does not import for this path (see that check's own doc).
  */
 export function validationEnv(extra = {}) {
-  return { catalogs: loadedCatalogs(), tables: TABLES, maps: {}, ...extra };
+  const species = peekSpeciesNames();
+  return { catalogs: loadedCatalogs(), maps: {}, ...(species ? { species } : {}), ...extra };
 }
 
 const SEVERITY_ICON = { erro: 'circle-alert', aviso: 'triangle-alert', info: 'info' };

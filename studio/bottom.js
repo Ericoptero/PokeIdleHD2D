@@ -5,9 +5,8 @@
 
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
-import { TABLES, todBand } from '@/encounter/tables.js';
 import { runValidation, issueRow } from './validation.js';
-import { removeObject, removeMarker, removeNpc, removeLight, removeWildSlot, setEncounterRows } from './tools.js';
+import { removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint } from './tools.js';
 
 const TABS = [
   ['layers', 'Camadas', 'layers'], ['objects', 'Objetos', 'box'], ['gameplay', 'Jogabilidade', 'gamepad-2'],
@@ -125,96 +124,35 @@ function renderObjects(bodyEl, doc, history, editorCanvas, rebuild) {
   if (!grid.children.length) bodyEl.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum objeto — use as ferramentas de objeto/marcador/luz/npc no canvas'));
 }
 
-/** The four time-of-day bands a row's `when` can take — same vocabulary as `todBand`'s output. */
-const BANDS = ['any', 'morning', 'day', 'night'];
-
 /**
- * Add/remove/edit UI for `doc.encounters.rows` — the per-map inline encounter table, checked
- * before the shared `TABLES[doc.encounters.table]` lookup at read time (`renderGameplay`'s own
- * preview below, and eventually the runtime). Every field edit rebuilds the whole `rows` array
- * with just that field changed and funnels through the single wholesale-replace
- * `setEncounterRows` command — the same coarse-grained-undo shape `setLoopVia` already uses for
- * `loop.via`, rather than one granular command per column.
- */
-function encounterRowsEditor(doc, history, refresh) {
-  const rows = doc.encounters?.rows ?? [];
-  const patch = (i, field, value) => setEncounterRows(doc, history, { rows: rows.map((r, k) => (k === i ? { ...r, [field]: value } : r)) });
-  const rowEl = (r, i) => h('div', { class: 'ms-enc-row ms-enc-row--edit' }, [
-    h('input', { class: 'ms-field-input', style: { width: '86px' }, value: r.n, placeholder: 'espécie',
-      onChange: (e) => { patch(i, 'n', e.target.value); refresh(); } }),
-    h('input', { class: 'ms-field-input ms-mono', type: 'number', style: { width: '44px' }, value: r.w, title: 'peso',
-      onChange: (e) => { patch(i, 'w', Number(e.target.value) || 0); refresh(); } }),
-    h('input', { class: 'ms-field-input ms-mono', type: 'number', style: { width: '44px' }, value: r.r, title: 'taxa de captura',
-      onChange: (e) => { patch(i, 'r', Number(e.target.value) || 0); refresh(); } }),
-    h('select', { class: 'ms-select', style: { width: '76px' }, onChange: (e) => { patch(i, 'when', e.target.value); refresh(); } },
-      BANDS.map((b) => h('option', { value: b, selected: b === (r.when ?? 'any') }, b))),
-    h('input', { class: 'ms-field-input ms-mono', type: 'number', style: { width: '38px' }, value: r.bump ?? 0, title: 'bump (níveis extra)',
-      onChange: (e) => { patch(i, 'bump', Number(e.target.value) || 0); refresh(); } }),
-    h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: () => {
-      setEncounterRows(doc, history, { rows: rows.filter((_, k) => k !== i) }); refresh();
-    } }, [icon('close', { size: 12 })]),
-  ]);
-  const addBtn = h('button', { class: 'ms-btn ms-btn--small', onClick: () => {
-    setEncounterRows(doc, history, { rows: [...rows, { n: '', w: 10, r: 200, when: 'any', bump: 0 }] }); refresh();
-  } }, [icon('plus', { size: 12 }), h('span', {}, 'linha')]);
-  return h('div', { class: 'ms-enc-editor' }, [
-    h('div', { class: 'ms-eyebrow' }, 'Linhas do mapa (encounters.rows)'),
-    ...rows.map(rowEl),
-    addBtn,
-  ]);
-}
-
-/**
- * The Jogabilidade tab's gameplay-data section: a read-only preview of whichever encounter
- * rows are actually in effect (`doc.encounters.rows` first, the shared `TABLES[table]`
- * otherwise), the editor that writes those rows, and the wild-spawn-slot lists — the authored
- * ones (`doc.wild.slots`, editable here) alongside the machine-derived cache
- * (`doc.wild.resolved.slots`, read-only, unchanged from before).
+ * The Jogabilidade tab's gameplay-data section: a summary list of every spawn point on the
+ * map, each with its own respawn timer and its own weighted species list
+ * (`@/terrain/mapfile.js`'s `spawnPoints[]`) — the full editor for one point is the
+ * inspector's own card (`inspector.js`'s `spawnPointCard`), which comes up when a point's
+ * gizmo (3D) or cell (2D) is selected; clicking a row here selects it the same way.
  */
 function renderGameplay(bodyEl, doc, history, editorCanvas, rebuild) {
   const refresh = () => { rebuild(); editorCanvas.render(); };
-  const tod = 12; // a fixed reference band — the live preview's own clock drives the 3D pane
-  const band = todBand(tod);
-  const authoredRows = doc.encounters?.rows ?? null;
-  const rows = authoredRows ?? TABLES[doc.encounters?.table] ?? [];
-  const maxW = Math.max(1, ...rows.map((r) => r.w));
-  const sourceLabel = authoredRows ? `linhas do mapa (${authoredRows.length})` : (doc.encounters?.table || 'nenhuma');
-  const left = h('div', { class: 'ms-enc-col' }, [
-    h('div', { class: 'ms-eyebrow' }, `Tabela de encontro · ${sourceLabel}`),
-    ...rows.map((r) => h('div', { class: `ms-enc-row${r.when !== 'any' && r.when !== band ? ' ms-enc-row--dim' : ''}` }, [
-      h('span', { class: 'ms-enc-name' }, r.n),
-      h('span', { class: 'ms-enc-when' }, r.when),
-      h('div', { class: 'ms-enc-bar' }, [h('div', { class: 'ms-enc-bar-fill', style: { width: `${(r.w / maxW) * 100}%` } })]),
-      h('span', { class: 'ms-mono' }, String(r.w)),
-    ])),
-    !rows.length ? h('div', { class: 'ms-empty' }, 'sem tabela de encontro') : null,
-    encounterRowsEditor(doc, history, refresh),
-  ].filter(Boolean));
-
-  const resolvedSlots = doc.wild?.resolved?.slots ?? [];
-  const authoredSlots = doc.wild?.slots ?? [];
-  const onLoop = new Set((doc.loop?.resolved?.cells ?? []).map((c) => `${c.cx},${c.cz}`));
-  const right = h('div', { class: 'ms-enc-col' }, [
-    h('div', { class: 'ms-eyebrow' }, `Vagas manuais (${authoredSlots.length})`),
-    ...authoredSlots.map((s) => h('div', { class: 'ms-slot-row' }, [
+  const points = doc.spawnPoints ?? [];
+  const rows = points.map((p, i) => {
+    const label = (p.species ?? []).map((s) => s.name || '(sem nome)').join(', ') || 'sem espécies';
+    return h('div', { class: 'ms-slot-row', onClick: () => {
+      editorCanvas.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: i });
+      refresh();
+    } }, [
       icon('paw-print', { size: 13 }),
-      h('span', { class: 'ms-mono ms-flex' }, `${s.cx},${s.cz}`),
-      h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: () => { removeWildSlot(doc, history, s); refresh(); } }, [icon('close', { size: 12 })]),
-    ])),
-    !authoredSlots.length ? h('div', { class: 'ms-empty' }, 'nenhuma — use a ferramenta "Vaga selvagem" no canvas') : null,
-    h('div', { class: 'ms-eyebrow', style: { marginTop: '6px' } }, 'Vagas de spawn selvagem (resolvidas)'),
-    ...resolvedSlots.map((s) => {
-      const offLoop = !onLoop.has(`${s.from?.cx},${s.from?.cz}`);
-      return h('div', { class: 'ms-slot-row' }, [
-        icon('paw-print', { size: 13 }),
-        h('span', { class: 'ms-mono' }, `${s.cx},${s.cz}`),
-        h('span', { class: `ms-slot-status${offLoop ? ' ms-slot-status--bad' : ''}` }, offLoop ? 'fora do loop' : 'no loop'),
-      ]);
-    }),
-    !resolvedSlots.length ? h('div', { class: 'ms-empty' }, 'sem loop resolvido — sem vagas') : null,
-  ].filter(Boolean));
+      h('span', { class: 'ms-mono' }, `${p.cx},${p.cz}`),
+      h('span', { class: 'ms-flex' }, label),
+      h('span', { class: 'ms-muted' }, `${p.respawnSeconds ?? 26}s`),
+      h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: (e) => { e.stopPropagation(); removeSpawnPoint(doc, history, p); refresh(); } }, [icon('close', { size: 12 })]),
+    ]);
+  });
 
-  bodyEl.appendChild(h('div', { class: 'ms-enc-split' }, [left, right]));
+  bodyEl.appendChild(h('div', { class: 'ms-enc-col' }, [
+    h('div', { class: 'ms-eyebrow' }, `Pontos de spawn (${points.length})`),
+    ...rows,
+    !points.length ? h('div', { class: 'ms-empty' }, 'nenhum — use a ferramenta "Vaga selvagem" no canvas ou pane 3D') : null,
+  ].filter(Boolean)));
 }
 
 function renderValidation(bodyEl, v, editorCanvas) {

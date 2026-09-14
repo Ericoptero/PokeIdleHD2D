@@ -16,7 +16,7 @@ import { colorFor, peekCatalog, dominantImage, peekBitmap } from './catalog.js';
 import { COLLISION_COLOR } from './kinds.js';
 import {
   paintCell, eraseCell, paintRect, fillRegion, setCollision, adjustHeight, toggleTag,
-  setSpawn, placeMarker, placeObject, stackAt, addNpc, addLight, addWildSlot, setLoopVia,
+  setSpawn, placeMarker, placeObject, stackAt, addNpc, addLight, addSpawnPoint, setLoopVia,
 } from './tools.js';
 import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
 
@@ -92,7 +92,7 @@ export function makeEditorCanvas({ canvas, history }) {
   let brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
     claimFootprint: false, keepCollision: true };
   let selectedAsset = null; // { name, tileset, w, h }
-  let selection = { cell: null, objectId: null, markerName: null, lightIndex: null };
+  let selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
   let drag = null;
   let editCount = 0;
   const hiddenLayers = new Set();
@@ -293,25 +293,15 @@ export function makeEditorCanvas({ canvas, history }) {
       });
     }
 
-    // --- wild / encounter slots ---
-    if (overlays.encounters && doc.wild?.resolved?.slots?.length) {
+    // --- spawn points ---
+    // Authored spawn points (`doc.spawnPoints`, placed by the `wildslot` tool) — each one is
+    // a real respawn point with its own species list, not a derived cache any more.
+    if (overlays.encounters && doc.spawnPoints?.length) {
       c.fillStyle = 'rgba(227,143,176,0.9)';
-      for (const s of doc.wild.resolved.slots) {
+      for (const s of doc.spawnPoints) {
         const [x, y] = toScreen(s.cx + 0.5, s.cz + 0.5);
         c.beginPath(); c.arc(x, y, Math.max(2, view.cell * 0.28), 0, Math.PI * 2); c.fill();
       }
-    }
-    // Authored wild slots (`doc.wild.slots`, hand-placed by the `wildslot` tool) — a hollow
-    // ring rather than resolved's filled dot, so an admin can tell "I placed this" from "the
-    // loop-stitcher computed this" at a glance, even where the two coincide.
-    if (overlays.encounters && doc.wild?.slots?.length) {
-      c.strokeStyle = 'rgba(227,143,176,0.95)';
-      c.lineWidth = 2;
-      for (const s of doc.wild.slots) {
-        const [x, y] = toScreen(s.cx + 0.5, s.cz + 0.5);
-        c.beginPath(); c.arc(x, y, Math.max(3, view.cell * 0.34), 0, Math.PI * 2); c.stroke();
-      }
-      c.lineWidth = 1;
     }
 
     // --- lights ---
@@ -402,6 +392,11 @@ export function makeEditorCanvas({ canvas, history }) {
     return best;
   }
 
+  /** A spawn point is on a cell, not a free-floating point — an exact-cell hit is enough. */
+  function spawnPointNear(cx, cz) {
+    return doc.spawnPoints.findIndex((p) => p.cx === cx && p.cz === cz);
+  }
+
   const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
 
   function applyToolAt(cx, cz, kind) {
@@ -416,6 +411,8 @@ export function makeEditorCanvas({ canvas, history }) {
         selection.objectId = stack.find((s) => s.kind === 'object')?.id ?? null;
         selection.lightIndex = overlays.lights ? lightNear(cx, cz) : -1;
         if (selection.lightIndex < 0) selection.lightIndex = null;
+        const spi = spawnPointNear(cx, cz);
+        selection.spawnPointIndex = spi < 0 ? null : spi;
         break;
       }
       case 'pencil':
@@ -460,7 +457,7 @@ export function makeEditorCanvas({ canvas, history }) {
         openAddLightDialog({ cx, cz, onCreate: (light) => { addLight(doc, history, light); editCount++; notify(); render(); } });
         break;
       case 'wildslot':
-        addWildSlot(doc, history, { cx, cz });
+        addSpawnPoint(doc, history, { cx, cz });
         editCount++;
         break;
       case 'loop': {
@@ -559,7 +556,7 @@ export function makeEditorCanvas({ canvas, history }) {
 
   return {
     setDoc(d) {
-      doc = d; selection = { cell: null, objectId: null, markerName: null, lightIndex: null };
+      doc = d; selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
       editCount = 0; hiddenLayers.clear(); lockedLayers.clear();
       fitView(); render(); notify();
     },

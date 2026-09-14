@@ -1,6 +1,6 @@
 {
   "format": "pokeidle.map",
-  "version": 1,
+  "version": 2,
   "id": "pokecenter",
   "name": "Pokémon Center",
   "kind": "interior",
@@ -8,15 +8,10 @@
   "w": 13,
   "h": 10,
   "tileset": "pt-house-indoor",
-  "biome": "city",
   "seed": 1337,
   "requiredLevel": 0,
   "weather": null,
   "environmentPreset": "interior",
-  "source": {
-    "builder": "src/pokecenter/map.js + src/pokecenter/dress.js",
-    "snapshotAt": "2026-09-14T06:43:48.101Z"
-  },
   "grid": {
     "collision": {
       "p": ["block","walk","door"],
@@ -515,8 +510,6 @@
     }
   ],
   "loop": null,
-  "wild": null,
-  "encounters": null,
   "npcs": [
     {
       "name": "nurse",
@@ -569,5 +562,18 @@
     "head": "trainer",
     "input": true,
     "autopilot": "none"
-  }
+  },
+  "economy": {
+    "money": 1.55,
+    "exp": 0.55,
+    "research": 0.8,
+    "encounters": 0.35,
+    "favours": {
+      "normal": 1.2,
+      "electric": 1.3,
+      "steel": 1.12,
+      "psychic": 1.15
+    }
+  },
+  "spawnPoints": []
 }

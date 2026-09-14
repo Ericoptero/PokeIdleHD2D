@@ -1,16 +1,16 @@
 /**
  * terrain — maps, heightfield and collision (src/terrain/index.js).
  *
- * Maps are *data*, produced by `city` and `hunts` through the authoring API and then
- * realised as instanced geometry. Nothing hand-places a mesh: if a scene cannot be
- * rebuilt from its seed and its author function, it cannot be re-screenshotted, and a
- * scene we cannot re-screenshot cannot be reviewed.
+ * Maps are *data*: every one of them is a `.map.json` (`./mapfile.js`) authored in the Map
+ * Studio and replayed onto a fresh `MapDraft` (`./draft.js`) through `./frommap.js`. Nothing
+ * hand-places a mesh and nothing generates a map from code — a scene's registered builder
+ * (`city`, `pokecenter`, `hunts`) does nothing but `loadMapFile` + `applyMapFile`.
  */
 
 import { MapDraft } from './draft.js';
-import { parseMapFile } from './mapfile.js';
+import { parseMapFile, DEFAULT_ECONOMY } from './mapfile.js';
 import { applyMapFile, builderFor } from './frommap.js';
-import { populateFromMap } from './populate.js';
+import { populateFromMap, buildExtras } from './populate.js';
 
 export default {
   id: 'terrain',
@@ -39,11 +39,14 @@ export default {
 
       const tiles = ctx.get('tiles');
       const draft = new MapDraft({ id: mapId, ...opts });
-      // A hand-written builder returns nothing; a JSON-authored one (`registerMapFile`, via
-      // `frommap.js`) returns the report the file carried on top of the draft — extras, loop,
-      // wild slots, npcs, links. Kept as-is so a caller (a scene, or the Studio's own preview)
-      // can build the extra `InstancedWorld`s and wire the rest without re-parsing the file.
-      const report = (await builder(draft, ctx)) ?? null;
+      // Every registered builder is `(draft, ctx, opts) => applyMapFile(draft, ctx, map)` —
+      // `builderFor` (`./frommap.js`) for a plain `.map.json` fetch, or one that closes over
+      // an already-fetched `opts.map` so a caller who needed the file's own `w`/`h`/`tileset`
+      // to size `opts` above (every real scene) does not fetch it twice. The report it
+      // returns is what the file carried on top of the draft — extras, loop, spawn points,
+      // npcs, links, economy — so a caller (a scene, or the Studio's own preview) can build
+      // the extra `InstancedWorld`s and wire the rest without re-parsing the file.
+      const report = (await builder(draft, ctx, opts)) ?? null;
       draft.finalize();
 
       await tiles.load(draft.tileset);
@@ -53,7 +56,7 @@ export default {
       log.info(`map "${mapId}" ${draft.w}x${draft.h} — ${draft.placements.length} placements, ` +
         `${world.stats.meshes} meshes, ${Math.round(world.stats.triangles / 1000)}k tris`);
       bus.emit('world:loaded', {
-        mapId, w: draft.w, h: draft.h, biome: draft.biome,
+        mapId, w: draft.w, h: draft.h,
         placements: draft.placements.length, meshes: world.stats.meshes,
       });
       return api.handle();
@@ -93,38 +96,31 @@ export default {
         return {
           id: current.id, w: d.w, h: d.h, tileset: d.tileset, spawn: d.spawn,
           /**
-           * The active map's gameplay-profile id — what `encounter/tables.js`, `idle/accrual.js`
-           * and `encounter/drops.js` key their table/yield/loot lookups on (P5: these used to be
-           * keyed off `d.biome`, a fixed 5-entry enum shared with the terrain-shape/environment
-           * concern below; a map's *gameplay* profile and its *terrain shape* are different axes
-           * and only coincided by convention for the four shipped hunts).
-           *
-           * Sourced from whatever the loaded map's own builder reported (`current.report`) —
-           * `report.encounters.table` for a Studio-authored `.map.json` (`./frommap.js`) — and,
-           * failing that, from `current.profileFallback` (`setDefaultProfile`, below), which a
-           * scene with no map file loaded sets explicitly right after `load()` returns
-           * (`src/hunts/index.js`'s `biome.id`, `src/city/index.js`'s/
-           * `src/pokecenter/index.js`'s `'city'`). **Deliberately two separate sources**, not
-           * one merged report: `city`/`pokecenter` test `terrain.report()`'s own truthiness to
-           * decide whether a map file (and therefore its `npcs`/`lights`) was actually used —
-           * folding a default INTO that report would make it truthy even on the pure proc-gen
-           * path and silently stop every hand-authored NPC (Nurse Joy, the whole town) from
-           * ever spawning again. `null` only when nothing has named a profile at all (a bare
-           * test harness, e.g.); every reader already falls back the same way
-           * `encounter/tables.js`'s own `TABLES[id] ?? TABLES.meadow` does for an id it does
-           * not recognise, so this is safe to leave unresolved here.
+           * The active map's id, for anything that used to key off a fixed `biome` enum and
+           * now just wants to know which map is loaded (`automation`'s "Hunt in" condition).
            */
-          encounterTable: current.report?.encounters?.table ?? current.profileFallback?.encounterTable ?? null,
+          mapId: current.id,
           /**
            * Free-form category tags a map may declare (`map.tags`, `./mapfile.js`) — `'cave'`,
-           * `'coastal'`, etc. Unlike `encounterTable` this is not a lookup key into one catalog:
-           * a Dive/Dusk Ball wants to ask "is this place coastal/underground?", a question a
-           * single id cannot answer once two differently-named maps might both be caves
-           * (`economy/items.js`). Same two-source precedence as `encounterTable`, above.
-           * Defaults to `[]`, never `null`, so a caller can always `.includes(...)` it without
-           * a null-check.
+           * `'coastal'`, etc. A Dive/Dusk Ball wants to ask "is this place coastal/
+           * underground?" (`economy/items.js`). Sourced from whatever the loaded map's own
+           * builder reported (`current.report`, via `./frommap.js`) and, failing that, from
+           * `current.profileFallback` (`setDefaultProfile`, below) — a scene with no map file
+           * loaded sets this right after `load()` returns. **Deliberately two separate
+           * sources**, not one merged report: `city`/`pokecenter` test `terrain.report()`'s
+           * own truthiness to decide whether a map file (and therefore its `npcs`/`lights`)
+           * was actually used — folding a default INTO that report would make it truthy
+           * unconditionally. Defaults to `[]`, never `null`, so a caller can always
+           * `.includes(...)` it without a null-check.
            */
           tags: current.report?.tags ?? current.profileFallback?.tags ?? [],
+          /**
+           * The map's own yield-multiplier profile — `idle/accrual.js` reads this instead of
+           * the fixed 5-entry `biome` table it used to key off. Same two-source precedence as
+           * `tags`, above; falls back to the neutral `DEFAULT_ECONOMY` profile
+           * (`./mapfile.js`) when nothing has named one.
+           */
+          economy: current.report?.economy ?? current.profileFallback?.economy ?? DEFAULT_ECONOMY,
         };
       },
 
@@ -147,43 +143,43 @@ export default {
       MapDraft,
 
       /**
-       * Fetches and parses `/maps/<mapId>.map.json` when `ctx.config.mapFiles` is on
-       * (`?mapFiles=1`) — a scene's registered builder calls this at the top of its own
-       * closure and, on a hit, replays the file with `applyMapFile` instead of building from
-       * code. Null on any miss (flag off, 404, a malformed file) so the caller's existing
-       * hand-written builder is always the fallback, never a hard failure.
+       * Fetches and parses `/maps/<mapId>.map.json` — every scene's registered builder calls
+       * this at the top of its own closure and replays the file with `applyMapFile`. There is
+       * no other way to build a map: nothing generates one from code any more. Throws (with
+       * the fetch/parse error surfaced) on a 404 or a malformed file, rather than falling back
+       * to anything — a missing map file is a real error, not a signal to build one from code.
        */
-      async tryLoadMapFile(mapId) {
-        if (!ctx.config.mapFiles) return null;
-        try {
-          const res = await fetch(`/maps/${mapId}.map.json`);
-          if (!res.ok) return null;
-          return parseMapFile(await res.json());
-        } catch (err) {
-          log.warn(`terrain: could not load map file for "${mapId}" — ${err?.message ?? err}`);
-          return null;
-        }
+      async loadMapFile(mapId) {
+        const res = await fetch(`/maps/${mapId}.map.json`);
+        if (!res.ok) throw new Error(`terrain.loadMapFile: /maps/${mapId}.map.json ${res.status}`);
+        return parseMapFile(await res.json());
       },
       /** Replays a parsed map file onto an in-progress draft — see `./frommap.js`. */
       applyMapFile: (draft, c, map) => applyMapFile(draft, c, map),
+      /**
+       * Builds every `role:"extra"` layer a loaded map's report carried (buildings, props,
+       * dressing — anything composited from a second tileset) into its own `InstancedWorld`.
+       * One shared helper so `city`/`pokecenter`/`hunts` don't each keep their own copy of
+       * this loop — see `./populate.js`.
+       */
+      buildExtras: (c, report) => buildExtras(c, report),
       /**
        * Spawns a loaded map's authored NPCs and registers its lights — see `./populate.js`.
        * Exposed here, rather than imported directly by `city`/`pokecenter`, because a deep
        * import into `terrain/populate.js` from a sibling module is exactly what
        * `tools/seams/run.js`'s "no deep imports" rule exists to catch; every other file under
-       * this directory is reached the same indirect way (`tryLoadMapFile`, `applyMapFile`,
-       * above).
+       * this directory is reached the same indirect way (`loadMapFile`, `applyMapFile`,
+       * `buildExtras`, above).
        */
       populateFromMap: (c, data) => populateFromMap(c, data),
       /**
-       * Names the gameplay-profile id/tags `handle()` should fall back to when the current
-       * map's own report declares none (P5) — the proc-gen path of a scene that ALSO knows
-       * how to load a `.map.json` (`city`, `pokecenter`, `hunts`). Called once, right after
-       * `load()` resolves, by the same scene that just loaded — never by a sibling module.
+       * Names the tags/economy `handle()` should fall back to when the current map's own
+       * report declares none. Called once, right after `load()` resolves, by the same scene
+       * that just loaded — never by a sibling module.
        *
        * A no-op with nothing loaded; harmless for a call that races a `world:unloaded` (the
        * fallback is simply thrown away with `current` on the next `load()`/`unload()`).
-       * @param {{encounterTable?:string|null, tags?:string[]}} profile
+       * @param {{tags?:string[], economy?:object}} profile
        */
       setDefaultProfile(profile = {}) {
         if (!current) return;

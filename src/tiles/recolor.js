@@ -1,20 +1,20 @@
 /**
- * Re-tinting an authored building's own sheet, in place, at load.
+ * Re-tinting a tileset's own sheet, in place, at load — a fact about the *tileset*
+ * (`src/tiles/dressing.js`'s `REPAINT_BY_TILESET`), not about any one map or scene.
  *
  * The `structures` pack ships three genuinely different models — `house_a` 5x4, `poke_mart`
- * 6x5, `pokemon_center` 8x6 — and `layout.js` resolves each by its own subcategory, so the
- * *mapping* was never wrong. What was wrong is that all three are painted from the same six
- * files: one `roof.png` (red pantiles), one `awning.png` (red and white stripes), one
- * `wall.png`. Six buildings, one red roof, and a town that reads as a single terrace.
+ * 6x5, `pokemon_center` 8x6 — painted from the same six files: one `roof.png` (red
+ * pantiles), one `awning.png` (red and white stripes), one `wall.png`. Six buildings, one
+ * red roof, and a town that reads as a single terrace.
  *
  * The Mart's roof is blue in every generation of the series, and that is the cheapest
  * possible separation of the two shops. `tools/assets` and `assets/structures/` belong to
- * the asset pipeline, not to `city`, so this does the equivalent at load time: the material
- * is looked up by the pack's own **per-building material name** (`poke_mart:roof`, which the
- * builder emits separately from `pokemon_center:roof` even though both point at the same
- * PNG), its texture is decoded once into a canvas, every non-grey texel is rotated in hue,
- * and the result is handed back as a `CanvasTexture` with the same sampling the original
- * had. Nothing else in the tileset can see it, because nothing else uses that material.
+ * the asset pipeline, so this does the equivalent at load time: the material is looked up by
+ * the pack's own **per-building material name** (`poke_mart:roof`, which the builder emits
+ * separately from `pokemon_center:roof` even though both point at the same PNG), its texture
+ * is decoded once into a canvas, every non-grey texel is rotated in hue, and the result is
+ * handed back as a `CanvasTexture` with the same sampling the original had. Nothing else in
+ * the tileset can see it, because nothing else uses that material.
  *
  * Three details, each of which costs a wrong frame if it is skipped:
  *
@@ -122,26 +122,26 @@ export function repaint(tileset, specs, log) {
   for (const [matName, opts] of Object.entries(specs)) {
     const i = tileset.pack.materials.findIndex((m) => m.name === matName);
     if (i < 0) {
-      log.warn(`city: no material named "${matName}" in tileset "${tileset.slug}" — not re-tinted`);
+      log.warn(`recolor: no material named "${matName}" in tileset "${tileset.slug}" — not re-tinted`);
       continue;
     }
     const mat = tileset.materials[i];
     if (!mat?.map) continue;
     // Always start from the sheet the artist shipped, never from a previous repaint: a
     // second `enter()` would otherwise rotate the hue a second time.
-    const original = mat.userData.cityOriginalMap ?? mat.map;
-    mat.userData.cityOriginalMap = original;
-    const tex = recolorTexture(original, { ...opts, name: `${matName}:city` });
+    const original = mat.userData.recolorOriginalMap ?? mat.map;
+    mat.userData.recolorOriginalMap = original;
+    const tex = recolorTexture(original, { ...opts, name: `${matName}:recolor` });
     if (!tex) continue;
-    mat.userData.cityRepaint?.dispose();
-    mat.userData.cityRepaint = tex;
+    mat.userData.recolorTex?.dispose();
+    mat.userData.recolorTex = tex;
     mat.map = tex;
     mat.needsUpdate = true;
     undo.push(() => {
       mat.map = original;
       mat.needsUpdate = true;
       tex.dispose();
-      mat.userData.cityRepaint = null;
+      mat.userData.recolorTex = null;
     });
   }
   return () => { for (const fn of undo) fn(); undo.length = 0; };

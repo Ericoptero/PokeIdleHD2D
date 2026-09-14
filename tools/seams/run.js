@@ -141,28 +141,31 @@ if (!existsSync(join(tilesDir, 'bw2-adastra', 'pack.json'))) {
 // A copy rather than a shared file because seam rule 2 forbids the import and neither table
 // belongs in `core`. Rule 5 sets the precedent and exists because exactly this kind of copy
 // drifted once with nothing able to notice.
+// `MATERIAL_FAMILIES`/`FAMILY_BY_TYPE` moved from the runtime `encounter/drops.js` into the
+// build-time `pokemon/tools/build-drops.js` once drops became a committed per-species catalog
+// (`public/generated/drops.json`) instead of a live derivation — the mirror check follows.
 {
   const evo = await import(pathToFileURL(join(REPO, 'src', 'pokemon', 'evolution.js')).href);
-  const drops = await import(pathToFileURL(join(REPO, 'src', 'encounter', 'drops.js')).href);
+  const buildDrops = await import(pathToFileURL(join(REPO, 'src', 'pokemon', 'tools', 'build-drops.js')).href);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   for (const key of ['MATERIAL_FAMILIES', 'FAMILY_BY_TYPE']) {
     const a = evo[key];
-    const b = drops[key];
+    const b = buildDrops[key];
     if (a === undefined) { fail('drop-mirror', join(REPO, 'src/pokemon/evolution.js'), `evolution.js no longer exports ${key}`); continue; }
-    if (b === undefined) { fail('drop-mirror', join(REPO, 'src/encounter/drops.js'), `drops.js is missing ${key}`); continue; }
+    if (b === undefined) { fail('drop-mirror', join(REPO, 'src/pokemon/tools/build-drops.js'), `build-drops.js is missing ${key}`); continue; }
     // Sorted, because the two files may list a family in whatever order reads best.
     const norm = (o) => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : 1)));
     if (!same(norm(a), norm(b))) {
-      fail('drop-mirror', join(REPO, 'src/encounter/drops.js'),
+      fail('drop-mirror', join(REPO, 'src/pokemon/tools/build-drops.js'),
         `${key} has drifted from pokemon/evolution.js`);
     }
   }
   // And every id either side names has to be a real item, or a drop is a no-op and an
   // evolution is unpayable.
   const items = await import(pathToFileURL(join(REPO, 'src', 'economy', 'items.js')).href);
-  const bad = [...new Set(Object.values(drops.MATERIAL_FAMILIES ?? {}).flat())]
+  const bad = [...new Set(Object.values(buildDrops.MATERIAL_FAMILIES ?? {}).flat())]
     .filter((id) => !items.item(id));
-  if (bad.length) fail('drop-mirror', join(REPO, 'src/encounter/drops.js'), `not real items: ${bad.join(', ')}`);
+  if (bad.length) fail('drop-mirror', join(REPO, 'src/pokemon/tools/build-drops.js'), `not real items: ${bad.join(', ')}`);
 }
 
 // --- 8. every listened event is one something emits ---------------------------

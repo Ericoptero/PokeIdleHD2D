@@ -1,22 +1,13 @@
 /**
- * populate.js — spawns a loaded map's authored NPCs and registers its lights (src/terrain/
+ * populate.js — builds a loaded map's authored NPCs, lights, and extra tilesets (src/terrain/
  * populate.js).
  *
- * `applyMapFile` (`./frommap.js`) already hands every scene the same report shape — `npcs`
- * (from `map.npcs`) and `lights` (from `map.lights`) among it — but until this file existed
- * only `hunts/index.js` actually read any of the report at all, and even there only for
- * `lights`. `city` and `pokecenter` spawned from their own hardcoded `NPCS`/`NURSE` constants
- * (`city/layout.js`, `pokecenter/layout.js`) and dressed their own hardcoded `LAMPS`/window
- * glows regardless of whether a Studio-exported map file was actually loaded — so moving an
- * NPC or dragging a lamp in the Map Studio and saving changed a JSON file the game never
- * looked at for either one.
- *
- * This is the one place that spawning logic lives now, shared by every module that can load a
- * `.map.json`: `city/index.js` and `pokecenter/index.js` call it with `report.npcs`/
- * `report.lights` once a map file was used; `hunts/index.js` keeps its own inline handling
- * (its NPCs are wild Pokemon on respawn slots, not this shape) but registers its lights the
- * exact same way this file does — `env.lamps.clear()` then one `add()` per entry — which is
- * the reference this file's own light half is modeled on.
+ * `applyMapFile` (`./frommap.js`) hands every scene the same report shape — `npcs`, `lights`
+ * and `extras` among it — and this is the one place that logic lives, shared by every module
+ * that loads a `.map.json`: `city/index.js`, `pokecenter/index.js` and `hunts/index.js` all
+ * call `populateFromMap` with `report.npcs`/`report.lights`, and `buildExtras` with the report
+ * itself, instead of each keeping its own copy of "spawn NPCs" / "register lights" / "build the
+ * buildings-and-props worlds" loops.
  */
 
 /** The registry hands out a null-object proxy for a dead module, and it answers
@@ -28,8 +19,7 @@ const isLive = (api) => !!api && api.__missing === undefined;
  *
  * Idempotent per call, not per scene: this does not track what a *previous* call spawned, so
  * a caller re-entering its own map owns its own teardown — dispose the `ids` this returns
- * (via the returned `dispose()`) before calling this again, exactly the way `city/npcs.js`'s
- * `populateCity` already expects of its own caller.
+ * (via the returned `dispose()`) before calling this again.
  *
  * @param {object} ctx  core context
  * @param {{npcs?:object[], lights?:object[]}} data  `report.npcs`/`report.lights` from
@@ -70,7 +60,7 @@ export async function populateFromMap(ctx, { npcs = [], lights = [] } = {}) {
       }
 
       // Let the staging promises `spawnNpc` started drain before the first frame is presented,
-      // so a screenshot never catches a half-spawned cast — the same wait `populateCity` uses.
+      // so a screenshot never catches a half-spawned cast.
       for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
     }
   }
@@ -93,6 +83,62 @@ export async function populateFromMap(ctx, { npcs = [], lights = [] } = {}) {
         for (const id of ids) s.removeNpc(id);
       }
       ids.length = 0;
+    },
+  };
+}
+
+/**
+ * Builds every `role:"extra"` layer a loaded map's report carried — buildings, lamp posts,
+ * props, paving, anything composited from a second tileset — into its own `InstancedWorld`.
+ *
+ * One shared helper: `city`, `pokecenter` and `hunts` used to each keep a near-identical loop
+ * over their own module's extras (`city/structures.js`, `pokecenter/dress.js`,
+ * `hunts/props.js`), rebuilding the same placements from hardcoded layout constants
+ * regardless of whether a map file was actually loaded. Now every map's extras — and their
+ * placement, their tileset, their `InstancedWorld` options (`castShadow`, `variety`) — live
+ * only in the map file (`./mapfile.js`'s `layers[].options`, round-tripped by `./frommap.js`).
+ *
+ * @param {object} ctx core context
+ * @param {{extras?:{tileset:string,placements:object[],options?:object}[]}|null} report
+ *   `terrain.report()` — the value `./frommap.js`'s `applyMapFile` returned
+ * @returns {Promise<{stats:object, dispose:() => void}>}
+ */
+export async function buildExtras(ctx, report) {
+  const { log } = ctx;
+  const tiles = ctx.get('tiles');
+  const worlds = [];
+  const undoFns = [];
+  const stats = { meshes: 0, triangles: 0 };
+
+  for (const extra of report?.extras ?? []) {
+    if (!extra.placements?.length) continue;
+    const tileset = await tiles.load(extra.tileset).catch((err) => {
+      log.warn(`terrain/populate: extras tileset "${extra.tileset}" did not load`, err);
+      return null;
+    });
+    if (!tileset) continue;
+    const world = tiles.buildInstances(ctx.three.scene, extra.tileset, extra.placements, {
+      name: `map:extra:${extra.tileset}`, ...(extra.options ?? {}),
+    });
+    worlds.push(world);
+    stats.meshes += world.stats.meshes;
+    stats.triangles += world.stats.triangles;
+
+    // Per-tileset material touch-ups (a repaint, a shadow exclusion) — a fact about the
+    // tileset's own pack, applied the same way regardless of which map is loading it.
+    // `tiles.dressExtras` (not a deep import into `tiles/dressing.js`) is the seam
+    // (`tools/seams/run.js` rule 2): cross-module access goes through `ctx.get('tiles')`.
+    const undo = typeof tiles.dressExtras === 'function' ? tiles.dressExtras(extra.tileset, world) : null;
+    if (undo) undoFns.push(undo);
+  }
+
+  return {
+    stats,
+    dispose() {
+      for (const w of worlds) w.dispose();
+      worlds.length = 0;
+      for (const fn of undoFns) fn();
+      undoFns.length = 0;
     },
   };
 }

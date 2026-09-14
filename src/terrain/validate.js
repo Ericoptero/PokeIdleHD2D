@@ -222,22 +222,16 @@ const CHECKS = [
     },
   },
   {
-    code: 'wild-off-loop', severity: 'error', needs: [],
+    code: 'spawn-point-blocked', severity: 'error', needs: [],
     run(map) {
-      const slots = map.wild?.resolved?.slots;
-      const loopCells = map.loop?.resolved?.cells;
-      if (!slots?.length) return [];
+      const points = map.spawnPoints ?? [];
+      if (!points.length) return [];
       const grid = decodeGrid(map);
       const passable = passableOf(grid);
-      const onLoop = new Set((loopCells ?? []).map((c) => `${c.cx},${c.cz}`));
       const out = [];
-      for (const s of slots) {
-        if (loopCells && !onLoop.has(`${s.from?.cx},${s.from?.cz}`)) {
-          out.push({ at: { cx: s.cx, cz: s.cz }, message: `spawn selvagem em (${s.cx},${s.cz}) parte de uma célula fora do loop de patrulha` });
-          continue;
-        }
-        if (s.approach && !passable(s.approach.cx, s.approach.cz, s.step ?? 0)) {
-          out.push({ at: { cx: s.cx, cz: s.cz }, message: `spawn selvagem em (${s.cx},${s.cz}) tem aproximação bloqueada` });
+      for (const p of points) {
+        if (!passable(p.cx, p.cz, p.dir ?? 0)) {
+          out.push({ at: { cx: p.cx, cz: p.cz }, message: `ponto de spawn em (${p.cx},${p.cz}) está numa célula bloqueada` });
         }
       }
       return out;
@@ -380,16 +374,25 @@ const CHECKS = [
     },
   },
   {
-    code: 'encounter-weights', severity: 'info', needs: ['tables'],
+    code: 'spawn-point-species', severity: 'error', needs: ['species'],
     run(map, env) {
-      if (!map.encounters?.table) return [];
-      const rows = env.tables[map.encounters.table];
-      if (!rows) return [{ message: `tabela de encontro "${map.encounters.table}" não encontrada` }];
-      if (!rows.length && (map.wild?.slots ?? 0) > 0) {
-        return [{ message: `tabela "${map.encounters.table}" está vazia mas o mapa tem ${map.wild.slots} vagas de spawn selvagem` }];
+      const out = [];
+      for (const p of map.spawnPoints ?? []) {
+        const rows = p.species ?? [];
+        if (!rows.length) {
+          out.push({ at: { cx: p.cx, cz: p.cz }, message: `ponto de spawn em (${p.cx},${p.cz}) não tem nenhuma espécie` });
+          continue;
+        }
+        for (const r of rows) {
+          if (!(Number(r.chance) > 0)) {
+            out.push({ at: { cx: p.cx, cz: p.cz }, message: `"${r.name}" em (${p.cx},${p.cz}) tem chance ${r.chance} (deve ser positiva)` });
+          }
+          if (!env.species.has(r.name)) {
+            out.push({ at: { cx: p.cx, cz: p.cz }, message: `"${r.name}" em (${p.cx},${p.cz}) não é uma espécie conhecida` });
+          }
+        }
       }
-      const total = rows.reduce((a, r) => a + (r.w ?? 0), 0);
-      return [{ message: `tabela de encontro "${map.encounters.table}" com ${rows.length} espécies, peso total ${total}` }];
+      return out;
     },
   },
   {

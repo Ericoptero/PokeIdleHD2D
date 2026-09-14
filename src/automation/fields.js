@@ -32,16 +32,17 @@
 import { operatorsFor } from './ops.js';
 
 /**
- * The built-in table ids, in the order the pickers should list them.
+ * Example map ids, in the order the pickers should list them.
  *
- * P5: a map's own gameplay-profile id (`terrain.handle().encounterTable`) is no longer
- * restricted to this list — `encounter/tables.js`'s own `TABLES[id] ?? TABLES.meadow`
- * fallback accepts any id and degrades gracefully. This stays as the enum a rule editor's
- * "Biome" field *suggests* (`WORLD_FIELDS`, below), because it is the set every fresh save
- * ships with; it is descriptive metadata for the picker, not a whitelist the `biome` fact
- * is checked against.
+ * There is no fixed catalog of places any more — every `.map.json` (`@/terrain/mapfile.js`)
+ * is its own destination, authored in the Map Studio, and `world.biome`
+ * (`automation/index.js`'s own doc) is simply `terrain.handle().mapId`, whatever that
+ * currently loaded map's own id is. This stays as the set a rule editor's "Biome" field
+ * *suggests* (`WORLD_FIELDS`, below) — the six shipped map ids — because a suggestion list
+ * has to show something; it is descriptive metadata for the picker, not a whitelist the
+ * `biome` fact is checked against, and a rule can freely name any other map's id instead.
  */
-export const BIOMES = Object.freeze(['city', 'meadow', 'forest', 'cave', 'coast']);
+export const BIOMES = Object.freeze(['demo-city', 'pokecenter', 'hunt-meadow', 'hunt-forest', 'hunt-cave', 'hunt-coast']);
 
 /** The 18 types, so a "never release a Dragon" rule can offer a real list. */
 export const TYPES = Object.freeze([

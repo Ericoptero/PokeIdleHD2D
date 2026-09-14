@@ -147,3 +147,29 @@ export function peekBitmap(slug, image) {
   const entry = bitmapCache.get(`${slug}/${image}`);
   return entry instanceof Promise ? null : (entry ?? null);
 }
+
+// --- species catalog ---------------------------------------------------------------------------
+//
+// A spawn point's species picker and `@/terrain/validate.js`'s `spawn-point-species` check
+// both need to know what a real species name is — the same committed snapshot the game itself
+// loads (`src/pokemon/index.js`), fetched once here rather than duplicated.
+
+let speciesPromise = null;
+
+/** @returns {Promise<object[]>} the full species list, `[]` if the snapshot is missing. */
+export async function loadSpeciesCatalog() {
+  if (!speciesPromise) {
+    speciesPromise = fetch('/generated/species.json')
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => []);
+  }
+  return speciesPromise;
+}
+
+/** Resolved-only peek, for a render loop that cannot await. `null` until loaded. */
+let speciesCache = null;
+loadSpeciesCatalog().then((list) => { speciesCache = list; });
+
+export function peekSpeciesNames() {
+  return speciesCache ? new Set(speciesCache.map((s) => s.name)) : null;
+}

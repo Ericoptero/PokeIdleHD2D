@@ -10,11 +10,10 @@
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 
 export class MapDraft {
-  constructor({ id, w = 64, h = 64, tileset = 'bw2-adastra', biome = 'meadow', seed = 1337 } = {}) {
+  constructor({ id, w = 64, h = 64, tileset = 'bw2-adastra', seed = 1337 } = {}) {
     this.id = id;
     this.w = w; this.h = h;
     this.tileset = tileset;
-    this.biome = biome;
     this.seed = seed;
 
     this.placements = [];

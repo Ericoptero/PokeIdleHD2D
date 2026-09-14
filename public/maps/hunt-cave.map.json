@@ -1,6 +1,6 @@
 {
   "format": "pokeidle.map",
-  "version": 1,
+  "version": 2,
   "id": "hunt-cave",
   "name": "Hollow Deep",
   "kind": "hunt",
@@ -8,15 +8,10 @@
   "w": 56,
   "h": 54,
   "tileset": "bw2-cave",
-  "biome": "cave",
   "seed": 1337,
   "requiredLevel": 20,
   "weather": null,
   "environmentPreset": "cave",
-  "source": {
-    "builder": "src/hunts/biomes/cave.js",
-    "snapshotAt": "2026-09-14T08:22:02.774Z"
-  },
   "grid": {
     "collision": {
       "p": ["block","walk","water"],
@@ -787,128 +782,6 @@
       "source": "authored"
     }
   },
-  "wild": {
-    "resolved": {
-      "derived": true,
-      "slots": [
-        {
-          "cx": 22,
-          "cz": 35,
-          "dir": 0,
-          "from": {
-            "cx": 22,
-            "cz": 37
-          },
-          "step": 2,
-          "approach": {
-            "cx": 22,
-            "cz": 36
-          }
-        },
-        {
-          "cx": 24,
-          "cz": 35,
-          "dir": 0,
-          "from": {
-            "cx": 24,
-            "cz": 37
-          },
-          "step": 2,
-          "approach": {
-            "cx": 24,
-            "cz": 36
-          }
-        },
-        {
-          "cx": 26,
-          "cz": 35,
-          "dir": 0,
-          "from": {
-            "cx": 26,
-            "cz": 37
-          },
-          "step": 2,
-          "approach": {
-            "cx": 26,
-            "cz": 36
-          }
-        },
-        {
-          "cx": 25,
-          "cz": 40,
-          "dir": 2,
-          "from": {
-            "cx": 25,
-            "cz": 38
-          },
-          "step": 0,
-          "approach": {
-            "cx": 25,
-            "cz": 39
-          }
-        },
-        {
-          "cx": 23,
-          "cz": 40,
-          "dir": 2,
-          "from": {
-            "cx": 23,
-            "cz": 38
-          },
-          "step": 0,
-          "approach": {
-            "cx": 23,
-            "cz": 39
-          }
-        },
-        {
-          "cx": 16,
-          "cz": 37,
-          "dir": 3,
-          "from": {
-            "cx": 18,
-            "cz": 37
-          },
-          "step": 1,
-          "approach": {
-            "cx": 17,
-            "cz": 37
-          }
-        },
-        {
-          "cx": 16,
-          "cz": 35,
-          "dir": 3,
-          "from": {
-            "cx": 18,
-            "cz": 35
-          },
-          "step": 1,
-          "approach": {
-            "cx": 17,
-            "cz": 35
-          }
-        },
-        {
-          "cx": 20,
-          "cz": 33,
-          "dir": 0,
-          "from": {
-            "cx": 20,
-            "cz": 35
-          },
-          "step": 2,
-          "approach": {
-            "cx": 20,
-            "cz": 34
-          }
-        }
-      ]
-    }
-  },
-  "encounters": {
-    "table": "cave"
-  },
   "tags": ["cave"],
   "npcs": [],
   "links": [],
@@ -1056,5 +929,1147 @@
     "autopilot": "route",
     "strict": true,
     "preferTags": ["tallgrass","encounter","path"]
-  }
+  },
+  "economy": {
+    "money": 0.7,
+    "exp": 1.2,
+    "research": 1.75,
+    "encounters": 1.6,
+    "favours": {
+      "rock": 1.42,
+      "ground": 1.36,
+      "steel": 1.22,
+      "dark": 1.18
+    }
+  },
+  "spawnPoints": [
+    {
+      "id": "spawn-0",
+      "cx": 22,
+      "cz": 35,
+      "dir": 0,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-1",
+      "cx": 24,
+      "cz": 35,
+      "dir": 0,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-2",
+      "cx": 26,
+      "cz": 35,
+      "dir": 0,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-3",
+      "cx": 25,
+      "cz": 40,
+      "dir": 2,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-4",
+      "cx": 23,
+      "cz": 40,
+      "dir": 2,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-5",
+      "cx": 16,
+      "cz": 37,
+      "dir": 3,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-6",
+      "cx": 16,
+      "cz": 35,
+      "dir": 3,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    },
+    {
+      "id": "spawn-7",
+      "cx": 20,
+      "cz": 33,
+      "dir": 0,
+      "respawnSeconds": 26,
+      "species": [
+        {
+          "name": "zubat",
+          "chance": 22,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "geodude",
+          "chance": 18,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "roggenrola",
+          "chance": 16,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "woobat",
+          "chance": 14,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "sandshrew",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "diglett",
+          "chance": 10,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "machop",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "aron",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "dwebble",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "drilbur",
+          "chance": 8,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "nosepass",
+          "chance": 5,
+          "when": "any",
+          "bump": 0
+        },
+        {
+          "name": "rockruff",
+          "chance": 6,
+          "when": "morning",
+          "bump": 0
+        },
+        {
+          "name": "onix",
+          "chance": 4,
+          "when": "any",
+          "bump": 2
+        },
+        {
+          "name": "carbink",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "axew",
+          "chance": 2,
+          "when": "any",
+          "bump": 3
+        },
+        {
+          "name": "gible",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "larvitar",
+          "chance": 1,
+          "when": "any",
+          "bump": 4
+        },
+        {
+          "name": "golbat",
+          "chance": 8,
+          "when": "night",
+          "bump": 3
+        },
+        {
+          "name": "gastly",
+          "chance": 10,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "litwick",
+          "chance": 6,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "yamask",
+          "chance": 5,
+          "when": "night",
+          "bump": 0
+        },
+        {
+          "name": "sableye",
+          "chance": 3,
+          "when": "night",
+          "bump": 2
+        }
+      ]
+    }
+  ]
 }

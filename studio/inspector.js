@@ -7,12 +7,12 @@
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
 import { COLLISIONS, COLLISION_LABEL, COLLISION_DOT, DIR_LABEL, WEATHERS } from './kinds.js';
-import { peekCatalog } from './catalog.js';
-import { BIOMES } from '@/encounter/tables.js';
+import { peekCatalog, peekSpeciesNames } from './catalog.js';
 import {
   setCollision, toggleTag, adjustHeight, setSpawn,
   setCellRotation, setCellTint, updateLight, removeLight,
-  setField, setLoopVia, setDefaultCamera,
+  setField, setLoopVia, setDefaultCamera, setEconomy,
+  updateSpawnPoint, removeSpawnPoint,
 } from './tools.js';
 
 const TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
@@ -56,12 +56,14 @@ export function makeInspector({ root, editorCanvas, docRef, history, onChange })
     body.appendChild(mapInfoCard(doc, set));
 
     if (sel.lightIndex != null) body.appendChild(lightCard(doc, history, sel.lightIndex, onChange));
+    else if (sel.spawnPointIndex != null) body.appendChild(spawnPointCard(doc, history, sel.spawnPointIndex, onChange));
     else if (sel.cell) {
       body.appendChild(tileCard(doc, history, sel, editorCanvas, catalog, onChange));
       body.appendChild(cellCard(doc, history, sel, editorCanvas, onChange));
     }
 
     body.appendChild(gameplayCard(doc, history, onChange));
+    body.appendChild(economyCard(doc, history, onChange));
     body.appendChild(cameraCard(doc, history, onChange));
   }
 
@@ -75,7 +77,6 @@ function mapInfoCard(doc, set) {
     selectRow('Tipo', doc.kind, ['hunt', 'city', 'interior'], set('kind')),
     fieldRow('Tamanho', `${doc.w} × ${doc.h}`),
     fieldRow('Seed', doc.seed, set('seed', Number)),
-    selectRow('Bioma', doc.biome, [...new Set([doc.biome, ...BIOMES])], set('biome')),
     fieldRow('Tileset base', doc.tileset),
     doc.extras?.length ? fieldRow('Tilesets extra', doc.extras.map((e) => e.tileset).join(', ')) : null,
     fieldRow('Nível exigido', doc.requiredLevel, set('requiredLevel', Number)),
@@ -181,7 +182,6 @@ function cellCard(doc, history, sel, editorCanvas, onChange) {
 }
 
 function gameplayCard(doc, history, onChange) {
-  const setEncounterTable = (v) => { setField(doc, history, { key: 'encounters', value: v ? { table: v } : null }); onChange(); };
   const dirBtns = DIR_LABEL.map((label, d) => h('button', {
     class: `ms-dir-btn${doc.spawn.dir === d ? ' ms-dir-btn--active' : ''}`,
     onClick: () => { setSpawn(doc, history, { cx: doc.spawn.cx, cz: doc.spawn.cz, dir: d }); onChange(); },
@@ -203,8 +203,7 @@ function gameplayCard(doc, history, onChange) {
     fieldRow('Spawn', `${doc.spawn.cx}, ${doc.spawn.cz}`),
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Virado para'), h('div', { class: 'ms-dir-row' }, dirBtns)]),
     fieldRow('Cabeça da fila', doc.formation?.head ?? '—'),
-    selectRow('Tabela de encontro', doc.encounters?.table ?? '', ['', ...BIOMES], setEncounterTable),
-    fieldRow('Vagas selvagens', doc.wild?.resolved?.slots?.length ?? doc.wild?.slots?.length ?? 0),
+    fieldRow('Pontos de spawn', doc.spawnPoints.length),
     fieldRow('Restrição (nível)', doc.requiredLevel),
     fieldRow('NPCs', doc.npcs.length),
     fieldRow('Portas/links', doc.links.length),
@@ -222,13 +221,107 @@ function cameraCard(doc, history, onChange) {
   return section('Câmera e ambiente', 'camera', [
     h('div', { class: 'ms-hint-line' }, 'Hora do dia e zoom são estado da prévia 3D (acima) — aqui é o dado salvo no mapa.'),
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Clima'), h('div', { class: 'ms-weather-row' }, weatherBtns)]),
-    fieldRow('Preset ambiente', doc.environmentPreset ?? doc.biome, (v) => { setField(doc, history, { key: 'environmentPreset', value: v }); onChange(); }),
+    fieldRow('Preset ambiente', doc.environmentPreset, (v) => { setField(doc, history, { key: 'environmentPreset', value: v }); onChange(); }),
     fieldRow('Pitch (fixo)', '45°'),
     presets.length ? h('div', { class: 'ms-cam-grid' }, presets.map(([name, p]) => h('div', {
       class: `ms-cam-card${doc.cameras.default === name ? ' ms-cam-card--active' : ''}`,
       onClick: () => { setDefaultCamera(doc, history, { name }); onChange(); },
     }, [h('span', { class: 'ms-cam-name' }, name), h('span', { class: 'ms-cam-meta' }, p.marker ? `${p.marker} · ${p.ppu}px/u` : `${p.cx},${p.cz}`)]))) : null,
   ].filter(Boolean));
+}
+
+/** The map's own yield-multiplier profile (`@/terrain/mapfile.js`'s `economy`) — `idle/
+ *  accrual.js` reads this off `terrain.handle().economy` instead of picking a fixed biome. */
+function economyCard(doc, history, onChange) {
+  const eco = doc.economy;
+  const set = (key) => (v) => {
+    const value = Math.max(0, Number(v) || 0);
+    setEconomy(doc, history, { economy: { ...eco, [key]: value } });
+    onChange();
+  };
+  const num = (label, key) => h('div', { class: 'ms-field-row' }, [
+    h('span', { class: 'ms-field-label' }, label),
+    h('input', { class: 'ms-field-input', type: 'number', step: '0.05', min: '0', value: String(eco[key] ?? 1), onChange: (e) => set(key)(e.target.value) }),
+  ]);
+  const favours = Object.entries(eco.favours ?? {});
+  const favourChips = favours.map(([type, mult]) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable' }, [
+    `${type} ×${mult}`,
+    h('span', { onClick: () => {
+      const next = { ...eco.favours }; delete next[type];
+      setEconomy(doc, history, { economy: { ...eco, favours: next } }); onChange();
+    } }, [icon('close', { size: 10 })]),
+  ]));
+  const addFavour = h('button', { class: 'ms-btn ms-btn--small', onClick: () => {
+    const type = prompt('Tipo (ex: grass):');
+    if (!type) return;
+    const mult = Number(prompt('Multiplicador (ex: 1.3):', '1.2')) || 1;
+    setEconomy(doc, history, { economy: { ...eco, favours: { ...eco.favours, [type.trim().toLowerCase()]: mult } } });
+    onChange();
+  } }, '+ favorecimento');
+
+  return section('Economia do mapa', 'coins', [
+    h('div', { class: 'ms-hint-line' }, 'Multiplicadores de produção por segundo — substitui o antigo catálogo fixo de biomas.'),
+    num('Dinheiro', 'money'), num('Experiência', 'exp'), num('Pesquisa', 'research'), num('Encontros', 'encounters'),
+    h('div', { class: 'ms-stack-title' }, 'Favorecimento por tipo'),
+    h('div', { class: 'ms-tag-row' }, [...favourChips, addFavour]),
+  ]);
+}
+
+/** A wild spawn point — its own respawn timer and its own weighted species list
+ *  (`@/terrain/mapfile.js`'s `spawnPoints[]`). Selecting its gizmo in 3D (or its cell in 2D)
+ *  brings this card up instead of the generic tile/cell cards. */
+function spawnPointCard(doc, history, index, onChange) {
+  const point = doc.spawnPoints[index];
+  if (!point) return section('Ponto de spawn', 'paw-print', [h('div', { class: 'ms-empty' }, 'ponto removido')]);
+  const names = peekSpeciesNames();
+
+  const speciesRows = (point.species ?? []).map((row, i) => {
+    const setRow = (patch) => {
+      const species = point.species.map((r, k) => (k === i ? { ...r, ...patch } : r));
+      updateSpawnPoint(doc, history, { point, patch: { species } });
+      onChange();
+    };
+    const removeRow = () => {
+      const species = point.species.filter((_, k) => k !== i);
+      updateSpawnPoint(doc, history, { point, patch: { species } });
+      onChange();
+    };
+    const known = !names || names.has(row.name);
+    return h('div', { class: 'ms-field-row' }, [
+      h('input', {
+        class: `ms-field-input${known ? '' : ' ms-field-input--invalid'}`, value: row.name, style: { flex: '2' },
+        onChange: (e) => setRow({ name: e.target.value.trim() }),
+      }),
+      h('input', {
+        class: 'ms-field-input', type: 'number', min: '0', step: '1', value: String(row.chance ?? 1),
+        title: 'chance (peso relativo)', onChange: (e) => setRow({ chance: Math.max(0, Number(e.target.value) || 0) }),
+      }),
+      h('select', { class: 'ms-select', onChange: (e) => setRow({ when: e.target.value || undefined }) },
+        ['any', 'morning', 'day', 'night'].map((w) => h('option', { value: w === 'any' ? '' : w, selected: (row.when ?? 'any') === w }, w))),
+      h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: removeRow }, [icon('close', { size: 12 })]),
+    ]);
+  });
+  const addRow = h('button', { class: 'ms-btn ms-btn--small', onClick: () => {
+    const species = [...(point.species ?? []), { name: '', chance: 10 }];
+    updateSpawnPoint(doc, history, { point, patch: { species } });
+    onChange();
+  } }, [icon('plus', { size: 12 }), h('span', {}, 'espécie')]);
+
+  return section('Ponto de spawn', 'paw-print', [
+    fieldRow('Posição', `${point.cx}, ${point.cz}`),
+    h('div', { class: 'ms-field-row' }, [
+      h('span', { class: 'ms-field-label' }, 'Reaparecimento (s)'),
+      h('input', {
+        class: 'ms-field-input', type: 'number', min: '1', step: '1', value: String(point.respawnSeconds ?? 26),
+        onChange: (e) => { updateSpawnPoint(doc, history, { point, patch: { respawnSeconds: Math.max(1, Number(e.target.value) || 26) } }); onChange(); },
+      }),
+    ]),
+    h('div', { class: 'ms-stack-title' }, 'Espécies (peso relativo decide qual aparece)'),
+    ...speciesRows,
+    addRow,
+    h('button', { class: 'ms-btn ms-btn--small ms-btn--danger', onClick: () => { removeSpawnPoint(doc, history, point); onChange(); } },
+      [icon('trash', { size: 13 }), h('span', {}, 'Remover ponto de spawn')]),
+  ]);
 }
 
 function lightCard(doc, history, index, onChange) {

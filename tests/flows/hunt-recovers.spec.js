@@ -147,7 +147,7 @@ test('a lap of the circuit brings a fainted party back and the hunt resumes', as
   expect((await partyHp(page)).some((h) => h > 0)).toBe(true);
 
   const met = await stepUntil(page, 'encounter:started', { chunk: 10, maxTicks: bound, after: lap.hit.at });
-  expect(met.hit.payload.biome).toBe('meadow');
+  expect(met.hit.payload.biome).toBe('hunt-meadow');
   expect(errors, 'no console error while recovering on the circuit').toEqual([]);
 });
 

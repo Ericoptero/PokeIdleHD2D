@@ -292,15 +292,6 @@ export const DEFAULTS = {
 
   // --- diagnostics ----------------------------------------------------------
   debug: false,
-  /**
-   * `?mapFiles=1` — a scene builds its draft by replaying `/maps/<id>.map.json`
-   * (`terrain.tryLoadMapFile`, `src/terrain/frommap.js`) instead of running its own
-   * hand-written builder, when that file exists. Off by default: every shipped scene keeps
-   * building from code until this is asked for explicitly. The Map Studio
-   * (`studio/main.js`) writes the files this reads; `tools/mapstudio/snapshot.js` is what
-   * puts the shipped six there in the first place.
-   */
-  mapFiles: false,
   showcase: null,
   /**
    * Boot straight into a destination: `?scene=hunt-forest`. Null means "wherever the save
@@ -325,7 +316,7 @@ export const DEFAULTS = {
  * persisted `break` would quarantine a module on every later boot of that browser from a URL
  * nobody typed, and `showcase`/`scene` would pin the game to one screen.
  */
-const SESSION_ONLY = new Set(['break', 'showcase', 'scene', 'mapFiles']);
+const SESSION_ONLY = new Set(['break', 'showcase', 'scene']);
 
 const NUMERIC = new Set(Object.entries(DEFAULTS).filter(([, v]) => typeof v === 'number').map(([k]) => k));
 const BOOLEAN = new Set(Object.entries(DEFAULTS).filter(([, v]) => typeof v === 'boolean').map(([k]) => k));

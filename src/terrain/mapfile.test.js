@@ -40,7 +40,7 @@ function fakeResolver() {
 }
 
 function buildFixtureDraft() {
-  const draft = new MapDraft({ id: 'fixture', w: 8, h: 6, tileset: 'bw2-adastra', biome: 'meadow', seed: 42 });
+  const draft = new MapDraft({ id: 'fixture', w: 8, h: 6, tileset: 'bw2-adastra', seed: 42 });
   draft.fill({ x: 0, z: 0, w: 8, h: 6 }, { id: 3 }, { layer: 0 });
   draft.place({ id: 12 }, 2, 2, { layer: 1, tags: ['path'] });
   draft.place({ id: 96 }, 3, 2, { layer: 1, rot: 1, tint: 0xaabbcc });

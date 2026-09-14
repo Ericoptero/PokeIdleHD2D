@@ -11,14 +11,15 @@ function baseMap(overrides = {}) {
   const tags = new Array(w * h).fill([]);
   const occupied = new Array(w * h).fill(0);
   return {
-    format: 'pokeidle.map', version: 1, id: 'test-map', name: 'Test', kind: 'hunt',
-    w, h, tileset: 'bw2-adastra', biome: 'meadow', seed: 1,
+    format: 'pokeidle.map', version: 2, id: 'test-map', name: 'Test', kind: 'hunt',
+    w, h, tileset: 'bw2-adastra', seed: 1,
+    economy: { money: 1, exp: 1, research: 1, encounters: 1, favours: {} },
     grid: {
       collision: encodeRuns(collision), height: encodeRuns(height),
       tags: encodeRuns(tags), occupied: encodeRuns(occupied),
     },
     layers: [], regions: [], spawn: { cx: 1, cz: 1, dir: 0 }, markers: [],
-    loop: null, wild: null, encounters: null, npcs: [], links: [], lights: [], cameras: null,
+    loop: null, spawnPoints: [], npcs: [], links: [], lights: [], cameras: null,
     ...overrides,
   };
 }
@@ -78,16 +79,28 @@ describe('validateMap', () => {
   });
 
   it('skips a context-dependent check when its env input is absent, rather than passing it silently', () => {
-    const map = baseMap({ encounters: { table: 'meadow' } });
+    const map = baseMap({ spawnPoints: [{ cx: 1, cz: 1, dir: 0, species: [{ name: 'patrat', chance: 10 }] }] });
     const { skipped } = validateMap(map);
-    expect(skipped).toContain('encounter-weights');
+    expect(skipped).toContain('spawn-point-species');
     expect(skipped).toContain('model-unresolved');
   });
 
-  it('runs the encounter-weights check when a table is provided', () => {
-    const map = baseMap({ encounters: { table: 'meadow' } });
-    const { infos, errors } = validateMap(map, { tables: { meadow: [{ n: 'folhote', w: 40 }] } });
-    expect(infos.some((i) => i.code === 'encounter-weights')).toBe(true);
-    expect(errors.some((e) => e.code === 'encounter-weights')).toBe(false);
+  it('runs the spawn-point-species check when a species set is provided', () => {
+    const map = baseMap({ spawnPoints: [{ cx: 1, cz: 1, dir: 0, species: [{ name: 'patrat', chance: 10 }] }] });
+    const { errors } = validateMap(map, { species: new Set(['patrat']) });
+    expect(errors.some((e) => e.code === 'spawn-point-species')).toBe(false);
+  });
+
+  it('flags a spawn point naming an unknown species', () => {
+    const map = baseMap({ spawnPoints: [{ cx: 1, cz: 1, dir: 0, species: [{ name: 'nope', chance: 10 }] }] });
+    const { errors } = validateMap(map, { species: new Set(['patrat']) });
+    expect(errors.some((e) => e.code === 'spawn-point-species')).toBe(true);
+  });
+
+  it('flags a spawn point placed on a blocked cell', () => {
+    const map = baseMap({ spawnPoints: [{ cx: 2, cz: 2, dir: 0, species: [{ name: 'patrat', chance: 10 }] }] });
+    setCollision(map, 2, 2, 'block');
+    const { errors } = validateMap(map);
+    expect(errors.some((e) => e.code === 'spawn-point-blocked')).toBe(true);
   });
 });

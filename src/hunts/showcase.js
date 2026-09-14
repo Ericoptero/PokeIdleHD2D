@@ -1,5 +1,5 @@
 /**
- * The hunts showcase: one mode per biome, so a critic can judge each place on its own.
+ * The hunts showcase: one mode per hunt map, so a critic can judge each place on its own.
  *
  *   /?showcase=hunts&mode=forest&tod=17.5
  *   node tools/shots/shoot.js --showcase hunts --mode cave --preset chamber --tod 21
@@ -24,27 +24,29 @@
  * There is one staging path now and it is `stage()`.
  */
 
-import { isLive } from './palette.js';
+/** The registry hands out a null-object proxy for a dead module; `__missing` is the tell. */
+const isLive = (api) => !!api && api.__missing === undefined;
 
-export async function showcaseHunt(mode, ctx, biomes) {
+export async function showcaseHunt(mode, ctx) {
   const { log, config } = ctx;
   const hunts = ctx.get('hunts');
-  const wanted = mode && mode !== 'default' ? String(mode) : 'forest';
-  const biome = biomes.find((b) => b.id === wanted) ?? biomes[0];
+  const list = hunts.list();
+  const wanted = mode && mode !== 'default' ? String(mode) : list[0]?.id;
+  const biome = list.find((b) => b.id === wanted) ?? list[0];
+  if (!biome) { log.warn('hunts: no hunt maps to show'); return; }
   if (biome.id !== wanted) {
-    log.warn(`hunts: no biome "${wanted}" — showing ${biome.id}; the set is ${biomes.map((b) => b.id).join(', ')}`);
+    log.warn(`hunts: no hunt map "${wanted}" — showing ${biome.id}; the set is ${list.map((b) => b.id).join(', ')}`);
   }
 
   await hunts.enter(biome.id);
 
-  // A default framing per biome, so a bare `?showcase=hunts&mode=cave` already shows the
-  // thing the mode is about. `--preset` re-runs the same path after `__READY__`.
-  const first = biome.showcaseDefault ?? Object.keys(biome.presets ?? {})[0];
+  // The map's own first camera preset, so a bare `?showcase=hunts&mode=cave` already shows
+  // the thing the mode is about. `--preset` re-runs the same path after `__READY__`.
+  const first = biome.presets?.[0];
   if (first) hunts.preset(first);
   else stageAtSpawn(ctx, biome);
 
   const stats = hunts.stats(biome.id);
-  if (stats?.missing?.length) log.warn(`hunts/${biome.id}: unmatched tile queries — ${stats.missing.join(' ')}`);
   log.info(`hunts showcase: ${biome.name} (${biome.w}x${biome.h}, ${biome.tileset})`,
     stats?.stats ? JSON.stringify(stats.stats) : '');
   const wild = hunts.wild?.() ?? [];
@@ -53,8 +55,8 @@ export async function showcaseHunt(mode, ctx, biomes) {
 }
 
 /**
- * The fallback for a biome with no presets at all: walk the party off its spawn so the queue
- * is strung out rather than parked in a line on cell centres.
+ * The fallback for a hunt map with no presets at all: walk the party off its spawn so the
+ * queue is strung out rather than parked in a line on cell centres.
  *
  * Deliberately *not* folded into `enter()`: `/` and other modules' showcases call `enter`,
  * and a scene that stops another module's simulation as a side effect of being entered is
@@ -63,10 +65,7 @@ export async function showcaseHunt(mode, ctx, biomes) {
 export function stageAtSpawn(ctx, _biome) {
   const sim = ctx.get('simulation');
   if (!isLive(sim)) return false;
-  // Walks a few tiles along **the circuit `enter()` already installed**. It used to install
-  // `biome.walk.route` instead — an authored string that predates the found loop and survived
-  // it — so every showcase photographed a walker on a path the game does not walk, and one
-  // that passes no spawn slot at all. There is one route now.
+  // Walks a few tiles along **the circuit `enter()` already installed**.
   if (!ctx.config.timeFrozen) return true;
   if (typeof sim.advanceTo === 'function') sim.advanceTo(3, 7);
   else if (typeof sim.advanceSteps === 'function') sim.advanceSteps(15);
