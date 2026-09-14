@@ -1,16 +1,17 @@
 /**
  * session.js — the Map Studio's DOM-free editing state: which tool is active, the brush
  * settings, what is selected, which layers are hidden/locked, which overlays are toggled on,
- * the hover cell, the edit counter, and the single-cell tool dispatch (`applyToolAt`) that
- * every input surface — the 2D canvas's pointer handlers today, the 3D pane's pick routing in
- * `main.js` — funnels through so a click behaves identically no matter which surface it came
- * from. `subscribe`/`notify` is the one pub-sub every panel and every renderer hangs off of.
+ * the hover cell, the edit counter, and the single-cell tool dispatch (`applyToolAt`) that every
+ * input surface funnels through so a click behaves identically no matter which one it came from
+ * — the 3D pane's pick routing in `main.js` today, and, before Slice 7 deleted it, the 2D
+ * canvas's own pointer handlers too, which is exactly why this file has no DOM in it despite
+ * having grown up alongside one for most of its life. `subscribe`/`notify` is the one pub-sub
+ * every panel and every renderer hangs off of.
  *
- * See `state.js`'s own header for why the *document* has no DOM in it; this file makes the
- * same argument one layer up. Editing STATE (as opposed to the document itself) has no more
- * reason to know about a `<canvas>`, a pointer event, or pan/zoom than the document does —
- * `canvas.js` is one DOM-bound renderer of this state (a 3D viewport is effectively a second
- * one already, via `main.js`'s preview pointer routing), and neither owns it.
+ * See `state.js`'s own header for why the *document* has no DOM in it; this file makes the same
+ * argument one layer up. Editing STATE (as opposed to the document itself) has no more reason to
+ * know about a `<canvas>`, a pointer event, or pan/zoom than the document does — a 3D viewport
+ * (`viewport/`) is one DOM-bound renderer of this state, and does not own it.
  */
 
 import { cellKey } from './state.js';
@@ -36,9 +37,9 @@ function passableAt(doc, cx, cz, fromDir) {
 }
 
 /** Flood-fills 4-connected reachability from `start` over passable cells — `getReachStats()`'s
- *  unreachable count and the 2D canvas's own `reach` overlay share this one walk; `canvas.js`'s
- *  `render()` imports it back for the overlay's per-cell coloring rather than keeping a second,
- *  drifting copy of the BFS. */
+ *  unreachable count and `viewport/overlay.js`'s own `reach` overlay share this one walk (the
+ *  latter imports it back for its per-cell tinting) rather than keeping a second, drifting copy
+ *  of the BFS. */
 export function reachableFrom(doc, start) {
   const seen = new Uint8Array(doc.w * doc.h);
   if (!start || start.cx < 0 || start.cz < 0 || start.cx >= doc.w || start.cz >= doc.h) return seen;
@@ -62,9 +63,9 @@ export function reachableFrom(doc, start) {
  *  `select` and the read-only tools stay usable so a locked layer can still be inspected. */
 export const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
 
-/** Tools that keep acting on every dragged cell while the pointer stays down, in both the 2D
- *  canvas (`canvas.js`'s own pointerdown drag-detection) and the 3D pane (`main.js`'s preview
- *  pointer routing) — one Set, imported by both, instead of two hand-kept-in-sync copies.
+/** Tools that keep acting on every dragged cell while the pointer stays down, read by `main.js`'s
+ *  3D pointer routing (and, before Slice 7 deleted it, the 2D canvas's own pointerdown
+ *  drag-detection too — one Set, imported by both, instead of two hand-kept-in-sync copies).
  *  Everything else that paints (fill/spawn/marker/npc/light/object) fires once per pointerdown. */
 export const CONTINUOUS_PAINT_TOOLS = new Set(['pencil', 'eraser', 'coll', 'height', 'tag']);
 
@@ -138,12 +139,12 @@ export function makeSession({ history }) {
         // region < loopWaypoint < cameraPreset < spawnPoint < light. The three kinds that
         // already existed keep their relative order (object < spawnPoint < light) — a light
         // sitting exactly on a painted object's cell already rendered its own selection ring
-        // LAST/on top in `canvas.js`'s draw order, so light keeps winning here too. The five
-        // brand-new per-cell checks (npc/link/region/loopWaypoint/cameraPreset) have no such
-        // precedent, so they are simply slotted in between object and spawnPoint. `marker` and
-        // `spawn` are NOT hit-tested here, same as before this slice — neither ever was: a
-        // marker/spawn on the 2D canvas is only selectable via its own 3D gizmo or the bottom
-        // panel's Objetos/Jogabilidade rows.
+        // last/on top in the old 2D canvas's draw order, before Slice 7 deleted it, so light
+        // keeps winning here too. The five brand-new per-cell checks (npc/link/region/
+        // loopWaypoint/cameraPreset) have no such precedent, so they are simply slotted in
+        // between object and spawnPoint. `marker` and `spawn` are NOT hit-tested here, same as
+        // before this slice — neither ever was: a marker/spawn is only selectable via its own
+        // 3D gizmo or the bottom panel's Objetos/Jogabilidade rows.
         let kind = null;
         let ref = null;
         let best = -1;
@@ -216,9 +217,12 @@ export function makeSession({ history }) {
         editCount++;
         break;
       case 'loop': {
-        // A drag-to-reposition of an existing inline waypoint is intercepted earlier, in the
-        // raw `pointerdown` handler in `canvas.js`, and never reaches this dispatch — a plain
-        // click here always appends a fresh anonymous waypoint at the clicked cell.
+        // Always appends a fresh anonymous waypoint at the clicked cell. Repositioning an
+        // existing inline one goes through its own inspector card (`entities.js`'s
+        // `loopWaypoint` kind) instead of a click-and-drag here — the deleted 2D canvas used to
+        // intercept that case earlier, in its own raw `pointerdown` handler, before it ever
+        // reached this dispatch; no 3D-pane equivalent exists yet (`kinds.js`'s own note on the
+        // `loop` tool has the rest of this story).
         const via = doc.loop?.via ?? [];
         setLoopVia(doc, history, { via: [...via, { cx, cz }] });
         editCount++;
@@ -290,10 +294,12 @@ export function makeSession({ history }) {
     setOverlay(name, value) { overlays[name] = value; notify(); },
     toggleOverlay(name) { overlays[name] = !overlays[name]; notify(); },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    /** The bare `notify()` — exposed (not just used internally) so `canvas.js` can announce a
+    /** The bare `notify()` — exposed (not just used internally) so a caller can announce a
      *  change it made through a `tools.js` command directly rather than through one of the
-     *  methods above (its rect-fill and loop-waypoint drag commits, which call `paintRect`/
-     *  `setLoopVia` straight from the pointer handler, the same asymmetry that exists today). */
+     *  methods above. `main.js`'s rect-drag commit (`paintRect`, called straight from its own
+     *  3D-pane pointer handler — a two-corner drag has no single-cell meaning for `applyToolAt`
+     *  to dispatch) is the one caller today; the deleted 2D canvas's own rect-fill and
+     *  loop-waypoint drag commits used to be two more, the same asymmetry that existed then. */
     notify,
   };
 }

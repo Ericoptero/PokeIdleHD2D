@@ -12,6 +12,7 @@ import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
 import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
+import { paintRect } from './tools.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
@@ -186,7 +187,14 @@ function commitGizmoDrag(gizmo, e) {
   const ref = resolveGizmoRef(gizmo);
   if (ref == null) return; // the entity vanished (e.g. removed from another surface) mid-drag
   ENTITIES[gizmo.kind]?.moveTo?.(currentDoc, history, ref, { cx, cz });
-  refreshAll(); // same pattern `inspector.js`'s onChange callback uses after its own tools.js calls
+  // `session.notify()`, not a direct `refreshAll()` call: `refreshAll` is already one of
+  // `session`'s own subscribers (below, `session.subscribe(() => refreshAll())`), so notifying
+  // still runs it — and also reaches every OTHER subscriber a direct call would skip entirely,
+  // `viewport/overlay.js`'s rebuild-on-notify and `minimap.js`'s repaint-on-notify chief among
+  // them. A `tools.js` command called straight from a pointer handler (as this one is) never
+  // goes through `session.applyToolAt`'s own trailing `notify()`, so this call is the only thing
+  // that tells either of those two the entity this gizmo represents just moved.
+  session.notify();
 }
 
 /** A click (no drag) on a gizmo selects the entity it represents, in the same `{cell,kind,ref}`
@@ -217,6 +225,15 @@ previewContainer.addEventListener('pointerdown', (e) => {
   if (gizmo) { previewDrag = { mode: 'gizmo', gizmo, moved: false }; return; }
 
   const tool = session.getTool();
+  // The rect tool never went through `session.applyToolAt` — even on the 2D canvas, before it
+  // was deleted, it was its own drag-a-rectangle gesture with no single-cell meaning, committed
+  // once on release (`paintRect`, `tools.js`) rather than per moved cell. Ported here verbatim
+  // rather than folded into `applyToolAt`'s switch, which has no case for it and is not the
+  // right shape for a two-corner command anyway.
+  if (tool === 'rect' && currentDoc && session.getSelectedAsset()) {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell) { previewDrag = { mode: 'rect', x0: cell.cx, z0: cell.cz }; return; }
+  }
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -265,6 +282,22 @@ function endPreviewDrag(e) {
   if (previewDrag?.mode === 'gizmo') {
     if (previewDrag.moved) commitGizmoDrag(previewDrag.gizmo, e);
     else selectGizmo(previewDrag.gizmo);
+  } else if (previewDrag?.mode === 'rect' && currentDoc) {
+    // One `paintRect` call, one undo step, exactly like the deleted 2D canvas's own rect-drag
+    // commit — no live preview during the drag either, matching what it never had.
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell) {
+      const brush = session.getBrush();
+      paintRect(currentDoc, history, {
+        layer: session.getActiveLayer(), x0: previewDrag.x0, z0: previewDrag.z0,
+        x1: cell.cx, z1: cell.cz, asset: session.getSelectedAsset(), rot: brush.rot, tint: brush.tint,
+      });
+      // `session.notify()`, not `refreshAll()` — see `commitGizmoDrag`'s own comment on why:
+      // `paintRect` is called directly, bypassing `session.applyToolAt`'s own trailing
+      // `notify()`, so this is the only thing that tells `viewport/overlay.js`'s collision tint
+      // and `minimap.js` a rectangle of cells just changed.
+      session.notify();
+    }
   } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
