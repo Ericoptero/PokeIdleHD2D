@@ -9,6 +9,18 @@ import { cellKey, touch } from './state.js';
 const idx = (doc, cx, cz) => cz * doc.w + cx;
 const inside = (doc, cx, cz) => cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h;
 
+/** Merges `patch` into `target`'s own keys, in place — `undefined` in `patch` DELETES the key
+ *  entirely rather than leaving it present-but-`undefined`. Plain `Object.assign`/spread never
+ *  removes a key, and `mapfile.js`'s own pretty-printer (unlike native `JSON.stringify`) does
+ *  not silently drop an `undefined`-valued one either — it would emit invalid JSON. A few of
+ *  this file's newer merge commands (`updateNpc`'s trainer/species switch, `updateLink`'s
+ *  optional `label`/`to.marker`, `updateRegion`'s optional `collision`) need a field to
+ *  genuinely disappear when a card clears it, so they route through this instead of a bare
+ *  `Object.assign(target, patch)`. */
+function applyPatch(target, patch) {
+  for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete target[k]; else target[k] = v; }
+}
+
 /**
  * Paints one cell of the active layer with `asset` (a catalog model), grid or object bucket
  * chosen the same way the exporter chooses it: 1x1 and alone at that cell -> grid.
@@ -273,14 +285,28 @@ export function placeMarker(doc, history, { name, cx, cz }) {
   });
 }
 
-export function removeMarker(doc, history, { name }) {
-  const before = doc.markers.find((m) => m.name === name);
-  if (!before) return;
-  const snapshot = { ...before };
+/** Takes the marker object itself (the same reference `doc.markers` holds) — the same
+ *  identity-based match `removeNpc`/`removeLight`/`removeSpawnPoint` use, and required now that
+ *  `updateMarker` can rename a marker in place: a name-keyed lookup would go stale the moment a
+ *  rename and a remove land in the same edit session. */
+export function removeMarker(doc, history, marker) {
   history.push({
     label: 'remover marcador',
-    redo() { doc.markers = doc.markers.filter((m) => m.name !== name); touch(doc); },
-    undo() { doc.markers.push(snapshot); touch(doc); },
+    redo() { doc.markers = doc.markers.filter((m) => m !== marker); touch(doc); },
+    undo() { doc.markers.push(marker); touch(doc); },
+  });
+}
+
+/** Merges `patch` into one marker in place — today only `name` (the inspector's "Marcador"
+ *  card), but written the same `{marker, patch}` shape as `updateLight`/`updateSpawnPoint` so it
+ *  is not a special case. Position still moves through `placeMarker` (the gizmo-drag path). */
+export function updateMarker(doc, history, { marker, patch }) {
+  const before = { ...marker };
+  const after = { ...marker, ...patch };
+  history.push({
+    label: 'editar marcador',
+    redo() { Object.assign(marker, after); touch(doc); },
+    undo() { Object.assign(marker, before); touch(doc); },
   });
 }
 
@@ -294,14 +320,36 @@ export function placeObject(doc, history, { m, cx, cz, layer, rot = 0, tint = 0x
   return obj;
 }
 
-export function removeObject(doc, history, { id }) {
-  const obj = doc.objects.find((o) => o.id === id);
-  if (!obj) return;
+/** Takes the object itself, not `{id}` — every call site already has the real `doc.objects`
+ *  reference in hand (the bottom panel's row, the entity table's `ref`), so a redundant
+ *  find-by-id only existed here before because nothing else in this file needed identity yet.
+ *  Matches `removeNpc`/`removeLight`/`removeMarker`/`removeSpawnPoint`'s own convention. */
+export function removeObject(doc, history, object) {
   history.push({
     label: 'remover objeto',
-    redo() { doc.objects = doc.objects.filter((o) => o.id !== id); touch(doc); },
-    undo() { doc.objects.push(obj); touch(doc); },
+    redo() { doc.objects = doc.objects.filter((o) => o !== object); touch(doc); },
+    undo() { doc.objects.push(object); touch(doc); },
   });
+}
+
+/** Merges `patch` into one object in place — rot/tint/layer/position, all in one place (the
+ *  inspector's "Tile selecionado" card, when an object is selected, routes every one of its
+ *  edits through this instead of the grid-cell-shaped `setCellRotation`/`setCellTint`, which
+ *  cannot address an object by reference the way a `Map`-keyed grid cell can by `cx,cz`). */
+export function updateObject(doc, history, { object, patch }) {
+  const before = { ...object };
+  const after = { ...object, ...patch };
+  history.push({
+    label: 'editar objeto',
+    redo() { Object.assign(object, after); touch(doc); },
+    undo() { Object.assign(object, before); touch(doc); },
+  });
+}
+
+/** Repositions an existing object — new: objects could not be moved from the inspector before
+ *  (only placed and removed). A thin `updateObject` wrapper, not its own history entry shape. */
+export function moveObject(doc, history, { object, cx, cz }) {
+  updateObject(doc, history, { object, patch: { cx, cz } });
 }
 
 export function addNpc(doc, history, npc) {
@@ -317,6 +365,25 @@ export function removeNpc(doc, history, npc) {
     label: 'remover npc',
     redo() { doc.npcs = doc.npcs.filter((n) => n !== npc); touch(doc); },
     undo() { doc.npcs.push(npc); touch(doc); },
+  });
+}
+
+/** Merges `patch` into one NPC in place — the inspector's "NPC" card routes every field
+ *  (name/display/dir/route/solid/shiny, and the trainer<->species kind switch) through this.
+ *  Delete-aware (`applyPatch`): switching kind must actually remove the OTHER identity field
+ *  (`trainer`/`species` are mutually exclusive in every shipped NPC — `openAddNpcDialog` never
+ *  sets both), not merely null it, and clearing an optional text field (`display`/`route`)
+ *  should drop the key rather than ship an empty string. */
+export function updateNpc(doc, history, { npc, patch }) {
+  const before = { ...npc };
+  history.push({
+    label: 'editar npc',
+    redo() { applyPatch(npc, patch); touch(doc); },
+    undo() {
+      for (const k of Object.keys(npc)) delete npc[k];
+      Object.assign(npc, before);
+      touch(doc);
+    },
   });
 }
 
@@ -352,30 +419,25 @@ export function removeLight(doc, history, light) {
   });
 }
 
-/** Merges `patch` into `doc.lights[index]` — undoable, unlike the inspector's old direct splice. */
-export function updateLight(doc, history, { index, patch }) {
-  const before = { ...doc.lights[index] };
-  const after = { ...before, ...patch };
+/** Merges `patch` into one light in place — identity-based (`{light, patch}`, matching
+ *  `updateSpawnPoint`/`removeLight`), not the old `{index, patch}`. An index drifts under
+ *  undo/redo of any OTHER add/remove touching `doc.lights` — the exact "selection shape" bug
+ *  this slice's plan calls out (`studio/session.js`'s old `lightIndex` field, same problem). */
+export function updateLight(doc, history, { light, patch }) {
+  const before = { ...light };
+  const after = { ...light, ...patch };
   history.push({
     label: 'editar luz',
-    redo() { doc.lights[index] = after; touch(doc); },
-    undo() { doc.lights[index] = before; touch(doc); },
+    redo() { Object.assign(light, after); touch(doc); },
+    undo() { Object.assign(light, before); touch(doc); },
   });
 }
 
-/** Rewrites one placed tile's rotation, in place (grid cell or object). */
-export function setCellRotation(doc, history, { layer, cx, cz, rot, objectId = null }) {
-  if (objectId != null) {
-    const obj = doc.objects.find((o) => o.id === objectId);
-    if (!obj) return;
-    const before = obj.rot;
-    history.push({
-      label: 'rotação',
-      redo() { obj.rot = rot; touch(doc); },
-      undo() { obj.rot = before; touch(doc); },
-    });
-    return;
-  }
+/** Rewrites one grid tile's rotation, in place. An object's rotation goes through the
+ *  identity-based `updateObject` instead — a `Map`-keyed grid cell and an object reference are
+ *  different enough storage shapes that folding both into one function meant an `objectId`
+ *  branch nothing else in this file needed. */
+export function setCellRotation(doc, history, { layer, cx, cz, rot }) {
   const grid = doc.tileLayers.get(layer);
   const key = cellKey(cx, cz);
   const cell = grid?.get(key);
@@ -388,19 +450,9 @@ export function setCellRotation(doc, history, { layer, cx, cz, rot, objectId = n
   });
 }
 
-/** Rewrites one placed tile's multiply tint, in place (grid cell or object). */
-export function setCellTint(doc, history, { layer, cx, cz, tint, objectId = null }) {
-  if (objectId != null) {
-    const obj = doc.objects.find((o) => o.id === objectId);
-    if (!obj) return;
-    const before = obj.tint;
-    history.push({
-      label: 'tint',
-      redo() { obj.tint = tint; touch(doc); },
-      undo() { obj.tint = before; touch(doc); },
-    });
-    return;
-  }
+/** Rewrites one grid tile's multiply tint, in place. See `setCellRotation`'s own note on why an
+ *  object's tint goes through `updateObject` instead. */
+export function setCellTint(doc, history, { layer, cx, cz, tint }) {
   const grid = doc.tileLayers.get(layer);
   const key = cellKey(cx, cz);
   const cell = grid?.get(key);
@@ -422,6 +474,159 @@ export function addLayer(doc, history, n) {
     redo() { doc.tileLayers.set(n, new Map()); touch(doc); },
     undo() { doc.tileLayers.delete(n); touch(doc); },
   });
+}
+
+// --- links: map-to-map doors/edges/stairs (`{id, kind, from:{cx,cz}, to:{...}, label?}`,
+// `mapfile.js`'s header) ----------------------------------------------------------------------
+
+/** Matches `addNpc`'s shape — nothing in this slice builds a "place a new link" tool/gizmo flow
+ *  yet (a later slice's canvas/viewport work), but the command itself is not blocked on that. */
+export function addLink(doc, history, link) {
+  history.push({
+    label: 'link',
+    redo() { doc.links.push(link); touch(doc); },
+    undo() { doc.links = doc.links.filter((l) => l !== link); touch(doc); },
+  });
+}
+
+export function removeLink(doc, history, link) {
+  history.push({
+    label: 'remover link',
+    redo() { doc.links = doc.links.filter((l) => l !== link); touch(doc); },
+    undo() { doc.links.push(link); touch(doc); },
+  });
+}
+
+/** Merges `patch` into one link in place. `patch.to`, when present, MERGES into `link.to`
+ *  rather than replacing it wholesale — the link card edits one `to.*` subfield (map/marker/
+ *  cx/cz/dir) at a time, the same reason `setEconomy`'s `favours` merge exists — and both the
+ *  top-level and nested merges are delete-aware (`applyPatch`): clearing the optional `label` or
+ *  switching `to.marker` for a bare `to.cx/cz` fallback must drop the stale key, not null it. */
+export function updateLink(doc, history, { link, patch }) {
+  const before = { ...link, to: { ...link.to } };
+  const { to: toPatch, ...topPatch } = patch;
+  history.push({
+    label: 'editar link',
+    redo() {
+      applyPatch(link, topPatch);
+      if (toPatch) { link.to = { ...link.to }; applyPatch(link.to, toPatch); }
+      touch(doc);
+    },
+    undo() {
+      for (const k of Object.keys(link)) delete link[k];
+      Object.assign(link, before, { to: { ...before.to } });
+      touch(doc);
+    },
+  });
+}
+
+// --- regions: authored autotile masks (`{id, kind:'autotile', set, layer?, collision?, tags?,
+// mask:Runs<0|1>}`, `mapfile.js`'s header) — mask PAINTING is a later slice's paint tool; this
+// slice only lets an already-authored region (none ship yet) be selected/edited/removed. -------
+
+export function removeRegion(doc, history, region) {
+  history.push({
+    label: 'remover região',
+    redo() { doc.regions = doc.regions.filter((r) => r !== region); touch(doc); },
+    undo() { doc.regions.push(region); touch(doc); },
+  });
+}
+
+/** Merges `patch` into one region in place (`layer`/`collision`/`tags` — never `mask`, which
+ *  stays the paint tool's job). Delete-aware (`applyPatch`) so clearing the optional `collision`
+ *  select drops the key instead of shipping an empty string. */
+export function updateRegion(doc, history, { region, patch }) {
+  const before = { ...region };
+  history.push({
+    label: 'editar região',
+    redo() { applyPatch(region, patch); touch(doc); },
+    undo() {
+      for (const k of Object.keys(region)) delete region[k];
+      Object.assign(region, before);
+      touch(doc);
+    },
+  });
+}
+
+// --- loop waypoints: the INLINE (non-marker-name) entries of `doc.loop.via[]` ------------------
+
+/** Repositions one inline waypoint — `index` is its real position in the full `via` array
+ *  (marker-name strings included), matching `ENTITIES.loopWaypoint`'s own `{index, entry}` ref
+ *  shape. A thin `setLoopVia` wrapper (one undo step), not a second copy of its merge logic. */
+export function moveLoopWaypoint(doc, history, { index, cx, cz }) {
+  const via = doc.loop?.via ?? [];
+  if (typeof via[index] === 'string') return; // a marker-name entry moves by moving the marker itself
+  setLoopVia(doc, history, { via: via.map((e, i) => (i === index ? { cx, cz } : e)) });
+}
+
+/** Removes one inline waypoint by its `via` index — also a thin `setLoopVia` wrapper. */
+export function removeLoopWaypoint(doc, history, { index }) {
+  const via = doc.loop?.via ?? [];
+  setLoopVia(doc, history, { via: via.filter((_, i) => i !== index) });
+}
+
+// --- camera presets (`doc.cameras.presets`, a plain object keyed by name) ---------------------
+
+/** Deletes one preset by name — undoable, and clears `doc.cameras.default` if it pointed at the
+ *  removed preset (matching `setDefaultCamera`'s own whole-`doc.cameras`-replace pattern). */
+export function removeCameraPreset(doc, history, { name }) {
+  const before = doc.cameras;
+  const presets = { ...doc.cameras.presets };
+  delete presets[name];
+  const after = { ...doc.cameras, presets, default: doc.cameras.default === name ? null : doc.cameras.default };
+  history.push({
+    label: 'remover câmera',
+    redo() { doc.cameras = after; touch(doc); },
+    undo() { doc.cameras = before; touch(doc); },
+  });
+}
+
+/** Merges `patch` into one preset's own fields (position and `ppu`) — delete-aware
+ *  (`applyPatch`), since switching a preset between its two shapes (marker-anchored vs. a bare
+ *  `cx,cz`) must drop whichever fields the OTHER shape owns (`marker`+`ppu` vs `cx`+`cz`), not
+ *  leave them dangling alongside the new ones. */
+export function setCameraPreset(doc, history, { name, patch }) {
+  const before = doc.cameras;
+  const preset = { ...(doc.cameras.presets[name] ?? {}) };
+  applyPatch(preset, patch);
+  const after = { ...doc.cameras, presets: { ...doc.cameras.presets, [name]: preset } };
+  history.push({
+    label: 'editar câmera',
+    redo() { doc.cameras = after; touch(doc); },
+    undo() { doc.cameras = before; touch(doc); },
+  });
+}
+
+// --- extras-layer objects (`doc.extras[extraIndex].objects[]`) — no stable id, array position
+// within that one layer is the only handle, so every command here is identity-based (the object
+// reference itself) scoped to its known `extraIndex`, matching `removeNpc`/`removeLight`'s own
+// `.filter((x) => x !== ref)` identity pattern. --------------------------------------------------
+
+export function removeExtraObject(doc, history, { extraIndex, object }) {
+  const objects = doc.extras[extraIndex].objects;
+  history.push({
+    label: 'remover objeto extra',
+    redo() { doc.extras[extraIndex].objects = objects.filter((o) => o !== object); touch(doc); },
+    undo() { doc.extras[extraIndex].objects.push(object); touch(doc); },
+  });
+}
+
+/** Merges `patch` into one extras-layer object in place — rot/tint today. */
+export function updateExtraObject(doc, history, { object, patch }) {
+  const before = { ...object };
+  const after = { ...object, ...patch };
+  history.push({
+    label: 'editar objeto extra',
+    redo() { Object.assign(object, after); touch(doc); },
+    undo() { Object.assign(object, before); touch(doc); },
+  });
+}
+
+/** Repositions an existing extras-layer object — new, matching `moveObject`'s own thin
+ *  `update*` wrapper shape. `extraIndex` is only threaded through for signature symmetry with
+ *  `updateExtraObject`/`removeExtraObject`; the object itself is what actually moves. */
+export function moveExtraObject(doc, history, { extraIndex, object, cx, cz }) {
+  updateExtraObject(doc, history, { extraIndex, object, patch: { cx, cz } });
 }
 
 /** What sits at a cell, topmost first — objects (any layer) before the active layer's grid tile. */

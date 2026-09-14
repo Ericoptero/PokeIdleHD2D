@@ -181,7 +181,7 @@ export function makeEditorCanvas({ canvas, history, session }) {
         c.strokeRect(x + 0.5, y + 0.5, fw * view.cell - 1, fh * view.cell - 1);
         c.setLineDash([]);
       }
-      if (selection.objectId === obj.id) {
+      if (selection.kind === 'object' && selection.ref === obj) {
         c.strokeStyle = '#E0A64B';
         c.lineWidth = 2;
         c.strokeRect(x + 1, y + 1, fw * view.cell - 2, fh * view.cell - 2);
@@ -268,7 +268,7 @@ export function makeEditorCanvas({ canvas, history, session }) {
 
     // --- lights ---
     if (overlays.lights) {
-      doc.lights.forEach((l, i) => {
+      doc.lights.forEach((l) => {
         const [x, y] = toScreen(l.x, l.z);
         const r = (l.radius ?? 6) * view.cell;
         const grad = c.createRadialGradient(x, y, 0, x, y, r);
@@ -278,7 +278,7 @@ export function makeEditorCanvas({ canvas, history, session }) {
         c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
         c.fillStyle = hex;
         c.beginPath(); c.arc(x, y, 3, 0, Math.PI * 2); c.fill();
-        if (selection.lightIndex === i) {
+        if (selection.kind === 'light' && selection.ref === l) {
           c.strokeStyle = '#E0A64B'; c.lineWidth = 2;
           c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.stroke();
           c.lineWidth = 1;
@@ -310,7 +310,7 @@ export function makeEditorCanvas({ canvas, history, session }) {
     if (overlays.markers) {
       for (const m of doc.markers) {
         const [x, y] = toScreen(m.cx + 0.5, m.cz + 0.5);
-        c.fillStyle = selection.markerName === m.name ? '#E0A64B' : '#7FC98C';
+        c.fillStyle = selection.kind === 'marker' && selection.ref === m ? '#E0A64B' : '#7FC98C';
         c.beginPath(); c.arc(x, y, 4, 0, Math.PI * 2); c.fill();
         c.fillStyle = 'rgba(255,255,255,0.8)';
         c.font = '10px monospace';

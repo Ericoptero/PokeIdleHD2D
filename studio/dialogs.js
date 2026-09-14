@@ -254,7 +254,9 @@ export function makeValidationDrawer({ docRef, session, onRevalidate }) {
     if (!scrim) return;
     const doc = docRef.get();
     const v = runValidation(doc, { force: true });
-    const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz } });
+    // Jumping to a validation issue's cell means "select just this cell" — explicit
+    // `kind: null, ref: null` clears whatever entity was previously selected.
+    const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz }, kind: null, ref: null });
     scrim.innerHTML = '';
     scrim.appendChild(h('div', { class: 'ms-drawer' }, [
       h('div', { class: 'ms-drawer-head' }, [

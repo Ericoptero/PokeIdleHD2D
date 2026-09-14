@@ -19,6 +19,7 @@ import {
   setSpawn, placeMarker, placeObject, addNpc, addLight, addSpawnPoint, setLoopVia,
 } from './tools.js';
 import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
+import { ENTITIES, regionContains } from './entities.js';
 
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 const DIR_DX = [0, -1, 0, 1];
@@ -89,7 +90,21 @@ export function makeSession({ history }) {
   const brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
     claimFootprint: false, keepCollision: true };
   let selectedAsset = null; // { name, tileset, w, h }
-  let selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
+  // `{cell, kind, ref}` — `cell` keeps meaning what it always meant (drives `tileCard`/
+  // `cellCard`, set alongside `kind`/`ref` for every cell-anchored entity so the cell inspector
+  // still shows next to the entity's own card). `kind` is one of `ENTITIES`'s keys (`entities.
+  // js`), or `null` for a bare cell with no entity — the ordinary `select`-tool click-on-empty-
+  // ground case. `ref` is that kind's own reference shape (an array-element object for most
+  // kinds, a small wrapper for `extraObject`/`loopWaypoint` — see `entities.js`'s header).
+  //
+  // Replaces the old fixed-field shape (`objectId`/`markerName`/`lightIndex`/`spawnPointIndex`)
+  // — a fixed field per kind is exactly what made adding a 6th selectable kind "out of scope"
+  // before, and an index (`lightIndex`/`spawnPointIndex`) drifts under undo/redo of any OTHER
+  // add/remove touching that same array. A single `{kind, ref}` pair can only hold ONE entity at
+  // a time (the old shape could set `objectId` AND `lightIndex` AND `spawnPointIndex`
+  // independently on the same click) — `applyToolAt`'s `'select'` case below picks one by
+  // priority when more than one entity occupies the clicked cell.
+  let selection = { cell: null, kind: null, ref: null };
   let editCount = 0;
   const hiddenLayers = new Set();
   const lockedLayers = new Set();
@@ -103,17 +118,56 @@ export function makeSession({ history }) {
   function applyToolAt(cx, cz, kind) {
     if (kind === 'down') selection.cell = { cx, cz };
     if (LOCKED_TOOLS.has(tool) && lockedLayers.has(activeLayer)) {
-      selection.cell = { cx, cz }; notify(); return;
+      selection.cell = { cx, cz }; selection.kind = null; selection.ref = null; notify(); return;
     }
+    // Every tool but `select` starts this click with no entity selected — `select`'s own case
+    // (below) computes `kind`/`ref` fresh, and `object`'s case re-sets them to the newly placed
+    // object right after. Every other paint/placement tool leaves them null: a stale `kind`/
+    // `ref` surviving a paint stroke on a DIFFERENT cell was already possible with the old
+    // per-kind index fields (nothing but a fresh `select` click ever cleared `objectId`/
+    // `lightIndex`/`spawnPointIndex`) — harmless in practice, but not worth preserving now that
+    // a single `{kind,ref}` pair is the one thing the inspector trusts unconditionally.
+    if (tool !== 'select') { selection.kind = null; selection.ref = null; }
     switch (tool) {
       case 'select': {
-        const stack = stackAt(doc, cx, cz);
         selection.cell = { cx, cz };
-        selection.objectId = stack.find((s) => s.kind === 'object')?.id ?? null;
-        selection.lightIndex = overlays.lights ? lightNear(doc, cx, cz) : -1;
-        if (selection.lightIndex < 0) selection.lightIndex = null;
+        // Try every `ENTITIES` kind's own hit-test against this cell, keeping the highest-
+        // `pickPriority` match — only one entity can occupy `{kind,ref}` at a time (unlike the
+        // old `objectId`/`lightIndex`/`spawnPointIndex` fields, which could all be set
+        // independently on the very same click). Priority, low to high: object < npc < link <
+        // region < loopWaypoint < cameraPreset < spawnPoint < light. The three kinds that
+        // already existed keep their relative order (object < spawnPoint < light) — a light
+        // sitting exactly on a painted object's cell already rendered its own selection ring
+        // LAST/on top in `canvas.js`'s draw order, so light keeps winning here too. The five
+        // brand-new per-cell checks (npc/link/region/loopWaypoint/cameraPreset) have no such
+        // precedent, so they are simply slotted in between object and spawnPoint. `marker` and
+        // `spawn` are NOT hit-tested here, same as before this slice — neither ever was: a
+        // marker/spawn on the 2D canvas is only selectable via its own 3D gizmo or the bottom
+        // panel's Objetos/Jogabilidade rows.
+        let kind = null;
+        let ref = null;
+        let best = -1;
+        const take = (k, r) => {
+          if (r == null) return;
+          const p = ENTITIES[k].pickPriority;
+          if (p > best) { kind = k; ref = r; best = p; }
+        };
+        const objHit = stackAt(doc, cx, cz).find((s) => s.kind === 'object');
+        take('object', objHit ? doc.objects.find((o) => o.id === objHit.id) : null);
+        take('npc', ENTITIES.npc.list(doc).find((n) => n.cx === cx && n.cz === cz));
+        take('link', ENTITIES.link.list(doc).find((l) => l.from?.cx === cx && l.from?.cz === cz));
+        take('region', ENTITIES.region.list(doc).find((r) => regionContains(doc, r, cx, cz)));
+        take('loopWaypoint', ENTITIES.loopWaypoint.list(doc).find((w) => w.entry.cx === cx && w.entry.cz === cz));
+        take('cameraPreset', ENTITIES.cameraPreset.list(doc).find((p) => {
+          const at = ENTITIES.cameraPreset.positionOf(doc, p);
+          return at && at.cx === cx && at.cz === cz;
+        }));
         const spi = spawnPointNear(doc, cx, cz);
-        selection.spawnPointIndex = spi < 0 ? null : spi;
+        take('spawnPoint', spi < 0 ? null : doc.spawnPoints[spi]);
+        const li = overlays.lights ? lightNear(doc, cx, cz) : -1;
+        take('light', li < 0 ? null : doc.lights[li]);
+        selection.kind = kind;
+        selection.ref = ref;
         break;
       }
       case 'pencil':
@@ -173,7 +227,7 @@ export function makeSession({ history }) {
       case 'object':
         if (selectedAsset) {
           const obj = placeObject(doc, history, { m: selectedAsset.name, cx, cz, layer: activeLayer, rot: brush.rot, tint: brush.tint });
-          selection.objectId = obj.id;
+          selection.kind = 'object'; selection.ref = obj;
           editCount++;
         }
         break;
@@ -191,7 +245,7 @@ export function makeSession({ history }) {
   return {
     setDoc(d) {
       doc = d;
-      selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
+      selection = { cell: null, kind: null, ref: null };
       editCount = 0;
       hiddenLayers.clear();
       lockedLayers.clear();
