@@ -122,11 +122,13 @@
 
 /* ---- damage floaters (replaces ui/floaters.js's canvas text) ---- */
 
+/* `transform`/`opacity` are NOT set here — `ui/floaters.js`'s own `draw()` owns them every
+ * frame (the pop/hold/fade shape its own header comment describes), so a rule here would only
+ * ever be overwritten by the inline style the instant the element exists. */
 .ci-floater {
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, calc(-100% - 4px));
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 13px;
@@ -134,7 +136,10 @@
   text-shadow: 0 1px 2px rgba(20, 16, 12, 0.65);
   white-space: nowrap;
 }
-.ci-floater--crit { font-size: 22px; }
+/* Crit sizing is the JS-driven `transform: scale()` now (`ui/floaters.js`'s `push()` `scale`
+ * argument, `CRIT_FLOATER_SCALE`), not a font-size bump here — the two used to disagree about
+ * which one was actually live, and stacking both would double-scale a crit. */
+.ci-floater--crit { font-weight: 800; }
 .ci-floater--super { color: var(--c-bad-light); }
 .ci-floater--weak { color: var(--c-ink-dim); }
 .ci-floater--miss, .ci-floater--status { color: var(--c-ink-dim); }

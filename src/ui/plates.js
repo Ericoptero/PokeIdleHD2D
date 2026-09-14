@@ -25,22 +25,26 @@ const isLive = (api) => !!api && api.__missing === undefined;
  * How high above a Pokémon's feet its plate floats, in world units — the **fallback** now,
  * not the primary source. Every entry `simulation.lineup()`/`simulation.npcs()` hands back
  * carries its own `headLift`, measured off the live actor's quad
- * (`pokemon/sprites.js`'s `headLiftOf`), and `partyPlates()`/`wanderingPlates()`/`npcPlates()`
- * below prefer that; this constant only steps in when a headLift is not available — a
- * quarantined `pokemon`, or a slot that has not spawned its sprite yet. Kept a touch generous
- * (clears the tallest sheets rather than being exact for any one of them) because a fallback
- * that came in short would clip the plate into the sprite's own head. Exported: `ui/index.js`
- * reuses it as the same fallback for a balloon anchored *above* the plate.
+ * (`pokemon/sprites.js`'s `headLiftOf`, which trims the frame's own transparent margin —
+ * `crown` — before measuring), and `partyPlates()`/`wanderingPlates()`/`npcPlates()` below
+ * prefer that; this constant only steps in when a headLift is not available — a quarantined
+ * `pokemon`, or a slot that has not spawned its sprite yet. Measured against a shipped 32-texel
+ * sheet with a typical ~14-texel crown (`headLiftOf`'s own comment): `(2/cos45°)*(1-14/32)
+ * - 0.125` ≈ 1.47, rounded up a touch for the same reason it always was — a fallback that
+ * came in short would clip the plate into the sprite's own head, not for a margin nothing
+ * trims any more. Exported: `ui/index.js` reuses it as the same fallback for a balloon
+ * anchored *above* the plate.
  */
-export const POKEMON_LIFT = 3.1;
+export const POKEMON_LIFT = 1.6;
 /**
  * How high above the trainer's feet its plate floats — the fallback, for the same reason and
  * the same callers as `POKEMON_LIFT`. The trainer sheet is one fixed size (32×768, 32-texel
- * frames) — 16 texels/unit stretched by `1/cos(45°)` is 2 world units tall — so this constant
- * happens to be exact rather than merely generous, but it is still only reached when a
- * `headLift` measured off the live actor is not available.
+ * frames, ~5-texel crown) — 16 texels/unit stretched by `1/cos(45°)` and trimmed the same way
+ * `headLiftOf` trims a Pokemon lands at `(2/cos45°)*(1-5/32) - 0.125` ≈ 2.26 — so this constant
+ * happens to be close to exact rather than merely generous, but it is still only reached when
+ * a `headLift` measured off the live actor is not available.
  */
-export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) + 0.3;
+export const TRAINER_LIFT = 2 * (1 / Math.cos((45 * Math.PI) / 180)) * (1 - 5 / 32) - 0.125;
 
 /** No session has this many entities on screen; a paint cost ceiling in case one ever did. */
 const MAX_PLATES = 48;

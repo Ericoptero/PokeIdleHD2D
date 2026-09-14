@@ -7,7 +7,12 @@
  * snapshot of a mood.
  */
 
+import { DIR_DX, DIR_DZ } from '../core/dir.js';
+
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
+
+/** Elevation tolerance for "same height" — matches src/hunts/index.js's audit() and compose.js. */
+const ELEVATION_EPS = 0.26;
 
 export class MapDraft {
   constructor({ id, w = 64, h = 64, tileset = 'bw2-adastra', seed = 1337 } = {}) {
@@ -55,6 +60,21 @@ export class MapDraft {
       return dir ? Number(dir.slice(6)) === fromDir : false;
     }
     return COLLISION_PASSABLE.has(kind);
+  }
+
+  /**
+   * "May I step OUT OF (cx,cz) in direction fromDir" — passable() plus an elevation rule
+   * passable() alone cannot express: normal ground only connects at the same height; stairs
+   * bridge a height change in either direction; a ledge (already one-way via passable()) needs
+   * no extra elevation check since stepping onto one is itself the descent.
+   */
+  canStep(cx, cz, fromDir) {
+    const nx = cx + DIR_DX[fromDir], nz = cz + DIR_DZ[fromDir];
+    if (!this.passable(nx, nz, fromDir)) return false;
+    const fromKind = this.collisionAt(cx, cz);
+    const toKind = this.collisionAt(nx, nz);
+    if (fromKind === 'stairs' || toKind === 'stairs' || toKind === 'ledge') return true;
+    return Math.abs(this.heightAt(nx, nz) - this.heightAt(cx, cz)) <= ELEVATION_EPS;
   }
 
   /** Named points scenes and NPCs refer to, e.g. `draft.mark('pokecenter-door', x, z)`. */

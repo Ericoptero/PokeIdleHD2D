@@ -32,11 +32,11 @@
  */
 
 import { SIM_DT } from '../core/clock.js';
-import { SOUTH, opposite } from '../core/dir.js';
+import { SOUTH, opposite, DIR_DX, DIR_DZ } from '../core/dir.js';
 import { Line } from './line.js';
 import { Cast } from './cast.js';
 import { makeSurface } from './surface.js';
-import { makeScriptedRoute, makeWander, makeTether, STILL } from './route.js';
+import { makeScriptedRoute, makeWander, makeTether, makePilotRoute, STILL } from './route.js';
 
 /** The registry's null object answers every property with a function — this is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
@@ -81,10 +81,11 @@ const MAX_NPCS = 32;
 /**
  * Fallback head height, in world units, for `lineup()`/`npcs()` entries when no live sprite
  * can report one — a cast slot that has not finished staging yet, or a quarantined `pokemon`.
- * Close to a trainer's own measured lift (`ui/plates.js`'s `TRAINER_LIFT`, ~2.83) so a plate
- * that falls back never lands somewhere obviously wrong.
+ * Close to a trainer's own measured lift (`ui/plates.js`'s `TRAINER_LIFT`, ~2.26 — trimmed to
+ * the art's own crown, not the sprite quad's empty top margin) so a plate that falls back
+ * never lands somewhere obviously wrong.
  */
-const DEFAULT_HEAD_LIFT = 2.8;
+const DEFAULT_HEAD_LIFT = 2.3;
 
 export default {
   id: 'simulation',
@@ -111,6 +112,23 @@ export default {
     /** @type {{id:number, line:Line, route:object, spec:object, who:string}[]} */
     const npcs = [];
     let nextNpcId = 1;
+
+    /**
+     * The last frame's INTERPOLATED `{x,y,z}` per party member / NPC, cached by `renderPose()`
+     * and read back by `lineup()`/`npcs()` (below) — `x`/`y`/`z` only; `cx`/`cz`/`dir`/`gait`/
+     * `phase`/`moving` still come from a fresh `sub: 0` pose, unaffected.
+     *
+     * Sprites and the camera are posed every frame with `renderPose(alpha)`'s continuous
+     * interpolation; `lineup()`/`npcs()` used to re-derive their own pose at `sub: 0` — the
+     * tick-quantized position — which jumps once every sim tick (50 ms) while the sprite it
+     * names glides. A nameplate anchored to `sub: 0` therefore trailed its sprite by up to one
+     * full tick of motion, sawtoothing back into sync 20 times a second: the tremble
+     * `ui/plates.js`'s callers reported. Indices stay valid across the one frame between
+     * `renderPose()` (`registry.frame`) and `lineup()`/`npcs()` being read (`registry.
+     * lateFrame`, `src/main.js`'s own ordering) — nothing mutates `members`/`npcs` in between.
+     */
+    let lastMemberPose = [];
+    let lastNpcPose = [];
 
     let route = STILL;
     /**
@@ -497,17 +515,21 @@ export default {
       for (let i = 0; i < members.length; i++) {
         const { p, patch } = poseWalker(line, i, sub, members[i]);
         cast.set(i, patch);
+        lastMemberPose[i] = { x: p.x, y: patch.y, z: p.z };
         if (i === trainerIndex) {
           ctx.three.rig?.setFocus?.(p.x + focusShift.x, patch.y, p.z + focusShift.z, frozen);
         }
       }
+      lastMemberPose.length = members.length;
 
       for (let n = 0; n < npcs.length; n++) {
         const npc = npcs[n];
         const npcSub = frozen ? 0 : Math.min(1, Math.max(0, alpha)) * SIM_DT / npc.line.secondsPerTile;
-        const { patch } = poseWalker(npc.line, 0, npcSub, { kind: npc.spec.trainer ? 'trainer' : 'pokemon' });
+        const { p, patch } = poseWalker(npc.line, 0, npcSub, { kind: npc.spec.trainer ? 'trainer' : 'pokemon' });
         cast.set(npcOffset + n, patch);
+        lastNpcPose[n] = { x: p.x, y: patch.y, z: p.z };
       }
+      lastNpcPose.length = npcs.length;
     }
 
     // ----------------------------------------------------------------- API
@@ -617,6 +639,20 @@ export default {
       },
 
       /**
+       * Swaps the current route for a **pilot** — same slot `setRoute` writes, but there is no
+       * fixed step list to record: `fn` is asked fresh every tick (`head`, `world`) and answers
+       * `{ dir }` or `null`, the shape `hunts`'s waypoint-index A* re-planning needs instead of a
+       * pre-computed circuit (see `makePilotRoute`, route.js). `formation.route` is cleared to
+       * `null` rather than left holding a stale scripted-route spec, so `sim.formation()` never
+       * reports a fixed path that is no longer what is actually being walked.
+       */
+      setPilot(fn) {
+        formation = { ...formation, route: null };
+        route = makePilotRoute(fn);
+        return api;
+      },
+
+      /**
        * Stops the party where it stands, **keeping the route's place in its loop**.
        *
        * Three ways to stop and they are not interchangeable (src/simulation/index.js): `halt()` replaces the
@@ -684,10 +720,13 @@ export default {
         return { id: npc.id, cx: spec.cx ?? 0, cz: spec.cz ?? 0, dir };
       },
       /**
-       * Every NPC, posed exactly as the renderer would (`poseWalker` at `sub: 0`) rather than
-       * the raw cell — `x,y,z` are what `ui`'s nameplates (src/ui/index.js) anchor to, and a plate a
-       * whole tile off its sprite because this read used the discrete cell instead of the
-       * walker's own interpolated pose would be a visible, silly bug.
+       * Every NPC, posed exactly as the renderer would — `x,y,z` are what `ui`'s nameplates
+       * (src/ui/index.js) anchor to, and a plate a whole tile off its sprite because this read
+       * used the discrete cell instead of the walker's own interpolated pose would be a
+       * visible, silly bug. As with `lineup()`, above, `x`/`y`/`z` come from `renderPose()`'s
+       * own cache (`lastNpcPose`) when it has run this frame — the interpolated position the
+       * sprite is actually drawn at — falling back to the tick-quantized `sub: 0` pose only
+       * when it has not (a Node test, or a read before the first `frame()`).
        *
        * `species`/`shiny`/`trainer`/`display` are the identity a caller needs to label the
        * NPC without reaching into its spec directly — `display` is the human label a spawner
@@ -697,8 +736,10 @@ export default {
       npcs: () => npcs.map((n, i) => {
         const c = n.line.cellOf(0);
         const { p, patch } = poseWalker(n.line, 0, 0, { kind: n.spec.trainer ? 'trainer' : 'pokemon' });
+        const rendered = lastNpcPose[i];
         return {
-          id: n.id, cx: c.cx, cz: c.cz, dir: p.dir, x: p.x, y: patch.y, z: p.z,
+          id: n.id, cx: c.cx, cz: c.cz, dir: p.dir,
+          x: rendered?.x ?? p.x, y: rendered?.y ?? patch.y, z: rendered?.z ?? p.z,
           moving: n.line.moving, name: n.spec.name ?? null,
           species: n.spec.species?.name ?? (typeof n.spec.species === 'string' ? n.spec.species : null),
           shiny: !!n.spec.shiny, trainer: n.spec.trainer ?? null, display: n.spec.display ?? null,
@@ -800,6 +841,36 @@ export default {
         return (cx, cz, dir) => clear(cx, cz, dir, ignoreNpcId);
       },
 
+      /**
+       * Same contract as `passableFor`, above, but through `terrain.canStep(cx, cz, dir)`
+       * instead of `terrain.passable` — a stricter step-legality check some terrains expose
+       * (slopes, one-way ledges) that plain tile passability does not capture. `terrain` may not
+       * carry `canStep` yet (a quarantined or pre-slice module), so this falls back to the exact
+       * same `passable`-based check the existing `passable()` helper already falls back to,
+       * rather than assuming the method exists and throwing against an older terrain.
+       */
+      canStepFor(ignoreNpcId) {
+        return (cx, cz, dir) => {
+          const terrain = terrainApi();
+          const ok = isLive(terrain) && typeof terrain.canStep === 'function'
+            ? !!terrain.canStep(cx, cz, dir)
+            : passable(cx, cz, dir);
+          if (!ok) return false;
+          // `(cx, cz, dir)` is the FROM cell and the direction being stepped (`terrain.canStep`'s
+          // own convention, matching `hunts/patrol.js`'s `standTiles` contract), so the solid
+          // check has to land on the DESTINATION the step actually lands on — the same cell
+          // `terrain.canStep` itself already resolved passability against — not on `(cx, cz)`
+          // itself. Checking the source cell made every occupied cell unable to step OUT of
+          // its own solid claim, which made `standTiles` return empty for a live wild standing
+          // on its own slot and silently disabled the whole aggro detour (`hunts/index.js`'s
+          // `chooseTarget` call) on every hunt map. `clear()`, above, already gets this right —
+          // it is handed the destination cell directly by its own callers.
+          const nx = cx + DIR_DX[dir], nz = cz + DIR_DZ[dir];
+          const who = solid.get(cellKey(nx, nz));
+          return who === undefined || who === ignoreNpcId;
+        };
+      },
+
       placePlayer,
       teleport: placePlayer,
 
@@ -853,13 +924,22 @@ export default {
       },
 
       // --- introspection ---------------------------------------------------
-      /** The whole queue, head first, exactly as the renderer poses it. */
+      /**
+       * The whole queue, head first, exactly as the renderer poses it. `x`/`y`/`z` come from
+       * `renderPose()`'s own cache (`lastMemberPose`, above) when it has run this frame — the
+       * same interpolated position the sprite is drawn at, not the tick-quantized `sub: 0` this
+       * still falls back to (a Node test, or a read before the first `frame()`). `cx`/`cz`/
+       * `dir`/`gait`/`phase`/`moving` are cell-level facts a caller (`hunts`'s pilot,
+       * `encounter`'s `slotNear`) plans against, so they always come from the fresh pose.
+       */
       lineup: () => members.map((m, i) => {
         const { p, patch } = poseWalker(line, i, 0, m);
+        const rendered = lastMemberPose[i];
         return {
           role: m.kind === 'trainer' ? 'trainer' : 'pokemon',
           who: m.kind === 'trainer' ? m.trainer : (m.species?.name ?? null),
-          cx: p.cx, cz: p.cz, dir: p.dir, x: p.x, y: patch.y, z: p.z,
+          cx: p.cx, cz: p.cz, dir: p.dir,
+          x: rendered?.x ?? p.x, y: rendered?.y ?? patch.y, z: rendered?.z ?? p.z,
           gait: patch.gait, phase: patch.phase, moving: p.moving,
           headLift: headLiftFor(cast.actorId(i)),
         };
