@@ -252,7 +252,7 @@ export async function makePreview({ container }) {
   const dotTexture = makeDotTexture();
   const spawnTexture = makeTriangleTexture();
   const GIZMO_LIFT = 0.4; // world units above the ground a cell-based gizmo floats, so it reads over flat tile art instead of being half-buried in it
-  /** @type {{mesh: THREE.Sprite, kind: string, ref: any}[]} */
+  /** @type {{mesh: THREE.Sprite, kind: string, index: number}[]} */
   let gizmos = [];
 
   function disposeGizmos() {
@@ -260,14 +260,29 @@ export async function makePreview({ container }) {
     gizmos = [];
   }
 
-  function addGizmo(kind, ref, x, y, z, color, texture, scale) {
+  /**
+   * `index` — a gizmo's position within `ENTITIES[kind].list(map)` — not the snapshot's own
+   * item object. `rebuildGizmos` below builds from `map`, the SERIALIZED `.map.json`-shaped
+   * snapshot `load()` works from (`serializeDocument`'s output), whose `npcs`/`markers`/
+   * `lights`/`links`/`regions`/`spawnPoints` are all fresh `{...x}` clones of the live
+   * document's own arrays (`state.js`'s `serializeDocument`) — never the same object references
+   * `currentDoc.npcs[i]` etc. actually hold. `main.js` is the one place that owns `currentDoc`,
+   * so it is the one place that can resolve an index back to the LIVE object
+   * (`ENTITIES[kind].list(currentDoc)[index]`) before handing it to a `moveTo`/an inspector
+   * card — the same re-resolution the pre-`entities.js` code already relied on (`currentDoc.
+   * npcs[gizmo.index]`) for exactly this reason. Handing `main.js` the snapshot's own clone
+   * instead would silently mutate a throwaway object on every drag/edit and never touch the
+   * real document — confirmed as a real regression risk while reviewing this slice, not a
+   * hypothetical one, which is why this file deals only in indices, never gizmo-carried refs.
+   */
+  function addGizmo(kind, index, x, y, z, color, texture, scale) {
     const material = new THREE.SpriteMaterial({ map: texture, color, depthTest: false, transparent: true });
     const sprite = new THREE.Sprite(material);
     sprite.position.set(x, y, z);
     sprite.scale.setScalar(scale);
     sprite.renderOrder = 999; // "always visible" per the plan — never occluded by a wall or a tree
     view.scene.add(sprite);
-    gizmos.push({ mesh: sprite, kind, ref });
+    gizmos.push({ mesh: sprite, kind, index });
   }
 
   /**
@@ -293,9 +308,9 @@ export async function makePreview({ container }) {
     for (const [kind, entity] of Object.entries(ENTITIES)) {
       if (!entity.gizmo) continue;
       const texture = entity.gizmo === 'triangle' ? spawnTexture : dotTexture;
-      for (const ref of entity.list(map)) {
+      entity.list(map).forEach((ref, index) => {
         const pos = entity.positionOf(map, ref);
-        if (!pos) continue; // e.g. a camera preset whose marker was deleted out from under it
+        if (!pos) return; // e.g. a camera preset whose marker was deleted out from under it
         let x; let y; let z;
         if (entity.space === 'world') {
           x = pos.x; z = pos.z;
@@ -307,8 +322,8 @@ export async function makePreview({ container }) {
         // Light is the one gizmo whose color varies per-instance (`state.js`'s own authored
         // `light.color`, defaulting to the table's swatch) rather than being fixed per kind.
         const color = kind === 'light' ? (ref.color ?? entity.color) : entity.color;
-        addGizmo(kind, ref, x, y, z, color, texture, entity.scale ?? 0.6);
-      }
+        addGizmo(kind, index, x, y, z, color, texture, entity.scale ?? 0.6);
+      });
     }
   }
 
@@ -320,18 +335,19 @@ export async function makePreview({ container }) {
     const hit = raycaster.intersectObjects(gizmos.map((g) => g.mesh))[0];
     if (!hit) return null;
     const found = gizmos.find((g) => g.mesh === hit.object);
-    return found ? { kind: found.kind, ref: found.ref } : null;
+    return found ? { kind: found.kind, index: found.index } : null;
   }
 
   /**
    * Moves one gizmo's sprite to a cell, visually only — no `doc`/history write. `main.js` calls
    * this on every `pointermove` while a gizmo drag is captured (only for a kind whose `ENTITIES`
    * entry actually has a `moveTo`, per its own guard), and only commits the real edit (through
-   * the matching `tools.js` command, via `ENTITIES[kind].moveTo`) on `pointerup` — one undo step
-   * per drag, not one per animation frame.
+   * the matching `tools.js` command, via `ENTITIES[kind].moveTo`, resolved against the LIVE doc
+   * — see `addGizmo`'s own note on why an index, not a snapshot-derived ref) on `pointerup` —
+   * one undo step per drag, not one per animation frame.
    */
-  function moveGizmoTo(kind, ref, cx, cz) {
-    const g = gizmos.find((x) => x.kind === kind && x.ref === ref);
+  function moveGizmoTo(kind, index, cx, cz) {
+    const g = gizmos.find((x) => x.kind === kind && x.index === index);
     if (!g) return;
     const y = ENTITIES[kind].space === 'world' ? g.mesh.position.y : ctx.get('terrain').height(cx, cz) + GIZMO_LIFT;
     g.mesh.position.set(cx + 0.5, y, cz + 0.5);

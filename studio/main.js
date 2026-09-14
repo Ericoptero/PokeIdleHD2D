@@ -146,6 +146,20 @@ function clampToMap(cx, cz) {
   return { cx: Math.max(0, Math.min(currentDoc.w - 1, cx)), cz: Math.max(0, Math.min(currentDoc.h - 1, cz)) };
 }
 
+/** Resolves a `preview.js` gizmo (`{kind, index}` — a position within `ENTITIES[kind].list(...)`,
+ *  never a carried-over object) against the LIVE `currentDoc`. `preview.js`'s own gizmos are
+ *  built from `serializeDocument(currentDoc)`'s output — a snapshot whose `npcs`/`markers`/
+ *  `lights`/`links`/`regions`/`spawnPoints` are all fresh `{...x}` clones (`state.js`'s
+ *  `serializeDocument`), never the same references `currentDoc`'s own arrays hold. Handing a
+ *  `tools.js` command or an inspector card one of those clones would let it mutate a throwaway
+ *  object all the way through undo/redo while the real document silently never changes — this
+ *  is the one required re-resolution step between "which gizmo did the raycaster hit" and
+ *  "which live object does that gizmo represent", and every caller below goes through it rather
+ *  than trusting a reference `preview.js` might otherwise have carried. */
+function resolveGizmoRef(gizmo) {
+  return ENTITIES[gizmo.kind]?.list(currentDoc)[gizmo.index] ?? null;
+}
+
 /** Commits a finished gizmo drag through `ENTITIES[gizmo.kind].moveTo` — the same undo-wired
  *  `tools.js` commands the inspector already uses, looked up generically instead of a 5-branch
  *  `if/else if` chain (one per kind that happened to support dragging when this was written by
@@ -157,7 +171,9 @@ function commitGizmoDrag(gizmo, e) {
   const cell = preview.pickCell(e.clientX, e.clientY);
   if (!cell || !currentDoc) return; // the pointer let go off the ground plane — nothing to commit
   const { cx, cz } = clampToMap(cell.cx, cell.cz);
-  ENTITIES[gizmo.kind]?.moveTo?.(currentDoc, history, gizmo.ref, { cx, cz });
+  const ref = resolveGizmoRef(gizmo);
+  if (ref == null) return; // the entity vanished (e.g. removed from another surface) mid-drag
+  ENTITIES[gizmo.kind]?.moveTo?.(currentDoc, history, ref, { cx, cz });
   refreshAll(); // same pattern `inspector.js`'s onChange callback uses after its own tools.js calls
 }
 
@@ -168,12 +184,13 @@ function commitGizmoDrag(gizmo, e) {
 function selectGizmo(gizmo) {
   if (!currentDoc) return;
   const entity = ENTITIES[gizmo.kind];
-  const pos = entity?.positionOf(currentDoc, gizmo.ref);
+  const ref = resolveGizmoRef(gizmo);
+  const pos = ref != null ? entity?.positionOf(currentDoc, ref) : null;
   if (!pos) return;
   const cell = entity.space === 'world'
     ? { cx: Math.floor(pos.x), cz: Math.floor(pos.z) }
     : { cx: Math.floor(pos.cx), cz: Math.floor(pos.cz) };
-  session.setSelection({ cell, kind: gizmo.kind, ref: gizmo.ref });
+  session.setSelection({ cell, kind: gizmo.kind, ref });
 }
 
 previewContainer.addEventListener('pointerdown', (e) => {
@@ -221,7 +238,7 @@ previewContainer.addEventListener('pointermove', (e) => {
       const cell = preview.pickCell(e.clientX, e.clientY);
       // Visual-only: the doc is untouched until `pointerup`, so dragging across the whole map is
       // one undo step, not one per animation frame.
-      if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.ref, c.cx, c.cz); }
+      if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.index, c.cx, c.cz); }
     }
     return;
   }
