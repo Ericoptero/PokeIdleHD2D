@@ -13,7 +13,7 @@ import { createDocument, createBlankDocument, serializeDocument, createHistory }
 import { makeEditorCanvas } from './canvas.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
-import { makePreview } from './preview.js';
+import { makeViewport } from './viewport/index.js';
 import { loadTextureBitmaps } from './catalog.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
@@ -99,7 +99,7 @@ function buildOverlayStrip() {
 }
 buildOverlayStrip();
 
-// --- live HD-2D preview (studio/preview.js) — booted lazily, on first non-"edit" view, so
+// --- live HD-2D preview (studio/viewport/) — booted lazily, on first non-"edit" view, so
 // opening the Studio does not pay for a second three.js renderer nobody asked to see. --------
 let preview = null;
 let previewRebuildTimer = null;
@@ -115,10 +115,20 @@ let previewDownAt = null; // pointerdown client (x,y) — tells a click from a d
 
 async function ensurePreview() {
   if (preview) return preview;
-  preview = await makePreview({ container: previewContainer });
+  preview = await makeViewport({ container: previewContainer, session });
   previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Hora'));
   previewHead.appendChild(h('input', { type: 'range', min: '0', max: '23.5', step: '0.5', value: '11',
     class: 'ms-tod-slider', onInput: (e) => preview.setTod(e.target.value) }));
+  // Vista (Slice 6): 90°-step yaw — orientation and occlusion-checking (seeing behind a
+  // building), not a second beauty angle. DS-era tile art is painted for one view, so yaw 90/
+  // 180/270 shows gaps in single-sided walls and front-painted textures from behind — a known,
+  // accepted limitation, not something either button below tries to hide.
+  previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Vista'));
+  const yawLeftIcon = icon('rotate-cw', { size: 13 });
+  yawLeftIcon.style.transform = 'scaleX(-1)'; // mirrored `rotate-cw` — no separate `rotate-ccw` glyph vendored in icons.js
+  const yawLeftBtn = h('button', { class: 'ms-iconbtn', title: 'Girar vista à esquerda (90°) · [', onClick: () => preview.setYaw(preview.getYaw() - 1) }, [yawLeftIcon]);
+  const yawRightBtn = h('button', { class: 'ms-iconbtn', title: 'Girar vista à direita (90°) · ]', onClick: () => preview.setYaw(preview.getYaw() + 1) }, [icon('rotate-cw', { size: 13 })]);
+  previewHead.append(yawLeftBtn, yawRightBtn);
   previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Zoom'));
   const zoomOut = h('button', { class: 'ms-iconbtn', onClick: () => preview.zoomSteps(1) }, [icon('zoom-out', { size: 13 })]);
   const zoomIn = h('button', { class: 'ms-iconbtn', onClick: () => preview.zoomSteps(-1) }, [icon('zoom-in', { size: 13 })]);
@@ -146,16 +156,17 @@ function clampToMap(cx, cz) {
   return { cx: Math.max(0, Math.min(currentDoc.w - 1, cx)), cz: Math.max(0, Math.min(currentDoc.h - 1, cz)) };
 }
 
-/** Resolves a `preview.js` gizmo (`{kind, index}` — a position within `ENTITIES[kind].list(...)`,
- *  never a carried-over object) against the LIVE `currentDoc`. `preview.js`'s own gizmos are
- *  built from `serializeDocument(currentDoc)`'s output — a snapshot whose `npcs`/`markers`/
- *  `lights`/`links`/`regions`/`spawnPoints` are all fresh `{...x}` clones (`state.js`'s
- *  `serializeDocument`), never the same references `currentDoc`'s own arrays hold. Handing a
- *  `tools.js` command or an inspector card one of those clones would let it mutate a throwaway
- *  object all the way through undo/redo while the real document silently never changes — this
- *  is the one required re-resolution step between "which gizmo did the raycaster hit" and
- *  "which live object does that gizmo represent", and every caller below goes through it rather
- *  than trusting a reference `preview.js` might otherwise have carried. */
+/** Resolves a `viewport/index.js` gizmo (`{kind, index}` — a position within
+ *  `ENTITIES[kind].list(...)`, never a carried-over object) against the LIVE `currentDoc`.
+ *  `viewport/index.js`'s own gizmos are built from `serializeDocument(currentDoc)`'s output — a
+ *  snapshot whose `npcs`/`markers`/`lights`/`links`/`regions`/`spawnPoints` are all fresh
+ *  `{...x}` clones (`state.js`'s `serializeDocument`), never the same references `currentDoc`'s
+ *  own arrays hold. Handing a `tools.js` command or an inspector card one of those clones would
+ *  let it mutate a throwaway object all the way through undo/redo while the real document
+ *  silently never changes — this is the one required re-resolution step between "which gizmo
+ *  did the raycaster hit" and "which live object does that gizmo represent", and every caller
+ *  below goes through it rather than trusting a reference `viewport/index.js` might otherwise
+ *  have carried. */
 function resolveGizmoRef(gizmo) {
   return ENTITIES[gizmo.kind]?.list(currentDoc)[gizmo.index] ?? null;
 }
@@ -291,6 +302,22 @@ async function setViewMode(mode) {
   if (mode !== 'edit') { await ensurePreview(); if (currentDoc) preview.load(serializeDocument(currentDoc)); }
   if (mode !== 'game') editorCanvas.fitView();
 }
+
+// --- yaw keybind (Slice 6): `[`/`]` rotate the 3D view 90° left/right ------------------------
+//
+// `Q`/`E` were the natural first pick, but `E` is already the `eraser` tool's keybind
+// (`kinds.js`'s `TOOLS` table, 4th column) — `panels.js`'s own tool-rail keydown listener would
+// swallow a plain `E` before this one ever saw it. Brackets are unclaimed anywhere in the
+// Studio (`rg "addEventListener\('keydown'" studio/` turns up only `panels.js`'s two listeners)
+// and read as "rotate/step" in enough editors to need no on-screen legend. Guarded the same way
+// `panels.js`'s own listener is (never while typing in a field) and only live once the 3D pane
+// actually exists and is visible — a `[`/`]` press in Edição view has nothing to rotate.
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+  if (viewMode === 'edit' || !preview) return;
+  if (e.key === '[') { e.preventDefault(); preview.setYaw(preview.getYaw() - 1); }
+  else if (e.key === ']') { e.preventDefault(); preview.setYaw(preview.getYaw() + 1); }
+});
 
 // --- percorrer loop (the "Playtest" slot's real, honest stand-in — see the plan) -----------
 let walking = false;

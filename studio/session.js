@@ -282,7 +282,7 @@ export function makeSession({ history }) {
     setHover(cell) { hoverCell = cell; notify(); },
     stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
     /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
-     *  3D-pane pick (`preview.js`'s `pickCell`) through the identical brush/fill/coll/height/
+     *  3D-pane pick (`viewport/index.js`'s `pickCell`) through the identical brush/fill/coll/height/
      *  tag/spawn/marker/npc/light logic — including the `LOCKED_TOOLS` guard and the `notify()`
      *  call at the end — with no second copy of this switch statement anywhere. */
     applyToolAt: (cx, cz, kind) => applyToolAt(cx, cz, kind),

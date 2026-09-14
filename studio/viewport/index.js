@@ -1,25 +1,35 @@
 /**
- * preview.js — the live "Prévia HD-2D" pane: a second, small three.js game instance embedded
- * in the Studio, running the real `tiles`/`terrain`/`environment` modules so what the panel
- * shows IS the game's own render pipeline — the same models, the same autotile resolution,
- * the same dusk emissive ramp, the same per-cell multiply tint — not a CSS approximation of
- * one. If the preview draws it, the shipped game draws it identically —
- * both run the same `tiles`/`terrain`/`environment` module stack, not a hand-maintained
- * lookalike. (There is no longer a dedicated tool asserting this pixel-for-pixel —
- * `tools/mapstudio/parity.js` did, before procedural biome generation was replaced with
- * Studio-authored maps; `tools/mapstudio/roundtrip.js` and `studio-roundtrip.js` instead prove
- * the underlying map *data* survives authoring and replay untouched, which is what matters now.)
+ * viewport/index.js — the live "Prévia HD-2D" pane: a second, small three.js game instance
+ * embedded in the Studio, running the real `tiles`/`terrain`/`environment` modules so what the
+ * panel shows IS the game's own render pipeline — the same models, the same autotile resolution,
+ * the same dusk emissive ramp, the same per-cell multiply tint — not a CSS approximation of one.
+ * If the preview draws it, the shipped game draws it identically — both run the same
+ * `tiles`/`terrain`/`environment` module stack, not a hand-maintained lookalike. (There is no
+ * longer a dedicated tool asserting this pixel-for-pixel — `tools/mapstudio/parity.js` did,
+ * before procedural biome generation was replaced with Studio-authored maps;
+ * `tools/mapstudio/roundtrip.js` and `studio-roundtrip.js` instead prove the underlying map
+ * *data* survives authoring and replay untouched, which is what matters now.)
  *
- * A minimal boot, not the full game: only `tiles`, `terrain` and `environment` are
- * registered (`registry.init(ctx, { only: [...] })`) — no `city`/`hunts`/`ui`/`simulation`,
- * so no NPCs, no dialogue, nothing that would try to touch a DOM the Studio does not have.
+ * A minimal boot, not the full game: only `tiles`, `terrain` and `environment` are registered
+ * (`registry.init(ctx, { only: [...] })`) — no `city`/`hunts`/`ui`/`simulation`, so no NPCs, no
+ * dialogue, nothing that would try to touch a DOM the Studio does not have.
+ *
+ * This is Slice 6's split of what used to be one file (`studio/preview.js`) into a
+ * `studio/viewport/` module, plus this slice's own two additions:
+ *   - `viewport/camera.js` — pan/zoom (moved verbatim, no behavior change) and the new
+ *     Studio-only 90°-yaw control. Its methods are re-exposed on this module's own returned
+ *     object below, so `main.js`'s existing `preview.panBy(...)`/`.zoomSteps(...)`/
+ *     `.setZoomCells(...)`/`.fitMap(...)`/`.getZoom()` call sites need no changes.
+ *   - `viewport/overlay.js` — a real-time 3D overlay pass (grid/collision/selection), drawn on
+ *     top of the composited frame in `frame()` below. See its own header for the technique.
  *
  * Interactive since the Studio's P3 pass: `pickCell`/`pickGizmo` raycast the pane so `main.js`
  * can turn a click/drag into a cell (select, paint) or an entity — every kind `entities.js`'s
  * `ENTITIES` table marks with a gizmo, rendered here as small always-visible sprites (see
- * "gizmos" below). This is the only raycaster in the codebase, scoped to the Studio on purpose;
- * nothing about it assumes the fixed 45-degree rig, but nothing outside the Studio has needed
- * one yet either.
+ * "gizmos" below, moved verbatim — gizmo hit-testing/movement logic is out of this slice's
+ * scope). This is the only raycaster in the codebase, scoped to the Studio on purpose; nothing
+ * about it assumes the fixed 45-degree rig, but nothing outside the Studio has needed one yet
+ * either.
  */
 
 import * as THREE from 'three';
@@ -33,15 +43,19 @@ import { makeRenderer, makeCameraRig, makeSunShadow } from '@/core/render.js';
 import tiles from '@/tiles/index.js';
 import terrain from '@/terrain/index.js';
 import environment from '@/environment/index.js';
-import { ENTITIES } from './entities.js';
+import { ENTITIES } from '../entities.js';
+import { makeViewportCamera } from './camera.js';
+import { makeOverlay } from './overlay.js';
 
-/** @param {{container: HTMLElement}} opts */
-export async function makePreview({ container }) {
+/** @param {{container: HTMLElement, session: object}} opts `session` (`studio/session.js`) is
+ *  read live by `viewport/overlay.js` for the grid/collision/selection overlays — not a
+ *  serialized snapshot, since this module runs inside the same Studio process `session` does. */
+export async function makeViewport({ container, session }) {
   const config = makeConfig('');
-  const bus = makeBus({ onError: (err, meta) => log.error(`preview: bus listener threw on ${meta.type}`, err) });
+  const bus = makeBus({ onError: (err, meta) => log.error(`viewport: bus listener threw on ${meta.type}`, err) });
   const registry = makeRegistry({ bus, log });
   const clock = makeClock();
-  const rng = makeRng(config.seed, 'studio-preview');
+  const rng = makeRng(config.seed, 'studio-viewport');
 
   const view = makeRenderer({ container, config, log });
   const rig = makeCameraRig({ camera: view.camera, config, view });
@@ -57,6 +71,16 @@ export async function makePreview({ container }) {
   for (const m of [tiles, terrain, environment]) registry.add(m);
   await registry.init(ctx, { only: ['tiles', 'terrain', 'environment'] });
 
+  function resize() {
+    view.resize(container.clientWidth || 1, container.clientHeight || 1);
+  }
+  resize();
+  const ro = new ResizeObserver(resize);
+  ro.observe(container);
+
+  const camera = makeViewportCamera({ rig, view, config, ctx, resize });
+  const overlay = makeOverlay({ session, getHeight: (cx, cz) => ctx.get('terrain').height(cx, cz) });
+
   let extraWorlds = [];
   let generation = 0;
   let running = true;
@@ -68,6 +92,11 @@ export async function makePreview({ container }) {
   // one-shot auto-zoom (`fitMap`), which belongs to the Studio session rather than to the map:
   // switching maps re-centers the camera but does not re-fit the zoom the admin already chose.
   let lastMapId = null;
+  // The map object itself, not just its id — `setYaw` below needs to reload the CURRENT map
+  // after a yaw change (to rebuild every placement's baked instance matrices), and it has no
+  // other way to get one: `main.js` only calls `load(map)` with a freshly serialized document,
+  // never hands this module a live reference to `main.js`'s own `currentDoc`.
+  let lastMap = null;
 
   function disposeExtras() {
     for (const w of extraWorlds) w.dispose();
@@ -76,6 +105,7 @@ export async function makePreview({ container }) {
 
   /** @param {object} map a `.map.json`-shaped document (`@/terrain/mapfile.js` / `studio/state.js`) */
   async function load(map) {
+    lastMap = map;
     const gen = ++generation;
     try {
       ctx.get('terrain').registerMapFile('studio-preview', map);
@@ -103,10 +133,11 @@ export async function makePreview({ container }) {
       }
 
       // Only a new/different map snaps the camera to spawn — an edit-triggered reload of the
-      // SAME map id leaves the camera exactly where the admin left it (the confirmed bug this
-      // replaces: this line used to run unconditionally, so hovering the 2D canvas — which
-      // notifies on every `pointermove`, not just a drag — eventually fired a debounced reload
-      // that snapped the 3D view back to spawn out from under whatever the admin was looking at).
+      // SAME map id (including a yaw-change reload — see `setYaw` below) leaves the camera
+      // exactly where the admin left it (the confirmed bug this replaces: this line used to run
+      // unconditionally, so hovering the 2D canvas — which notifies on every `pointermove`, not
+      // just a drag — eventually fired a debounced reload that snapped the 3D view back to spawn
+      // out from under whatever the admin was looking at).
       const isNewMap = map.id !== lastMapId;
       lastMapId = map.id;
       if (isNewMap) {
@@ -114,9 +145,9 @@ export async function makePreview({ container }) {
         const y = ctx.get('terrain').height(spawn.cx, spawn.cz);
         rig.setFocus(spawn.cx + 0.5, y, spawn.cz + 0.5, true);
       }
-      if (!hasFramedOnce) { hasFramedOnce = true; fitMap(map.w, map.h); }
+      if (!hasFramedOnce) { hasFramedOnce = true; camera.fitMap(map.w, map.h); }
     } catch (err) {
-      log.error('preview: load failed', err);
+      log.error('viewport: load failed', err);
     }
   }
 
@@ -129,55 +160,27 @@ export async function makePreview({ container }) {
     rig.setFocus(cx + 0.5, y, cz + 0.5, true);
   }
 
-  function resize() {
-    view.resize(container.clientWidth || 1, container.clientHeight || 1);
+  /**
+   * Studio-only 90°-step view rotation (Slice 6). `camera.setYaw` alone only turns the camera
+   * rig (`rig.setYaw`) and records the new quarter-turn for FUTURE placements
+   * (`tiles.setViewYaw`) — it does nothing to the `InstancedWorld`s already sitting in the
+   * scene, whose instance matrices (`cameraFacingRot`, `@/tiles/instanced.js`) were baked in at
+   * construction time. So a yaw change here always follows with a full reload of the currently
+   * loaded map, which rebuilds every placement (`extraWorlds` included) with the new
+   * `viewYawQuarter` baked in from the start.
+   *
+   * This is a deliberate full reload, not a missed optimization: `InstancedWorld.patch()`
+   * exists for high-frequency per-cell paint edits at a FIXED yaw, a different problem — a
+   * global yaw change would need to identify and touch every crossed-billboard bucket across
+   * every `extraWorld` depending on which of its models are crossed billboards, which is not
+   * worth the complexity for an explicit, infrequent "rotate the view" click. Reloading the SAME
+   * map id also means `load()`'s own new-map guard above leaves the camera exactly where it was
+   * instead of snapping back to spawn.
+   */
+  function setYaw(q) {
+    camera.setYaw(q);
+    if (lastMap) load(lastMap);
   }
-  resize();
-  const ro = new ResizeObserver(resize);
-  ro.observe(container);
-
-  // --- navigation: drag to pan, wheel to zoom, the game's own fixed 45° rig ------------------
-  //
-  // The rig (`@/core/render.js` `makeCameraRig`) is a fixed-pitch, locked-yaw follow camera by
-  // construction — the sprite pre-stretch math and `dropEdgeOnTwins`'s billboard culling both
-  // assume the camera never yaws. There is no pan()/zoom()/orbit() anywhere in the engine, only
-  // `setFocus`/`update`/`fitFraming`/`frame` — this is the minimal navigation those four give.
-
-  /** Screen CSS px -> world units, at the fixed 45° pitch: a run of L cells in Z covers
-   *  `L*sin(pitch)` of screen height (`rig.fitFraming`'s own stated convention). */
-  function panBy(dxPx, dyPx) {
-    const outW = view.displayRect.w || 1;
-    const [inW] = view.internalSize;
-    const worldPerCssPx = inW / (outW * config.pixelsPerUnit);
-    const sinPitch = Math.sin((config.cameraPitch * Math.PI) / 180) || 1;
-    rig.setFocus(
-      rig.focus.x - dxPx * worldPerCssPx,
-      rig.focus.y,
-      rig.focus.z - (dyPx * worldPerCssPx) / sinPitch,
-      true, // immediate — a drag has to track the cursor 1:1, not spring toward it
-    );
-  }
-
-  // Zoom never sets `pixelsPerUnit` to an off-ladder value — tiles are authored at 32
-  // texels/unit, so anything but 16/32/64 minifies unevenly as the camera pans (visible
-  // shimmer). `fitFraming` already searches `ppu × pixelScale` and lands on the ladder.
-  let zoomCells = 22;
-  function applyZoom() {
-    rig.fitFraming(zoomCells);
-    // The confirmed bug this replaces: `resize()`'s frustum rewrite is guarded by an early
-    // return when none of (outW,outH,inW,inH) changed, and a bare `pixelsPerUnit` write moves
-    // none of them — the old `setPpu` was a silent no-op for exactly that reason. `fitFraming`
-    // also sets `pixelScale`, which does move `inW/inH`, but only once `resize()` is actually
-    // called — hence this explicit call rather than relying on some other code path to do it.
-    resize();
-  }
-  function zoomSteps(dir) {
-    zoomCells = Math.max(4, Math.min(96, Math.round(zoomCells * (dir > 0 ? 1.12 : 1 / 1.12))));
-    applyZoom();
-  }
-  function setZoomCells(n) { zoomCells = Math.max(4, Math.min(96, n)); applyZoom(); }
-  function fitMap(w, h) { setZoomCells(Math.max(w, h)); }
-  function getZoom() { return { cellsWide: zoomCells, ppu: config.pixelsPerUnit, pixelScale: config.pixelScale }; }
 
   // --- picking: the first raycaster anywhere in this codebase (`grep -r Raycaster src/ studio/`
   // turns up nothing) — scoped to the Studio only, per the plan. The rig's camera is a locked,
@@ -207,7 +210,8 @@ export async function makePreview({ container }) {
    * the ground plane at all (a fixed 45-degree pitch never actually produces that — the guard is
    * for a future camera, not this one). Exported for `main.js` to drive click-to-select, tool
    * painting and gizmo dragging in the 3D pane from the same pointer events it already handles
-   * for panning.
+   * for panning. Still correct after a yaw change (`setYaw` above): the raycaster reads
+   * `view.camera` fresh on every call, and `rig.setYaw` is the only thing that ever rotates it.
    */
   function pickCell(clientX, clientY) {
     raycaster.setFromCamera(ndcFromClient(clientX, clientY), view.camera);
@@ -229,11 +233,12 @@ export async function makePreview({ container }) {
   // kind's own `moveTo` exists) draggable in 3D ------------------------------------------------
   //
   // Sprites, not meshes with their own rotation logic: a sprite always faces the camera, so a
-  // click always lands on a face-on shape regardless of the fixed 45-degree pitch, and
-  // `Raycaster.intersectObjects` already knows how to hit-test one for free. One shared dot
-  // texture plus one shared triangle texture (spawn only, so it reads as a distinct shape from
-  // everything else — matching `canvas.js`'s own amber spawn glyph), tinted per instance through
-  // `SpriteMaterial.color`, so this never allocates a canvas per gizmo.
+  // click always lands on a face-on shape regardless of the fixed 45-degree pitch (or this
+  // slice's own 90°-step yaw), and `Raycaster.intersectObjects` already knows how to hit-test
+  // one for free. One shared dot texture plus one shared triangle texture (spawn only, so it
+  // reads as a distinct shape from everything else — matching `canvas.js`'s own amber spawn
+  // glyph), tinted per instance through `SpriteMaterial.color`, so this never allocates a canvas
+  // per gizmo. Moved verbatim from `preview.js` — no changes to gizmo logic itself in this slice.
   function makeDotTexture() {
     const c = document.createElement('canvas');
     c.width = c.height = 32;
@@ -363,11 +368,22 @@ export async function makePreview({ container }) {
     registry.lateFrame(frameDt, alpha, ctx);
     sun.update(rig.focus);
     view.render();
+    // --- overlay pass (Slice 6): grid/collision/selection, drawn straight on top of the frame
+    // `view.render()` just composited. `autoClear = false` so this draw does not wipe what was
+    // just written; restored immediately after, or the NEXT frame's bloom blit chain breaks (it
+    // relies on `autoClear` being on for its own internal `renderer.clear()` calls). See
+    // `viewport/overlay.js`'s own header for why this needs no depth/aspect correction of its own.
+    view.renderer.autoClear = false;
+    view.renderer.render(overlay.scene, view.camera);
+    view.renderer.autoClear = true;
   }
   requestAnimationFrame(frame);
 
   return {
-    load, setTod, setFocus, panBy, zoomSteps, setZoomCells, fitMap, getZoom,
+    load, setTod, setFocus,
+    panBy: camera.panBy, zoomSteps: camera.zoomSteps, setZoomCells: camera.setZoomCells,
+    fitMap: camera.fitMap, getZoom: camera.getZoom,
+    getYaw: camera.getYaw, setYaw,
     pickCell, pickGizmo, moveGizmoTo,
     dispose() {
       running = false;
@@ -376,6 +392,7 @@ export async function makePreview({ container }) {
       disposeGizmos();
       dotTexture.dispose();
       spawnTexture.dispose();
+      overlay.dispose();
       ctx.get('terrain').unload();
     },
   };
