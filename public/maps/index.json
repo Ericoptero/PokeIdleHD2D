@@ -1,0 +1,44 @@
+[
+  {
+    "id": "demo-city",
+    "name": "Demo City",
+    "kind": "city",
+    "w": 64,
+    "h": 64
+  },
+  {
+    "id": "pokecenter",
+    "name": "Pokémon Center",
+    "kind": "interior",
+    "w": 13,
+    "h": 10
+  },
+  {
+    "id": "hunt-forest",
+    "name": "Verdant Wood",
+    "kind": "hunt",
+    "w": 64,
+    "h": 62
+  },
+  {
+    "id": "hunt-meadow",
+    "name": "Sunlit Meadow",
+    "kind": "hunt",
+    "w": 64,
+    "h": 60
+  },
+  {
+    "id": "hunt-cave",
+    "name": "Hollow Deep",
+    "kind": "hunt",
+    "w": 56,
+    "h": 54
+  },
+  {
+    "id": "hunt-coast",
+    "name": "Saltspray Coast",
+    "kind": "hunt",
+    "w": 66,
+    "h": 54
+  }
+]

@@ -8,6 +8,8 @@
  */
 
 import { MapDraft } from './draft.js';
+import { parseMapFile } from './mapfile.js';
+import { builderFor } from './frommap.js';
 
 export default {
   id: 'terrain',
@@ -36,12 +38,16 @@ export default {
 
       const tiles = ctx.get('tiles');
       const draft = new MapDraft({ id: mapId, ...opts });
-      await builder(draft, ctx);
+      // A hand-written builder returns nothing; a JSON-authored one (`registerMapFile`, via
+      // `frommap.js`) returns the report the file carried on top of the draft — extras, loop,
+      // wild slots, npcs, links. Kept as-is so a caller (a scene, or the Studio's own preview)
+      // can build the extra `InstancedWorld`s and wire the rest without re-parsing the file.
+      const report = (await builder(draft, ctx)) ?? null;
       draft.finalize();
 
       await tiles.load(draft.tileset);
       const world = tiles.buildInstances(ctx.three.scene, draft.tileset, draft.placements, { name: `map:${mapId}` });
-      current = { id: mapId, draft, world };
+      current = { id: mapId, draft, world, report };
 
       log.info(`map "${mapId}" ${draft.w}x${draft.h} — ${draft.placements.length} placements, ` +
         `${world.stats.meshes} meshes, ${Math.round(world.stats.triangles / 1000)}k tris`);
@@ -58,6 +64,18 @@ export default {
         if (builders.has(mapId)) log.warn(`terrain.register: replacing map "${mapId}"`);
         builders.set(mapId, builder);
       },
+      /**
+       * Registers a map from a parsed or raw `.map.json` document (`./mapfile.js`), replayed
+       * through `./frommap.js` on every `load()` — the Map Studio's counterpart to a
+       * hand-written biome builder. Throws if the document does not parse as a map file.
+       * @param {string} mapId @param {object|string} json
+       * @returns {object} the parsed map file, for a caller that wants its metadata up front
+       */
+      registerMapFile(mapId, json) {
+        const map = parseMapFile(json);
+        api.register(mapId, builderFor(map));
+        return map;
+      },
       registered: () => [...builders.keys()],
 
       load,
@@ -65,6 +83,8 @@ export default {
       current: () => current?.id ?? null,
       draft: () => current?.draft ?? null,
       world: () => current?.world ?? null,
+      /** The report a JSON-authored map's builder returned (`registerMapFile`), or null for a hand-written one. */
+      report: () => current?.report ?? null,
 
       handle() {
         if (!current) return null;

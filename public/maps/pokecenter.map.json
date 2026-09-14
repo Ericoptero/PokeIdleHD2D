@@ -1,0 +1,572 @@
+{
+  "format": "pokeidle.map",
+  "version": 1,
+  "id": "pokecenter",
+  "name": "Pokémon Center",
+  "kind": "interior",
+  "module": "pokecenter",
+  "w": 13,
+  "h": 10,
+  "tileset": "pt-house-indoor",
+  "biome": "city",
+  "seed": 1337,
+  "requiredLevel": 0,
+  "weather": null,
+  "environmentPreset": "interior",
+  "source": {
+    "builder": "src/pokecenter/map.js + src/pokecenter/dress.js",
+    "snapshotAt": "2026-09-14T03:20:56.450Z"
+  },
+  "grid": {
+    "collision": {
+      "p": ["block","walk","door"],
+      "r": [[0,14],[1,11],[0,2],[1,4],[0,3],[1,4],[0,2],[1,11],[0,2],[1,11],[0,2],[1,1],[0,1],[1,7],[0,1],[1,1],[0,2],[1,11],[0,2],[1,11],[0,2],[1,11],[0,2],[1,5],[2,1],[1,5],[0,1]]
+    },
+    "height": {
+      "p": [0],
+      "r": [[0,130]]
+    },
+    "tags": {
+      "p": [[],["window"],["counter"],["bench"],["door:pokecenter-exit"]],
+      "r": [[0,5],[1,3],[0,23],[2,3],[0,33],[3,1],[0,7],[3,1],[0,47],[4,1],[0,6]]
+    },
+    "occupied": {
+      "p": [0,1],
+      "r": [[0,31],[1,3],[0,96]]
+    }
+  },
+  "layers": [
+    {
+      "tileset": "pt-house-indoor",
+      "role": "draft",
+      "models": ["wooden_floor_v6","house_wall_c_e","house_wall_side","wooden_floor_v4","house_wall_v3","wooden_floor_v3","house_wall_v2","wooden_floor_v2","house_wall","wooden_floor","wooden_floor_v10","wooden_floor_v9","wooden_floor_v7","house_wall_c_w","house_wall_side_v2","wooden_floor_v5","wooden_floor_v8","table"],
+      "modelIds": [11,54,50,7,63,4,58,3,53,0,19,16,12,52,51,8,15,70],
+      "tiles": [
+        {
+          "layer": 0,
+          "model": {
+            "p": [-1,0,5,11,10,9,3,15,16,12,7],
+            "r": [[0,14],[1,1],[2,1],[3,1],[4,1],[1,2],[5,1],[3,1],[6,1],[7,2],[0,2],[8,1],[2,1],[9,1],[1,1],[0,1],[7,1],[1,1],[6,1],[1,1],[7,1],[8,1],[0,2],[5,1],[8,1],[7,1],[5,1],[1,1],[6,1],[4,1],[1,1],[6,1],[7,1],[8,1],[0,2],[5,4],[10,1],[2,1],[7,1],[6,1],[5,1],[2,1],[4,1],[0,2],[4,1],[5,3],[4,1],[10,1],[5,1],[8,1],[5,1],[3,1],[4,1],[0,2],[3,1],[1,1],[6,1],[9,1],[8,1],[1,1],[7,1],[8,2],[9,1],[1,1],[0,2],[9,1],[3,1],[1,1],[8,1],[10,1],[8,1],[3,1],[8,1],[1,1],[4,1],[7,1],[0,2],[5,2],[1,1],[5,1],[9,1],[6,1],[9,1],[7,1],[9,1],[3,2],[0,2],[10,1],[5,4],[3,1],[5,1],[4,1],[5,1],[7,1],[6,1],[0,1]]
+          }
+        }
+      ],
+      "objects": [
+        {
+          "m": 0,
+          "cx": 0,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 1,
+          "cx": 0,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 3,
+          "cx": 1,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 4,
+          "cx": 1,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 5,
+          "cx": 2,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 6,
+          "cx": 2,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 5,
+          "cx": 3,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 4,
+          "cx": 3,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 7,
+          "cx": 4,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 8,
+          "cx": 4,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 9,
+          "cx": 5,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 8,
+          "cx": 5,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 5,
+          "cx": 6,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 6,
+          "cx": 6,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 9,
+          "cx": 7,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 8,
+          "cx": 7,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 3,
+          "cx": 8,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 6,
+          "cx": 8,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 10,
+          "cx": 9,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 4,
+          "cx": 9,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 3,
+          "cx": 10,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 8,
+          "cx": 10,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 11,
+          "cx": 11,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 4,
+          "cx": 11,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 12,
+          "cx": 12,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 13,
+          "cx": 12,
+          "cz": 0,
+          "layer": 0,
+          "rot": 2
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 0,
+          "layer": 0
+        },
+        {
+          "m": 9,
+          "cx": 0,
+          "cz": 1,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 1,
+          "layer": 0
+        },
+        {
+          "m": 0,
+          "cx": 12,
+          "cz": 1,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 1,
+          "layer": 0
+        },
+        {
+          "m": 5,
+          "cx": 0,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 11,
+          "cx": 5,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 17,
+          "cx": 5,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 7,
+          "cx": 12,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 2,
+          "layer": 0
+        },
+        {
+          "m": 0,
+          "cx": 0,
+          "cz": 3,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 3,
+          "layer": 0
+        },
+        {
+          "m": 12,
+          "cx": 12,
+          "cz": 3,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 3,
+          "layer": 0
+        },
+        {
+          "m": 3,
+          "cx": 0,
+          "cz": 4,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 4,
+          "layer": 0
+        },
+        {
+          "m": 9,
+          "cx": 12,
+          "cz": 4,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 4,
+          "layer": 0
+        },
+        {
+          "m": 0,
+          "cx": 0,
+          "cz": 5,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 5,
+          "layer": 0
+        },
+        {
+          "m": 7,
+          "cx": 12,
+          "cz": 5,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 5,
+          "layer": 0
+        },
+        {
+          "m": 16,
+          "cx": 0,
+          "cz": 6,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 6,
+          "layer": 0
+        },
+        {
+          "m": 9,
+          "cx": 12,
+          "cz": 6,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 6,
+          "layer": 0
+        },
+        {
+          "m": 10,
+          "cx": 0,
+          "cz": 7,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 7,
+          "layer": 0
+        },
+        {
+          "m": 3,
+          "cx": 12,
+          "cz": 7,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 7,
+          "layer": 0
+        },
+        {
+          "m": 0,
+          "cx": 0,
+          "cz": 8,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 8,
+          "layer": 0
+        },
+        {
+          "m": 16,
+          "cx": 12,
+          "cz": 8,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 8,
+          "layer": 0
+        },
+        {
+          "m": 9,
+          "cx": 0,
+          "cz": 9,
+          "layer": 0
+        },
+        {
+          "m": 2,
+          "cx": 0,
+          "cz": 9,
+          "layer": 0
+        },
+        {
+          "m": 3,
+          "cx": 12,
+          "cz": 9,
+          "layer": 0
+        },
+        {
+          "m": 14,
+          "cx": 12,
+          "cz": 9,
+          "layer": 0
+        }
+      ]
+    },
+    {
+      "tileset": "hgss-newbark-houses",
+      "role": "extra",
+      "models": ["window"],
+      "modelIds": [15],
+      "objects": [
+        {
+          "m": 0,
+          "cx": 5,
+          "cz": 0.7,
+          "layer": 0,
+          "rot": 2,
+          "y": 0
+        }
+      ]
+    },
+    {
+      "tileset": "bw2-adastra",
+      "role": "extra",
+      "models": ["bench_e","bench_w"],
+      "modelIds": [170,171],
+      "objects": [
+        {
+          "m": 0,
+          "cx": 2,
+          "cz": 5,
+          "layer": 0,
+          "y": 0
+        },
+        {
+          "m": 1,
+          "cx": 10,
+          "cz": 5,
+          "layer": 0,
+          "y": 0
+        }
+      ]
+    }
+  ],
+  "regions": [],
+  "spawn": {
+    "cx": 6,
+    "cz": 8,
+    "dir": 2
+  },
+  "markers": [
+    {
+      "name": "exit",
+      "cx": 6,
+      "cz": 9
+    }
+  ],
+  "loop": null,
+  "wild": null,
+  "encounters": null,
+  "npcs": [
+    {
+      "name": "nurse",
+      "display": "Nurse Joy",
+      "trainer": "heroine",
+      "cx": 6,
+      "cz": 1,
+      "dir": 0
+    }
+  ],
+  "links": [],
+  "lights": [
+    {
+      "x": 6.5,
+      "y": 1.25,
+      "z": 3.4,
+      "color": 14674175,
+      "intensity": 1.1,
+      "radius": 6.5,
+      "size": 0.34,
+      "groundY": -0.125
+    },
+    {
+      "x": 6.5,
+      "y": 1.25,
+      "z": 3.4,
+      "color": 16315884,
+      "intensity": 1.2,
+      "size": 0.14,
+      "point": false,
+      "pool": false,
+      "groundY": -0.125
+    }
+  ],
+  "cameras": {
+    "default": "default",
+    "presets": {
+      "default": {
+        "cx": 6,
+        "cz": 8
+      },
+      "counter": {
+        "cx": 6,
+        "cz": 3
+      }
+    }
+  },
+  "formation": {
+    "head": "trainer",
+    "input": true,
+    "autopilot": "none"
+  }
+}

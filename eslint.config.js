@@ -26,6 +26,9 @@ export default [
   },
   // Game code runs in the browser.
   { files: ['src/**/*.js'], languageOptions: { globals: globals.browser } },
+  // The Map Studio (studio/**) is a separate site, outside src/ on purpose — see
+  // tools/seams/run.js's own header, which only walks src/. It runs in the browser too.
+  { files: ['studio/**/*.js'], languageOptions: { globals: globals.browser } },
   // The heartbeat is a dedicated worker.
   { files: ['src/idle/worker.js'], languageOptions: { globals: globals.worker } },
   // Selftests and the data builders run under plain Node.
@@ -33,7 +36,7 @@ export default [
   // Tools run under Node; the screenshot harness and the flow tests also hand functions to
   // `page.evaluate`, whose bodies run in the page.
   { files: ['tools/**/*.js', '*.config.js', 'eslint.config.js'], languageOptions: { globals: globals.node } },
-  { files: ['tools/shots/**/*.js', 'tests/**/*.js'], languageOptions: { globals: nodeAndBrowser } },
+  { files: ['tools/shots/**/*.js', 'tools/mapstudio/**/*.js', 'tests/**/*.js'], languageOptions: { globals: nodeAndBrowser } },
   // `*.test.js` run under vitest (Node) and import game modules; nothing browser-only.
   { files: ['src/**/*.test.js', 'tools/**/*.test.js'], languageOptions: { globals: globals.node } },
 ];

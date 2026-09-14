@@ -24,6 +24,9 @@ export async function dressPokecenter(ctx) {
   const { log } = ctx;
   const scene = ctx.three.scene;
   const worlds = [];
+  // See `city/structures.js`'s identical `extras` array — the Map Studio snapshot exporter
+  // reads this to freeze the room's non-`pt-house-indoor` content into a `.map.json`.
+  const extras = [];
   const stats = { window: 0, benches: 0, lamps: 0, filaments: 0, meshes: 0, triangles: 0 };
 
   // --- the window ------------------------------------------------------------
@@ -48,10 +51,11 @@ export async function dressPokecenter(ctx) {
     // group shares that one z). `cz` is nudged so the glass lands just in front of that
     // plane instead of at the cell's outer edge, where the two would read as two unrelated
     // panels rather than one wall with a window in it.
-    const world = tiles.buildInstances(scene, 'hgss-newbark-houses',
-      [{ modelId: winModel.id, cx: WINDOW.cx, cz: WINDOW.cz + 0.7, y: 0, rot: 2 }],
+    const winPlacements = [{ modelId: winModel.id, cx: WINDOW.cx, cz: WINDOW.cz + 0.7, y: 0, rot: 2 }];
+    const world = tiles.buildInstances(scene, 'hgss-newbark-houses', winPlacements,
       { name: 'pokecenter:window', variety: 0, castShadow: false });
     worlds.push(world);
+    extras.push({ tileset: 'hgss-newbark-houses', placements: winPlacements });
     stats.window = 1;
     stats.meshes += world.stats.meshes;
     stats.triangles += world.stats.triangles;
@@ -76,6 +80,7 @@ export async function dressPokecenter(ctx) {
       const world = tiles.buildInstances(scene, 'bw2-adastra', placements,
         { name: 'pokecenter:benches', variety: 0 });
       worlds.push(world);
+      extras.push({ tileset: 'bw2-adastra', placements });
       stats.benches = placements.length;
       stats.meshes += world.stats.meshes;
       stats.triangles += world.stats.triangles;
@@ -131,6 +136,7 @@ export async function dressPokecenter(ctx) {
 
   return {
     stats,
+    extras,
     dispose() {
       for (const w of worlds) w.dispose();
       worlds.length = 0;

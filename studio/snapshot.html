@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Map Studio — snapshot</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070c; overflow: hidden; }
+    #stage { position: fixed; inset: 0; overflow: hidden; width: 960px; height: 720px; }
+    #stage canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+    #ui { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+    #boot, #fatal { display: none; }
+  </style>
+</head>
+<body>
+  <!--
+    Headless boot target for `tools/mapstudio/snapshot.js`: boots the real game module stack
+    (same modules `src/main.js` registers) without navigating anywhere, then freezes maps on
+    demand through `window.__SNAPSHOT__`. Never linked from the game or the Studio UI — a
+    tool page, not a route. See `studio/snapshot/main.js` for why this has to run in a real
+    browser rather than a Node script (src/hunts/selftest.js's own header explains the stub
+    tileset and RNG-stream traps this sidesteps).
+  -->
+  <div id="stage"></div>
+  <div id="ui"></div>
+  <div id="boot"></div>
+  <div id="fatal"></div>
+  <script type="module" src="./snapshot/main.js"></script>
+</body>
+</html>

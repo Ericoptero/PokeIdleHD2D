@@ -11,6 +11,6 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*.js", "tools/**/*.js", "tests/**/*.js", "types/**/*.d.ts", "*.config.js"],
+  "include": ["src/**/*.js", "tools/**/*.js", "tests/**/*.js", "studio/**/*.js", "types/**/*.d.ts", "*.config.js"],
   "exclude": ["node_modules", "dist", "public"]
 }

@@ -168,7 +168,7 @@ export default {
       },
       marker: (name) => terrain.draft?.()?.marker(name) ?? null,
       /** What the town is made of, for the debug overlay and the screenshot log. */
-      stats: () => ({ ...(dressing?.stats ?? {}), npcs: cast?.ids.length ?? 0 }),
+      stats: () => ({ ...(dressing?.stats ?? {}), npcs: cast?.ids.length ?? 0, extras: dressing?.extras ?? [] }),
 
       dispose() {
         cast?.dispose(); cast = null;

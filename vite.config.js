@@ -1,6 +1,9 @@
 import { cp, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+
+const ROOT = dirname(fileURLToPath(import.meta.url));
 
 /**
  * The runtime roots under `assets/` — the ones a *browser* fetches, not the ones `tools/` reads.
@@ -34,7 +37,22 @@ function copyRuntimeAssets() {
 export default defineConfig({
   server: { port: 5173, strictPort: true, host: '127.0.0.1' },
   preview: { port: 4173, strictPort: true },
-  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1500 },
+  build: {
+    target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1500,
+    // Three pages, one build: the game (`index.html`), the admin Map Studio (`studio.html`,
+    // a separate site sharing the game's tile/terrain code and its `#ui-dom` theme — see
+    // `studio/README.md`), and the Studio's headless snapshot-export target
+    // (`studio/snapshot.html`, driven by `tools/mapstudio/snapshot.js`, never linked from
+    // either UI). Listing `rollupOptions.input` REPLACES Vite's implicit single-entry
+    // default, so `index.html` has to be named here too or the game drops out of `dist/`.
+    rollupOptions: {
+      input: {
+        main: resolve(ROOT, 'index.html'),
+        studio: resolve(ROOT, 'studio.html'),
+        snapshot: resolve(ROOT, 'studio/snapshot.html'),
+      },
+    },
+  },
   // assets/ holds the shipped sprite source art; public/ holds build products. Vite copies
   // `public/` on its own; the plugin above is what gets the sprites into the build.
   publicDir: 'public',

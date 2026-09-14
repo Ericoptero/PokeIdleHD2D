@@ -88,6 +88,11 @@ export async function dressCity(ctx) {
   const { log } = ctx;
   const scene = ctx.three.scene;
   const worlds = [];
+  // One entry per `InstancedWorld` built below, kept alongside it — `studio/snapshot`
+  // (Map Studio's exporter) reads this to freeze the town's non-AdAstra content into a
+  // `.map.json`'s `layers[].role:"extra"` entries, the same split `hunts/props.js`'s
+  // `makePropYard().extras()` already exposes for the hunt biomes.
+  const extras = [];
   const stats = { structures: 0, posts: 0, props: 0, paving: 0, lamps: 0, filaments: 0, glows: 0, meshes: 0, triangles: 0 };
   /** @type {(() => void)|null} */
   let undoRepaint = null;
@@ -111,6 +116,7 @@ export async function dressCity(ctx) {
       const world = tiles.buildInstances(scene, 'structures', placements,
         { name: 'city:structures', variety: 0 });
       worlds.push(world);
+      extras.push({ tileset: 'structures', placements });
       stats.structures = placements.length;
       stats.meshes += world.stats.meshes;
       stats.triangles += world.stats.triangles;
@@ -159,6 +165,7 @@ export async function dressCity(ctx) {
     const world = tiles.buildInstances(scene, 'structures', placements,
       { name: 'city:lamps', variety: 0, castShadow: false });
     worlds.push(world);
+    extras.push({ tileset: 'structures', placements });
     stats.posts = placements.length;
     stats.meshes += world.stats.meshes;
     stats.triangles += world.stats.triangles;
@@ -180,6 +187,7 @@ export async function dressCity(ctx) {
       const world = tiles.buildInstances(scene, 'props', placements,
         { name: 'city:props', variety: 0 });
       worlds.push(world);
+      extras.push({ tileset: 'props', placements });
       stats.props = placements.length;
       stats.meshes += world.stats.meshes;
       stats.triangles += world.stats.triangles;
@@ -206,10 +214,11 @@ export async function dressCity(ctx) {
     if (!solved.length) {
       log.warn(`city: auto-tile set "${PAVING.set}" resolved no paving in "${PAVING.tileset}"`);
     } else {
-      const world = tiles.buildInstances(scene, PAVING.tileset,
-        solved.map((p) => ({ modelId: p.modelId, cx: x + p.cx, cz: z + p.cz, y: PAVING.y, rot: 0 })),
+      const paved = solved.map((p) => ({ modelId: p.modelId, cx: x + p.cx, cz: z + p.cz, y: PAVING.y, rot: 0 }));
+      const world = tiles.buildInstances(scene, PAVING.tileset, paved,
         { name: 'city:paving', variety: 0, castShadow: false });
       worlds.push(world);
+      extras.push({ tileset: PAVING.tileset, placements: paved });
       stats.paving = solved.length;
       stats.meshes += world.stats.meshes;
       stats.triangles += world.stats.triangles;
@@ -309,6 +318,8 @@ export async function dressCity(ctx) {
 
   return {
     stats,
+    /** The non-AdAstra placements this dressing built, grouped by tileset — see `extras` above. */
+    extras,
     dispose() {
       for (const w of worlds) w.dispose();
       worlds.length = 0;

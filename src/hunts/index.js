@@ -891,6 +891,13 @@ export default {
       })),
 
       current: () => currentId,
+      /**
+       * The raw biome descriptor (`biomes/*.js`'s own export) — `presets` with its `{marker,
+       * ppu}` shape intact, `loop.via`, `weather`, `showcaseDefault`. `biome()` below only
+       * ever exposed a display-shaped subset; this is for tooling that has to freeze a biome
+       * exactly, not present it — the Map Studio snapshot exporter (`studio/snapshot/main.js`).
+       */
+      descriptor: (id) => ({ ...byId(id) }),
       biome: (id) => {
         const b = byId(id);
         return {

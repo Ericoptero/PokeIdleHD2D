@@ -253,7 +253,7 @@ export default {
       },
       marker: (name) => terrain.draft?.()?.marker(name) ?? null,
       /** What the room is made of, for the debug overlay and the screenshot log. */
-      stats: () => ({ ...(dressing?.stats ?? {}) }),
+      stats: () => ({ ...(dressing?.stats ?? {}), extras: dressing?.extras ?? [] }),
 
       // --- the save seam (src/offline/slices.js) -------------------------------------------------
       // Discovered automatically by `offline.init()`'s `discoverProviders` — `pokecenter`

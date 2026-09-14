@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+/**
+ * The Studio-side round-trip proof: for each map under `public/maps/`, decode it into the
+ * Studio's editable document (`studio/state.js` `createDocument`) and re-encode it
+ * (`serializeDocument`), then assert the cell grids and placement counts are unchanged.
+ *
+ * This is the other half of `tools/mapstudio/roundtrip.js`, which proves the *engine* replays
+ * a map file exactly (`src/terrain/frommap.js`); this proves the *editor* does too — opening
+ * a map and saving it without touching anything must never perturb it. Needs `public/maps/`
+ * populated first (`node tools/mapstudio/snapshot.js`).
+ *
+ *   node tools/mapstudio/studio-roundtrip.js [--only demo-city,hunt-forest]
+ */
+
+import { readdirSync } from 'node:fs';
+import puppeteer from 'puppeteer-core';
+import { CHROME, assertChrome, chromeArgs } from '../shots/chrome.js';
+import { ensureServer } from '../shots/serve.js';
+
+function parseArgs(argv) {
+  const a = { only: null, base: 'http://127.0.0.1:5173', timeout: 30000 };
+  for (let i = 0; i < argv.length; i++) {
+    const k = argv[i];
+    if (!k.startsWith('--')) continue;
+    const key = k.slice(2);
+    const next = argv[i + 1];
+    a[key] = next === undefined || next.startsWith('--') ? true : argv[++i];
+  }
+  return a;
+}
+
+export async function studioRoundtripAll(opts = {}) {
+  const a = { ...parseArgs(process.argv.slice(2)), ...opts };
+  assertChrome();
+  const only = a.only && a.only !== true ? String(a.only).split(',') : null;
+  const ids = (only ?? readdirSync('public/maps').filter((f) => f.endsWith('.map.json')).map((f) => f.replace('.map.json', '')));
+
+  const stopServer = await ensureServer();
+  const browser = await puppeteer.launch({
+    executablePath: CHROME, headless: 'shell', args: ['--headless=new', ...chromeArgs()],
+  });
+  const results = [];
+  try {
+    const page = await browser.newPage();
+    page.on('console', (msg) => { if (msg.type() === 'error') console.error(`  [page] ${msg.text()}`); });
+    await page.goto(`${a.base}/studio.html`, { waitUntil: 'domcontentloaded', timeout: Number(a.timeout) });
+
+    for (const id of ids) {
+      const r = await page.evaluate(async (mapId) => {
+        const { createDocument, serializeDocument } = await import('/studio/state.js');
+        const { decodeRuns } = await import('/src/terrain/mapfile.js');
+        const before = await fetch(`/maps/${mapId}.map.json`).then((res) => res.json());
+        const doc = createDocument(before);
+        const after = serializeDocument(doc);
+        const n = before.w * before.h;
+        const diffs = [];
+        for (const key of ['collision', 'height', 'tags', 'occupied']) {
+          const av = JSON.stringify(decodeRuns(before.grid[key], n));
+          const bv = JSON.stringify(decodeRuns(after.grid[key], n));
+          if (av !== bv) diffs.push(`grid.${key}`);
+        }
+        const count = (m) => (m.layers ?? []).reduce((sum, l) =>
+          sum + (l.tiles ?? []).reduce((s, t) => s + t.model.r.reduce((s2, [idx, c]) => (idx >= 0 ? s2 + c : s2), 0), 0) + (l.objects ?? []).length, 0);
+        const beforeCount = count(before);
+        const afterCount = count(after);
+        if (beforeCount !== afterCount) diffs.push(`placement count ${beforeCount} vs ${afterCount}`);
+        if (before.layers.length !== after.layers.length) diffs.push(`layer count ${before.layers.length} vs ${after.layers.length}`);
+        return { diffs };
+      }, id);
+      results.push({ mapId: id, ok: r.diffs.length === 0, problems: r.diffs });
+      if (r.diffs.length === 0) console.log(`  ✓ ${id}`);
+      else { console.log(`  ✗ ${id}`); for (const p of r.diffs) console.log(`      - ${p}`); }
+    }
+  } finally {
+    await browser.close();
+    stopServer();
+  }
+  return results;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  studioRoundtripAll().then((results) => {
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length) { console.error(`✗ Studio round-trip failed for ${failed.length}/${results.length} map(s)`); process.exit(1); }
+    console.log(`· Studio round-trip exact for all ${results.length} map(s)`);
+  }).catch((err) => { console.error('✗ studio-roundtrip failed:', err); process.exit(1); });
+}

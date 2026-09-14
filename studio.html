@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PokeIdle Map Studio</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; height: 100%; background: #0A0806; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <!--
+    Map Studio — an internal admin site, separate from the game, for editing the maps under
+    `public/maps/*.map.json` (`@/terrain/mapfile.js`) and authoring new ones. Not linked from
+    the game; reachable at /studio.html in dev and in the built `dist/`. See `studio/main.js`.
+  -->
+  <script type="module" src="./studio/main.js"></script>
+</body>
+</html>
