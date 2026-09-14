@@ -26,8 +26,11 @@ test('?break=pokecenter costs the game its Center and nothing else', async ({ pa
   const dests = await call(page, 'travel', 'destinations');
   expect(dests.map((d) => d.id)).not.toContain('pokecenter');
 
-  // Walking onto the city's own door tile does nothing now: there is no listener left to hear
-  // it (`pokecenter/index.js`'s `init` never ran), and no scene change should occur.
+  // Walking onto the city's own door tile does nothing now: `travel/index.js`'s own generic
+  // link listener still fires — it does not depend on `pokecenter` being alive — but the
+  // `go('pokecenter')` it kicks off refuses, because `destinations()` no longer lists a
+  // `pokecenter` destination for a module whose `init` never ran (the same `isLive` gate every
+  // other quarantine check in this file relies on), so no scene change should occur.
   const marker = await call(page, 'city', 'marker', 'pokecenter-door');
   expect(marker, 'the city draft still mints the door marker on its own').not.toBeNull();
   await call(page, 'simulation', 'teleport', marker.cx, marker.cz, 2); // NORTH, facing the door

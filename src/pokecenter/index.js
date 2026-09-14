@@ -1,10 +1,11 @@
 /**
  * pokecenter — the Pokemon Center's interior (src/pokecenter/index.js).
  *
- * One room, entered through the city's own `door:pokecenter` tile and left through this
- * room's own door tile, both driven off `simulation`'s `player:enteredTile` (ARCHITECTURE
- * src/simulation/index.js) rather than a special-cased key: walking onto a tagged cell **is**
- * the interaction, the same way a hunt's tall grass is (`encounter/index.js`).
+ * One room. The door, both ways, is now a map-authored `Link` (`src/travel/links.js`'s
+ * `Link` shape) sitting in this map's own `links[]` and the city's, resolved generically by
+ * `travel/index.js`'s own `player:enteredTile` listener — the same mechanism any other room's
+ * door, map edge or staircase uses, not a special case this module owns. This module is left
+ * with exactly one interaction: the cure at the counter, below.
  *
  * The room, its window, its counter, its benches, Nurse Joy and the practical light are all
  * authored in the Map Studio and loaded from `public/maps/pokecenter.map.json`
@@ -37,10 +38,6 @@ const SAVE_VERSION = 1;
 /** A minimal fallback if a fresh install somehow loads before the file exists. */
 const FALLBACK_SPAWN = { cx: 6, cz: 8, dir: 2 };
 const FALLBACK_FORMATION = { head: 'trainer', input: true, autopilot: 'none' };
-/** The door tag `map.js` used to author on the exit cell — still the contract every shipped
- *  room's own map file uses; kept as a fallback name only, never hardcoded room geometry. */
-const EXIT_TAG = 'door:pokecenter-exit';
-const RETURN_DIR = 0;
 
 export default {
   id: 'pokecenter',
@@ -113,46 +110,6 @@ export default {
       lastHealMs = ctx.clock.wallMs();
       ui.say(['We\'ve restored your Pokémon to full health!', 'We hope to see you again!'],
         { speaker: 'Nurse Joy' });
-    });
-
-    /**
-     * The door, both ways. `simulation` emits `player:enteredTile` with the landing cell's
-     * tags on every step (`src/simulation/index.js` `announce()`); this is the only listener
-     * in the game that reads `door:pokecenter`/`EXIT_TAG`, so the transition lives here rather
-     * than split across `city` and `travel`.
-     */
-    bus.on('player:enteredTile', ({ tags }) => {
-      if (ctx.config.showcase) return;          // a showcase stages a frame; it never travels
-      if (!Array.isArray(tags) || !tags.length) return;
-      const nav = ctx.get('travel');
-      if (!isLive(nav) || typeof nav.go !== 'function') return;
-      const here = nav.current?.()?.id;
-
-      if (tags.includes('door:pokecenter') && here === 'demo-city') {
-        queueMicrotask(() => {
-          nav.go(MAP_ID).catch((err) =>
-            log.warn(`pokecenter: could not walk in through the door — ${err?.message ?? err}`));
-        });
-        return;
-      }
-      if (tags.includes(EXIT_TAG) && here === MAP_ID) {
-        queueMicrotask(async () => {
-          try {
-            await nav.go('demo-city');
-            // The city's own map mints this marker one cell south of the pokecenter's door —
-            // exactly where a player leaving on foot should land, the same marker `travel`'s
-            // wiped-party teleport already targets.
-            const t = ctx.get('terrain');
-            const marker = isLive(t) ? t.draft?.()?.markers?.get('pokecenter-door') : null;
-            const sim = ctx.get('simulation');
-            if (marker && isLive(sim) && typeof sim.teleport === 'function') {
-              sim.teleport(marker.cx, marker.cz, RETURN_DIR);
-            }
-          } catch (err) {
-            log.warn(`pokecenter: could not walk the player back outside — ${err?.message ?? err}`);
-          }
-        });
-      }
     });
 
     function focusOn(cx, cz, dir) {
