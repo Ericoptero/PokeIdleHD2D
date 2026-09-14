@@ -1,7 +1,9 @@
 /**
- * main.js — boots the Map Studio: assembles the layout, wires the canvas/panels to one
- * shared document reference, and owns the view switcher, the map picker, the new-map/
- * validation dialogs and the live 3D preview's navigation.
+ * main.js — boots the Map Studio: assembles the layout, wires the 3D viewport/panels to one
+ * shared document reference, and owns the map picker, the new-map/validation dialogs and the
+ * live 3D preview's navigation. Slice 7 deleted the 2D edit canvas and its view switcher — the
+ * 3D viewport (`viewport/`) is the Studio's only workspace now, with a small read-only
+ * `minimap.js` overlaid on it for orientation.
  */
 
 import { h } from '@/ui/dom/el.js';
@@ -10,11 +12,10 @@ import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
 import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
-import { makeEditorCanvas } from './canvas.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
-import { loadTextureBitmaps } from './catalog.js';
+import { makeMinimap } from './minimap.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
 import { ENTITIES } from './entities.js';
@@ -45,35 +46,34 @@ const libraryEl = h('div', { class: 'ms-panel ms-panel--library' });
 const railEl = h('div', { class: 'ms-tool-rail' });
 const overlayStripEl = h('div', { class: 'ms-overlay-strip' });
 const brushBarEl = h('div', {});
-const canvasWrap = h('div', { class: 'ms-canvas-wrap' });
-const canvasEl = h('canvas', { class: 'ms-canvas' });
-canvasWrap.appendChild(canvasEl);
 const bottomEl = h('div', { class: 'ms-panel ms-panel--bottom' });
 const inspectorEl = h('div', { class: 'ms-panel ms-panel--inspector' });
 const statusEl = h('div', {});
 
-const previewWrap = h('div', { class: 'ms-preview-wrap', hidden: true });
+const previewWrap = h('div', { class: 'ms-preview-wrap' });
 const previewHead = h('div', { class: 'ms-preview-head' }, 'Prévia HD-2D');
 const previewContainer = h('div', { class: 'ms-preview-canvas' });
 previewWrap.appendChild(previewHead);
 previewWrap.appendChild(previewContainer);
-const workspaceEl = h('div', { class: 'ms-workspace' }, [canvasWrap, previewWrap]);
+const workspaceEl = h('div', { class: 'ms-workspace' }, [previewWrap]);
 
 const centerEl = h('div', { class: 'ms-center' }, [overlayStripEl, brushBarEl, workspaceEl, bottomEl]);
 const bodyEl = h('div', { class: 'ms-body' }, [libraryEl, railEl, centerEl, inspectorEl]);
 root.appendChild(h('div', { class: 'ms-app' }, [toolbarEl, bodyEl, statusEl]));
 
 const session = makeSession({ history });
-const editorCanvas = makeEditorCanvas({ canvas: canvasEl, history, session });
 
 const toolRail = makeToolRail({ root: railEl, session });
 const library = makeLibraryPanel({
   root: libraryEl, session, docRef, toolRail,
-  onCatalogLoaded: (slug) => { loadTextureBitmaps(slug, { onProgress: () => editorCanvas.render() }); bottom.rebuild(); },
+  onCatalogLoaded: () => bottom.rebuild(),
 });
 makeAssetBrushBar({ root: brushBarEl, session });
 
 // --- overlay strip: the toggles `session` already implements but nothing called -----------
+// (Slice 7: down to 4 entries — `kinds.js`'s own `OVERLAYS` header explains what left the table
+// and why. `INLINE_OVERLAY_COUNT` still degrades gracefully at 4: every chip shows inline, no
+// overflow menu, since 4 <= 7.)
 const INLINE_OVERLAY_COUNT = 7;
 function buildOverlayStrip() {
   overlayStripEl.innerHTML = '';
@@ -91,16 +91,18 @@ function buildOverlayStrip() {
     const more = h('button', { class: 'ms-ovl-more', onClick: () => menu.classList.toggle('ms-hidden') }, [`+${rest.length}`, icon('chevron-down', { size: 12 })]);
     overlayStripEl.appendChild(h('div', { class: 'ms-ovl-more-wrap' }, [more, menu]));
   }
-  const zoomWrap = h('div', { class: 'ms-ovl-zoom' }, [16, 32, 64].map((n) => h('button', {
-    class: 'ms-zoom-btn', onClick: () => editorCanvas.setZoomPreset(n),
-  }, String(n))));
-  overlayStripEl.appendChild(h('div', { class: 'ms-spacer' }));
-  overlayStripEl.appendChild(zoomWrap);
+  // The 2D canvas's own 16/32/64-px-per-cell zoom presets used to sit here — deleted along with
+  // `canvas.js` itself (Slice 7), not merely lost track of: that was a pixels-per-cell concept
+  // with no clean 1:1 mapping onto the 3D viewport's own `pixelsPerUnit` zoom ladder, which
+  // already has its own dedicated zoom in/out buttons in the preview head (`preview.zoomSteps`,
+  // wired in `bootViewport` below) — forcing a confusing unit mismatch onto three buttons here
+  // would be worse than just not having them.
 }
 buildOverlayStrip();
 
-// --- live HD-2D preview (studio/viewport/) — booted lazily, on first non-"edit" view, so
-// opening the Studio does not pay for a second three.js renderer nobody asked to see. --------
+// --- live HD-2D preview (studio/viewport/) — the Studio's only workspace since Slice 7, so
+// there is nothing left to defer it past: booted eagerly, immediately, as part of the main boot
+// sequence at the bottom of this file (`bootViewport` below, called from `boot()`). ------------
 let preview = null;
 let previewRebuildTimer = null;
 // `doc._rev` (`state.js`'s `touch()`) last scheduled a rebuild for — see `refreshAll()` below.
@@ -113,8 +115,9 @@ let lastRebuildRev = -1;
 let previewDrag = null;
 let previewDownAt = null; // pointerdown client (x,y) — tells a click from a drag on pointerup
 
-async function ensurePreview() {
-  if (preview) return preview;
+/** Boots the 3D viewport and appends its head controls (time-of-day, yaw, zoom) — called once,
+ *  from the main boot sequence (`boot()` below), before any document loads. */
+async function bootViewport() {
   preview = await makeViewport({ container: previewContainer, session });
   previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Hora'));
   previewHead.appendChild(h('input', { type: 'range', min: '0', max: '23.5', step: '0.5', value: '11',
@@ -134,8 +137,6 @@ async function ensurePreview() {
   const zoomIn = h('button', { class: 'ms-iconbtn', onClick: () => preview.zoomSteps(-1) }, [icon('zoom-in', { size: 13 })]);
   const fitBtn = h('button', { class: 'ms-iconbtn', title: 'Enquadrar mapa', onClick: () => currentDoc && preview.fitMap(currentDoc.w, currentDoc.h) }, [icon('scan', { size: 13 })]);
   previewHead.append(zoomOut, zoomIn, fitBtn);
-  if (currentDoc) preview.load(serializeDocument(currentDoc));
-  return preview;
 }
 
 // Tools with their own meaning in the 3D pane already — `select` and `pan` (click-to-select,
@@ -293,16 +294,6 @@ function schedulePreviewRebuild() {
   previewRebuildTimer = setTimeout(() => { if (currentDoc) preview.load(serializeDocument(currentDoc)); }, 400);
 }
 
-// --- view switcher: Edição / Jogo / Dividida -------------------------------------------------
-let viewMode = 'edit';
-async function setViewMode(mode) {
-  viewMode = mode;
-  canvasWrap.hidden = mode === 'game';
-  previewWrap.hidden = mode === 'edit';
-  if (mode !== 'edit') { await ensurePreview(); if (currentDoc) preview.load(serializeDocument(currentDoc)); }
-  if (mode !== 'game') editorCanvas.fitView();
-}
-
 // --- yaw keybind (Slice 6): `[`/`]` rotate the 3D view 90° left/right ------------------------
 //
 // `Q`/`E` were the natural first pick, but `E` is already the `eraser` tool's keybind
@@ -311,10 +302,12 @@ async function setViewMode(mode) {
 // Studio (`rg "addEventListener\('keydown'" studio/` turns up only `panels.js`'s two listeners)
 // and read as "rotate/step" in enough editors to need no on-screen legend. Guarded the same way
 // `panels.js`'s own listener is (never while typing in a field) and only live once the 3D pane
-// actually exists and is visible — a `[`/`]` press in Edição view has nothing to rotate.
+// has actually finished booting (`preview` is assigned by `bootViewport`, called from `boot()`
+// at the bottom of this file) — Slice 7 deleted the view switcher this guard used to also check,
+// since there is no other view left to gate a `[`/`]` press on.
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-  if (viewMode === 'edit' || !preview) return;
+  if (!preview) return;
   if (e.key === '[') { e.preventDefault(); preview.setYaw(preview.getYaw() - 1); }
   else if (e.key === ']') { e.preventDefault(); preview.setYaw(preview.getYaw() + 1); }
 });
@@ -325,7 +318,6 @@ async function walkLoop() {
   const cells = currentDoc?.loop?.resolved?.cells;
   if (!cells?.length) return;
   if (walking) { walking = false; return; }
-  if (viewMode === 'edit') { await setViewMode('split'); toolbar.setView('split'); }
   walking = true;
   const walkingDoc = currentDoc;
   let i = 0;
@@ -348,12 +340,12 @@ let lastFocusKey = null;
 session.subscribe(() => {
   const sel = session.getSelection();
   const key = sel.cell ? `${sel.cell.cx},${sel.cell.cz}` : null;
-  if (key && key !== lastFocusKey && preview && viewMode !== 'edit') preview.setFocus(sel.cell.cx, sel.cell.cz);
+  if (key && key !== lastFocusKey && preview) preview.setFocus(sel.cell.cx, sel.cell.cz);
   lastFocusKey = key;
 });
 
 const inspector = makeInspector({ root: inspectorEl, session, docRef, history, onChange: refreshAll, getGameMaps: () => gameMapsCache });
-const bottom = makeBottomPanel({ root: bottomEl, editorCanvas, session, docRef, history });
+const bottom = makeBottomPanel({ root: bottomEl, session, docRef, history });
 const status = makeStatusBar({ root: statusEl, session, docRef });
 
 const validationDrawer = makeValidationDrawer({ docRef, session, onRevalidate: () => { invalidateValidation(); refreshAll(); } });
@@ -379,7 +371,6 @@ const toolbar = makeToolbar({
     }
   },
   onValidate: () => validationDrawer.open(),
-  onView: setViewMode,
   onWalkLoop: walkLoop,
 });
 mapPicker = makeMapPicker({
@@ -395,7 +386,6 @@ function refreshAll() {
   inspector.rebuild();
   bottom.rebuild();
   status.refresh();
-  editorCanvas.render();
   buildOverlayStrip();
   // Only reschedule the (expensive, debounced) 3D rebuild when the document actually changed —
   // `session.subscribe` also fires on bare hover/selection (`session.js`'s `setHover` calls
@@ -404,7 +394,7 @@ function refreshAll() {
   // every real mutation calls, so its `_rev` counter is the signal that separates "something was
   // painted" from "the mouse moved" or "the selection changed".
   const rev = currentDoc?._rev ?? 0;
-  if (viewMode !== 'edit' && currentDoc && rev !== lastRebuildRev) {
+  if (currentDoc && rev !== lastRebuildRev) {
     lastRebuildRev = rev;
     schedulePreviewRebuild();
   }
@@ -414,19 +404,20 @@ function setDocument(doc) {
   currentDoc = doc;
   lastRebuildRev = doc._rev ?? 0; // a fresh/switched doc is handled by the explicit `preview.load()` below, not the rev-diff path
   invalidateValidation();
-  editorCanvas.setDoc(doc);
+  session.setDoc(doc);
   history.clear();
   library.setTileset(doc.tileset);
-  loadTextureBitmaps(doc.tileset, { onProgress: () => editorCanvas.render() });
   refreshAll();
-  if (viewMode !== 'edit' && preview) preview.load(serializeDocument(doc));
+  preview.load(serializeDocument(doc));
 }
 
-new ResizeObserver(() => editorCanvas.render()).observe(canvasWrap);
-
-// Boot: open the game's first shipped map so the Studio starts on something real, not blank —
-// falling back to a fresh blank map (still `bw2-adastra`) when none have been snapshotted yet.
+// Boot: eagerly boot the 3D viewport (Slice 7 — it is the Studio's only workspace now, nothing
+// left to defer it past), mount the minimap over it, then open the game's first shipped map so
+// the Studio starts on something real, not blank — falling back to a fresh blank map (still
+// `bw2-adastra`) when none have been snapshotted yet.
 (async function boot() {
+  await bootViewport();
+  makeMinimap({ root: previewContainer, session, docRef, viewport: preview });
   gameMapsCache = await listGameMaps();
   const doc = gameMapsCache.length
     ? createDocument(await loadGameMap(gameMapsCache[0].id))

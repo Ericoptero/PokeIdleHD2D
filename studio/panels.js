@@ -33,9 +33,7 @@ export function makeToolRail({ root, session }) {
   return { setTool };
 }
 
-const VIEWS = [['edit', 'grid-3x3', 'Edição'], ['game', 'gamepad-2', 'Jogo'], ['split', 'columns-2', 'Dividida']];
-
-export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onView, onWalkLoop }) {
+export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onWalkLoop }) {
   const nameBtn = h('button', { class: 'ms-map-badge', onClick: onOpenPicker }, []);
   const nameEl = h('span', { class: 'ms-map-name' }, '—');
   const dirtyDot = h('span', { class: 'ms-dirty-dot', hidden: true });
@@ -44,19 +42,6 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
   const undoBtn = iconBtn('undo-2', { title: 'Desfazer', keybind: 'Ctrl+Z', class: 'ms-toolbtn', onClick: () => { history.undo(); refresh(); } });
   const redoBtn = iconBtn('redo-2', { title: 'Refazer', keybind: 'Ctrl+Shift+Z', class: 'ms-toolbtn', onClick: () => { history.redo(); refresh(); } });
   const errBadge = h('span', { class: 'ms-err-badge' }, '0');
-
-  const viewBtns = new Map();
-  const viewSeg = h('div', { class: 'ms-view-seg' });
-  for (const [id, iconName, label] of VIEWS) {
-    const btn = h('button', { class: 'ms-view-btn', onClick: () => { setView(id); onView(id); } },
-      [icon(iconName, { size: 14 }), h('span', {}, label)]);
-    viewBtns.set(id, btn);
-    viewSeg.appendChild(btn);
-  }
-  function setView(id) {
-    for (const [vid, btn] of viewBtns) btn.classList.toggle('ms-view-btn--active', vid === id);
-  }
-  setView('edit');
 
   const walkBtn = iconBtn('route', { title: 'Percorrer loop de caça', class: 'ms-btn', onClick: onWalkLoop, label: 'Percorrer loop' });
   const saveBtn = iconBtn('save', { title: 'Salvar em public/maps/ (servidor de desenvolvimento)', class: 'ms-btn', label: 'Salvar', onClick: async () => {
@@ -78,7 +63,6 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
     h('div', { class: 'ms-sep' }),
     undoBtn, redoBtn,
     h('div', { class: 'ms-spacer' }),
-    viewSeg,
     walkBtn,
     h('button', { class: 'ms-btn ms-btn--warn', onClick: onValidate }, [icon('list-checks', { size: 15 }), h('span', {}, 'Validar mapa'), errBadge]),
   ]));
@@ -103,7 +87,7 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
     if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); refresh(); }
     else if (e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); history.redo(); refresh(); }
   });
-  return { refresh, setView };
+  return { refresh };
 }
 
 export function makeStatusBar({ root, session, docRef }) {
