@@ -13,7 +13,7 @@ const TABS = [
   ['validation', 'Validação', 'list-checks'], ['history', 'Histórico', 'clock'],
 ];
 
-export function makeBottomPanel({ root, editorCanvas, session, docRef, history }) {
+export function makeBottomPanel({ root, session, docRef, history }) {
   let active = 'validation';
   const tabsEl = h('div', { class: 'ms-bottom-tabs' });
   const bodyEl = h('div', { class: 'ms-bottom-body' });
@@ -46,7 +46,7 @@ export function makeBottomPanel({ root, editorCanvas, session, docRef, history }
 
     if (active === 'layers') renderLayers(bodyEl, doc, history, session, rebuild);
     else if (active === 'objects') renderObjects(bodyEl, doc, history, session, rebuild);
-    else if (active === 'gameplay') renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild);
+    else if (active === 'gameplay') renderGameplay(bodyEl, doc, history, session, rebuild);
     else if (active === 'validation') renderValidation(bodyEl, v, session);
     else if (active === 'history') renderHistory(bodyEl, history);
   }
@@ -143,20 +143,19 @@ function renderObjects(bodyEl, doc, history, session, rebuild) {
  * inspector's own card (`inspector.js`'s `spawnPointCard`), which comes up when a point's
  * gizmo (3D) or cell (2D) is selected; clicking a row here selects it the same way.
  */
-function renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild) {
-  const refresh = () => { rebuild(); editorCanvas.render(); };
+function renderGameplay(bodyEl, doc, history, session, rebuild) {
   const points = doc.spawnPoints ?? [];
   const rows = points.map((p) => {
     const label = (p.species ?? []).map((s) => s.name || '(sem nome)').join(', ') || 'sem espécies';
     return h('div', { class: 'ms-slot-row', onClick: () => {
       session.setSelection({ cell: { cx: p.cx, cz: p.cz }, kind: 'spawnPoint', ref: p });
-      refresh();
+      rebuild();
     } }, [
       icon('paw-print', { size: 13 }),
       h('span', { class: 'ms-mono' }, `${p.cx},${p.cz}`),
       h('span', { class: 'ms-flex' }, label),
       h('span', { class: 'ms-muted' }, `${p.respawnSeconds ?? 26}s`),
-      h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: (e) => { e.stopPropagation(); removeSpawnPoint(doc, history, p); refresh(); } }, [icon('close', { size: 12 })]),
+      h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', onClick: (e) => { e.stopPropagation(); removeSpawnPoint(doc, history, p); rebuild(); } }, [icon('close', { size: 12 })]),
     ]);
   });
 

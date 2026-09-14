@@ -109,45 +109,6 @@ export function textureUrlFor(model, catalog) {
   return image ? `/generated/tiles/${catalog.tileset}/tex/${image}` : null;
 }
 
-const bitmapCache = new Map(); // 'slug/image' -> ImageBitmap | Promise<ImageBitmap>
-
-/**
- * Preloads one tileset's distinct dominant textures as `ImageBitmap`s, for the 2D canvas
- * (which cannot use a CSS `background-image`). At most one fetch per distinct PNG, not per
- * model — the largest tileset (`hgss-overworld`) has 445 models but only 63 materials.
- */
-export async function loadTextureBitmaps(slug, { onProgress } = {}) {
-  const catalog = await loadCatalog(slug);
-  const images = new Set();
-  for (const m of catalog.models) {
-    const img = dominantImage(m, catalog);
-    if (img) images.add(img);
-  }
-  let done = 0;
-  await Promise.all([...images].map(async (image) => {
-    const key = `${slug}/${image}`;
-    if (bitmapCache.has(key)) { done++; return; }
-    const promise = fetch(`/generated/tiles/${slug}/tex/${image}`)
-      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`${r.status}`))))
-      .then((blob) => createImageBitmap(blob))
-      .catch(() => null);
-    bitmapCache.set(key, promise);
-    const bm = await promise;
-    if (bm) bitmapCache.set(key, bm);
-    else bitmapCache.delete(key);
-    done++;
-    onProgress?.(done, images.size);
-  }));
-  return catalog;
-}
-
-/** Synchronous peek for the canvas render loop — never awaits inside `render()`. */
-export function peekBitmap(slug, image) {
-  if (!image) return null;
-  const entry = bitmapCache.get(`${slug}/${image}`);
-  return entry instanceof Promise ? null : (entry ?? null);
-}
-
 // --- species catalog ---------------------------------------------------------------------------
 //
 // A spawn point's species picker and `@/terrain/validate.js`'s `spawn-point-species` check

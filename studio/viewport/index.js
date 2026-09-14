@@ -20,8 +20,10 @@
  *     Studio-only 90°-yaw control. Its methods are re-exposed on this module's own returned
  *     object below, so `main.js`'s existing `preview.panBy(...)`/`.zoomSteps(...)`/
  *     `.setZoomCells(...)`/`.fitMap(...)`/`.getZoom()` call sites need no changes.
- *   - `viewport/overlay.js` — a real-time 3D overlay pass (grid/collision/selection), drawn on
- *     top of the composited frame in `frame()` below. See its own header for the technique.
+ *   - `viewport/overlay.js` — a real-time 3D overlay pass (grid/collision/reach/loop/selection —
+ *     the last two added in Slice 7, alongside this file's own `getFocusCell` for the minimap),
+ *     drawn on top of the composited frame in `frame()` below. See its own header for the
+ *     technique.
  *
  * Interactive since the Studio's P3 pass: `pickCell`/`pickGizmo` raycast the pane so `main.js`
  * can turn a click/drag into a cell (select, paint) or an entity — every kind `entities.js`'s
@@ -158,6 +160,13 @@ export async function makeViewport({ container, session }) {
   function setFocus(cx, cz) {
     const y = ctx.get('terrain').height(cx, cz);
     rig.setFocus(cx + 0.5, y, cz + 0.5, true);
+  }
+  /** The cell the camera rig is currently centered on — `Math.floor` of `rig.focus`'s own x/z,
+   *  the same convention `pickCell` uses. Added for `minimap.js`'s camera indicator (Slice 7),
+   *  the first caller that needs the rig's focus read back out rather than only written
+   *  (`setFocus` above) — a minimal read-only accessor, not a new navigation method. */
+  function getFocusCell() {
+    return { cx: Math.floor(rig.focus.x), cz: Math.floor(rig.focus.z) };
   }
 
   /**
@@ -380,7 +389,7 @@ export async function makeViewport({ container, session }) {
   requestAnimationFrame(frame);
 
   return {
-    load, setTod, setFocus,
+    load, setTod, setFocus, getFocusCell,
     panBy: camera.panBy, zoomSteps: camera.zoomSteps, setZoomCells: camera.setZoomCells,
     fitMap: camera.fitMap, getZoom: camera.getZoom,
     getYaw: camera.getYaw, setYaw,

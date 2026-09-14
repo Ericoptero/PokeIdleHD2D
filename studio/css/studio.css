@@ -67,10 +67,6 @@
 .ms-iconbtn-label { font-size: 12px; font-weight: 600; }
 .ms-err-badge { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: var(--r-pill); background: var(--c-bad); color: #170B09; }
 
-.ms-view-seg { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(0,0,0,0.35); border: 1px solid var(--c-line-soft); }
-.ms-view-btn { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 6px; border: none; background: transparent; color: var(--c-ink-dim); cursor: pointer; font-size: 11.5px; font-weight: 700; }
-.ms-view-btn--active { background: #2A231A; color: var(--c-amber-lighter); box-shadow: inset 0 0 0 1px var(--c-amber-line); }
-
 /* ---- body layout ---- */
 .ms-body { flex: 1; min-height: 0; display: flex; }
 .ms-panel { display: flex; flex-direction: column; background: var(--c-panel-0); overflow-y: auto; }
@@ -94,23 +90,27 @@
 .ms-ovl-more-wrap { position: relative; flex-shrink: 0; }
 .ms-ovl-more { display: flex; align-items: center; gap: 3px; height: 22px; padding: 0 7px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--c-line-soft); color: var(--c-ink-dim); cursor: pointer; font-size: 10.5px; font-weight: 600; }
 .ms-ovl-menu { position: absolute; top: 26px; left: 0; z-index: 40; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 9px; background: #1B1712; border: 1px solid var(--c-line); box-shadow: var(--shadow-card); min-width: 170px; }
-.ms-ovl-zoom { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.ms-zoom-btn { height: 22px; padding: 0 8px; border-radius: 6px; border: none; background: rgba(255,255,255,0.04); color: var(--c-ink-dim); cursor: pointer; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; }
-.ms-zoom-btn:hover { background: var(--c-fill-strong); color: var(--c-ink-strong); }
 
 /* ---- workspace ---- */
+/* Slice 7: the 3D viewport is the only workspace — no more `.ms-canvas-wrap` (the deleted 2D
+   canvas) sharing this row with `.ms-preview-wrap`, so the latter is never `[hidden]` either. */
 .ms-workspace { flex: 1; min-height: 0; display: flex; }
-.ms-canvas-wrap { flex: 1; min-width: 0; min-height: 0; position: relative; background: radial-gradient(130% 110% at 50% 0%, #13100D, #090705 70%); }
-.ms-canvas-wrap[hidden] { display: none; }
-.ms-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
 
-.ms-preview-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--c-line); background: #05070c; }
-.ms-preview-wrap[hidden] { display: none; }
+.ms-preview-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #05070c; }
 .ms-preview-head { height: 30px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--c-panel-0); border-bottom: 1px solid var(--c-line-soft); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-ink-mute); }
 .ms-preview-canvas { flex: 1; min-height: 0; position: relative; cursor: grab; }
 .ms-preview-canvas.is-panning { cursor: grabbing; }
 .ms-preview-canvas canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .ms-tod-slider { width: 90px; }
+
+/* Read-only minimap (`minimap.js`, Slice 7) — a corner overlay pinned over the 3D viewport,
+   bottom-right. The nested selector beats `.ms-preview-canvas canvas`'s own `width:100%;
+   height:100%` above on specificity, so the minimap's own fixed size actually sticks. */
+.ms-preview-canvas .ms-minimap {
+  position: absolute; right: 12px; bottom: 12px; width: 168px; height: 168px;
+  border-radius: 10px; border: 1px solid var(--c-line); box-shadow: var(--shadow-card);
+  cursor: pointer; z-index: 5; background: #0a0806;
+}
 
 .ms-brush-bar { height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--c-panel-0); border-bottom: 1px solid var(--c-line-soft); overflow-x: auto; }
 .ms-brush-bar .ms-tint-row { flex: 0 0 auto; }

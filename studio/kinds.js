@@ -39,23 +39,27 @@ export const DIR_LABEL = ['S', 'O', 'N', 'L'];
 export const DIR_NAME = ['sul', 'oeste', 'norte', 'leste'];
 
 /**
- * The 12 overlays `studio/canvas.js` already knows how to draw (`grid` through `reach`, plus
- * `textures`) — `[id, label, icon, dotColor]`. `makeOverlayStrip` (net-new) is the first UI
- * that actually calls `editorCanvas.toggleOverlay(id)` for each of these; the render branches
- * themselves already existed.
+ * The four overlays with a real 3D implementation (`studio/viewport/overlay.js`) — `[id, label,
+ * icon, dotColor]`. `main.js`'s `buildOverlayStrip` calls `session.toggleOverlay(id)` for each.
+ *
+ * Slice 7 deleted `studio/canvas.js` (the 2D edit canvas) and, with it, eight of the twelve
+ * overlays that table used to draw — not moved elsewhere, actually gone, for three different
+ * reasons:
+ *  - `textures` is a non-concept once 2D is gone: a 3D placement always shows its real material,
+ *    there is nothing left to toggle.
+ *  - `markers`/`cameras`/`encounters` each already render as an always-visible 3D gizmo,
+ *    unconditionally (`entities.js`'s `ENTITIES` table, wired into `viewport/index.js`'s
+ *    `rebuildGizmos` in an earlier slice) — a deliberate difference from the old 2D behavior,
+ *    which DID gate marker/camera-preset/spawn-point visibility behind these three toggles. An
+ *    always-visible manipulator handle is the same convention any 3D editor uses; gating it
+ *    behind an overlay toggle here would be the odd choice, not the safe default.
+ *  - `height`/`tags`/`footprints`/`lights` are real overlays with no 3D port yet — genuinely
+ *    deferred, not dropped; see `viewport/overlay.js`'s own header for what's left and why.
  */
 export const OVERLAYS = [
   ['grid', 'Grade', 'grid-3x3', '#F2EBE0'],
-  ['textures', 'Texturas', 'image', '#CFC4B7'],
   ['collision', 'Colisão', 'ban', '#D6685B'],
-  ['height', 'Altura', 'mountain', '#E0A64B'],
-  ['tags', 'Tags', 'tag', '#9ECBE6'],
-  ['footprints', 'Pegadas', 'footprints', '#E0A64B'],
-  ['markers', 'Marcadores', 'map-pin', '#7FC98C'],
-  ['cameras', 'Câmeras', 'camera', '#E0A64B'],
   ['loop', 'Loop', 'route', '#F2EBE0'],
-  ['encounters', 'Encontros', 'paw-print', '#E38FB0'],
-  ['lights', 'Luzes', 'lightbulb', '#E29650'],
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
