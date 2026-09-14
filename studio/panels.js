@@ -9,7 +9,7 @@ import { icon, iconBtn } from './icons.js';
 import { TOOLS, COLLISIONS, COLLISION_LABEL } from './kinds.js';
 import { runValidation, invalidateValidation } from './validation.js';
 
-export function makeToolRail({ root, editorCanvas }) {
+export function makeToolRail({ root, session }) {
   const buttons = new Map();
   for (const [id, iconName, name, key] of TOOLS) {
     const btn = h('button', { class: 'ms-rail-btn', title: `${name} · ${key}`, onClick: () => setTool(id) },
@@ -18,7 +18,7 @@ export function makeToolRail({ root, editorCanvas }) {
     root.appendChild(btn);
   }
   function setTool(id) {
-    editorCanvas.setTool(id);
+    session.setTool(id);
     for (const [bid, btn] of buttons) btn.classList.toggle('ms-rail-btn--active', bid === id);
   }
   setTool('select');
@@ -106,7 +106,7 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
   return { refresh, setView };
 }
 
-export function makeStatusBar({ root, editorCanvas, docRef }) {
+export function makeStatusBar({ root, session, docRef }) {
   const cellEl = h('span', {}, '—');
   const toolEl = h('span', {}, '—');
   const editsEl = h('span', {}, '—');
@@ -128,11 +128,11 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
   ]));
   function refresh() {
     const doc = docRef.get();
-    const hover = editorCanvas.getHover();
+    const hover = session.getHover();
     setText(cellEl, hover ? `célula ${hover.cx}, ${hover.cz}` : (doc ? `${doc.w} × ${doc.h}` : '—'));
-    setText(toolEl, `ferramenta: ${editorCanvas.getTool()}`);
-    setText(editsEl, `${editorCanvas.getEditCount()} edição(ões) nesta sessão`);
-    const reach = editorCanvas.getReachStats();
+    setText(toolEl, `ferramenta: ${session.getTool()}`);
+    setText(editsEl, `${session.getEditCount()} edição(ões) nesta sessão`);
+    const reach = session.getReachStats();
     setText(reachEl, `${reach.unreachable} célula(s) inalcançável(is)`);
     const v = runValidation(doc);
     setText(errCount, `${v.errors.length} erros`);
@@ -140,7 +140,7 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
     setText(infoCount, `${v.infos.length} infos`);
     setText(seedEl, doc ? `seed ${doc.seed}` : '—');
   }
-  editorCanvas.subscribe(refresh);
+  session.subscribe(refresh);
   refresh();
   return { refresh };
 }
@@ -151,34 +151,34 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
  *  stay identical if either grows independently. */
 const BRUSH_TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
 
-export function makeAssetBrushBar({ root, editorCanvas }) {
+export function makeAssetBrushBar({ root, session }) {
   const rotBtn = iconBtn('rotate-cw', { title: 'Girar o pincel 90°', class: 'ms-btn ms-btn--small', onClick: () => {
-    editorCanvas.setBrush({ rot: (editorCanvas.getBrush().rot + 1) & 3 });
-    setText(rotLabel, `${editorCanvas.getBrush().rot * 90}°`);
+    session.setBrush({ rot: (session.getBrush().rot + 1) & 3 });
+    setText(rotLabel, `${session.getBrush().rot * 90}°`);
   } });
   const rotLabel = h('span', { class: 'ms-muted' }, '0°');
-  const collSelect = h('select', { class: 'ms-select', onChange: (e) => editorCanvas.setBrush({ collision: e.target.value }) },
+  const collSelect = h('select', { class: 'ms-select', onChange: (e) => session.setBrush({ collision: e.target.value }) },
     COLLISIONS.map((c) => h('option', { value: c }, COLLISION_LABEL[c])));
   const tagInput = h('input', { class: 'ms-field-input', value: 'tallgrass', style: { width: '110px' },
-    onChange: (e) => editorCanvas.setBrush({ tag: e.target.value }) });
+    onChange: (e) => session.setBrush({ tag: e.target.value }) });
 
   const tintRow = h('div', { class: 'ms-tint-row' }, BRUSH_TINTS.map((t, i) => h('div', {
     class: `ms-tint-swatch${i === 0 ? ' ms-tint-swatch--active' : ''}`,
     style: { background: `#${t.toString(16).padStart(6, '0')}` },
     onClick: (e) => {
-      editorCanvas.setBrush({ tint: t });
+      session.setBrush({ tint: t });
       for (const el of tintRow.children) el.classList.remove('ms-tint-swatch--active');
       e.currentTarget.classList.add('ms-tint-swatch--active');
     },
   })));
   const heightStepInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.05', value: '0.25', style: { width: '56px' },
-    onChange: (e) => editorCanvas.setBrush({ heightStep: Number(e.target.value) || 0.25 }) });
+    onChange: (e) => session.setBrush({ heightStep: Number(e.target.value) || 0.25 }) });
   const claimToggle = h('label', { class: 'ms-brush-check', title: 'Marca a célula como ocupada ao pintar' }, [
-    h('input', { type: 'checkbox', onChange: (e) => editorCanvas.setBrush({ claimFootprint: e.target.checked }) }),
+    h('input', { type: 'checkbox', onChange: (e) => session.setBrush({ claimFootprint: e.target.checked }) }),
     h('span', {}, 'Reservar área'),
   ]);
   const keepCollisionToggle = h('label', { class: 'ms-brush-check', title: 'Ao desmarcar, pintar com este tile também aplica a colisão do tile' }, [
-    h('input', { type: 'checkbox', checked: true, onChange: (e) => editorCanvas.setBrush({ keepCollision: e.target.checked }) }),
+    h('input', { type: 'checkbox', checked: true, onChange: (e) => session.setBrush({ keepCollision: e.target.checked }) }),
     h('span', {}, 'Preservar colisão'),
   ]);
 

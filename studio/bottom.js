@@ -6,14 +6,14 @@
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
 import { runValidation, issueRow } from './validation.js';
-import { removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint } from './tools.js';
+import { addLayer, removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint } from './tools.js';
 
 const TABS = [
   ['layers', 'Camadas', 'layers'], ['objects', 'Objetos', 'box'], ['gameplay', 'Jogabilidade', 'gamepad-2'],
   ['validation', 'Validação', 'list-checks'], ['history', 'Histórico', 'clock'],
 ];
 
-export function makeBottomPanel({ root, editorCanvas, docRef, history }) {
+export function makeBottomPanel({ root, editorCanvas, session, docRef, history }) {
   let active = 'validation';
   const tabsEl = h('div', { class: 'ms-bottom-tabs' });
   const bodyEl = h('div', { class: 'ms-bottom-body' });
@@ -44,17 +44,17 @@ export function makeBottomPanel({ root, editorCanvas, docRef, history }) {
     objBadge.hidden = objCount === 0;
     objBadge.textContent = String(objCount);
 
-    if (active === 'layers') renderLayers(bodyEl, doc, editorCanvas, rebuild);
-    else if (active === 'objects') renderObjects(bodyEl, doc, history, editorCanvas, rebuild);
-    else if (active === 'gameplay') renderGameplay(bodyEl, doc, history, editorCanvas, rebuild);
-    else if (active === 'validation') renderValidation(bodyEl, v, editorCanvas);
+    if (active === 'layers') renderLayers(bodyEl, doc, history, session, rebuild);
+    else if (active === 'objects') renderObjects(bodyEl, doc, history, session, rebuild);
+    else if (active === 'gameplay') renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild);
+    else if (active === 'validation') renderValidation(bodyEl, v, session);
     else if (active === 'history') renderHistory(bodyEl, history);
   }
 
   return { rebuild, setTab };
 }
 
-function renderLayers(bodyEl, doc, editorCanvas, rebuild) {
+function renderLayers(bodyEl, doc, history, session, rebuild) {
   const layers = [...doc.tileLayers.keys()].sort((a, b) => a - b);
   const head = h('div', { class: 'ms-layer-head' }, [
     h('span', { class: 'ms-layer-head-cell', style: { width: '20px' } }, ''),
@@ -66,20 +66,20 @@ function renderLayers(bodyEl, doc, editorCanvas, rebuild) {
   bodyEl.appendChild(head);
   for (const layer of layers) {
     const count = doc.tileLayers.get(layer).size;
-    const visible = editorCanvas.isLayerVisible(layer);
-    const locked = editorCanvas.isLayerLocked(layer);
+    const visible = session.isLayerVisible(layer);
+    const locked = session.isLayerLocked(layer);
     // Order is the layer number itself (`title` explains it) — no drag-to-reorder handle here;
     // a grip icon reads as "drag me" regardless of what a tooltip says, so it isn't shown.
-    const row = h('div', { class: 'ms-layer-row', title: 'ordem = número da camada', onClick: () => { editorCanvas.setActiveLayer(layer); rebuild(); } }, [
-      h('span', { class: 'ms-layer-icon', onClick: (e) => { e.stopPropagation(); editorCanvas.setLayerVisible(layer, !visible); rebuild(); } },
+    const row = h('div', { class: 'ms-layer-row', title: 'ordem = número da camada', onClick: () => { session.setActiveLayer(layer); rebuild(); } }, [
+      h('span', { class: 'ms-layer-icon', onClick: (e) => { e.stopPropagation(); session.setLayerVisible(layer, !visible); rebuild(); } },
         [icon(visible ? 'eye' : 'eye-off', { size: 14 })]),
-      h('span', { class: 'ms-layer-icon', onClick: (e) => { e.stopPropagation(); editorCanvas.setLayerLocked(layer, !locked); rebuild(); } },
+      h('span', { class: 'ms-layer-icon', onClick: (e) => { e.stopPropagation(); session.setLayerLocked(layer, !locked); rebuild(); } },
         [icon(locked ? 'lock' : 'unlock', { size: 13 })]),
       h('span', { class: 'ms-flex' }, `Camada ${layer}`),
       h('span', { class: 'ms-muted', style: { width: '150px' } }, doc.tileset),
       h('span', { class: 'ms-mono', style: { width: '70px', textAlign: 'right' } }, String(count)),
     ]);
-    if (editorCanvas.getActiveLayer() === layer) row.classList.add('ms-layer-row--active');
+    if (session.getActiveLayer() === layer) row.classList.add('ms-layer-row--active');
     bodyEl.appendChild(row);
   }
   const numInput = h('input', { class: 'ms-field-input', placeholder: 'nº da nova camada', style: { width: '140px' } });
@@ -87,12 +87,14 @@ function renderLayers(bodyEl, doc, editorCanvas, rebuild) {
     numInput,
     h('button', { class: 'ms-btn ms-btn--small', onClick: () => {
       const n = Number(numInput.value);
-      if (Number.isFinite(n) && !doc.tileLayers.has(n)) { doc.tileLayers.set(n, new Map()); editorCanvas.setActiveLayer(n); rebuild(); }
+      // Goes through `tools.js`'s `addLayer` (undo/redo + `touch()`), not a direct
+      // `doc.tileLayers.set(...)` — a bare mutation here used to skip undo and dirty tracking.
+      if (Number.isFinite(n) && !doc.tileLayers.has(n)) { addLayer(doc, history, n); session.setActiveLayer(n); rebuild(); }
     } }, [icon('plus', { size: 12 }), h('span', {}, 'camada')]),
   ]));
 }
 
-function renderObjects(bodyEl, doc, history, editorCanvas, rebuild) {
+function renderObjects(bodyEl, doc, history, session, rebuild) {
   const grid = h('div', { class: 'ms-object-grid' });
   bodyEl.appendChild(grid);
   const entry = (iconName, color, name, meta, onClick, onRemove) => grid.appendChild(h('div', { class: 'ms-object-card', onClick }, [
@@ -103,22 +105,22 @@ function renderObjects(bodyEl, doc, history, editorCanvas, rebuild) {
 
   for (const o of doc.objects) {
     entry('box', '#CFC4B7', o.m, `objeto · (${o.cx},${o.cz}) · camada ${o.layer}`,
-      () => editorCanvas.setSelection({ objectId: o.id, cell: { cx: o.cx, cz: o.cz } }),
+      () => session.setSelection({ objectId: o.id, cell: { cx: o.cx, cz: o.cz } }),
       () => removeObject(doc, history, { id: o.id }));
   }
   for (const m of doc.markers) {
     entry('map-pin', '#7FC98C', m.name, `marcador · (${m.cx},${m.cz})`,
-      () => editorCanvas.setSelection({ cell: { cx: m.cx, cz: m.cz } }),
+      () => session.setSelection({ cell: { cx: m.cx, cz: m.cz } }),
       () => removeMarker(doc, history, { name: m.name }));
   }
   for (const l of doc.lights) {
     entry('lightbulb', '#E29650', `luz`, `raio ${l.radius} · int ${l.intensity}`,
-      () => editorCanvas.setSelection({ cell: { cx: Math.round(l.x), cz: Math.round(l.z) } }),
+      () => session.setSelection({ cell: { cx: Math.round(l.x), cz: Math.round(l.z) } }),
       () => removeLight(doc, history, l));
   }
   for (const n of doc.npcs) {
     entry('paw-print', '#9ECBE6', n.name ?? n.species ?? n.trainer, `npc · (${n.cx},${n.cz})`,
-      () => editorCanvas.setSelection({ cell: { cx: n.cx, cz: n.cz } }),
+      () => session.setSelection({ cell: { cx: n.cx, cz: n.cz } }),
       () => removeNpc(doc, history, n));
   }
   if (!grid.children.length) bodyEl.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum objeto — use as ferramentas de objeto/marcador/luz/npc no canvas'));
@@ -131,13 +133,13 @@ function renderObjects(bodyEl, doc, history, editorCanvas, rebuild) {
  * inspector's own card (`inspector.js`'s `spawnPointCard`), which comes up when a point's
  * gizmo (3D) or cell (2D) is selected; clicking a row here selects it the same way.
  */
-function renderGameplay(bodyEl, doc, history, editorCanvas, rebuild) {
+function renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild) {
   const refresh = () => { rebuild(); editorCanvas.render(); };
   const points = doc.spawnPoints ?? [];
   const rows = points.map((p, i) => {
     const label = (p.species ?? []).map((s) => s.name || '(sem nome)').join(', ') || 'sem espécies';
     return h('div', { class: 'ms-slot-row', onClick: () => {
-      editorCanvas.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: i });
+      session.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: i });
       refresh();
     } }, [
       icon('paw-print', { size: 13 }),
@@ -155,8 +157,8 @@ function renderGameplay(bodyEl, doc, history, editorCanvas, rebuild) {
   ].filter(Boolean)));
 }
 
-function renderValidation(bodyEl, v, editorCanvas) {
-  const onFocus = (cx, cz) => editorCanvas.setSelection({ cell: { cx, cz } });
+function renderValidation(bodyEl, v, session) {
+  const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz } });
   for (const i of v.errors) bodyEl.appendChild(issueRow({ ...i, severity: 'error' }, { onFocus }));
   for (const i of v.warnings) bodyEl.appendChild(issueRow({ ...i, severity: 'warn' }, { onFocus }));
   for (const i of v.infos) bodyEl.appendChild(issueRow({ ...i, severity: 'info' }, { onFocus }));

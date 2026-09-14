@@ -240,7 +240,7 @@ export function makeMapPicker({ anchor, getMaps, getCurrentId, onPick, hasUnsave
   return { open, close, toggle: () => (pop ? close() : open()) };
 }
 
-export function makeValidationDrawer({ docRef, editorCanvas, onRevalidate }) {
+export function makeValidationDrawer({ docRef, session, onRevalidate }) {
   let scrim = null;
   function close() { scrim?.remove(); scrim = null; }
   function open() {
@@ -254,7 +254,7 @@ export function makeValidationDrawer({ docRef, editorCanvas, onRevalidate }) {
     if (!scrim) return;
     const doc = docRef.get();
     const v = runValidation(doc, { force: true });
-    const onFocus = (cx, cz) => editorCanvas.setSelection({ cell: { cx, cz } });
+    const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz } });
     scrim.innerHTML = '';
     scrim.appendChild(h('div', { class: 'ms-drawer' }, [
       h('div', { class: 'ms-drawer-head' }, [

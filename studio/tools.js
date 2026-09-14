@@ -413,6 +413,17 @@ export function setCellTint(doc, history, { layer, cx, cz, tint, objectId = null
   });
 }
 
+/** Adds an empty tile layer at number `n` — undoable, and marks the doc dirty/bumps `_rev`
+ *  via `touch()`, unlike the bottom panel's old direct `doc.tileLayers.set(...)`. */
+export function addLayer(doc, history, n) {
+  if (doc.tileLayers.has(n)) return;
+  history.push({
+    label: 'nova camada',
+    redo() { doc.tileLayers.set(n, new Map()); touch(doc); },
+    undo() { doc.tileLayers.delete(n); touch(doc); },
+  });
+}
+
 /** What sits at a cell, topmost first — objects (any layer) before the active layer's grid tile. */
 export function stackAt(doc, cx, cz) {
   const out = [];

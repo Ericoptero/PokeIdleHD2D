@@ -3,8 +3,12 @@
  * in the Studio, running the real `tiles`/`terrain`/`environment` modules so what the panel
  * shows IS the game's own render pipeline — the same models, the same autotile resolution,
  * the same dusk emissive ramp, the same per-cell multiply tint — not a CSS approximation of
- * one. If the preview draws it, the shipped game draws it identically (this is exactly what
- * `tools/mapstudio/parity.js` independently proves for the six shipped scenes).
+ * one. If the preview draws it, the shipped game draws it identically —
+ * both run the same `tiles`/`terrain`/`environment` module stack, not a hand-maintained
+ * lookalike. (There is no longer a dedicated tool asserting this pixel-for-pixel —
+ * `tools/mapstudio/parity.js` did, before procedural biome generation was replaced with
+ * Studio-authored maps; `tools/mapstudio/roundtrip.js` and `studio-roundtrip.js` instead prove
+ * the underlying map *data* survives authoring and replay untouched, which is what matters now.)
  *
  * A minimal boot, not the full game: only `tiles`, `terrain` and `environment` are
  * registered (`registry.init(ctx, { only: [...] })`) — no `city`/`hunts`/`ui`/`simulation`,
