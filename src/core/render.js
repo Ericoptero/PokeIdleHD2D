@@ -481,9 +481,13 @@ export function makeCameraRig({ camera, config, view = null }) {
 
   function recomputeOffset() {
     const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
+    const yaw = THREE.MathUtils.degToRad(config.cameraYaw);
     const d = config.cameraDistance;
-    // Looking north-ish and down: the camera sits south of and above the focus.
-    offset.set(0, Math.sin(pitch) * d, Math.cos(pitch) * d);
+    // Looking north-ish and down: the camera sits south of and above the focus, and `yaw`
+    // orbits that position around the focus at the same fixed pitch — Studio-only, and 0 in
+    // the game and every showcase. At 0 this is exactly the old expression: sin(0) is 0, so
+    // the X term drops out, and cos(0) is 1, so the Y and Z terms are untouched.
+    offset.set(Math.sin(yaw) * Math.cos(pitch) * d, Math.sin(pitch) * d, Math.cos(yaw) * Math.cos(pitch) * d);
   }
 
   return {
@@ -546,6 +550,23 @@ export function makeCameraRig({ camera, config, view = null }) {
       target.set(x, y, z);
       if (immediate || !snapped) { focus.copy(target); snapped = true; }
     },
+    /**
+     * Studio-only: orbit the rig to `deg` degrees of yaw around the focus, at the same fixed
+     * `cameraPitch`. Nothing in the shipped game or any showcase calls this, so `cameraYaw`
+     * stays at its default 0 and `recomputeOffset()`/`update()` keep computing exactly what
+     * they compute today.
+     *
+     * Also resets the debug basis-drift assertion at the bottom of `update()`: that check
+     * exists to catch code that quietly rotates the camera basis out from under
+     * `pokemon/field.js`'s sprite placement, and a deliberate yaw from here is exactly that
+     * rotation, on purpose — without the reset the very next frame would report the change
+     * the Studio just asked for as the bug the assertion was written to catch.
+     */
+    setYaw(deg) {
+      config.set({ cameraYaw: deg });
+      basis0 = null;
+      basisWarned = false;
+    },
     update(dt) {
       recomputeOffset();
       // Exponential smoothing that is frame-rate independent.
@@ -563,7 +584,8 @@ export function makeCameraRig({ camera, config, view = null }) {
       // were not square. Setting the rotation makes the pitch exactly what the config says,
       // so the pre-stretch is exact and a sprite texel is a square block of pixels.
       const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
-      camera.rotation.set(-pitch, 0, 0, 'YXZ');
+      const yaw = THREE.MathUtils.degToRad(config.cameraYaw);
+      camera.rotation.set(-pitch, yaw, 0, 'YXZ');
       camera.position.copy(focus).add(offset);
 
       // Put the world on a whole internal pixel — AFTER the aim, which is the whole trick.
