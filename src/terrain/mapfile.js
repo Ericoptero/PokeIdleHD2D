@@ -29,9 +29,11 @@
  *     multi-cell model is never grid-eligible. Everything else — trees, bridges, anything
  *     sharing a cell — goes in that layer's `objects[]` list.
  *  3. Model references are catalog **names** (`tiles.byName`), not ids — an id is the ordinal
- *     index into `catalog.models` and drifts on every `npm run assets` rebuild. Each layer
- *     keeps the ids it saw at export time as `modelIds`, used only as a diagnostic fallback
- *     when a name fails to resolve (`frommap.js`).
+ *     index into `catalog.models` and drifts on every `npm run assets` rebuild, so a name is
+ *     the only reference that survives a rebuild. Version 2 and earlier also carried the ids
+ *     seen at export time as a diagnostic fallback for a name that failed to resolve; version 3
+ *     drops it (`frommap.js`'s resolver is name-only now) — every shipped map's names already
+ *     resolved against the current catalog, so the fallback never fired in practice.
  *  4. A map is rarely one tileset. `MapDraft` only ever builds one `InstancedWorld`, so the
  *     extra tilesets a scene composites on top (buildings, props, dressing) are their own
  *     `layers[]` entries with `role:"extra"`, encoded as an objects-only list (extras are
@@ -43,10 +45,39 @@
  * map's own yield-multiplier profile (`idle/accrual.js` used to key this off a fixed 5-entry
  * `biome` enum; now every map declares its own), and `spawnPoints[]`, where each entry owns
  * its own respawn timer and its own weighted list of species (`src/hunts/index.js`).
+ *
+ * **Version 3** is the "3D-only Map Studio" refactor's document-model slice. It drops two
+ * write-only fields nothing at runtime ever reads back: `module` (the Studio inspector's own
+ * display only — `travel/index.js`'s destination table names a scene's owning module in its
+ * own hand-written entries, unrelated to this field) and each layer's `modelIds` (the id-
+ * fallback in `frommap.js`'s resolver — every shipped map's `models[]` already resolves by
+ * name against its tileset's current catalog, so the fallback it existed for never fires; see
+ * point 3 above, now obsolete). In their place: `links[]` gets a real shape — `{id, kind:
+ * 'door'|'edge'|'stairs', from:{cx,cz}, to:{map, marker?, cx?, cz?, dir?}, label?}` — one entry
+ * per doorway/edge/staircase a scene can travel through, resolved by marker name (preferred)
+ * or bare cell in the destination map; deliberately no `requires` field, since a later slice's
+ * `travel` runtime already gates arrival on trainer level. `regions[]` entries and `lights[]`
+ * entries each gain a stable `id`, minted once at authoring time and carried thereafter,
+ * matching `spawnPoints[]`'s existing convention — so the Studio can key an undo command or a
+ * selection off a region or a light the same way it already does off a spawn point. Finally,
+ * `loop.resolved` is regenerated from `loop.via` at the Studio's own document-model boundary
+ * (`studio/state.js`'s `serializeDocument`) rather than carried forward blindly, so a marker
+ * moved or terrain repainted under an authored loop cannot ship a stale circuit. `grid.occupied`
+ * was meant to get the same treatment — re-derived from `objects[]` footprints instead of
+ * threaded through — but the shipped maps' own occupied grids turned out to carry information
+ * no footprint recomputation can recover (building-plot reservations with no placement behind
+ * them at all, from the retired pre-Studio city builder) and, separately, to disagree with what
+ * the CURRENT tileset catalogs would derive (prop dimensions have drifted since these files
+ * were frozen); `state.js`'s own header comment on its `warnIfOccupiedIncomplete` has the
+ * concrete numbers. Silently recomputing would have corrupted real shipped data, so `state.js`
+ * still writes `doc.occupied` as authored and only validates it — the actual derive-and-replace
+ * is left for a later slice, once occupied is genuinely painted through real region/object
+ * tools rather than partly inherited from a retired generator. Both of these are Studio-side
+ * document-model changes; this file's own encode/decode of `occupied` and `loop` is unchanged.
  */
 
 const FORMAT = 'pokeidle.map';
-const VERSION = 2;
+const VERSION = 3;
 const DEFAULT_TINT = 0xffffff;
 
 /** A map that declares no `economy` block gets this — the neutral profile
@@ -172,8 +203,10 @@ function buildDraftLayer(draft, resolveModel) {
   }
 
   const modelNames = [];
-  const modelIds = [];
   const modelIndex = new Map();
+  // Still keyed in step with `modelNames` (not `modelIds` — v3 dropped that palette; see this
+  // file's own header) because the eligibility check below needs each model's real `w`/`h`,
+  // not just its name.
   const infoByIndex = [];
   function paletteFor(modelId) {
     const info = resolveModel(draft.tileset, modelId);
@@ -182,7 +215,6 @@ function buildDraftLayer(draft, resolveModel) {
     if (idx === undefined) {
       idx = modelNames.length;
       modelNames.push(name);
-      modelIds.push(modelId);
       infoByIndex.push(info);
       modelIndex.set(name, idx);
     }
@@ -237,7 +269,7 @@ function buildDraftLayer(draft, resolveModel) {
     tiles.push(entry);
   }
 
-  return { tileset: draft.tileset, role: 'draft', models: modelNames, modelIds, tiles, objects };
+  return { tileset: draft.tileset, role: 'draft', models: modelNames, tiles, objects };
 }
 
 /** @param {string} tileset @param {object[]} placements @param {Function} resolveModel
@@ -246,7 +278,6 @@ function buildDraftLayer(draft, resolveModel) {
  *  shadows" once it's a plain file-authored extras layer instead of a hand-built world. */
 function buildExtraLayer(tileset, placements, resolveModel, options) {
   const modelNames = [];
-  const modelIds = [];
   const modelIndex = new Map();
   function paletteFor(modelId) {
     const info = resolveModel(tileset, modelId);
@@ -255,7 +286,6 @@ function buildExtraLayer(tileset, placements, resolveModel, options) {
     if (idx === undefined) {
       idx = modelNames.length;
       modelNames.push(name);
-      modelIds.push(modelId);
       modelIndex.set(name, idx);
     }
     return idx;
@@ -267,7 +297,7 @@ function buildExtraLayer(tileset, placements, resolveModel, options) {
     if (p.y !== undefined) obj.y = round3(p.y);
     return obj;
   });
-  const entry = { tileset, role: 'extra', models: modelNames, modelIds, objects };
+  const entry = { tileset, role: 'extra', models: modelNames, objects };
   if (options && Object.keys(options).length) entry.options = { ...options };
   return entry;
 }
@@ -327,7 +357,6 @@ export function draftToMapFile(draft, opts) {
     id: draft.id,
     name: opts.name ?? draft.id,
     kind: opts.kind ?? 'hunt',
-    module: opts.module ?? null,
     w: draft.w,
     h: draft.h,
     tileset: draft.tileset,
@@ -340,6 +369,11 @@ export function draftToMapFile(draft, opts) {
     economy: opts.economy ?? { ...DEFAULT_ECONOMY, favours: { ...DEFAULT_ECONOMY.favours } },
     grid: buildGrid(draft),
     layers,
+    // Autotile masks the Studio's own paint tools populate (`{id, kind:'autotile', set,
+    // layer?, collision?, tags?, mask:Runs<0|1>}`) — never filled by a snapshot of an existing
+    // map (this file's own header, point 1). `id` is minted once by the Studio at authoring
+    // time (`studio/state.js`) and carried through unchanged here; a lower-level freeze call
+    // like this one trusts whatever `opts.regions` already has.
     regions: opts.regions ?? [],
     spawn: opts.spawn ? { ...opts.spawn } : { ...draft.spawn },
     markers,
@@ -353,7 +387,17 @@ export function draftToMapFile(draft, opts) {
     // folded into a single lookup key.
     tags: opts.tags ?? [],
     npcs: opts.npcs ?? [],
+    // One entry per doorway/edge/staircase a scene can travel through:
+    // `{id, kind:'door'|'edge'|'stairs', from:{cx,cz}, to:{map, marker?, cx?, cz?, dir?},
+    // label?}`. `from` is the cell on THIS map that triggers the link (typically the cell a
+    // `door:<plot>` tag already marks); `to` names the destination map and, preferably, a
+    // marker on it to arrive at (a bare `cx`/`cz` is the fallback for a destination with no
+    // marker yet). Deliberately no `requires` field — a later slice's `travel` runtime already
+    // gates arrival on trainer level, so a link does not duplicate that gate.
     links: opts.links ?? [],
+    // `{id, ...}` — `id` is minted once by the Studio (`studio/state.js`) the same way a
+    // region's is, so an undo command or a canvas selection can key off a light the same way
+    // it already keys off a spawn point.
     lights: opts.lights ?? [],
     cameras: opts.cameras ?? null,
     formation: opts.formation ?? null,

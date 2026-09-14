@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "hunt-cave",
   "name": "Hollow Deep",
   "kind": "hunt",
-  "module": "hunts",
   "w": 56,
   "h": 54,
   "tileset": "bw2-cave",
@@ -35,7 +34,6 @@
       "tileset": "bw2-cave",
       "role": "draft",
       "models": ["cave_dark_border_inner_ne","cave_dark_border_edge_s","cave_dark_border_corner_se","cave_dark_border_corner_sw","cave_dark_border_edge_e","cave_dark_border_edge_w","cave_dark_border_corner_ne","cave_dark_border_corner_nw","cave_dark_border_edge_n","cave_rock_corner_nw","cave_rock_edge_n","cave_rock_corner_ne","cave_rock_inner_nw","cave_ground_center","cave_rock_inner_ne","cave_rock_edge_w","cave_rock_edge_e","cave_rock_corner_sw","cave_rock_inner_sw","cave_rock_inner_se","cave_rock_corner_se","cave_rock_edge_s","cave_ground_hole","cave_water_center","d0gake_002_corner_nw","d0_miz2_edge_n","d0gake_002_corner_ne","d0_miz2_inner_nw","d0_miz2_inner_ne","d0gake_002_corner_sw","d0_miz2_inner_sw","d0_miz2_inner_se","d0gake_002_corner_se","d0_miz2_edge_s","cave_exit","cave_big_rock"],
-      "modelIds": [47,39,44,43,42,41,46,45,40,15,3,16,14,0,13,5,6,7,22,21,8,4,2,49,60,51,61,55,54,58,57,56,59,50,78,83],
       "tiles": [
         {
           "layer": 0,
@@ -793,7 +791,8 @@
       "color": 12572927,
       "intensity": 5,
       "radius": 11,
-      "size": 0.02
+      "size": 0.02,
+      "id": "light-0-mu1qb5ik"
     },
     {
       "x": 27.5,
@@ -802,7 +801,8 @@
       "color": 11060976,
       "intensity": 3.4,
       "radius": 10,
-      "size": 0.02
+      "size": 0.02,
+      "id": "light-1-mu1qb5ik"
     },
     {
       "x": 30.5,
@@ -811,7 +811,8 @@
       "color": 16751178,
       "intensity": 5,
       "radius": 11,
-      "size": 0.34
+      "size": 0.34,
+      "id": "light-2-mu1qb5ik"
     },
     {
       "x": 17.5,
@@ -820,7 +821,8 @@
       "color": 16756832,
       "intensity": 4.6,
       "radius": 10,
-      "size": 0.36
+      "size": 0.36,
+      "id": "light-3-mu1qb5ik"
     },
     {
       "x": 22.5,
@@ -829,7 +831,8 @@
       "color": 16747578,
       "intensity": 4.2,
       "radius": 10,
-      "size": 0.3
+      "size": 0.3,
+      "id": "light-4-mu1qb5ik"
     },
     {
       "x": 40.5,
@@ -838,7 +841,8 @@
       "color": 6539519,
       "intensity": 5.2,
       "radius": 11,
-      "size": 0.55
+      "size": 0.55,
+      "id": "light-5-mu1qb5ik"
     },
     {
       "x": 35.5,
@@ -847,7 +851,8 @@
       "color": 8184063,
       "intensity": 4.4,
       "radius": 10,
-      "size": 0.3
+      "size": 0.3,
+      "id": "light-6-mu1qb5ik"
     },
     {
       "x": 14.5,
@@ -856,7 +861,8 @@
       "color": 7327999,
       "intensity": 5,
       "radius": 11,
-      "size": 0.26
+      "size": 0.26,
+      "id": "light-7-mu1qb5ik"
     },
     {
       "x": 31.5,
@@ -865,7 +871,8 @@
       "color": 9429759,
       "intensity": 4.8,
       "radius": 11,
-      "size": 0.24
+      "size": 0.24,
+      "id": "light-8-mu1qb5ik"
     },
     {
       "x": 45.5,
@@ -874,7 +881,8 @@
       "color": 6539519,
       "intensity": 5,
       "radius": 11,
-      "size": 0.26
+      "size": 0.26,
+      "id": "light-9-mu1qb5ik"
     },
     {
       "x": 12.5,
@@ -883,7 +891,8 @@
       "color": 8378623,
       "intensity": 4.4,
       "radius": 10,
-      "size": 0.28
+      "size": 0.28,
+      "id": "light-10-mu1qb5ik"
     }
   ],
   "cameras": {

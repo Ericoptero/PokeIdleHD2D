@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "demo-city",
   "name": "Demo City",
   "kind": "city",
-  "module": "city",
   "w": 64,
   "h": 64,
   "tileset": "bw2-adastra",
@@ -35,7 +34,6 @@
       "tileset": "bw2-adastra",
       "role": "draft",
       "models": ["grass","grass_path_corner_corner_nw","grass_path_side_edge_n","grass_path_corner_corner_ne","grass_path_side_edge_w","grass_path_center","grass_path_side_edge_e","grass_path_cornerin_ur_inner_nw","grass_path_cornerin_ul_inner_ne","grass_path_corner_corner_sw","grass_path_side_edge_s","grass_path_cornerin_dr_inner_sw","grass_path_cornerin_dl_inner_se","grass_path_corner_corner_se","stone_path_center","lake_water_center","round_tree","big_tree_dark_v2","tree","big_tree_dark","darker_pine","lake_corner_nw","lake_straight_edge_n","lake_corner_ne","lake_inner_nw","lake_inner_ne","lake_straight_edge_w","lake_straight_edge_e","lake_corner_sw","lake_inner_sw","lake_inner_se","lake_corner_se","lake_straight_edge_s","hedge4","hedge3","hedge1","hedge1_v2","flower_2","flower_v2","flower","rot_rocks","grass_decoration","tall_grass","grass_patch_half","grass_patch","tall_grass_light","fence_corner_inner_se","fence_side_edge_s","fence_side_edge_w","fence_corner_corner_se","bench_s","bench_n","fence_corner_corner_sw"],
-      "modelIds": [36,16,17,18,8,9,10,7,6,0,1,15,14,2,60,12,203,206,202,205,204,19,20,21,23,22,11,13,3,31,30,5,4,180,184,185,195,167,177,176,172,166,125,141,140,133,212,210,213,211,168,169,209],
       "tiles": [
         {
           "layer": 0,
@@ -861,7 +859,6 @@
       "tileset": "structures",
       "role": "extra",
       "models": ["pokemon_center","poke_mart","house_a","street_lamp"],
-      "modelIds": [2,1,0,3],
       "objects": [
         {
           "m": 0,
@@ -994,7 +991,6 @@
       "tileset": "props",
       "role": "extra",
       "models": ["sylvan-town__barrel","sylvan-town__log","sylvan-town__pile_of_logs","sylvan-town__fat_log","sylvan-town__axe","sylvan-town__rock_tall","sylvan-town__rock_small","bw2-twist__small_rock","hgss-overworld__water_rock_small"],
-      "modelIds": [8,10,11,9,6,13,12,0,3],
       "objects": [
         {
           "m": 0,
@@ -1114,7 +1110,6 @@
       "tileset": "pt-overworld-7",
       "role": "extra",
       "models": ["artroad_center"],
-      "modelIds": [276],
       "objects": [
         {
           "m": 0,
@@ -2383,7 +2378,21 @@
       "route": "s2 n2"
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "id": "demo-city->pokecenter",
+      "kind": "door",
+      "to": {
+        "map": "pokecenter",
+        "marker": "spawn",
+        "dir": 2
+      },
+      "from": {
+        "cx": 25,
+        "cz": 39
+      }
+    }
+  ],
   "lights": [
     {
       "x": 24.319999992847443,
@@ -2392,7 +2401,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-0-mu1qb5ic"
     },
     {
       "x": 24.319999992847443,
@@ -2402,7 +2412,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-1-mu1qb5ic"
     },
     {
       "x": 36.68000000715256,
@@ -2411,7 +2422,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-2-mu1qb5ic"
     },
     {
       "x": 36.68000000715256,
@@ -2421,7 +2433,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-3-mu1qb5ic"
     },
     {
       "x": 27.680000007152557,
@@ -2430,7 +2443,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-4-mu1qb5ic"
     },
     {
       "x": 27.680000007152557,
@@ -2440,7 +2454,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-5-mu1qb5ic"
     },
     {
       "x": 41.68000000715256,
@@ -2449,7 +2464,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-6-mu1qb5ic"
     },
     {
       "x": 41.68000000715256,
@@ -2459,7 +2475,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-7-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2468,7 +2485,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-8-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2478,7 +2496,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-9-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2487,7 +2506,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-10-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2497,7 +2517,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-11-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2506,7 +2527,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-12-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2516,7 +2538,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-13-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2525,7 +2548,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-14-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2535,7 +2559,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-15-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2544,7 +2569,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-16-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2554,7 +2580,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-17-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2563,7 +2590,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-18-mu1qb5ic"
     },
     {
       "x": 33.68000000715256,
@@ -2573,7 +2601,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-19-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2582,7 +2611,8 @@
       "color": 16757094,
       "intensity": 2,
       "radius": 12,
-      "size": 0.85
+      "size": 0.85,
+      "id": "light-20-mu1qb5ic"
     },
     {
       "x": 30.319999992847443,
@@ -2592,7 +2622,8 @@
       "intensity": 2.2,
       "size": 0.22,
       "point": false,
-      "pool": false
+      "pool": false,
+      "id": "light-21-mu1qb5ic"
     },
     {
       "x": 26,
@@ -2601,7 +2632,8 @@
       "color": 16767136,
       "intensity": 0.5,
       "radius": 7.5,
-      "size": 0.22
+      "size": 0.22,
+      "id": "light-22-mu1qb5ic"
     },
     {
       "x": 38.4,
@@ -2610,7 +2642,8 @@
       "color": 16767136,
       "intensity": 0.42,
       "radius": 6.5,
-      "size": 0.2
+      "size": 0.2,
+      "id": "light-23-mu1qb5ic"
     }
   ],
   "cameras": {

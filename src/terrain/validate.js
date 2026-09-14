@@ -315,9 +315,35 @@ const CHECKS = [
     run(map, env) {
       const out = [];
       for (const r of map.regions ?? []) {
-        const cat = env.catalogs[r.tileset];
+        // A `Region` has no `tileset` of its own — `set` is resolved against the MAP's own
+        // tileset (`mapfile.js`'s header), the same one `draft.autotile()` always builds
+        // against; there is nowhere else a region's autotile set could live.
+        const cat = env.catalogs[map.tileset];
         if (cat && !cat.autotileSets?.includes(r.set)) {
-          out.push({ message: `região autotile cita o conjunto "${r.set}", que não existe em "${r.tileset}" — a região não desenha nada` });
+          out.push({ message: `região autotile cita o conjunto "${r.set}", que não existe em "${map.tileset}" — a região não desenha nada` });
+        }
+      }
+      return out;
+    },
+  },
+  {
+    code: 'region-tile-overlap', severity: 'error', needs: [],
+    run(map) {
+      const out = [];
+      const n = map.w * map.h;
+      for (const region of map.regions ?? []) {
+        if (region.kind !== 'autotile' || !region.mask) continue;
+        const mask = decodeRuns(region.mask, n);
+        const layer = (map.layers ?? []).find((l) => l.role !== 'extra' && (l.tiles ?? []).some((t) => t.layer === (region.layer ?? 0)));
+        const tileEntry = layer?.tiles?.find((t) => t.layer === (region.layer ?? 0));
+        if (!tileEntry) continue;
+        const modelAt = decodeRuns(tileEntry.model, n);
+        for (let i = 0; i < n; i++) {
+          if (!mask[i]) continue;
+          if (modelAt[i] < 0) continue;
+          const cx = i % map.w;
+          const cz = Math.floor(i / map.w);
+          out.push({ at: { cx, cz }, message: `região "${region.id}" reivindica a célula (${cx},${cz}), que já tem uma peça (${layer.models?.[modelAt[i]] ?? modelAt[i]}) desenhada por cima — a substituição no replay é indefinida` });
         }
       }
       return out;

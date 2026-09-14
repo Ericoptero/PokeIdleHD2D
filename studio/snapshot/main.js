@@ -90,7 +90,7 @@ async function boot() {
     const draft = ctx.get('terrain').draft();
     const report = ctx.get('terrain').report();
     const after = draftToMapFile(draft, {
-      name: before.name, kind: before.kind, module: before.module, resolveModel,
+      name: before.name, kind: before.kind, resolveModel,
       requiredLevel: before.requiredLevel, weather: before.weather,
       environmentPreset: before.environmentPreset, economy: before.economy,
       extras: report?.extras ?? [],
