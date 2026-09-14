@@ -157,6 +157,92 @@ export function toggleTag(doc, history, { cx, cz, tag }) {
   });
 }
 
+/** A single top-level field write, undoable — the inspector's plain map-info fields
+ *  (id/name/kind/seed/requiredLevel/biome/weather/environmentPreset) all funnel through this
+ *  instead of writing `doc[key]` directly, so Ctrl+Z covers them like every other edit. */
+export function setField(doc, history, { key, value }) {
+  const before = doc[key];
+  if (before === value) return;
+  history.push({
+    label: key,
+    redo() { doc[key] = value; touch(doc); },
+    undo() { doc[key] = before; touch(doc); },
+  });
+}
+
+/** Replaces `doc.loop.via` wholesale — the Jogabilidade card's add/remove marker chips. */
+export function setLoopVia(doc, history, { via }) {
+  const before = doc.loop ? { ...doc.loop } : null;
+  const after = { ...(doc.loop ?? {}), via };
+  history.push({
+    label: 'loop (via)',
+    redo() { doc.loop = after; touch(doc); },
+    undo() { doc.loop = before; touch(doc); },
+  });
+}
+
+/**
+ * Replaces `doc.encounters.rows` wholesale — the per-map inline encounter table's add/remove/
+ * edit-row controls (`bottom.js`'s Jogabilidade tab) all funnel through this one command,
+ * keeping the undo log coarse-grained the same way `setLoopVia` already does for `loop.via`
+ * rather than adding a separate command per field. `doc.encounters.table` (the shared
+ * `TABLES[name]` lookup) is left untouched — a map can carry both, with `rows` taking
+ * precedence at read time when present (checked first everywhere this reads the effective
+ * table: `bottom.js`'s preview, and eventually the runtime).
+ */
+export function setEncounterRows(doc, history, { rows }) {
+  const before = doc.encounters ? { ...doc.encounters } : null;
+  const after = { ...(doc.encounters ?? {}), rows };
+  history.push({
+    label: 'tabela de encontro (linhas)',
+    redo() { doc.encounters = after; touch(doc); },
+    undo() { doc.encounters = before; touch(doc); },
+  });
+}
+
+/**
+ * Appends a hand-placed wild-spawn slot at `(cx,cz)` to `doc.wild.slots` — the authored
+ * counterpart to `wild.resolved.slots`, which stays whatever `slotsForLoop` last computed and
+ * cached (derived, not editable here), exactly parallel to how `loop.via` (authored) and
+ * `loop.resolved` (derived cache) already coexist. Creates `doc.wild` if the map had none yet.
+ */
+export function addWildSlot(doc, history, { cx, cz }) {
+  const before = doc.wild;
+  const after = { ...(doc.wild ?? {}), slots: [...(doc.wild?.slots ?? []), { cx, cz }] };
+  history.push({
+    label: 'vaga selvagem',
+    redo() { doc.wild = after; touch(doc); },
+    undo() { doc.wild = before; touch(doc); },
+  });
+}
+
+/**
+ * Removes one authored wild-spawn slot. Takes the slot object itself (the same reference
+ * `doc.wild.slots` holds) rather than an index or a name — a slot has no unique name field the
+ * way a marker does, so this mirrors `removeNpc`/`removeLight`'s identity-based match instead
+ * of `removeMarker`'s name-keyed one.
+ */
+export function removeWildSlot(doc, history, slot) {
+  const before = doc.wild;
+  const after = { ...doc.wild, slots: doc.wild.slots.filter((s) => s !== slot) };
+  history.push({
+    label: 'remover vaga selvagem',
+    redo() { doc.wild = after; touch(doc); },
+    undo() { doc.wild = before; touch(doc); },
+  });
+}
+
+/** Picks which authored camera preset a scene boots into by default. */
+export function setDefaultCamera(doc, history, { name }) {
+  const before = doc.cameras;
+  const after = { ...doc.cameras, default: name };
+  history.push({
+    label: 'câmera padrão',
+    redo() { doc.cameras = after; touch(doc); },
+    undo() { doc.cameras = before; touch(doc); },
+  });
+}
+
 export function setSpawn(doc, history, { cx, cz, dir }) {
   const before = { ...doc.spawn };
   const after = { ...doc.spawn, cx, cz, ...(dir != null ? { dir } : {}) };
@@ -229,6 +315,22 @@ export function removeNpc(doc, history, npc) {
     label: 'remover npc',
     redo() { doc.npcs = doc.npcs.filter((n) => n !== npc); touch(doc); },
     undo() { doc.npcs.push(npc); touch(doc); },
+  });
+}
+
+/**
+ * Repositions an existing NPC in place — `addNpc`/`removeNpc` only ever add or remove a whole
+ * entry, and until the 3D preview's draggable gizmos (`studio/preview.js`) there was no "move it
+ * to a new cell" command for anything to call. Takes the npc object itself (the same reference
+ * `doc.npcs` holds), not an index — an index drifts under undo/redo of other add/remove
+ * commands touching the array, object identity does not.
+ */
+export function moveNpc(doc, history, { npc, cx, cz }) {
+  const before = { cx: npc.cx, cz: npc.cz };
+  history.push({
+    label: 'mover npc',
+    redo() { npc.cx = cx; npc.cz = cz; touch(doc); },
+    undo() { npc.cx = before.cx; npc.cz = before.cz; touch(doc); },
   });
 }
 

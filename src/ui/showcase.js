@@ -76,7 +76,9 @@ export async function showcaseUi(mode = 'default', ctx) {
     col.setQuiet?.(true);
     for (const [species, level, shiny] of SEED_CATCHES) {
       col.sight?.(species, { shiny });
-      col.deposit({ species, level, shiny, origin: 'wild', ball: shiny ? 'greatball' : 'pokeball', biome: 'city' });
+      // P5 item 9: `collection` stores provenance by map id; these are seeded as caught in
+      // the lobby, which has no hunt map of its own.
+      col.deposit({ species, level, shiny, origin: 'wild', ball: shiny ? 'greatball' : 'pokeball', mapId: null });
     }
     col.sort?.('species');
     col.setQuiet?.(false);

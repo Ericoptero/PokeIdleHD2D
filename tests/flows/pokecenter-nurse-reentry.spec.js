@@ -39,7 +39,8 @@ test('re-entering the Pokemon Center never leaves a second Nurse Joy standing at
   expect(cast, `third visit (two round trips later): ${JSON.stringify(cast)}`).toHaveLength(1);
 
   // Total npcs at the Center is exactly one — Nurse Joy, and nothing else `simulation` spawned
-  // for this room (no wild Pokemon: `biome:'city'` resolves to an empty encounter table).
+  // for this room (no wild Pokemon: `terrain.handle().encounterTable` resolves to the empty
+  // `'city'` table here).
   const all = await call(page, 'simulation', 'npcs');
   expect(all, `all npcs in the room: ${JSON.stringify(all)}`).toHaveLength(1);
 

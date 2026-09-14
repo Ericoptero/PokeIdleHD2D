@@ -2,9 +2,11 @@
  * Three things `tests/flows/pokecenter.spec.js` never checks
  * because it only ever walks through the door once, in one direction at a time:
  *
- *  1. `terrain.handle().biome === 'city'` and `encounter.tablesFor('city', 12)` is `[]` — read
- *     live off a real boot standing inside the room, not asserted only by reading
- *     `pokecenter/index.js`'s `enter()` and `encounter/tables.js`.
+ *  1. `terrain.handle().encounterTable === 'city'` (P5: this used to be `.biome`, the same
+ *     field the terrain-shape/environment-preset concern used, until the fixed 5-biome enum
+ *     was decoupled from the gameplay-profile lookup) and `encounter.tablesFor('city', 12)`
+ *     is `[]` — read live off a real boot standing inside the room, not asserted only by
+ *     reading `pokecenter/index.js`'s `enter()` and `encounter/tables.js`.
  *  2. `travel.go()` racing itself from the console — the shape a rapid double-step on the
  *     door tile produces (`pokecenter/index.js`'s door listener fires `nav.go()` off
  *     `player:enteredTile`, which is not debounced) — never wedges `travel` and never builds
@@ -22,7 +24,7 @@ async function goTo(page, sceneId) {
   expect(ok, `travel.go('${sceneId}') refused`).toBe(true);
 }
 
-test('terrain.handle().biome and encounter.tablesFor(), read live from inside the room', async ({ page }) => {
+test('terrain.handle().encounterTable and encounter.tablesFor(), read live from inside the room', async ({ page }) => {
   await installEventLog(page);
   const errors = await boot(page);
 
@@ -31,10 +33,12 @@ test('terrain.handle().biome and encounter.tablesFor(), read live from inside th
 
   const handle = await call(page, 'terrain', 'handle');
   expect(handle?.id).toBe('pokecenter');
-  // The regression: 'interior' is not in encounter's BIOMES
-  // list and silently falls back to the meadow table — this is the regression guard for it,
-  // exercised against the actual live `terrain`/`encounter` modules, not just read from source.
-  expect(handle?.biome, 'the room reports the city biome, not "interior"').toBe('city');
+  // The regression: an id encounter's tables do not recognise (e.g. "interior") silently
+  // falls back to the meadow table — this is the regression guard for it, exercised against
+  // the actual live `terrain`/`encounter` modules, not just read from source. P5:
+  // `pokecenter/index.js` now names this explicitly via `terrain.setDefaultProfile`, not by
+  // reusing the terrain-shape `biome` field.
+  expect(handle?.encounterTable, 'the room reports the city table, not "interior"').toBe('city');
 
   const table = await call(page, 'encounter', 'tablesFor', 'city', 12);
   expect(table).toEqual([]);
@@ -100,5 +104,5 @@ test('a save whose last scene was the Pokemon Center survives a real reload', as
   expect((await call(page, 'travel', 'current'))?.id, 'reboots straight back into the Center').toBe('pokecenter');
   const handle = await call(page, 'terrain', 'handle');
   expect(handle?.id).toBe('pokecenter');
-  expect(handle?.biome).toBe('city');
+  expect(handle?.encounterTable).toBe('city');
 });

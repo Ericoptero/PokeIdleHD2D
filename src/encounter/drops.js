@@ -18,11 +18,18 @@ import { streamFor } from './rolls.js';
 /**
  * Four ladders of three, which is exactly the twelve treasure items.
  *
- * Keyed by **biome** rather than by type, because loot is a property of the place you are
- * standing in — a cave gives up nuggets and bones, a shore gives up pearls. (Evolution
- * materials use the same twelve keyed by the Pokémon's own type; the two views of one small
- * catalogue are deliberate, and mean a player hunting for evolution materials has a *reason*
- * to pick one biome over another.)
+ * Keyed by **the same table id `encounter/tables.js`'s `TABLES` uses** rather than by type,
+ * because loot is a property of the place you are standing in — a cave gives up nuggets and
+ * bones, a shore gives up pearls. (Evolution materials use the same twelve keyed by the
+ * Pokémon's own type; the two views of one small catalogue are deliberate, and mean a
+ * player hunting for evolution materials has a *reason* to pick one place over another.)
+ *
+ * The `biome` this file's `tableFor`/`dropsFor` are called with (below) is P5's
+ * `terrain.handle().encounterTable` — the loaded map's own gameplay-profile id — reached
+ * through `encounter/index.js`'s `biomeNow()`, never restricted to the five keys below: an
+ * id this object has no ladder for falls back to `BIOME_LOOT.meadow`, same as
+ * `encounter/tables.js`'s own `TABLES[id] ?? TABLES.meadow`, so a brand-new map drops
+ * something sensible before anyone authors it its own ladder.
  */
 export const BIOME_LOOT = {
   forest: ['tinymushroom', 'bigmushroom', 'balmmushroom'],

@@ -12,6 +12,7 @@ import { BIOMES } from '@/encounter/tables.js';
 import {
   setCollision, toggleTag, adjustHeight, setSpawn,
   setCellRotation, setCellTint, updateLight, removeLight,
+  setField, setLoopVia, setDefaultCamera,
 } from './tools.js';
 
 const TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
@@ -49,7 +50,7 @@ export function makeInspector({ root, editorCanvas, docRef, history, onChange })
     body.innerHTML = '';
     if (!doc) { body.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum mapa aberto')); return; }
     const sel = editorCanvas.getSelection();
-    const set = (key, coerce) => (v) => { doc[key] = coerce ? coerce(v) : v; doc.dirty = true; onChange(); };
+    const set = (key, coerce) => (v) => { setField(doc, history, { key, value: coerce ? coerce(v) : v }); onChange(); };
     const catalog = peekCatalog(doc.tileset);
 
     body.appendChild(mapInfoCard(doc, set));
@@ -61,7 +62,7 @@ export function makeInspector({ root, editorCanvas, docRef, history, onChange })
     }
 
     body.appendChild(gameplayCard(doc, history, onChange));
-    body.appendChild(cameraCard(doc, onChange));
+    body.appendChild(cameraCard(doc, history, onChange));
   }
 
   return { rebuild };
@@ -78,6 +79,12 @@ function mapInfoCard(doc, set) {
     fieldRow('Tileset base', doc.tileset),
     doc.extras?.length ? fieldRow('Tilesets extra', doc.extras.map((e) => e.tileset).join(', ')) : null,
     fieldRow('Nível exigido', doc.requiredLevel, set('requiredLevel', Number)),
+    // `mapTags` (`state.js`) — free-form gameplay categories ('cave', 'coastal', …) a ball
+    // can key off (`economy/items.js`'s Dive/Dusk Ball) since the map no longer needs to be
+    // named after the one biome it happens to look like. Comma-separated in and out, same
+    // convention the game's own tag fields use nowhere else in the UI but reads plainly here.
+    fieldRow('Tags de jogabilidade', (doc.mapTags ?? []).join(', '),
+      (v) => set('mapTags')(v.split(',').map((t) => t.trim()).filter(Boolean))),
   ].filter(Boolean));
 }
 
@@ -174,27 +181,30 @@ function cellCard(doc, history, sel, editorCanvas, onChange) {
 }
 
 function gameplayCard(doc, history, onChange) {
+  const setEncounterTable = (v) => { setField(doc, history, { key: 'encounters', value: v ? { table: v } : null }); onChange(); };
   const dirBtns = DIR_LABEL.map((label, d) => h('button', {
     class: `ms-dir-btn${doc.spawn.dir === d ? ' ms-dir-btn--active' : ''}`,
     onClick: () => { setSpawn(doc, history, { cx: doc.spawn.cx, cz: doc.spawn.cz, dir: d }); onChange(); },
   }, label));
   const via = doc.loop?.via ?? [];
-  const viaChips = via.map((name, i) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable' }, [
-    name, h('span', { onClick: () => { doc.loop = { ...doc.loop, via: via.filter((_, k) => k !== i) }; doc.dirty = true; onChange(); } }, [icon('close', { size: 10 })]),
+  // A `via` entry is either a marker name (unchanged, shown as-is) or an inline `{cx,cz}`
+  // waypoint placed with the `loop` tool (no name to show, so it renders as its coordinates).
+  const viaChips = via.map((entry, i) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable' }, [
+    typeof entry === 'string' ? entry : `(${entry.cx},${entry.cz})`,
+    h('span', { onClick: () => { setLoopVia(doc, history, { via: via.filter((_, k) => k !== i) }); onChange(); } }, [icon('close', { size: 10 })]),
   ]));
   const addVia = h('select', { class: 'ms-select', onChange: (e) => {
     if (!e.target.value) return;
-    doc.loop = { ...(doc.loop ?? {}), via: [...via, e.target.value] };
-    doc.dirty = true; onChange(); e.target.value = '';
+    setLoopVia(doc, history, { via: [...via, e.target.value] });
+    onChange(); e.target.value = '';
   } }, [h('option', { value: '' }, '+ marcador'), ...doc.markers.map((m) => h('option', { value: m.name }, m.name))]);
 
   return section('Jogabilidade do mapa', 'gamepad-2', [
     fieldRow('Spawn', `${doc.spawn.cx}, ${doc.spawn.cz}`),
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Virado para'), h('div', { class: 'ms-dir-row' }, dirBtns)]),
     fieldRow('Cabeça da fila', doc.formation?.head ?? '—'),
-    selectRow('Tabela de encontro', doc.encounters?.table ?? '', ['', ...BIOMES],
-      (v) => { doc.encounters = v ? { table: v } : null; doc.dirty = true; onChange(); }),
-    fieldRow('Vagas selvagens', doc.wild?.resolved?.slots?.length ?? doc.wild?.slots ?? 0),
+    selectRow('Tabela de encontro', doc.encounters?.table ?? '', ['', ...BIOMES], setEncounterTable),
+    fieldRow('Vagas selvagens', doc.wild?.resolved?.slots?.length ?? doc.wild?.slots?.length ?? 0),
     fieldRow('Restrição (nível)', doc.requiredLevel),
     fieldRow('NPCs', doc.npcs.length),
     fieldRow('Portas/links', doc.links.length),
@@ -203,20 +213,20 @@ function gameplayCard(doc, history, onChange) {
   ]);
 }
 
-function cameraCard(doc, onChange) {
+function cameraCard(doc, history, onChange) {
   const weatherBtns = WEATHERS.map(([name, iconName]) => h('button', {
     class: `ms-weather-btn${doc.weather?.[0] === name ? ' ms-weather-btn--active' : ''}`,
-    onClick: () => { doc.weather = name === 'Limpo' ? null : [name, 0.5]; doc.dirty = true; onChange(); },
+    onClick: () => { setField(doc, history, { key: 'weather', value: name === 'Limpo' ? null : [name, 0.5] }); onChange(); },
   }, [icon(iconName, { size: 15 }), h('span', {}, name)]));
   const presets = Object.entries(doc.cameras?.presets ?? {});
   return section('Câmera e ambiente', 'camera', [
     h('div', { class: 'ms-hint-line' }, 'Hora do dia e zoom são estado da prévia 3D (acima) — aqui é o dado salvo no mapa.'),
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Clima'), h('div', { class: 'ms-weather-row' }, weatherBtns)]),
-    fieldRow('Preset ambiente', doc.environmentPreset ?? doc.biome, (v) => { doc.environmentPreset = v; doc.dirty = true; onChange(); }),
+    fieldRow('Preset ambiente', doc.environmentPreset ?? doc.biome, (v) => { setField(doc, history, { key: 'environmentPreset', value: v }); onChange(); }),
     fieldRow('Pitch (fixo)', '45°'),
     presets.length ? h('div', { class: 'ms-cam-grid' }, presets.map(([name, p]) => h('div', {
       class: `ms-cam-card${doc.cameras.default === name ? ' ms-cam-card--active' : ''}`,
-      onClick: () => { doc.cameras = { ...doc.cameras, default: name }; doc.dirty = true; onChange(); },
+      onClick: () => { setDefaultCamera(doc, history, { name }); onChange(); },
     }, [h('span', { class: 'ms-cam-name' }, name), h('span', { class: 'ms-cam-meta' }, p.marker ? `${p.marker} · ${p.ppu}px/u` : `${p.cx},${p.cz}`)]))) : null,
   ].filter(Boolean));
 }

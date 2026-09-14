@@ -138,13 +138,21 @@ export default {
       const terrain = mod('terrain');
       const environment = mod('environment');
 
-      const biome = terrain.handle?.()?.biome ?? mod('idle').state?.()?.biome ?? 'meadow';
+      // P5: `terrain.handle().encounterTable` — the loaded map's own gameplay-profile id —
+      // replaces the old `.biome`, and nothing here restricts it to a fixed list any more
+      // (`worldFacts`/`encounter/tables.js`'s own `?? TABLES.meadow` fallback covers an
+      // id this module has never heard of). `tags` is the same handle's category list, for
+      // `ballContext()` below.
+      const handle = terrain.handle?.();
+      const biome = handle?.encounterTable ?? mod('idle').state?.()?.biome ?? 'meadow';
+      const tags = Array.isArray(handle?.tags) ? handle.tags : [];
       const tod = environment.getTimeOfDay?.() ?? config.tod;
       const used = num(collection.count?.(), 0);
       const free = num(collection.free?.(), 0);
 
       worldCache = worldFacts({
-        biome: BIOMES.includes(biome) ? biome : 'meadow',
+        biome,
+        tags,
         tod,
         money: num(economy.balance?.('money')),
         research: num(economy.balance?.('research')),
@@ -264,7 +272,13 @@ export default {
       };
     }
 
-    /** The context `economy`'s conditional balls (Dusk, Net, Level, Repeat…) read. */
+    /**
+     * The context `economy`'s conditional balls (Dusk, Net, Level, Repeat…) read.
+     *
+     * `tags` (P5) is what Dusk/Dive actually check now (`economy/items.js`) — carried
+     * through from `w.tags` (`world()`, above) rather than re-read here, so an automated
+     * throw and a manual one agree on which map they are standing on.
+     */
     function ballContext(subject, w) {
       const party = mod('pokemon').party?.() ?? [];
       const partyLevel = party.length ? Math.max(...party.map((p) => p?.level ?? 1)) : 5;
@@ -274,6 +288,7 @@ export default {
         partyLevel,
         tod: w.tod,
         biome: w.biome,
+        tags: w.tags,
         turn: subject.turn ?? 1,
         caught: !subject.newSpecies,
         fishing: false,
@@ -385,6 +400,13 @@ export default {
 
       const w = world(true);
       const biome = gains.biome ?? w.biome;
+      // P5 item 9: `collection` stores provenance by map id, and all this module has to work
+      // with for a catch synthesised from a closed-tab replay is a table id. `hunt-<id>` is
+      // the convention every shipped hunt map follows (`src/hunts/index.js` registers
+      // `hunt-${biome.id}` under the exact id its own `encounters.table` names), so it is a
+      // reasonable derivation rather than a fabrication; `'city'` has no hunt map at all, so
+      // it maps to `null` the same way an old save's migration does (`collection/index.js`).
+      const mapId = biome && biome !== 'city' ? `hunt-${biome}` : null;
       const sampled = (gains.events ?? []).filter((e) => e && e.caught && e.species).slice(0, count);
 
       /** @type {{name:string, level:number, shiny:boolean, synth:boolean}[]} */
@@ -427,7 +449,7 @@ export default {
         }
         const pick = decideBall(subject);
         specs.push({
-          species: m.name, level: m.level, shiny: m.shiny, biome,
+          species: m.name, level: m.level, shiny: m.shiny, mapId,
           ball: pick?.ball ?? 'pokeball', origin: 'wild',
         });
       }

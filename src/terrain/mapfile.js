@@ -318,6 +318,10 @@ export function draftToMapFile(draft, opts) {
     loop: opts.loop ?? null,
     wild: opts.wild ?? null,
     encounters: opts.encounters ?? null,
+    // Free-form category tags (`'cave'`, `'coastal'`, …) a consumer checks with `.includes`
+    // rather than an identity lookup — see `terrain.handle()`'s own doc for why this is a
+    // separate field from `encounters.table` rather than folded into it (P5).
+    tags: opts.tags ?? [],
     npcs: opts.npcs ?? [],
     links: opts.links ?? [],
     lights: opts.lights ?? [],

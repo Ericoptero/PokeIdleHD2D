@@ -15,7 +15,7 @@
   "environmentPreset": "coast",
   "source": {
     "builder": "src/hunts/biomes/coast.js",
-    "snapshotAt": "2026-09-14T05:05:51.206Z"
+    "snapshotAt": "2026-09-14T08:22:02.908Z"
   },
   "grid": {
     "collision": {
@@ -9097,6 +9097,7 @@
   "encounters": {
     "table": "coast"
   },
+  "tags": ["coastal"],
   "npcs": [],
   "links": [],
   "lights": [],

@@ -75,6 +75,12 @@ export function createDocument(map) {
     biome: map.biome, seed: map.seed, requiredLevel: map.requiredLevel ?? 0,
     weather: map.weather ?? null, environmentPreset: map.environmentPreset ?? map.biome,
     source: map.source ?? {},
+    // `map.tags` (`mapfile.js`) is a top-level, map-wide category list — `'cave'`,
+    // `'coastal'` — that `economy/items.js`'s ball bonuses key off since P5. Named `mapTags`
+    // here, not `tags`, because that name is already taken by the per-cell tag array
+    // (`grid.tags`) three lines below — the two have coexisted in the file format since
+    // before this field existed and are unrelated concepts.
+    mapTags: map.tags ?? [],
     collision, height, tags, occupied,
     tileLayers, objects, nextObjectId: objects.length, extras,
     regions: map.regions ?? [],
@@ -153,6 +159,7 @@ export function serializeDocument(doc) {
     w: doc.w, h: doc.h, tileset: doc.tileset, biome: doc.biome, seed: doc.seed,
     requiredLevel: doc.requiredLevel, weather: doc.weather, environmentPreset: doc.environmentPreset,
     source: doc.source,
+    tags: doc.mapTags ?? [],
     grid: {
       collision: encodeRuns(doc.collision),
       height: encodeRuns(doc.height.map((v) => Math.round(v * 1000) / 1000)),
@@ -176,6 +183,7 @@ export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-a
     w, h, tileset, id, name, kind, module: kind === 'hunt' ? 'hunts' : kind === 'city' ? 'city' : null,
     biome, seed: 1337, requiredLevel: 0, weather: null, environmentPreset: biome,
     source: { builder: 'studio (novo mapa)', snapshotAt: new Date().toISOString() },
+    mapTags: [],
     collision: new Array(n).fill('walk'), height: new Array(n).fill(0),
     tags: new Array(n).fill(null).map(() => []), occupied: new Array(n).fill(0),
     tileLayers: groundModel

@@ -28,7 +28,11 @@
  * @property {number} [level]        the wild Pokémon's level
  * @property {number} [partyLevel]   the lead Pokémon's level (Level Ball)
  * @property {number} [tod]          hours 0..24 (Dusk Ball)
- * @property {string} [biome]        'cave' | 'coast' | … (Dusk / Dive / Net Ball)
+ * @property {string} [biome]        the loaded map's gameplay-profile id — informational;
+ *                                    no ball keys off it directly (see `tags`)
+ * @property {string[]} [tags]       category tags the map declares, e.g. `'cave'`,
+ *                                    `'coastal'` (Dusk / Dive Ball) — a category, not an id,
+ *                                    because two differently-named maps could both be caves
  * @property {number} [turn]         1-based; idle battles resolve on turn 1 (Quick / Timer)
  * @property {boolean} [caught]      species already in the dex (Repeat Ball)
  * @property {boolean} [asleep]      (Dream Ball)
@@ -93,11 +97,16 @@ export const ITEMS = [
     desc: 'Up to 4× on a level 1 target, falling to 1× at level 31 and above.' },
   { id: 'diveball', name: 'Dive Ball', category: 'ball', tier: 3, price: 1000, sell: 500,
     when: 'coast / water',
-    ballMult: (c) => (c.biome === 'coast' || c.biome === 'water' || c.fishing ? 3.5 : 1),
-    desc: '3.5× while fishing or hunting the coast.' },
+    // P5: was `c.biome === 'coast'`, an identity check against the fixed 5-entry enum. A map
+    // now declares this as a category tag instead (`terrain.handle().tags`,
+    // `src/hunts/biomes/coast.js`'s own `tags: ['coastal']`) — any map tagged coastal gets
+    // the bonus, not only the one shipped map that happened to be named "coast".
+    ballMult: (c) => (c.tags?.includes('coastal') || c.fishing ? 3.5 : 1),
+    desc: '3.5× while fishing or hunting a coastal map.' },
   { id: 'duskball', name: 'Dusk Ball', category: 'ball', tier: 3, price: 1000, sell: 500,
     when: 'night or cave',
-    ballMult: (c) => (c.biome === 'cave' || isNight(c.tod) ? 3 : 1),
+    // Same change as Dive Ball, above: `c.biome === 'cave'` -> `c.tags.includes('cave')`.
+    ballMult: (c) => (c.tags?.includes('cave') || isNight(c.tod) ? 3 : 1),
     desc: '3× at night (20:00–04:00) or underground. The reason night hunts pay.' },
   { id: 'timerball', name: 'Timer Ball', category: 'ball', tier: 3, price: 1000, sell: 500,
     when: 'long battles',

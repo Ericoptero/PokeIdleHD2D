@@ -52,6 +52,13 @@ export default {
     let dressing = null;
     /** @type {{dispose:() => void, ids:number[]}|null} */
     let cast = null;
+    /** What the last `enter()`'s map file build reported (`applyMapFile`'s return, via
+     *  `terrain.report()`), or `null` when `buildCityMap` ran instead — the same "was a map
+     *  file used" signal `hunts/index.js`'s `built` map carries per biome, kept here as a
+     *  single value because the city is a single map. Read by `preset()`/`formation()` so a
+     *  Studio-authored camera preset or formation wins over `layout.js`'s constants exactly
+     *  the way its `npcs`/`lights` already do in `enter()`, below. */
+    let report = null;
 
     /**
      * The town takes itself down when its map is unloaded.
@@ -68,6 +75,7 @@ export default {
       cast = null;
       dressing?.dispose();
       dressing = null;
+      report = null;
     });
 
     /**
@@ -108,7 +116,7 @@ export default {
 
     const api = {
       /** How the lobby is played, so `travel` can show it without entering it. */
-      formation: () => ({ ...FORMATION }),
+      formation: () => ({ ...(report?.formation ?? FORMATION) }),
 
       /** Builds the town and stands everybody in it. Safe to call again; it tears down first. */
       async enter() {
@@ -126,6 +134,17 @@ export default {
         const handle = await terrain.load('demo-city', {
           w: CITY_SIZE, h: CITY_SIZE, tileset: 'bw2-adastra', biome: 'city', seed: ctx.config.seed,
         });
+        // `terrain.report()` is `null` for the hand-written `buildCityMap` path (it returns
+        // nothing) and the report `applyMapFile` produced for the Studio-exported path — the
+        // same "was a map file used" signal `hunts/index.js` keeps per biome in `built`. Left
+        // untouched (not defaulted here) on purpose: `cast`, below, tests its truthiness to
+        // decide whether the map file's own `npcs`/`lights` are authoritative, and a default
+        // folded into it would make that test true even on the proc-gen path.
+        report = terrain.report();
+        // The lobby has no wildlife by design (`encounter/tables.js`'s own empty `TABLES.city`)
+        // — P5's `terrain.handle().encounterTable` needs a value regardless of which path
+        // built this map, so it is named here explicitly rather than through `report`, above.
+        terrain.setDefaultProfile?.({ encounterTable: 'city' });
 
         dressing = await dressCity(ctx);
 
@@ -134,12 +153,21 @@ export default {
         if (isLive(sim) && typeof sim.placePlayer === 'function') {
           // Before `placePlayer`, not after: it lays the queue out through `formation.head`,
           // so a formation applied afterwards would leave the line cut the wrong way round.
-          sim.setFormation?.({ ...FORMATION, label: 'simulation/wander/demo-city' });
+          sim.setFormation?.({ ...(report?.formation ?? FORMATION), label: 'simulation/wander/demo-city' });
           sim.placePlayer(spawn.cx, spawn.cz, spawn.dir ?? SPAWN.dir);
         }
         ctx.three.rig.setFocus(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
 
-        cast = await populateCity(ctx);
+        // The map file is authoritative once one has been loaded: its own `npcs`/`lights`
+        // replace `layout.js`'s hardcoded `NPCS` and `dressCity`'s own lamp registration —
+        // `terrain.populateFromMap` (`src/terrain/populate.js`) is `city/npcs.js`'s
+        // `populateCity` generalized to read a report instead of an import. `dressCity` still
+        // ran just above for the buildings/props/paving `report.extras` has no consumer for
+        // yet, and its own lamps are simply overwritten here when a map file won. No map file:
+        // `populateCity` stays the only source, exactly as before this change.
+        cast = report
+          ? await terrain.populateFromMap(ctx, { npcs: report.npcs ?? [], lights: report.lights ?? [] })
+          : await populateCity(ctx);
         return handle;
       },
 
@@ -156,7 +184,10 @@ export default {
        */
       preset(name) {
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name ?? ''));
-        const p = PRESETS[name]
+        // The map file's own `cameras.presets` wins once one has been loaded, over
+        // `layout.js`'s hand-authored `PRESETS` — see `report`'s own doc, above.
+        const presets = report?.presets ?? PRESETS;
+        const p = presets[name]
           ?? (literal ? { cx: Number(literal[1]), cz: Number(literal[2]) } : null)
           ?? (() => {
             const m = terrain.draft?.()?.marker(name);
@@ -166,7 +197,7 @@ export default {
         focusOn(p.cx, p.cz);
         return true;
       },
-      presets: () => Object.keys(PRESETS),
+      presets: () => Object.keys(report?.presets ?? PRESETS),
 
       /** Every named point on the map — doors, lamps, framings. */
       markers: () => {
@@ -180,6 +211,7 @@ export default {
       dispose() {
         cast?.dispose(); cast = null;
         dressing?.dispose(); dressing = null;
+        report = null;
       },
     };
     return api;

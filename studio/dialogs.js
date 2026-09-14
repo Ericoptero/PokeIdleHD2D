@@ -8,6 +8,7 @@ import { icon } from './icons.js';
 import { createBlankDocument } from './state.js';
 import { runValidation, issueRow } from './validation.js';
 import { loadCatalog } from './catalog.js';
+import { DIR_LABEL } from './kinds.js';
 
 /** Every token in `@/ui/css/tokens.css` is scoped to `#ui-dom` (never `:root`), and these
  *  dialogs render on top of the app rather than inside its normal layout flow — appending to
@@ -101,6 +102,86 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
           onCreate(doc);
           dialog.remove();
         } }, [icon('plus', { size: 15 }), h('span', {}, 'Criar mapa')]),
+      ]),
+    ]),
+  ]);
+  studioRoot().appendChild(dialog);
+}
+
+/**
+ * The `npc` tool's placement form — a trainer or a wild Pokémon, at the cell the tool was
+ * clicked on. `tools.js`'s `addNpc` is undo-wired already; this is only the missing UI in
+ * front of it (the Objetos tab's empty state has claimed one existed since the Studio shipped).
+ */
+export function openAddNpcDialog({ cx, cz, onCreate }) {
+  const kindSel = h('select', { class: 'ms-select' }, [
+    h('option', { value: 'species' }, 'Pokémon selvagem'), h('option', { value: 'trainer' }, 'Trainer'),
+  ]);
+  const idInput = h('input', { class: 'ms-field-input', placeholder: 'ex.: pikachu ou hero' });
+  const nameInput = h('input', { class: 'ms-field-input', placeholder: '(opcional) nome de exibição' });
+  const dirSelect = h('select', { class: 'ms-select' }, DIR_LABEL.map((label, d) => h('option', { value: d }, label)));
+  const routeInput = h('input', { class: 'ms-field-input', placeholder: '(opcional) rota, ex.: e3 w3' });
+  // Off by default — a decorative walker (the common case: city's wildlife/pedestrians) should
+  // not block the tile it stands on. `src/pokecenter/index.js`'s nurse is the counter-example
+  // that needs this on, which is exactly why it is a per-NPC choice and not a fixed default.
+  const solidCheck = h('input', { type: 'checkbox' });
+  const dialog = h('div', { class: 'ms-modal-scrim' }, [
+    h('div', { class: 'ms-modal' }, [
+      h('div', { class: 'ms-modal-head' }, [icon('paw-print', { size: 18 }),
+        h('div', { class: 'ms-modal-head-text' }, [h('span', {}, 'Novo NPC'), h('span', { class: 'ms-modal-sub' }, `célula ${cx}, ${cz}`)]),
+        h('button', { class: 'ms-iconbtn', onClick: () => dialog.remove() }, [icon('close', { size: 16 })])]),
+      h('div', { class: 'ms-modal-body' }, [
+        field('Tipo', kindSel), field('Espécie / ID do trainer', idInput), field('Nome de exibição', nameInput),
+        field('Direção', dirSelect), field('Rota', routeInput),
+        h('label', { class: 'ms-brush-check' }, [solidCheck, h('span', {}, 'Sólido (bloqueia a célula)')]),
+      ]),
+      h('div', { class: 'ms-modal-foot' }, [
+        h('div', { class: 'ms-spacer' }),
+        h('button', { class: 'ms-btn', onClick: () => dialog.remove() }, 'Cancelar'),
+        h('button', { class: 'ms-btn ms-btn--primary', onClick: () => {
+          const id = idInput.value.trim();
+          if (!id) return;
+          const npc = { name: nameInput.value.trim() || id, cx, cz, dir: Number(dirSelect.value) || 0 };
+          if (kindSel.value === 'trainer') npc.trainer = id; else npc.species = id;
+          if (routeInput.value.trim()) npc.route = routeInput.value.trim();
+          if (solidCheck.checked) npc.solid = true;
+          onCreate(npc);
+          dialog.remove();
+        } }, [icon('plus', { size: 15 }), h('span', {}, 'Criar NPC')]),
+      ]),
+    ]),
+  ]);
+  studioRoot().appendChild(dialog);
+}
+
+/** The `light` tool's placement form — a point light at the cell the tool was clicked on,
+ *  the same fields the inspector's "Luz #N" card edits after the fact. */
+export function openAddLightDialog({ cx, cz, onCreate }) {
+  const colorInput = h('input', { type: 'color', value: '#e0a64b' });
+  const intensityInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.1', value: '2' });
+  const radiusInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.5', value: '8' });
+  const sizeInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.02', value: '0.3' });
+  const dialog = h('div', { class: 'ms-modal-scrim' }, [
+    h('div', { class: 'ms-modal' }, [
+      h('div', { class: 'ms-modal-head' }, [icon('lightbulb', { size: 18 }),
+        h('div', { class: 'ms-modal-head-text' }, [h('span', {}, 'Nova luz'), h('span', { class: 'ms-modal-sub' }, `célula ${cx}, ${cz}`)]),
+        h('button', { class: 'ms-iconbtn', onClick: () => dialog.remove() }, [icon('close', { size: 16 })])]),
+      h('div', { class: 'ms-modal-body' }, [
+        field('Cor', colorInput), field('Intensidade', intensityInput), field('Raio', radiusInput), field('Brilho visível', sizeInput),
+      ]),
+      h('div', { class: 'ms-modal-foot' }, [
+        h('div', { class: 'ms-spacer' }),
+        h('button', { class: 'ms-btn', onClick: () => dialog.remove() }, 'Cancelar'),
+        h('button', { class: 'ms-btn ms-btn--primary', onClick: () => {
+          onCreate({
+            x: cx + 0.5, y: 1, z: cz + 0.5,
+            color: parseInt(colorInput.value.slice(1), 16) || 0xe0a64b,
+            intensity: Number(intensityInput.value) || 2,
+            radius: Number(radiusInput.value) || 8,
+            size: Number(sizeInput.value) || 0.3,
+          });
+          dialog.remove();
+        } }, [icon('plus', { size: 15 }), h('span', {}, 'Criar luz')]),
       ]),
     ]),
   ]);

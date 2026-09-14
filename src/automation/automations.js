@@ -88,6 +88,12 @@ export const AUTOMATIONS = [
     ],
     defaultAction: 'flee',
     settings: [
+      // Declared but not yet consumed by any automation (`automation/index.js` never reads
+      // `engine.settings('hunt').biome`) — "auto" is the only behaviour that actually exists
+      // today. Left as the four shipped hunts rather than a manifest-driven list (P5 item 8)
+      // because a setting nothing reads cannot make an unreachable map reachable either way;
+      // wiring this up to `travel`/`hunts.list()` is future work for whoever builds the
+      // auto-travel behaviour this implies.
       { key: 'biome', label: 'Hunt in', type: 'enum', values: ['auto', 'city', 'meadow', 'forest', 'cave', 'coast'],
         default: 'auto', blurb: '"auto" follows whichever map is loaded.' },
       { key: 'pauseWhenBoxFull', label: 'Pause when the boxes are full', type: 'bool', default: false,

@@ -24,15 +24,18 @@ export function makeToolRail({ root, editorCanvas }) {
   setTool('select');
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-    const hit = TOOLS.find(([, , , key]) => key.toLowerCase() === e.key.toLowerCase());
-    if (hit) setTool(hit[0]);
+    // `e.key` for the spacebar is the literal string ' ', which never matches the rail's
+    // display label 'Espaço' — normalize it to the label before comparing.
+    const key = e.key === ' ' ? 'Espaço' : e.key;
+    const hit = TOOLS.find(([, , , k]) => k.toLowerCase() === key.toLowerCase());
+    if (hit) { e.preventDefault(); setTool(hit[0]); }
   });
   return { setTool };
 }
 
 const VIEWS = [['edit', 'grid-3x3', 'Edição'], ['game', 'gamepad-2', 'Jogo'], ['split', 'columns-2', 'Dividida']];
 
-export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onValidate, onView, onWalkLoop }) {
+export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onView, onWalkLoop }) {
   const nameBtn = h('button', { class: 'ms-map-badge', onClick: onOpenPicker }, []);
   const nameEl = h('span', { class: 'ms-map-name' }, '—');
   const dirtyDot = h('span', { class: 'ms-dirty-dot', hidden: true });
@@ -56,8 +59,11 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
   setView('edit');
 
   const walkBtn = iconBtn('route', { title: 'Percorrer loop de caça', class: 'ms-btn', onClick: onWalkLoop, label: 'Percorrer loop' });
-  const saveBtn = iconBtn('save', { title: 'Salvar — sem servidor de escrita ainda; use Exportar', class: 'ms-btn' });
-  saveBtn.disabled = true;
+  const saveBtn = iconBtn('save', { title: 'Salvar em public/maps/ (servidor de desenvolvimento)', class: 'ms-btn', label: 'Salvar', onClick: async () => {
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+    try { await onSave(); } finally { refresh(); }
+  } });
 
   root.appendChild(h('div', { class: 'ms-toolbar' }, [
     h('div', { class: 'ms-brand' }, [icon('map', { size: 18 }), h('span', {}, 'PokeIdle Map Studio')]),
@@ -87,6 +93,7 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
     const sz = history.size();
     undoBtn.disabled = sz.undo === 0;
     redoBtn.disabled = sz.redo === 0;
+    saveBtn.disabled = !d;
     walkBtn.disabled = !d?.loop?.resolved?.cells?.length;
     walkBtn.title = walkBtn.disabled ? 'este mapa não tem loop resolvido' : 'Percorrer o loop de caça na prévia 3D';
   }
@@ -138,6 +145,12 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
   return { refresh };
 }
 
+/** Same swatch set the inspector's "Tile selecionado" tint row offers (`inspector.js`'s
+ *  `TINTS`) — kept as its own local copy rather than a shared import, since the two rows
+ *  serve different callers (a live paint brush vs. one placed tile) and have no reason to
+ *  stay identical if either grows independently. */
+const BRUSH_TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
+
 export function makeAssetBrushBar({ root, editorCanvas }) {
   const rotBtn = iconBtn('rotate-cw', { title: 'Girar o pincel 90°', class: 'ms-btn ms-btn--small', onClick: () => {
     editorCanvas.setBrush({ rot: (editorCanvas.getBrush().rot + 1) & 3 });
@@ -148,10 +161,34 @@ export function makeAssetBrushBar({ root, editorCanvas }) {
     COLLISIONS.map((c) => h('option', { value: c }, COLLISION_LABEL[c])));
   const tagInput = h('input', { class: 'ms-field-input', value: 'tallgrass', style: { width: '110px' },
     onChange: (e) => editorCanvas.setBrush({ tag: e.target.value }) });
+
+  const tintRow = h('div', { class: 'ms-tint-row' }, BRUSH_TINTS.map((t, i) => h('div', {
+    class: `ms-tint-swatch${i === 0 ? ' ms-tint-swatch--active' : ''}`,
+    style: { background: `#${t.toString(16).padStart(6, '0')}` },
+    onClick: (e) => {
+      editorCanvas.setBrush({ tint: t });
+      for (const el of tintRow.children) el.classList.remove('ms-tint-swatch--active');
+      e.currentTarget.classList.add('ms-tint-swatch--active');
+    },
+  })));
+  const heightStepInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.05', value: '0.25', style: { width: '56px' },
+    onChange: (e) => editorCanvas.setBrush({ heightStep: Number(e.target.value) || 0.25 }) });
+  const claimToggle = h('label', { class: 'ms-brush-check', title: 'Marca a célula como ocupada ao pintar' }, [
+    h('input', { type: 'checkbox', onChange: (e) => editorCanvas.setBrush({ claimFootprint: e.target.checked }) }),
+    h('span', {}, 'Reservar área'),
+  ]);
+  const keepCollisionToggle = h('label', { class: 'ms-brush-check', title: 'Ao desmarcar, pintar com este tile também aplica a colisão do tile' }, [
+    h('input', { type: 'checkbox', checked: true, onChange: (e) => editorCanvas.setBrush({ keepCollision: e.target.checked }) }),
+    h('span', {}, 'Preservar colisão'),
+  ]);
+
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
+    h('span', { class: 'ms-eyebrow' }, 'Tint'), tintRow,
     h('span', { class: 'ms-eyebrow' }, 'Colisão'), collSelect,
     h('span', { class: 'ms-eyebrow' }, 'Tag'), tagInput,
+    h('span', { class: 'ms-eyebrow' }, 'Passo altura'), heightStepInput,
+    claimToggle, keepCollisionToggle,
   ]);
   root.appendChild(bar);
   return bar; // so a caller (main.js: the overlay strip, the preview toggle) can append into the same row

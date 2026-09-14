@@ -104,7 +104,10 @@ export default {
       const environment = ctx.get('environment');
 
       const handle = terrain.handle?.();
-      const biome = handle?.biome ?? own.biome ?? DEFAULT_BIOME;
+      // P5: sourced from the loaded map's own gameplay-profile id (`terrain.handle()`'s
+      // `encounterTable`, not the old fixed-enum `biome`) — see `accrual.js`'s own `BIOMES`
+      // doc for why the yield profile is keyed by this same id rather than a second one.
+      const biome = handle?.encounterTable ?? own.biome ?? DEFAULT_BIOME;
       const tod = environment.getTimeOfDay?.() ?? config.tod;
       const party = pokemon.party?.() ?? [];
       const tables = encounter.tablesFor?.(biome, tod) ?? [];

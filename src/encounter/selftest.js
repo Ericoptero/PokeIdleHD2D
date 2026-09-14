@@ -222,12 +222,12 @@ export function runSelfTest({ species = null } = {}) {
       const bad = validate((n) => (names.has(n) ? { name: n } : null));
       const rows = Object.values(TABLES).reduce((n, r) => n + r.length, 0);
       check('every table species exists in the snapshot, with a legal rate and weight',
-        bad.length === 0, bad.length ? bad.slice(0, 6).join('; ') : `${rows} rows across ${BIOMES.length} biomes`);
-      // The lobby is a lobby: it has a key so `tableFor` cannot fall back to the meadow's
+        bad.length === 0, bad.length ? bad.slice(0, 6).join('; ') : `${rows} rows across ${BIOMES.length} tables`);
+      // The lobby is a lobby: it has a key so `rowsFor` cannot fall back to the meadow's
       // wildlife, and no rows so nothing can spawn there.
       check('the city spawns nothing at all', (TABLES.city ?? []).length === 0,
         `${(TABLES.city ?? []).length} rows`);
-      check('…and it is still a known biome, so no lookup falls through to the meadow',
+      check('…and it is still a known table id, so no lookup falls through to the meadow',
         BIOMES.includes('city'));
     }
   }
@@ -236,8 +236,8 @@ export function runSelfTest({ species = null } = {}) {
   {
     let empty = 0;
     const detail = [];
-    // Every biome a HUNT is played in. The city is deliberately not one of them any more, and
-    // the check moved with the rule rather than being loosened around it.
+    // Every table a HUNT is played against. The city is deliberately not one of them any
+    // more, and the check moved with the rule rather than being loosened around it.
     for (const biome of BIOMES.filter((b) => b !== 'city')) {
       for (const tod of [0, 5, 8, 12, 16, 19, 22]) {
         const rows = rowsFor(biome, tod);

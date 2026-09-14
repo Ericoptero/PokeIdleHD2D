@@ -31,7 +31,16 @@
 
 import { operatorsFor } from './ops.js';
 
-/** Biomes `idle`/`terrain` know about, in the order the pickers should list them. */
+/**
+ * The built-in table ids, in the order the pickers should list them.
+ *
+ * P5: a map's own gameplay-profile id (`terrain.handle().encounterTable`) is no longer
+ * restricted to this list — `encounter/tables.js`'s own `TABLES[id] ?? TABLES.meadow`
+ * fallback accepts any id and degrades gracefully. This stays as the enum a rule editor's
+ * "Biome" field *suggests* (`WORLD_FIELDS`, below), because it is the set every fresh save
+ * ships with; it is descriptive metadata for the picker, not a whitelist the `biome` fact
+ * is checked against.
+ */
 export const BIOMES = Object.freeze(['city', 'meadow', 'forest', 'cave', 'coast']);
 
 /** The 18 types, so a "never release a Dragon" rule can offer a real list. */
@@ -190,6 +199,11 @@ export function worldFacts(w = {}) {
   const tod = Number.isFinite(w.tod) ? w.tod : 12;
   return {
     biome: w.biome ?? 'meadow',
+    // The active map's category tags (P5) — not a rule-editor field yet (no shipped
+    // automation asks about it), but threaded through so `automation/index.js`'s own
+    // `ballContext()` can hand it to `economy.catchOdds` the same way `encounter` does,
+    // without a second lookup of `terrain.handle()`.
+    tags: Array.isArray(w.tags) ? w.tags : [],
     tod,
     night: tod >= 20 || tod < 4,
     money: w.money ?? 0,

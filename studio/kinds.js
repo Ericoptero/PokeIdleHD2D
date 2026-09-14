@@ -59,7 +59,7 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 13 tools `studio/canvas.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`. */
+/** The 15 tools `studio/canvas.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['pencil', 'pencil', 'Lápis', 'B'],
@@ -72,6 +72,13 @@ export const TOOLS = [
   ['tag', 'tag', 'Tag', 'T'],
   ['marker', 'map-pin', 'Marcador', 'M'],
   ['spawn', 'flag', 'Spawn', 'P'],
+  ['npc', 'paw-print', 'NPC', 'N'],
+  ['light', 'lightbulb', 'Luz', 'L'],
+  // `footprints`, not `paw-print` — the `npc` tool already owns that glyph on this same rail.
+  ['wildslot', 'footprints', 'Vaga selvagem', 'W'],
+  // Click appends an anonymous `{cx,cz}` waypoint to `doc.loop.via`; dragging an existing
+  // inline waypoint (not a named-marker one) repositions it — see `canvas.js`'s pointer handlers.
+  ['loop', 'route', 'Loop', 'V'],
   ['eyedrop', 'pipette', 'Conta-gotas', 'I'],
   ['pan', 'hand', 'Mover vista', 'Espaço'],
 ];

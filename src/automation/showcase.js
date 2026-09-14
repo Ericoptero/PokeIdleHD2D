@@ -49,7 +49,8 @@ function buildBox(count = 210) {
       level: 3 + Math.floor(h * 34),
       shiny: i % 53 === 0,
       ivs: { hp: iv(1), atk: iv(2), def: iv(3), spa: iv(4), spd: iv(5), spe: iv(6) },
-      biome: ['forest', 'cave', 'meadow', 'coast'][i % 4],
+      // P5 item 9: `collection` stores provenance by map id now, not by table id.
+      mapId: ['hunt-forest', 'hunt-cave', 'hunt-meadow', 'hunt-coast'][i % 4],
       ball: 'pokeball',
       origin: 'wild',
       favourite: i % 71 === 0,

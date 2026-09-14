@@ -54,7 +54,7 @@ import {
 } from './rolls.js';
 import { dropsFor, tableFor as dropTableFor } from './drops.js';
 import {
-  BIOMES, todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
+  todBand, rowsFor, expand, bumpsFor, validate, authoredCatchRate, summary,
 } from './tables.js';
 import { runSelfTest, summarise } from './selftest.js';
 import { reportSelfTest } from '../core/log.js';
@@ -224,11 +224,31 @@ export default {
 
     // --- helpers ------------------------------------------------------------
 
-    const biomeNow = () => {
-      const handle = ctx.get('terrain').handle?.();
-      const b = handle?.biome;
-      return BIOMES.includes(b) ? b : 'meadow';
+    /**
+     * The active map's own gameplay-profile id (P5) — `terrain.handle().encounterTable`,
+     * which is the loaded map's own `encounters.table` when it has one, or whatever a
+     * proc-gen builder defaulted it to before returning (`src/hunts/index.js`'s `biome.id`,
+     * `src/city/index.js`'s/`src/pokecenter/index.js`'s `'city'`). **No membership check
+     * against a fixed list any more** — that used to live here (`BIOMES.includes(b) ? b :
+     * 'meadow'`), which is exactly the "fixed 5-entry enum" this phase removes. An id this
+     * module has never heard of is not an error: `tableFor`, below, and `rowsFor`
+     * (`tables.js`) already fall back to `TABLES.meadow` for one, so a map that has not been
+     * authored a table yet degrades to the same safety net a typo used to.
+     */
+    const biomeNow = () => ctx.get('terrain').handle?.()?.encounterTable ?? 'meadow';
+    /** The active map's category tags (`'cave'`, `'coastal'`, …) — see `terrain.handle()`'s
+     *  own doc. Read by `ballContext()`, below, for the two balls that key off a category
+     *  rather than an id (`economy/items.js`'s Dive/Dusk Ball). */
+    const tagsNow = () => {
+      const t = ctx.get('terrain').handle?.()?.tags;
+      return Array.isArray(t) ? t : [];
     };
+    /** The active map's own id (`'hunt-forest'`, `'demo-city'`, …) — a strict superset of
+     *  `biomeNow()`'s table id, kept as its own field because two maps could someday share a
+     *  table without being the same place. `collection` stores this on a caught Pokemon's
+     *  save row (P5 item 9) instead of the table id, so its provenance survives a table
+     *  being renamed or shared. */
+    const mapIdNow = () => ctx.get('terrain').handle?.()?.id ?? null;
     const todNow = () => {
       const env = ctx.get('environment');
       // Liveness on the *value*, never on `typeof` (src/core/registry.js).
@@ -273,10 +293,18 @@ export default {
       return (charm ? SHINY_RATE_CHARM : SHINY_RATE) * multipliers().shinyOdds;
     }
 
-    /** The weight-expanded table for a biome and hour, memoised per (biome, band). */
+    /**
+     * The weight-expanded table for a table id and hour, memoised per (id, band).
+     *
+     * No membership check against a fixed list — `rowsFor` (`tables.js`) already falls back
+     * to `TABLES.meadow` for an id it does not recognise, so trusting whatever `biome` names
+     * (an authored id from the map file, or `biomeNow()`'s own default) is enough: an unknown
+     * id still resolves to a real table, it just is not this file's job to decide which ones
+     * are "real" any more (P5).
+     */
     const tableCache = new Map();
     function tableFor(biome, tod) {
-      const b = BIOMES.includes(biome) ? biome : 'meadow';
+      const b = String(biome ?? 'meadow');
       const key = `${b}/${todBand(tod)}`;
       if (!tableCache.has(key)) {
         const rows = rowsFor(b, tod);
@@ -304,7 +332,10 @@ export default {
      * through this rather than through its own copy in `accrual.js`; that needs a core
      * change.
      */
-    function rollIndex(index, { biome = biomeNow(), tod = todNow(), band = null, rate = null } = {}) {
+    function rollIndex(index, {
+      biome = biomeNow(), tod = todNow(), band = null, rate = null,
+      tags = tagsNow(), mapId = mapIdNow(),
+    } = {}) {
       const { table, bumps } = tableFor(biome, tod);
       const rolled = rollAt(seed, index, {
         table, bumps,
@@ -315,7 +346,7 @@ export default {
       const sheet = speciesOf(rolled.species);
       return {
         ...rolled,
-        biome, tod,
+        biome, tod, tags, mapId,
         sheet,
         display: sheet?.display ?? rolled.species,
         catchRate: catchRateOf(rolled.species, sheet),
@@ -1295,6 +1326,10 @@ export default {
         // of what happened and an index it cannot see is an index nobody can replay.
         index: active.index, tod: active.tod, ivs: active.ivs, catchRate: active.catchRate,
         slot: Number.isFinite(active.slot) ? active.slot : null,
+        // The map this was met on (P5 item 9) — a strict superset of `biome`'s table id, and
+        // what `collection` now stores as a caught Pokemon's origin instead of the table id,
+        // so its provenance survives a table being renamed or shared between maps.
+        mapId: active.mapId ?? null,
       });
 
       // **No "A wild X appeared!" line.** It was the caption on a cutscene that no longer
@@ -1547,8 +1582,10 @@ export default {
     /**
      * What `economy` needs to evaluate a conditional ball. Every field here is read by at
      * least one of the eighteen: `species` by Net (types), Fast (base Speed) and Heavy
-     * (weight), `level` by Nest, `partyLevel` by Level, `tod`/`biome` by Dusk and Dive,
-     * `turn` by Quick and Timer, `caught` by Repeat.
+     * (weight), `level` by Nest, `partyLevel` by Level, `tod` by Dusk, `tags` by Dusk and
+     * Dive (P5: these used to read `biome` as an identity string against a fixed 5-entry
+     * enum — `economy/items.js` now checks a category tag instead, since two differently
+     * named maps could both be caves), `turn` by Quick and Timer, `caught` by Repeat.
      */
     function ballContext(enc = active, turn = (active?.turn ?? 0) + 1) {
       const collection = ctx.get('collection');
@@ -1557,6 +1594,7 @@ export default {
         species: enc?.sheet ?? null,
         level: enc?.level ?? 1,
         biome: enc?.biome ?? biomeNow(),
+        tags: enc?.tags ?? tagsNow(),
         tod: enc?.tod ?? todNow(),
         turn,
         caught: caughtBefore,

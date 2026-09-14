@@ -131,7 +131,12 @@ async function boot() {
         source: { builder: 'src/pokecenter/map.js + src/pokecenter/dress.js', snapshotAt: new Date().toISOString() },
         extras: stats.extras ?? [],
         lights: capturedLights,
-        npcs: [{ name: 'nurse', display: 'Nurse Joy', trainer: 'heroine', cx: NURSE.cx, cz: NURSE.cz, dir: NURSE.dir }],
+        // `solid: true` matches `pokecenter/index.js`'s own inline spawn call — the nurse blocks
+        // the counter tile in the code build, and a map-file NPC with no `solid` field spawns
+        // as passable-through (`simulation.spawnNpc`'s default), which would otherwise silently
+        // regress under `?mapFiles=1` (`src/terrain/populate.js` forwards whatever `solid` a map
+        // file's npc entry carries, verbatim).
+        npcs: [{ name: 'nurse', display: 'Nurse Joy', trainer: 'heroine', cx: NURSE.cx, cz: NURSE.cz, dir: NURSE.dir, solid: true }],
         cameras: { default: 'default', presets: PC_PRESETS },
         formation: PC_FORMATION,
         environmentPreset: 'interior',
@@ -158,6 +163,13 @@ async function boot() {
       loop: report?.loop ? { via: descriptor.loop?.via ?? null, resolved: { derived: true, ...report.loop } } : null,
       wild: report?.slots?.length ? { resolved: { derived: true, slots: report.slots } } : null,
       encounters: { table: t.biomeId },
+      // The descriptor's own category tags (`src/hunts/biomes/cave.js`'s `tags:['cave']`,
+      // etc. — P5) — without this, a fresh snapshot of cave/coast would silently drop the
+      // field a shipped file never had to begin with, and the Studio would have nothing to
+      // show or round-trip for it (`economy/items.js`'s Dusk/Dive Ball still work off the
+      // descriptor fallback either way — `terrain.handle().tags` — this only makes the
+      // exported file self-describing instead of relying on that fallback forever).
+      tags: descriptor.tags ?? [],
       cameras: { default: descriptor.showcaseDefault ?? null, presets: descriptor.presets ?? {} },
       formation: hunts_.biome(t.biomeId)?.formation ?? null,
     });

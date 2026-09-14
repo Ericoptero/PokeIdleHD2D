@@ -111,7 +111,9 @@ function playStream(ctx, col) {
   const table = (typeof pokemon.all === 'function' ? pokemon.all() : []).filter((s) => !s.form);
   if (!table.length) return { announced: 0, bulk: 0 };
 
-  const biomes = ['meadow', 'forest', 'cave', 'coast', 'city'];
+  // P5: `collection` now stores provenance by map id, not by encounter-table id — these
+  // stand in for `terrain.handle().id` the way `hunts/index.js` actually names them.
+  const mapIds = ['hunt-meadow', 'hunt-forest', 'hunt-cave', 'hunt-coast', null];
   const pool = [];
   for (let i = 0; i < 90; i++) pool.push(table[rng.int(0, table.length - 1)]);
 
@@ -121,20 +123,20 @@ function playStream(ctx, col) {
     const s = i % 7 === 0 ? table[rng.int(0, table.length - 1)] : pool[rng.int(0, pool.length - 1)];
     const shiny = rng.next() < 0.035;
     const level = rng.int(3, 62);
-    const biome = biomes[rng.int(0, biomes.length - 1)];
+    const mapId = mapIds[rng.int(0, mapIds.length - 1)];
     const caught = rng.next() < 0.86;
 
     if (i < ANNOUNCED) {
       // Real traffic, one event at a time, so the harness's event log shows the wiring this
       // module actually depends on rather than a bulk import.
-      ctx.bus.emit('encounter:started', { species: s.name, level, shiny, biome });
+      ctx.bus.emit('encounter:started', { species: s.name, level, shiny, mapId });
       if (caught) ctx.bus.emit('catch:succeeded', { instanceId: String(s.id), species: s.name, shiny });
       announced++;
     } else {
       // The bus spy keeps 256 events (src/core/bus.js); 500 more would push every other module's
       // events out of the screenshot log, so the rest goes in through importBatch.
       col.sight?.(s.name, { shiny });
-      if (caught) bulk.push({ species: s.name, level, shiny, biome, instanceId: String(s.id) });
+      if (caught) bulk.push({ species: s.name, level, shiny, mapId, instanceId: String(s.id) });
     }
   }
   col.importBatch?.(bulk);

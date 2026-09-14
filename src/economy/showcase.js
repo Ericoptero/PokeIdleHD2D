@@ -42,7 +42,9 @@ const WORKED_EXAMPLE = {
   label: 'Gengar · lv 34 · cave · 22:00 · turn 1 · 35% HP · already in the dex',
   context: {
     species: { name: 'gengar', types: ['ghost', 'poison'], baseStats: { spe: 110 }, weightKg: 40.5 },
-    level: 34, partyLevel: 41, tod: 22, biome: 'cave', turn: 1, caught: true,
+    // `tags` is what the Dusk Ball actually keys off since P5 (`economy/items.js`); `biome`
+    // stays for the label/log text and costs nothing to keep.
+    level: 34, partyLevel: 41, tod: 22, biome: 'cave', tags: ['cave'], turn: 1, caught: true,
   },
   catchRate: 45,
   hpFraction: 0.35,

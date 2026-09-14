@@ -60,8 +60,18 @@ export default {
 
     /** @type {{dispose:() => void, stats:object}|null} */
     let dressing = null;
-    /** Nurse Joy's `simulation` npc id, so re-entering the room does not spawn a second copy. */
+    /** Nurse Joy's `simulation` npc id, when the hardcoded `NURSE` fallback spawned her —
+     *  null on the map-file path, which tracks its own npc ids in `mapCast` instead. Kept
+     *  separate rather than folded into `mapCast` so the legacy spawn below stays untouched. */
     let nurseId = null;
+    /** @type {{dispose:() => void, ids:number[]}|null} what `populateFromMap` spawned when a
+     *  map file was loaded — see `report`'s own doc, below, for when that is. */
+    let mapCast = null;
+    /** What the last `enter()`'s map file build reported (`applyMapFile`'s return, via
+     *  `terrain.report()`), or `null` when `buildPokecenterMap` ran instead — the same signal
+     *  `city/index.js` keeps for its own single map. Read by `preset()`/`formation()` so a
+     *  Studio-authored camera preset or formation wins over `layout.js`'s constants. */
+    let report = null;
     /** `ctx.clock.wallMs()` of the last successful cure, or `null` — "never healed" (see heal.js). */
     let lastHealMs = null;
 
@@ -70,6 +80,9 @@ export default {
       if (mapId !== MAP_ID) return;
       dressing?.dispose();
       dressing = null;
+      mapCast?.dispose();
+      mapCast = null;
+      report = null;
       const sim = ctx.get('simulation');
       if (nurseId != null && isLive(sim) && typeof sim.removeNpc === 'function') sim.removeNpc(nurseId);
       nurseId = null;
@@ -178,12 +191,14 @@ export default {
 
     const api = {
       /** How the room is played, so `travel` can show it without entering it. */
-      formation: () => ({ ...FORMATION }),
+      formation: () => ({ ...(report?.formation ?? FORMATION) }),
 
       /** Builds the room and stands the trainer in it. Safe to call again; it tears down first. */
       async enter() {
         dressing?.dispose();
         dressing = null;
+        mapCast?.dispose();
+        mapCast = null;
 
         const env = ctx.get('environment');
         // `enclosed:1` is the `interior` preset's own default (`environment/presets.js`), not
@@ -193,28 +208,44 @@ export default {
         env.setWeather?.('clear', 0);
 
         const handle = await terrain.load(MAP_ID, {
-          // `biome:'city'` on purpose, not `'interior'`: `encounter`'s `BIOMES` list does not
-          // contain `'interior'`, and `tableFor()` falls back to **meadow** for anything it
-          // does not recognise — this room would otherwise spawn wild meadow Pokemon on its
-          // own carpet. `'city'` already resolves to an empty table (`TABLES.city = []`).
+          // `biome:'city'` here is the terrain-shape/tileset-palette field only (`MapDraft`'s
+          // own `this.biome`, unrelated to gameplay since P5).
           w: ROOM_W, h: ROOM_H, tileset: TILESET, biome: 'city', seed: ctx.config.seed,
         });
+        // `terrain.report()` is `null` for the hand-written `buildPokecenterMap` path (it
+        // returns nothing) and the report `applyMapFile` produced for the Studio-exported path
+        // — see `city/index.js`'s identical `report`. Left undefaulted for the same reason:
+        // `mapCast`, below, tests its truthiness to decide whether the map file's own
+        // `npcs`/`lights` win over the hardcoded `NURSE` fallback.
+        report = terrain.report();
+        // This room's actual encounter table (P5): explicit here rather than folded into
+        // `report`, above, so a proc-gen build still reports the same empty `'city'` table a
+        // Studio-authored `pokecenter.map.json` already does, without also making `report`
+        // truthy on the path that has no `npcs`/`lights` to give `mapCast`.
+        terrain.setDefaultProfile?.({ encounterTable: 'city' });
 
         dressing = await dressPokecenter(ctx);
 
         const spawn = handle?.spawn ?? SPAWN;
         const sim = ctx.get('simulation');
         if (isLive(sim) && typeof sim.placePlayer === 'function') {
-          sim.setFormation?.({ ...FORMATION, label: 'simulation/wander/pokecenter' });
+          sim.setFormation?.({ ...(report?.formation ?? FORMATION), label: 'simulation/wander/pokecenter' });
           sim.placePlayer(spawn.cx, spawn.cz, spawn.dir ?? SPAWN.dir);
         }
         ctx.three.rig.setFocus(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
 
-        // Nurse Joy, after `dressPokecenter()` resolves — mirroring `city.enter()`'s own
-        // `cast = await populateCity(ctx)` timing. `world:unloaded` above already reset
-        // `nurseId` to null (it fired from inside `terrain.load()`, before this line), so this
-        // never spawns a second copy of her on re-entry.
-        if (isLive(sim) && typeof sim.spawnNpc === 'function') {
+        if (report) {
+          // The map file is authoritative once one has been loaded: its own `npcs` (one nurse
+          // entry for the shipped room) and `lights` replace the hardcoded `NURSE` spawn and
+          // `dressPokecenter`'s own window-light registration below —
+          // `terrain.populateFromMap` (`src/terrain/populate.js`) is the same helper
+          // `city/index.js` uses for its cast.
+          mapCast = await terrain.populateFromMap(ctx, { npcs: report.npcs ?? [], lights: report.lights ?? [] });
+        } else if (isLive(sim) && typeof sim.spawnNpc === 'function') {
+          // Nurse Joy, after `dressPokecenter()` resolves — mirroring `city.enter()`'s own
+          // `cast = await populateCity(ctx)` timing. `world:unloaded` above already reset
+          // `nurseId` to null (it fired from inside `terrain.load()`, before this line), so this
+          // never spawns a second copy of her on re-entry.
           const pokemonApi = ctx.get('pokemon');
           // One atlas build before the spawn, the way `city/npcs.js` batches its own cast —
           // a fresh atlas build mid-spawn is wasteful for a single NPC too.
@@ -238,7 +269,10 @@ export default {
       /** Named camera framings the screenshot harness can request (src/main.js). */
       preset(name) {
         const literal = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(String(name ?? ''));
-        const p = PRESETS[name]
+        // The map file's own `cameras.presets` wins once one has been loaded, over
+        // `layout.js`'s hand-authored `PRESETS` — see `report`'s own doc, above.
+        const presets = report?.presets ?? PRESETS;
+        const p = presets[name]
           ?? (literal ? { cx: Number(literal[1]), cz: Number(literal[2]) } : null)
           ?? (() => {
             const m = terrain.draft?.()?.marker(name);
@@ -248,7 +282,7 @@ export default {
         focusOn(p.cx, p.cz);
         return true;
       },
-      presets: () => Object.keys(PRESETS),
+      presets: () => Object.keys(report?.presets ?? PRESETS),
 
       /** Every named point on the map — the exit door, the framings. */
       markers: () => {
@@ -284,6 +318,9 @@ export default {
       dispose() {
         dressing?.dispose();
         dressing = null;
+        mapCast?.dispose();
+        mapCast = null;
+        report = null;
       },
     };
     return api;

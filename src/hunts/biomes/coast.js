@@ -27,6 +27,9 @@ export const COAST = {
   preset: 'coast',
   tileset: 'bw2-adastra',
   alsoLoad: ['props'],
+  /** The category `economy/items.js`'s Dive Ball checks (P5) — a tag, not an identity
+   *  string, so any map that is coastal gets the bonus, not only the one named "coast". */
+  tags: ['coastal'],
   w: 66,
   h: 54,
   /**

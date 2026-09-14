@@ -15,7 +15,7 @@
   "environmentPreset": "interior",
   "source": {
     "builder": "src/pokecenter/map.js + src/pokecenter/dress.js",
-    "snapshotAt": "2026-09-14T05:05:51.004Z"
+    "snapshotAt": "2026-09-14T06:43:48.101Z"
   },
   "grid": {
     "collision": {
@@ -524,7 +524,8 @@
       "trainer": "heroine",
       "cx": 6,
       "cz": 1,
-      "dir": 0
+      "dir": 0,
+      "solid": true
     }
   ],
   "links": [],

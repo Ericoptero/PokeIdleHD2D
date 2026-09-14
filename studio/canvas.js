@@ -16,8 +16,9 @@ import { colorFor, peekCatalog, dominantImage, peekBitmap } from './catalog.js';
 import { COLLISION_COLOR } from './kinds.js';
 import {
   paintCell, eraseCell, paintRect, fillRegion, setCollision, adjustHeight, toggleTag,
-  setSpawn, placeMarker, placeObject, stackAt,
+  setSpawn, placeMarker, placeObject, stackAt, addNpc, addLight, addWildSlot, setLoopVia,
 } from './tools.js';
+import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
 
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 const DIR_DX = [0, -1, 0, 1];
@@ -40,6 +41,25 @@ function passableAt(doc, cx, cz, fromDir) {
     return dir ? Number(dir.slice(6)) === fromDir : false;
   }
   return COLLISION_PASSABLE.has(kind);
+}
+
+/** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
+ *  (`null` if the marker was deleted out from under it, which `marker-missing` already flags),
+ *  or an inline `{cx,cz}` waypoint used as-is. */
+function viaPoint(doc, entry) {
+  if (typeof entry === 'string') {
+    const m = doc.markers.find((x) => x.name === entry);
+    return m ? { cx: m.cx, cz: m.cz } : null;
+  }
+  return entry;
+}
+
+/** Index of the inline (non-marker-name) `loop.via` entry sitting exactly at `(cx,cz)`, or -1.
+ *  Named-marker entries are moved by moving the marker itself (the existing `marker` tool), so
+ *  only inline waypoints are ever drag targets for the `loop` tool. */
+function inlineViaNear(doc, cx, cz) {
+  const via = doc.loop?.via ?? [];
+  return via.findIndex((entry) => typeof entry !== 'string' && entry.cx === cx && entry.cz === cz);
 }
 
 function reachableFrom(doc, start) {
@@ -240,6 +260,39 @@ export function makeEditorCanvas({ canvas, history }) {
       c.lineWidth = 1;
     }
 
+    // --- loop (authored via) — the hand-edited waypoint sequence that produces `loop.resolved`
+    // once (re-)stitched. Drawn dashed, in a different colour, so it never reads as the same
+    // line as the (possibly stale) resolved cache above it — see `loop-stale`'s own note on why
+    // the Studio never re-stitches live.
+    if (overlays.loop && doc.loop?.via?.length) {
+      const pts = doc.loop.via
+        .map((entry, i) => (drag?.loopVia && drag.index === i ? { cx: drag.cx, cz: drag.cz } : viaPoint(doc, entry)))
+        .filter(Boolean);
+      if (pts.length > 1) {
+        c.strokeStyle = 'rgba(224,166,75,0.85)';
+        c.lineWidth = 1.5;
+        c.setLineDash([5, 4]);
+        c.beginPath();
+        pts.forEach((p, i) => {
+          const [x, y] = toScreen(p.cx + 0.5, p.cz + 0.5);
+          if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+        });
+        c.closePath();
+        c.stroke();
+        c.setLineDash([]);
+        c.lineWidth = 1;
+      }
+      // Inline waypoints get their own small square marker — named-marker entries already
+      // render via the `markers` overlay below, so only anonymous ones need a mark here.
+      c.fillStyle = 'rgba(224,166,75,0.9)';
+      doc.loop.via.forEach((entry, i) => {
+        if (typeof entry === 'string') return;
+        const p = drag?.loopVia && drag.index === i ? { cx: drag.cx, cz: drag.cz } : entry;
+        const [x, y] = toScreen(p.cx + 0.5, p.cz + 0.5);
+        c.fillRect(x - 3, y - 3, 6, 6);
+      });
+    }
+
     // --- wild / encounter slots ---
     if (overlays.encounters && doc.wild?.resolved?.slots?.length) {
       c.fillStyle = 'rgba(227,143,176,0.9)';
@@ -247,6 +300,18 @@ export function makeEditorCanvas({ canvas, history }) {
         const [x, y] = toScreen(s.cx + 0.5, s.cz + 0.5);
         c.beginPath(); c.arc(x, y, Math.max(2, view.cell * 0.28), 0, Math.PI * 2); c.fill();
       }
+    }
+    // Authored wild slots (`doc.wild.slots`, hand-placed by the `wildslot` tool) — a hollow
+    // ring rather than resolved's filled dot, so an admin can tell "I placed this" from "the
+    // loop-stitcher computed this" at a glance, even where the two coincide.
+    if (overlays.encounters && doc.wild?.slots?.length) {
+      c.strokeStyle = 'rgba(227,143,176,0.95)';
+      c.lineWidth = 2;
+      for (const s of doc.wild.slots) {
+        const [x, y] = toScreen(s.cx + 0.5, s.cz + 0.5);
+        c.beginPath(); c.arc(x, y, Math.max(3, view.cell * 0.34), 0, Math.PI * 2); c.stroke();
+      }
+      c.lineWidth = 1;
     }
 
     // --- lights ---
@@ -267,6 +332,26 @@ export function makeEditorCanvas({ canvas, history }) {
           c.lineWidth = 1;
         }
       });
+    }
+
+    // --- camera presets ---
+    if (overlays.cameras && doc.cameras?.presets) {
+      c.font = '9px monospace';
+      for (const [name, p] of Object.entries(doc.cameras.presets)) {
+        // A preset frames either a named marker (hunts/interior style) or a bare cell
+        // (city style) — `mapfile.js`'s two shapes for `cameras.presets[name]`.
+        const at = p.marker ? doc.markers.find((m) => m.name === p.marker) : p;
+        if (!at || at.cx == null || at.cz == null) continue;
+        const [x, y] = toScreen(at.cx + 0.5, at.cz + 0.5);
+        const isDefault = doc.cameras.default === name;
+        c.strokeStyle = isDefault ? '#E0A64B' : 'rgba(224,166,75,0.55)';
+        c.lineWidth = isDefault ? 2 : 1;
+        const r = 6;
+        c.strokeRect(x - r, y - r * 0.7, r * 2, r * 1.4);
+        c.fillStyle = 'rgba(255,255,255,0.75)';
+        c.fillText(name, x + r + 2, y + 3);
+      }
+      c.lineWidth = 1;
     }
 
     // --- markers ---
@@ -368,6 +453,25 @@ export function makeEditorCanvas({ canvas, history }) {
         if (name) { placeMarker(doc, history, { name, cx, cz }); editCount++; }
         break;
       }
+      case 'npc':
+        openAddNpcDialog({ cx, cz, onCreate: (npc) => { addNpc(doc, history, npc); editCount++; notify(); render(); } });
+        break;
+      case 'light':
+        openAddLightDialog({ cx, cz, onCreate: (light) => { addLight(doc, history, light); editCount++; notify(); render(); } });
+        break;
+      case 'wildslot':
+        addWildSlot(doc, history, { cx, cz });
+        editCount++;
+        break;
+      case 'loop': {
+        // A drag-to-reposition of an existing inline waypoint is intercepted earlier, in the
+        // raw `pointerdown` handler below, and never reaches this dispatch — a plain click
+        // here always appends a fresh anonymous waypoint at the clicked cell.
+        const via = doc.loop?.via ?? [];
+        setLoopVia(doc, history, { via: [...via, { cx, cz }] });
+        editCount++;
+        break;
+      }
       case 'object':
         if (selectedAsset) {
           const obj = placeObject(doc, history, { m: selectedAsset.name, cx, cz, layer: activeLayer, rot: brush.rot, tint: brush.tint });
@@ -394,6 +498,13 @@ export function makeEditorCanvas({ canvas, history }) {
     if (tool === 'pan' || e.button === 1) { drag = { pan: true, x: e.clientX, y: e.clientY, ox: view.ox, oy: view.oy }; return; }
     if (cx < 0 || cz < 0 || cx >= doc.w || cz >= doc.h) return;
     if (tool === 'rect' && selectedAsset) { drag = { rect: true, x0: cx, z0: cz }; return; }
+    if (tool === 'loop') {
+      const viaIndex = inlineViaNear(doc, cx, cz);
+      // Clicking on top of an existing inline waypoint starts a reposition drag instead of
+      // adding a new one — the drag stays visual-only (see `pointermove` below) until
+      // `pointerup` commits it as a single `setLoopVia` call, one undo step per drag.
+      if (viaIndex >= 0) { drag = { loopVia: true, index: viaIndex, cx, cz }; render(); return; }
+    }
     applyToolAt(cx, cz, 'down');
     if (tool === 'pencil' || tool === 'eraser' || tool === 'coll' || tool === 'height' || tool === 'tag') drag = { paint: true };
   });
@@ -407,6 +518,12 @@ export function makeEditorCanvas({ canvas, history }) {
       return;
     }
     const [cx, cz] = toCell(e.clientX - rect.left, e.clientY - rect.top);
+    if (drag?.loopVia) {
+      // Visual-only while live — the doc is untouched until `pointerup`, so dragging across
+      // the whole map is one undo step, matching the 3D gizmo drag pattern in `main.js`.
+      if (cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h) { drag.cx = cx; drag.cz = cz; render(); }
+      return;
+    }
     if (drag?.paint && cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h) applyToolAt(cx, cz, 'move');
     hoverCell = cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h ? { cx, cz } : null;
     notify();
@@ -418,6 +535,11 @@ export function makeEditorCanvas({ canvas, history }) {
       const [cx, cz] = toCell(e.clientX - rect.left, e.clientY - rect.top);
       paintRect(doc, history, { layer: activeLayer, x0: drag.x0, z0: drag.z0, x1: cx, z1: cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint });
       render();
+    } else if (drag?.loopVia) {
+      const via = doc.loop?.via ?? [];
+      const next = via.map((entry, i) => (i === drag.index ? { cx: drag.cx, cz: drag.cz } : entry));
+      setLoopVia(doc, history, { via: next });
+      notify(); render();
     }
     drag = null;
   });
@@ -478,6 +600,11 @@ export function makeEditorCanvas({ canvas, history }) {
     setSelection(patch) { Object.assign(selection, patch); render(); notify(); },
     getHover: () => hoverCell,
     stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
+    /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
+     *  3D-pane pick (`preview.js`'s `pickCell`) through the identical brush/fill/coll/height/
+     *  tag/spawn/marker/npc/light logic — including the `LOCKED_TOOLS` guard and the `notify()`/
+     *  `render()` calls at the end — with no second copy of this switch statement anywhere. */
+    applyToolAt: (cx, cz, kind) => applyToolAt(cx, cz, kind),
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   };
 }

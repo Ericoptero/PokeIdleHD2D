@@ -8,6 +8,15 @@
  *
  * This file is the seam: it registers each map with `terrain`, drives `environment`'s biome
  * preset, hands the party to `simulation`, and owns the camera framings a critic shoots.
+ *
+ * **Two kinds of hunt, one registry (P5).** `BIOMES` below is the four hand-authored places
+ * — a procedural build function plus hand-tuned presets/loop/formation. Any OTHER
+ * `kind:'hunt'` entry in `/maps/index.json` — a map created and saved in the Map Studio with
+ * no code behind it at all — is discovered at `init` and registered the same way, as a
+ * synthetic descriptor with no build function (see `manifestBiomes`, in `init`, below). Both
+ * kinds are entered, listed and audited through the exact same functions in this file; the
+ * only place they differ is which of the two has a `build` to fall back on when `?mapFiles=1`
+ * is off or the file 404s.
  */
 
 import { makePalette, isLive } from './palette.js';
@@ -39,8 +48,6 @@ export const BIOMES = [
   { ...CAVE, build: buildCave },
   { ...COAST, build: buildCoast },
 ];
-
-const byId = (id) => BIOMES.find((b) => b.id === id) ?? BIOMES[0];
 
 /**
  * How the party walks when nothing says otherwise: **east**, and only a few tiles in.
@@ -131,7 +138,7 @@ export default {
    */
   showcaseNeeds: ['tiles', 'simulation', 'pokemon'],
 
-  init(ctx) {
+  async init(ctx) {
     const { log, bus, config } = ctx;
     const terrain = ctx.get('terrain');
     /**
@@ -694,7 +701,103 @@ export default {
       });
     }
 
-    for (const biome of BIOMES) {
+    /**
+     * Camera presets for a biome, preferring what its last map-file build reported
+     * (`report.presets`, from `map.cameras.presets`) over the biome descriptor's own
+     * hand-authored `presets` object — the same "the authored map wins, the descriptor is the
+     * fallback" rule `authoredLoop`/`findLoop` already follow for the circuit itself. Falls
+     * back to the descriptor whenever this biome has never been built from a map file (the
+     * flag is off, the file 404s, or it has not been entered at all yet).
+     */
+    function presetsFor(biome) {
+      return built.get(biome.id)?.presets ?? biome.presets ?? {};
+    }
+
+    /** Same preference order as `presetsFor`, merged over `HUNT_FORMATION`'s own defaults. */
+    function formationFor(biome) {
+      return { ...HUNT_FORMATION, ...(built.get(biome.id)?.formation ?? biome.formation ?? {}) };
+    }
+
+    /**
+     * **Manifest-driven hunt maps (P5 item 2).** `BIOMES` above is four *hand-authored*
+     * descriptors — a procedural build function, hand-tuned `presets`/`loop.via`/
+     * `requiredLevel` — and until now it was also the only source of "what hunts exist":
+     * `terrain.register`, `hunts.list()` and therefore `travel.destinations()` all iterated
+     * it directly. That made "any map can be entered without a code change" false: a fifth
+     * map dropped into `public/maps/` with `kind:'hunt'` had nowhere to be registered.
+     *
+     * This reads `/maps/index.json` — the same manifest `studio/io.js`'s `listGameMaps`
+     * reads, and the same one `terrain.tryLoadMapFile` assumes exists for any map it is asked
+     * to load — for every `kind:'hunt'` entry that has NO matching `BIOMES` descriptor, and
+     * builds a **synthetic** descriptor for it: no `build` function (there is no code-build
+     * fallback for one of these — `mapFiles` must be on and the file must exist, which it
+     * does, since it is in the manifest), no hand-authored `presets`/`loop.via` (the map
+     * file's own `report` supplies those at build time, exactly like a Studio-edited shipped
+     * hunt already does — see `presetsFor`/`formationFor`, above). `w`/`h`/`tileset` are read
+     * off the map file itself (`terrain.tryLoadMapFile`, not just the manifest's summary row)
+     * because `MapDraft`'s dimensions have to match the file's `grid.*` runs exactly
+     * (`frommap.js`'s `stampGrids` throws on a mismatch) and its tileset has to match the
+     * file's own `layers[]` for `role:'draft'` placements to resolve against the right
+     * catalog (`mapfile.js`'s header) — the manifest's summary row alone (`{id,name,kind,w,h}`)
+     * is not authoritative enough for either.
+     *
+     * Gated on `ctx.config.mapFiles`: a map with no code-build fallback is only ever playable
+     * with the flag that makes `terrain.tryLoadMapFile` actually fetch anything, so
+     * registering one while the flag is off would publish a travel destination that always
+     * loads an empty map.
+     *
+     * A hunt map's own id already carries the `hunt-` prefix in the manifest (`hunt-forest`,
+     * …, and a new one is expected to follow the same convention — see the throwaway
+     * `hunt-test-arena` this phase's own verification adds and removes). Stripped here to a
+     * bare id so it lives in the exact same id space as `BIOMES`' own `.id` — `hunts.list()`,
+     * `built`, `byId` and `travel`'s `hunt-${b.id}` reconstruction never have to know which
+     * kind of entry they are looking at.
+     * @type {Map<string, object>}
+     */
+    const manifestBiomes = new Map();
+    if (config.mapFiles) {
+      try {
+        const res = await fetch('/maps/index.json');
+        if (res.ok) {
+          const list = await res.json();
+          for (const entry of Array.isArray(list) ? list : []) {
+            if (entry?.kind !== 'hunt') continue;
+            const bare = String(entry.id ?? '').replace(/^hunt-/, '');
+            if (!bare || BIOMES.some((b) => b.id === bare)) continue;
+            const mapFile = await terrain.tryLoadMapFile(entry.id);
+            if (!mapFile) {
+              log.warn(`hunts: manifest lists "${entry.id}" as a hunt map but its file could not be read — skipped`);
+              continue;
+            }
+            manifestBiomes.set(bare, {
+              id: bare,
+              name: mapFile.name ?? entry.name ?? bare,
+              tileset: mapFile.tileset ?? 'bw2-adastra',
+              w: Number(mapFile.w) || Number(entry.w) || 64,
+              h: Number(mapFile.h) || Number(entry.h) || 64,
+              requiredLevel: Number(mapFile.requiredLevel) || 0,
+              weather: Array.isArray(mapFile.weather) ? mapFile.weather : null,
+              // No hand-authored presets/loop/formation/tags to fall back on — every one of
+              // these is read from the map file's own `report` first anyway
+              // (`presetsFor`/`formationFor`, and the `encounters`/`tags` default below), so
+              // an empty object here only ever matters for a map whose author has not
+              // authored one of these yet, exactly like a brand-new Studio map today.
+              presets: {}, loop: null, formation: null, tags: [],
+              showcaseDefault: null,
+            });
+          }
+        }
+      } catch (err) {
+        log.warn(`hunts: could not read the map manifest — ${err?.message ?? err}`);
+      }
+    }
+
+    /** The biome/hunt descriptor for `id` — a hand-authored `BIOMES` entry, a synthetic
+     *  `manifestBiomes` one, or (for a truly unknown id) the first hand-authored one, the
+     *  same graceful fallback every other `byId(garbage)` call site already relied on. */
+    const byId = (id) => BIOMES.find((b) => b.id === id) ?? manifestBiomes.get(id) ?? BIOMES[0];
+
+    for (const biome of [...BIOMES, ...manifestBiomes.values()]) {
       terrain.register(`hunt-${biome.id}`, async (draft, c) => {
         const tiles = c.get('tiles');
         await tiles.load(draft.tileset);
@@ -707,9 +810,14 @@ export default {
         // either path leaves it, because the round trip (`tools/mapstudio/roundtrip.js`)
         // already proves a replayed draft is cell-for-cell identical to a built one.
         const mapFile = await terrain.tryLoadMapFile(`hunt-${biome.id}`);
+        // A manifest-only entry (`manifestBiomes`, above) has no `build` at all — it exists
+        // in this loop only because its file exists, so `mapFile` should never actually be
+        // null for one of these; the guard is what stops a transient fetch failure (the
+        // manifest said it exists, the individual file 404s at load time) from throwing
+        // `biome.build is not a function` instead of degrading to an empty draft.
         const report = mapFile
           ? await terrain.applyMapFile(draft, c, mapFile)
-          : (biome.build(draft, c, palette, rng, log) ?? {});
+          : (typeof biome.build === 'function' ? (biome.build(draft, c, palette, rng, log) ?? {}) : {});
 
         // The circuit and its slots are computed HERE, against the finished draft, because
         // this is the only place that has one. `showcaseDefault`'s marker is the biome's own
@@ -723,20 +831,50 @@ export default {
           .sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0))
           .map(([, m]) => m);
         anchors.push(draft.spawn);
-        // Authored first, found as the fallback — see the `LOOP` header comment above.
-        const loop = authoredLoop(draft, biome, c) ?? findLoop(draft, anchors, {
-          ...loopOptions(biome, c.config),
-          // Seeded off the biome and the map seed, so the bends are a property of the world
-          // rather than of when the page happened to load.
-          rng: c.rng.fork(`hunts/loop/${biome.id}/${draft.seed}`),
-        });
-        // `stitchLoop` always stamps `source: 'authored'`; `findLoop` knows nothing about
-        // provenance at all, so a loop that comes back without one was found, not authored.
-        if (loop && loop.source == null) loop.source = 'found';
-        const slots = loop
-          ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
-            { count: SLOTS })
-          : [];
+
+        /**
+         * **A map file that has already been stitched carries its own answer, and it wins.**
+         *
+         * `report.loop`/`report.wild` are `map.loop`/`map.wild` verbatim (`frommap.js`) —
+         * `{ via, resolved }`, where `resolved` is exactly the shape `stitchLoop`/`findLoop`
+         * and `slotsForLoop` already produce (`start, route, cells, corners, w, h, source` and
+         * a `slots` list), because the Studio wrote it by running those same functions once
+         * and freezing the answer. Recomputing them here anyway is what silently discarded
+         * every Studio edit to the loop or the wild slots: a waypoint dragged, a slot moved, a
+         * route re-stitched in the Studio round-tripped through `applyMapFile` perfectly and
+         * then got thrown away the instant this code ran `findLoop`/`slotsForLoop` again over
+         * the replayed draft, landing back on whatever the fallback search happened to grow.
+         *
+         * So a resolved loop/wild is trusted VERBATIM instead of shape-translated, and
+         * `authoredLoop`/`findLoop`/`slotsForLoop` run only for the two cases with no resolved
+         * answer to trust: no map file at all, or a freshly authored Studio map whose loop has
+         * not been stitched yet (`resolved` absent). Loop and wild are gated on the SAME
+         * condition — trusting one without the other would pair slots computed off one circuit
+         * with a route drawn from a different one.
+         */
+        const resolvedLoop = report.loop?.resolved;
+        const resolvedSlots = report.wild?.resolved?.slots;
+        let loop;
+        let slots;
+        if (resolvedLoop?.cells?.length && resolvedSlots) {
+          loop = resolvedLoop;
+          slots = resolvedSlots;
+        } else {
+          // Authored first, found as the fallback — see the `LOOP` header comment above.
+          loop = authoredLoop(draft, biome, c) ?? findLoop(draft, anchors, {
+            ...loopOptions(biome, c.config),
+            // Seeded off the biome and the map seed, so the bends are a property of the world
+            // rather than of when the page happened to load.
+            rng: c.rng.fork(`hunts/loop/${biome.id}/${draft.seed}`),
+          });
+          // `stitchLoop` always stamps `source: 'authored'`; `findLoop` knows nothing about
+          // provenance at all, so a loop that comes back without one was found, not authored.
+          if (loop && loop.source == null) loop.source = 'found';
+          slots = loop
+            ? slotsForLoop(draft, loop.cells, c.rng.fork(`hunts/slots/${biome.id}/${draft.seed}`),
+              { count: SLOTS })
+            : [];
+        }
         if (!loop) {
           log.warn(`hunts/${biome.id}: no closed circuit fits this map between `
             + `${LOOP.min} and ${LOOP.max} cells — the party will stand still`);
@@ -745,6 +883,18 @@ export default {
         // both share (points 4/5) — built once, here, rather than scanned per tile.
         const onLoopSet = loop ? new Set(loop.cells.map((cell) => `${cell.cx},${cell.cz}`)) : null;
         built.set(biome.id, { ...report, loop, slots, missing: palette.missing(), onLoopSet });
+        // **`terrain.handle()`'s `encounterTable`/`tags` (P5) are sourced from whatever this
+        // closure returns**, not from `draft.biome` — this used to return nothing at all
+        // (`terrain.report()` was always `null` for a hunt), which was harmless while nothing
+        // read it. Defaulting `encounters.table` to this biome's own id and `tags` to its
+        // descriptor's own (`src/hunts/biomes/cave.js`'s `tags:['cave']`, etc.) keeps every
+        // shipped hunt's wildlife/loot/yield exactly what it was before this phase for the
+        // proc-gen path, and lets a Studio-authored file override either explicitly.
+        return {
+          ...report,
+          encounters: report.encounters ?? { table: biome.id },
+          tags: report.tags?.length ? report.tags : (biome.tags ?? []),
+        };
       });
     }
 
@@ -881,11 +1031,19 @@ export default {
     }
 
     const api = {
-      /** The biome menu the UI and the showcase both read. */
-      list: () => BIOMES.map((b) => ({
+      /**
+       * The biome/hunt menu `ui`, `travel.destinations()` and the showcase all read.
+       *
+       * Includes `manifestBiomes` alongside the four hand-authored `BIOMES` (P5 item 2) —
+       * `travel` enumerates maps through this one call, never `BIOMES` directly, so a
+       * manifest-only hunt becomes a real destination (`travel.destinations()` builds
+       * `hunt-${b.id}` from each entry's own `id`) the moment it is registered above, with no
+       * change needed in `travel/index.js` itself.
+       */
+      list: () => [...BIOMES, ...manifestBiomes.values()].map((b) => ({
         id: b.id, name: b.name, preset: b.preset, tileset: b.tileset,
-        w: b.w, h: b.h, presets: Object.keys(b.presets ?? {}),
-        formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
+        w: b.w, h: b.h, presets: Object.keys(presetsFor(b)),
+        formation: formationFor(b),
         requiredLevel: b.requiredLevel ?? 0,
         // Only known once the map has been built — a biome that has never been entered
         // reports null rather than a guess.
@@ -911,7 +1069,7 @@ export default {
         return {
           id: b.id, name: b.name, preset: b.preset, tileset: b.tileset, w: b.w, h: b.h,
           requiredLevel: b.requiredLevel ?? 0,
-          formation: { ...HUNT_FORMATION, ...(b.formation ?? {}) },
+          formation: formationFor(b),
         };
       },
 
@@ -978,25 +1136,42 @@ export default {
           const loop = built.get(biome.id)?.loop ?? null;
 
           /**
-           * **The route belongs to the HEAD, and `placePlayer` places the TRAINER.**
+           * **The route belongs to the HEAD, and `placePlayer` places the TRAINER — on the
+           * AUTHORED spawn cell, never on `loop.start`.**
            *
            * `placePlayer(cx, cz, dir)` stands the trainer on that cell and lays the lead
            * Pokemon `gap` cells ahead of it — and in a hunt the Pokemon is the head (src/simulation/index.js), so
-           * teleporting to `loop.start` puts the walker that follows the route two cells PAST
-           * the corner, off the circuit entirely. It then walked the first leg from the wrong
-           * place, ran into the rectangle's own side and stalled: measured as 22 of a 58-cell
-           * loop covered in 84 tiles of walking, with `audit` reporting the loop clean the
-           * whole time, because the loop WAS clean — nobody was standing on it.
+           * the trainer's cell has to be an actual index into `loop.cells`, with the route
+           * rotated so that cell's own next step is the one handed to `setFormation` — see the
+           * measured 22-of-58 stall this rotation exists to avoid, in `routeFrom`'s own doc.
            *
-           * So the trainer starts on `cells[0]`, which puts the head on `cells[gap]`, and the
-           * route is rotated by `gap` so its first step is the one that cell is due to take.
-           * `parseRoute` accepts an array, so the rotation needs no new syntax.
+           * What changed is WHICH index that is. It used to always be `0` — `loop.start`,
+           * wherever `rotateToStraight` (`compose.js`) happened to open the ring, an
+           * implementation detail of how the loop was stitched — with `spawn` (`draft.spawn`,
+           * what the Map Studio's spawn tool actually writes) demoted to a fallback for when
+           * there is no loop at all. So moving the spawn point in the Studio had **no effect**
+           * on a hunt map: the party always landed on the ring's own opening instead. The
+           * trainer now always lands on `spawn`, and the route is rotated from whichever loop
+           * cell `spawn` actually is (or, if it sits off the ring entirely — a spawn inside a
+           * building near the circuit is legitimate — the nearest one by Chebyshev distance,
+           * the same nearest-cell rule `stageOnLoop` above already uses for a preset marker).
            */
           const gap = typeof sim.gap === 'function' ? Math.max(0, sim.gap()) : 2;
-          const { dirs, rotated } = loop ? routeFrom(loop, 0, gap) : { dirs: [], rotated: [] };
+          let spawnIndex = 0;
+          if (loop?.cells?.length) {
+            spawnIndex = loop.cells.findIndex((cell) => cell.cx === spawn.cx && cell.cz === spawn.cz);
+            if (spawnIndex < 0) {
+              let bestD = Infinity;
+              loop.cells.forEach((cell, i) => {
+                const d = Math.max(Math.abs(cell.cx - spawn.cx), Math.abs(cell.cz - spawn.cz));
+                if (d < bestD) { bestD = d; spawnIndex = i; }
+              });
+            }
+          }
+          const { dirs, rotated } = loop ? routeFrom(loop, spawnIndex, gap) : { dirs: [], rotated: [] };
 
           sim.setFormation?.({
-            ...HUNT_FORMATION, ...(biome.formation ?? {}),
+            ...formationFor(biome),
             // No circuit means no route, and `setFormation` falls back to standing still
             // rather than to a wander — a hunt that cannot walk its loop should look broken,
             // not look like a different game.
@@ -1004,8 +1179,7 @@ export default {
             route: loop ? rotated : null,
             label: `simulation/wander/hunt-${biome.id}`,
           });
-          const at = loop?.start ?? spawn;
-          sim.teleport(at.cx, at.cz, loop ? dirs[0] : (spawn.dir ?? 2));
+          sim.teleport(spawn.cx, spawn.cz, loop ? dirs[spawnIndex] : (spawn.dir ?? 2));
         } else {
           ctx.three.rig?.setFocus?.(spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz), spawn.cz + 0.5, true);
         }
@@ -1057,7 +1231,7 @@ export default {
           }
           return true;
         }
-        const spec = (biome.presets ?? {})[name];
+        const spec = presetsFor(biome)[name];
         if (!spec) return false;
         return stage(spec.marker ?? name, spec);
       },
@@ -1100,7 +1274,7 @@ export default {
         const fails = [];
         if (!draft) return { ok: false, checked: 0, fails: [{ preset: '*', why: 'no map loaded' }] };
         let checked = 0;
-        for (const [name, spec] of Object.entries(biome.presets ?? {})) {
+        for (const [name, spec] of Object.entries(presetsFor(biome))) {
           const m = draft.marker(spec.marker ?? name);
           if (!m) { fails.push({ preset: name, why: `no marker "${spec.marker ?? name}"` }); continue; }
           checked++;

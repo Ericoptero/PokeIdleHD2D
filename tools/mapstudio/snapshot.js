@@ -14,6 +14,7 @@ import puppeteer from 'puppeteer-core';
 import { CHROME, assertChrome, chromeArgs } from '../shots/chrome.js';
 import { ensureServer } from '../shots/serve.js';
 import { serializeMapFile } from '../../src/terrain/mapfile.js';
+import { rebuildMapsIndex } from './index.js';
 
 function parseArgs(argv) {
   const a = { out: 'public/maps', only: null, base: 'http://127.0.0.1:5173', timeout: 30000 };
@@ -77,13 +78,9 @@ export async function snapshotAll(opts = {}) {
     stopServer();
   }
 
-  // A small index the Studio's "Abrir" panel fetches to list what the game ships
-  // (`studio/io.js` `listGameMaps`) — written alongside the maps it describes, never by hand.
-  if (!only) {
-    const indexPath = resolve(outDir, 'index.json');
-    const index = results.map((r) => ({ id: r.map.id, name: r.map.name, kind: r.map.kind, w: r.map.w, h: r.map.h }));
-    writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`, 'utf8');
-  }
+  // A directory-scan rebuild (`./index.js`) rather than one built only from `results` — a
+  // `--only` run still leaves every other shipped map's entry in `index.json` correct.
+  rebuildMapsIndex(outDir);
   return results;
 }
 

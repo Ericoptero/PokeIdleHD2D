@@ -27,6 +27,9 @@ export const CAVE = {
   name: 'Hollow Deep',
   preset: 'cave',
   tileset: 'bw2-cave',
+  /** The category `economy/items.js`'s Dusk Ball checks (P5) — a tag, not an identity
+   *  string, so any map that is a cave gets the bonus, not only the one named "cave". */
+  tags: ['cave'],
   w: 56,
   h: 54,
   /**

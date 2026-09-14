@@ -89,9 +89,16 @@ export const SHINY_RATE = 1 / 4096;
 export const SHINY_RATE_CHARM = 1 / 1365;
 
 /**
- * Biome profiles. A biome is a *choice*: the city pays well and spawns almost nothing,
- * caves are rare-hunting grounds, forests train fastest. `hunts` and `city` set the biome
- * through `terrain`, and this table is what makes the choice matter.
+ * Yield profiles. A destination is a *choice*: the city pays well and spawns almost nothing,
+ * caves are rare-hunting grounds, forests train fastest.
+ *
+ * Keyed by the same id `encounter/tables.js`'s `TABLES` uses (P5: `src/idle/index.js` reads
+ * it off `terrain.handle().encounterTable`, the loaded map's own gameplay-profile id, rather
+ * than a fixed enum) — a map's wildlife and its yield profile are not allowed to disagree
+ * about which place it is, so there is exactly one id and not two. Kept as `BIOMES` rather
+ * than renamed: the *shape* is unchanged (a small catalog of named profiles with a
+ * documented default for an id that is not in it, `DEFAULT_BIOME` below) — only where the
+ * id now comes from moved.
  */
 export const BIOMES = {
   city:   { label: 'City',   money: 1.55, exp: 0.55, research: 0.80, encounters: 0.35, favours: { normal: 1.20, electric: 1.30, steel: 1.12, psychic: 1.15 } },

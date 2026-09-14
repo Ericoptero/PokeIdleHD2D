@@ -23,6 +23,13 @@ export function runValidation(doc, { force = false } = {}) {
   if (!force && cache && cache.doc === doc && cache.rev === rev) return cache.result;
   const t0 = performance.now();
   const result = validateMap(serializeDocument(doc), validationEnv());
+  // `marker-missing` (`@/terrain/validate.js`) predates the inline `{cx,cz}` `loop.via`
+  // waypoints the `loop` tool now authors (P4 item 7) and assumes every `via` entry is a
+  // marker-name string; an inline entry trips it as a false "missing marker" (`at.marker`
+  // ends up an object, not a name). Filtered here rather than in the engine check itself —
+  // that file is a separate runtime workstream's concern — since an inline waypoint is valid,
+  // intentional data, not a broken reference.
+  result.errors = result.errors.filter((i) => !(i.code === 'marker-missing' && typeof i.at?.marker === 'object'));
   result.ms = performance.now() - t0;
   cache = { rev, doc, result };
   return result;

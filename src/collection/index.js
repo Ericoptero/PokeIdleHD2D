@@ -13,7 +13,7 @@
  * ### Four seams worth understanding
  *
  * **A catch arrives as two events, and often as only one.** `encounter:started` carries the
- * level, the biome and the shiny flag; `catch:succeeded` carries only
+ * level, the map id and the shiny flag; `catch:succeeded` carries only
  * `{ instanceId, species, shiny }` (src/core/bus.js). So the last started encounter is
  * remembered and consumed by a matching catch — but a bare `catch:succeeded` with no
  * encounter before it is normal traffic, not an error: `economy`'s showcase emits six of
@@ -48,7 +48,16 @@ import { sortEntries, groupBySpecies, planDuplicateRelease, SORT_MODES, SORT_IDS
 import { reportSelfTest } from '../core/log.js';
 
 /** Save slice version. Bumped when the shape changes; `loadState` migrates forward. */
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
+/**
+ * v1 -> v2 (P5 item 9): the origin column stored the encounter-table id (`'forest'`, one of
+ * a fixed 5-entry enum) — this maps the four hunt ids to their map id, a strict superset of
+ * the same information (it also survives a future map sharing a table another map already
+ * uses). `'city'` has no hunt map to point at, so it becomes `null` rather than a guess; any
+ * other value (already a map id from a v2+ save, or something this table has never heard of)
+ * passes through untouched rather than being overwritten with a worse answer.
+ */
+const V1_BIOME_TO_MAP_ID = { meadow: 'hunt-meadow', forest: 'hunt-forest', cave: 'hunt-cave', coast: 'hunt-coast', city: null };
 /** Level used when a catch arrives with no encounter to pair it with. */
 const FALLBACK_LEVEL = 5;
 
@@ -132,7 +141,9 @@ export default {
         ivTotal: total,
         ordinal: ord,
         simTime: Number.isFinite(spec.simTime) ? spec.simTime : now(),
-        biome: spec.biome ?? null,
+        // P5 item 9: the map this was met on, not its encounter-table id — a strict
+        // superset (it also says WHICH map, should two ever share a table).
+        mapId: spec.mapId ?? null,
         ball: spec.ball ?? null,
         origin: spec.origin ?? 'wild',
         nickname: spec.nickname ?? null,
@@ -249,7 +260,9 @@ export default {
         const key = String(p?.species ?? '').toLowerCase();
         if (!key) return;
         dex.see(key, { shiny: !!p?.shiny, ordinal: ordinal++, simTime: now() });
-        pending = { species: key, level: Number(p?.level) || FALLBACK_LEVEL, shiny: !!p?.shiny, biome: p?.biome ?? null };
+        // P5 item 9: `p.mapId`, not `p.biome` — `encounter/index.js`'s `encounter:started`
+        // now carries both; this module stores provenance by map, not by table id.
+        pending = { species: key, level: Number(p?.level) || FALLBACK_LEVEL, shiny: !!p?.shiny, mapId: p?.mapId ?? null };
       }),
 
       bus.on('catch:succeeded', (p) => {
@@ -264,7 +277,7 @@ export default {
           instanceId: p?.instanceId ?? null,
           shiny: p?.shiny ?? enc?.shiny ?? false,
           level: enc?.level ?? FALLBACK_LEVEL,
-          biome: enc?.biome ?? null,
+          mapId: enc?.mapId ?? null,
           ivs: p?.ivs ?? p?.instance?.ivs ?? null,
           ball: p?.ball ?? null,
           origin: 'wild',
@@ -555,7 +568,10 @@ export default {
           stored: boxes.all().map((e) => [
             e.uid, e.instanceId, e.species, e.level, e.shiny ? 1 : 0,
             IV_KEYS.map((k) => e.ivs[k]), e.ordinal, +e.simTime.toFixed(2),
-            e.box, e.slot, e.biome, e.ball, e.origin, e.nickname, e.favourite ? 1 : 0,
+            // Column 10 is `mapId` since v2 (P5 item 9) — the same position a v1 file used
+            // for the encounter-table id; `loadState`'s own migration is what tells the two
+            // apart, by `value.v`.
+            e.box, e.slot, e.mapId, e.ball, e.origin, e.nickname, e.favourite ? 1 : 0,
           ]),
         };
       },
@@ -581,14 +597,23 @@ export default {
           ordinal = Number(value.ordinal) || 0;
           overflow = Number(value.overflow) || 0;
 
+          // v1 -> v2 (P5 item 9): column 10 held an encounter-table id (`'forest'`, …); a
+          // save at v1 or below gets it translated to a map id here, once, on the way in —
+          // see `V1_BIOME_TO_MAP_ID`'s own doc. A value the table has never heard of passes
+          // through unchanged rather than being overwritten with a worse guess (a save
+          // already at v2+, or a hand-edited one).
+          const migrateOrigin = Number(value.v) < 2
+            ? (raw) => (raw in V1_BIOME_TO_MAP_ID ? V1_BIOME_TO_MAP_ID[raw] : (raw ?? null))
+            : (raw) => raw ?? null;
+
           for (const row of value.stored ?? []) {
             if (!Array.isArray(row)) continue;
-            const [uid, instanceId, species, level, shiny, ivArr, ord, simTime, box, slot, biome, ball, origin, nickname, favourite] = row;
+            const [uid, instanceId, species, level, shiny, ivArr, ord, simTime, box, slot, originRaw, ball, origin, nickname, favourite] = row;
             const ivs = {};
             IV_KEYS.forEach((k, i) => { ivs[k] = ivArr?.[i] ?? 0; });
             const entry = makeEntry({
               uid, instanceId, species, level, shiny: !!shiny, ivs, ordinal: ord,
-              simTime, biome, ball, origin: origin ?? 'restore', nickname, favourite: !!favourite,
+              simTime, mapId: migrateOrigin(originRaw), ball, origin: origin ?? 'restore', nickname, favourite: !!favourite,
             });
             if (!boxes.place(entry, box, slot)) boxes.deposit(entry);
             if (entry.ordinal >= ordinal) ordinal = entry.ordinal + 1;

@@ -1,7 +1,7 @@
 /**
  * tables.js — what lives where, and when.
  *
- * Five biomes (the same five `idle/accrual.js` prices and `hunts` will build), each split
+ * Five built-in tables (`TABLE_IDS`, the same ids `idle/accrual.js` prices), each split
  * into morning / day / night the way the mainline splits a route's grass. A row is
  *
  *     { n: species name, w: relative weight, r: mainline capture rate, when: band, bump: levels }
@@ -33,7 +33,23 @@
  * for the handful of rows that should out-class the route.
  */
 
-/** The biomes `idle/accrual.js` prices, so a table exists for every biome the game sells. */
+/**
+ * The built-in table ids — the same ids `idle/accrual.js`'s yield profiles and
+ * `economy/drops.js`'s loot ladders are keyed by, so a hunt's wildlife, its pay and its loot
+ * never disagree about which place it is.
+ *
+ * **Enumerating this used to be how a caller decided whether an id was legal at all**
+ * (`encounter/index.js`'s old `BIOMES.includes(biome) ? biome : 'meadow'`). Since P5, a
+ * map's table id is a property the map itself declares (`terrain.handle().encounterTable`,
+ * sourced from `encounters.table` in a `.map.json`) and is no longer restricted to
+ * membership in this list — `rowsFor`'s own `TABLES[id] ?? TABLES.meadow` fallback, below,
+ * is what actually decides "known or not" now. Kept as `BIOMES` (not renamed — `studio/
+ * inspector.js` imports it by this name for its own "Tabela de encontro" dropdown) as
+ * exactly that: the catalog of tables this file ships out of the box, for anything that
+ * wants to list or validate them (this file's own `validate()`, the showcase, the studio's
+ * picker) — a brand-new map is free to declare a `table` id that is not in this list at all
+ * and simply inherit `TABLES.meadow` until someone authors it one.
+ */
 export const BIOMES = ['city', 'meadow', 'forest', 'cave', 'coast'];
 
 /**
@@ -60,10 +76,12 @@ export const TABLES = {
    * so nothing can read them: the city is a lobby now — a Center, a Mart, a plaza — and the
    * hunt is the only place a wild Pokemon exists.
    *
-   * Emptied and not deleted, because `tableFor` falls back to **meadow** for a biome that is
-   * not in `BIOMES` (`encounter/index.js`). Dropping `'city'` from the list would therefore
-   * have the lobby quietly spawning the meadow's wildlife through `idle` rather than none at
-   * all — a silent wrong answer in place of a loud empty one.
+   * Emptied and not deleted, because `rowsFor` falls back to **meadow** for any table id it
+   * does not recognise (`TABLES[id] ?? TABLES.meadow`, below). Dropping the `city` entry —
+   * or its explicit `encounters.table:'city'` on `demo-city.map.json`/`pokecenter.map.json`
+   * (P5: `terrain.handle().encounterTable`) — would therefore have the lobby quietly
+   * spawning the meadow's wildlife through `idle` rather than none at all — a silent wrong
+   * answer in place of a loud empty one.
    */
   city: [],
 

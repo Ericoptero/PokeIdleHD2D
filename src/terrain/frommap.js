@@ -123,7 +123,7 @@ function stampGrids(draft, grid) {
  * @param {object} map a parsed map file (`./mapfile.js` `parseMapFile`)
  * @returns {Promise<{extras:{tileset:string,placements:object[]}[], lights:object[],
  *   loop:object|null, wild:object|null, formation:object|null, presets:object,
- *   npcs:object[], links:object[], encounters:object|null, unresolved:object[]}>}
+ *   npcs:object[], links:object[], encounters:object|null, tags:string[], unresolved:object[]}>}
  *   a superset of the report `src/hunts/index.js` stores in `built` per biome — the caller
  *   builds `extras` into additional `InstancedWorld`s and wires the rest into the scene.
  */
@@ -176,6 +176,9 @@ export async function applyMapFile(draft, ctx, map) {
     npcs: map.npcs ?? [],
     links: map.links ?? [],
     encounters: map.encounters ?? null,
+    // See `./mapfile.js`'s own doc — an optional category list, `[]` when the file predates
+    // the field or simply has nothing to declare (every one of the six shipped maps today).
+    tags: map.tags ?? [],
     unresolved,
   };
 }

@@ -11,13 +11,26 @@ import { loadCatalog, colorFor, listTilesets, textureUrlFor } from './catalog.js
 import { COLLISION_DOT } from './kinds.js';
 
 const RECENTS_MAX = 5;
+const FAVORITES_KEY = 'pokeidle-studio-favorites';
 
-export function makeLibraryPanel({ root, editorCanvas, docRef, onCatalogLoaded }) {
+/** localStorage is per-viewer and can throw (private window, cleared/blocked site data) —
+ *  favorites degrade to session-only rather than break the panel when it does. */
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+function saveFavorites(favorites) {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); } catch { /* ignore */ }
+}
+
+export function makeLibraryPanel({ root, editorCanvas, docRef, toolRail, onCatalogLoaded }) {
   let catalog = null;
   let query = '';
   let assetTab = 'tiles'; // 'tiles' | 'autotiles'
   const filters = { category: '', tag: '', biome: '', collision: '' };
-  const favorites = new Set();
+  const favorites = loadFavorites();
   const recents = [];
   let allTilesets = [];
 
@@ -97,9 +110,10 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, onCatalogLoaded }
         top, side,
         (m.w ?? 1) * (m.h ?? 1) > 1 ? h('span', { class: 'ms-asset-badge' }, `${m.w ?? 1}×${m.h ?? 1}`) : null,
         h('span', { class: 'ms-asset-dot', style: { background: dotFor(m.collision) } }),
-        h('span', { class: `ms-asset-fav${isFav ? ' ms-asset-fav--on' : ''}`, onClick: (e) => {
+        h('span', { class: `ms-asset-fav${isFav ? ' ms-asset-fav--on' : ''}`, title: isFav ? 'Remover dos favoritos' : 'Favoritar', onClick: (e) => {
           e.stopPropagation();
           if (isFav) favorites.delete(m.name); else favorites.add(m.name);
+          saveFavorites(favorites);
           renderGrid();
         } }, [icon('star', { size: 11 })]),
       ].filter(Boolean)),
@@ -140,7 +154,22 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, onCatalogLoaded }
       return m.name.toLowerCase().includes(query) || (m.tags ?? []).some((t) => t.includes(query))
         || (m.category ?? '').includes(query) || (m.subcategory ?? '').includes(query);
     });
-    if (autotileNames) models = models.filter((m) => !autotileNames.has(m.autotile?.set) || autotileNames.add(m.autotile.set));
+    // One card per autotile SET, not per individual edge/corner variant — `||` short-circuits
+    // before `.add()` runs once `.has()` is already false, which used to skip populating the
+    // set entirely and left every variant visible; this filters procedurally instead.
+    if (autotileNames) {
+      models = models.filter((m) => {
+        const set = m.autotile?.set;
+        if (autotileNames.has(set)) return false;
+        autotileNames.add(set);
+        return true;
+      });
+    }
+    // A stable sort: favorites float to the top of whatever category/search order already applied.
+    models = models.map((m, i) => ({ m, i })).sort((a, b) => {
+      const fav = (favorites.has(b.m.name) ? 1 : 0) - (favorites.has(a.m.name) ? 1 : 0);
+      return fav || a.i - b.i;
+    }).map(({ m }) => m);
     const selectedAsset = editorCanvas.getSelectedAsset();
     catLabel.textContent = query ? `${models.length} resultados` : `${models.length} tiles`;
     for (const m of models.slice(0, 400)) {
@@ -173,7 +202,7 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, onCatalogLoaded }
         h('div', { class: 'ms-detail-id' }, `${m.category ?? '?'} · ${m.w ?? 1}×${m.h ?? 1} · ${m.collision ?? 'block'}`),
       ]),
       h('div', { class: 'ms-detail-actions' }, [
-        h('button', { class: 'ms-iconbtn', title: 'Usar como pincel', onClick: () => { editorCanvas.setTool('pencil'); select(m); } }, [icon('pencil', { size: 14 })]),
+        h('button', { class: 'ms-iconbtn', title: 'Usar como pincel', onClick: () => { toolRail?.setTool('pencil'); select(m); } }, [icon('pencil', { size: 14 })]),
         h('button', { class: 'ms-iconbtn', title: 'Focar a primeira ocorrência no mapa', onClick: () => focusFirst(m) }, [icon('crosshair', { size: 14 })]),
       ]),
     ]));

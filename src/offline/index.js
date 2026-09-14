@@ -142,7 +142,9 @@ export default {
     function idleState() {
       const idle = ctx.get('idle');
       const live = isLive(idle) && typeof idle.state === 'function' ? idle.state() : null;
-      const biome = live?.biome ?? ctx.get('terrain').handle?.()?.biome ?? 'meadow';
+      // P5: `terrain.handle().encounterTable` — the loaded map's own gameplay-profile id —
+      // replaces the old fixed-enum `.biome`.
+      const biome = live?.biome ?? ctx.get('terrain').handle?.()?.encounterTable ?? 'meadow';
       const base = live ?? {
         party: ctx.get('pokemon').party?.() ?? [],
         biome,
