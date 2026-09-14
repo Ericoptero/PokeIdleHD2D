@@ -90,11 +90,11 @@ export default defineConfig({
   build: {
     target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1500,
     // Three pages, one build: the game (`index.html`), the admin Map Studio (`studio.html`,
-    // a separate site sharing the game's tile/terrain code and its `#ui-dom` theme — see
-    // `studio/README.md`), and the Studio's headless snapshot-export target
-    // (`studio/snapshot.html`, driven by `tools/mapstudio/snapshot.js`, never linked from
-    // either UI). Listing `rollupOptions.input` REPLACES Vite's implicit single-entry
-    // default, so `index.html` has to be named here too or the game drops out of `dist/`.
+    // a separate site sharing the game's tile/terrain code and its `#ui-dom` theme), and the
+    // Studio's headless round-trip target (`studio/snapshot.html`, driven by
+    // `tools/mapstudio/roundtrip.js`, never linked from either UI). Listing
+    // `rollupOptions.input` REPLACES Vite's implicit single-entry default, so `index.html` has
+    // to be named here too or the game drops out of `dist/`.
     rollupOptions: {
       input: {
         main: resolve(ROOT, 'index.html'),

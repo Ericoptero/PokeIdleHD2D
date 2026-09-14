@@ -25,7 +25,7 @@ function saveFavorites(favorites) {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); } catch { /* ignore */ }
 }
 
-export function makeLibraryPanel({ root, editorCanvas, docRef, toolRail, onCatalogLoaded }) {
+export function makeLibraryPanel({ root, session, docRef, toolRail, onCatalogLoaded }) {
   let catalog = null;
   let query = '';
   let assetTab = 'tiles'; // 'tiles' | 'autotiles'
@@ -124,7 +124,7 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, toolRail, onCatal
   }
 
   function select(m) {
-    editorCanvas.setSelectedAsset({ name: m.name, tileset: catalog.tileset, w: m.w ?? 1, h: m.h ?? 1, collision: m.collision });
+    session.setSelectedAsset({ name: m.name, tileset: catalog.tileset, w: m.w ?? 1, h: m.h ?? 1, collision: m.collision });
     touchRecent(m.name);
     renderGrid();
     renderRecents();
@@ -170,7 +170,7 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, toolRail, onCatal
       const fav = (favorites.has(b.m.name) ? 1 : 0) - (favorites.has(a.m.name) ? 1 : 0);
       return fav || a.i - b.i;
     }).map(({ m }) => m);
-    const selectedAsset = editorCanvas.getSelectedAsset();
+    const selectedAsset = session.getSelectedAsset();
     catLabel.textContent = query ? `${models.length} resultados` : `${models.length} tiles`;
     for (const m of models.slice(0, 400)) {
       const card = assetCard(m);
@@ -229,11 +229,11 @@ export function makeLibraryPanel({ root, editorCanvas, docRef, toolRail, onCatal
     if (!doc) return;
     for (const [, grid_] of doc.tileLayers) {
       for (const [key, cell] of grid_) {
-        if (cell.m === m.name) { const [cx, cz] = key.split(',').map(Number); editorCanvas.setSelection({ cell: { cx, cz } }); return; }
+        if (cell.m === m.name) { const [cx, cz] = key.split(',').map(Number); session.setSelection({ cell: { cx, cz } }); return; }
       }
     }
     const obj = doc.objects.find((o) => o.m === m.name);
-    if (obj) editorCanvas.setSelection({ cell: { cx: obj.cx, cz: obj.cz }, objectId: obj.id });
+    if (obj) session.setSelection({ cell: { cx: obj.cx, cz: obj.cz }, objectId: obj.id });
   }
 
   async function init(defaultTileset) {

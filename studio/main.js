@@ -11,6 +11,7 @@ import studioCss from './css/studio.css?inline';
 
 import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
 import { makeEditorCanvas } from './canvas.js';
+import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makePreview } from './preview.js';
 import { setSpawn, placeMarker, updateLight, moveNpc, updateSpawnPoint } from './tools.js';
@@ -62,25 +63,26 @@ const centerEl = h('div', { class: 'ms-center' }, [overlayStripEl, brushBarEl, w
 const bodyEl = h('div', { class: 'ms-body' }, [libraryEl, railEl, centerEl, inspectorEl]);
 root.appendChild(h('div', { class: 'ms-app' }, [toolbarEl, bodyEl, statusEl]));
 
-const editorCanvas = makeEditorCanvas({ canvas: canvasEl, history });
+const session = makeSession({ history });
+const editorCanvas = makeEditorCanvas({ canvas: canvasEl, history, session });
 
-const toolRail = makeToolRail({ root: railEl, editorCanvas });
+const toolRail = makeToolRail({ root: railEl, session });
 const library = makeLibraryPanel({
-  root: libraryEl, editorCanvas, docRef, toolRail,
+  root: libraryEl, session, docRef, toolRail,
   onCatalogLoaded: (slug) => { loadTextureBitmaps(slug, { onProgress: () => editorCanvas.render() }); bottom.rebuild(); },
 });
-makeAssetBrushBar({ root: brushBarEl, editorCanvas });
+makeAssetBrushBar({ root: brushBarEl, session });
 
-// --- overlay strip: the toggles `editorCanvas` already implements but nothing called ------
+// --- overlay strip: the toggles `session` already implements but nothing called -----------
 const INLINE_OVERLAY_COUNT = 7;
 function buildOverlayStrip() {
   overlayStripEl.innerHTML = '';
   overlayStripEl.appendChild(icon('eye', { size: 15 }));
-  const state = editorCanvas.overlays();
+  const state = session.overlays();
   const chip = ([id, label, _iconName, dot]) => h('button', {
     class: `ms-ovl-chip${state[id] ? ' ms-ovl-chip--on' : ''}`,
     title: label,
-    onClick: () => { editorCanvas.toggleOverlay(id); buildOverlayStrip(); },
+    onClick: () => { session.toggleOverlay(id); buildOverlayStrip(); },
   }, [h('span', { class: 'ms-ovl-dot', style: { background: state[id] ? dot : 'rgba(255,255,255,0.18)' } }), h('span', {}, label)]);
   OVERLAYS.slice(0, INLINE_OVERLAY_COUNT).forEach((o) => overlayStripEl.appendChild(chip(o)));
   const rest = OVERLAYS.slice(INLINE_OVERLAY_COUNT);
@@ -126,15 +128,13 @@ async function ensurePreview() {
   return preview;
 }
 
-// Tools that keep painting on every `pointermove` while the button stays down — mirrors
-// `canvas.js`'s own hardcoded `drag = { paint: true }` set exactly; keep the two in sync.
-// Everything else that paints (fill/spawn/marker/npc/light/object) fires once per pointerdown.
-const CONTINUOUS_PAINT_TOOLS = new Set(['pencil', 'eraser', 'coll', 'height', 'tag']);
 // Tools with their own meaning in the 3D pane already — `select` and `pan` (click-to-select,
 // drag-to-pan) and `eyedrop` (no 3D-specific behaviour yet) never dispatch through
-// `editorCanvas.applyToolAt`. Everything else does, which is also how an `npc`/`light`/`marker`
+// `session.applyToolAt`. Everything else does, which is also how an `npc`/`light`/`marker`
 // click in 3D ends up popping the exact same modal/prompt the 2D canvas's tool rail does —
-// `applyToolAt` is the one dispatch, not a second copy of it.
+// `applyToolAt` is the one dispatch, not a second copy of it. `CONTINUOUS_PAINT_TOOLS` (which
+// tools keep acting on every dragged cell) is `session.js`'s own single-source Set, imported
+// above rather than kept as a second hand-synced copy here.
 const NON_PAINT_TOOLS = new Set(['select', 'pan', 'eyedrop']);
 
 /** Confines a dragged gizmo to the map — `setSpawn`/`placeMarker`/`moveNpc`/`updateLight` do not
@@ -172,26 +172,26 @@ function commitGizmoDrag(gizmo, e) {
 }
 
 /** A click (no drag) on a gizmo selects the entity it represents, in the same shape the 2D
- *  canvas's own `select` tool writes to `editorCanvas` — so the inspector and the bottom panel
+ *  canvas's own `select` tool writes to `session` — so the inspector and the bottom panel
  *  light up the same way regardless of which view was clicked. */
 function selectGizmo(gizmo) {
   if (!currentDoc) return;
   if (gizmo.kind === 'spawn') {
-    editorCanvas.setSelection({ cell: { cx: currentDoc.spawn.cx, cz: currentDoc.spawn.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
+    session.setSelection({ cell: { cx: currentDoc.spawn.cx, cz: currentDoc.spawn.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'marker') {
     const m = currentDoc.markers[gizmo.index];
-    if (m) editorCanvas.setSelection({ cell: { cx: m.cx, cz: m.cz }, markerName: m.name, lightIndex: null, spawnPointIndex: null });
+    if (m) session.setSelection({ cell: { cx: m.cx, cz: m.cz }, markerName: m.name, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'npc') {
     // No dedicated NPC inspector card yet (out of scope for this phase) — cell selection at
     // least brings up the cell/"Objetos" inspector for where the NPC stands.
     const n = currentDoc.npcs[gizmo.index];
-    if (n) editorCanvas.setSelection({ cell: { cx: n.cx, cz: n.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
+    if (n) session.setSelection({ cell: { cx: n.cx, cz: n.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
   } else if (gizmo.kind === 'light') {
     const l = currentDoc.lights[gizmo.index];
-    if (l) editorCanvas.setSelection({ cell: { cx: Math.floor(l.x), cz: Math.floor(l.z) }, markerName: null, lightIndex: gizmo.index, spawnPointIndex: null });
+    if (l) session.setSelection({ cell: { cx: Math.floor(l.x), cz: Math.floor(l.z) }, markerName: null, lightIndex: gizmo.index, spawnPointIndex: null });
   } else if (gizmo.kind === 'spawnPoint') {
     const p = currentDoc.spawnPoints[gizmo.index];
-    if (p) editorCanvas.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: gizmo.index });
+    if (p) session.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: gizmo.index });
   }
 }
 
@@ -206,11 +206,11 @@ previewContainer.addEventListener('pointerdown', (e) => {
   const gizmo = preview.pickGizmo(e.clientX, e.clientY);
   if (gizmo) { previewDrag = { mode: 'gizmo', gizmo, moved: false }; return; }
 
-  const tool = editorCanvas.getTool();
+  const tool = session.getTool();
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      editorCanvas.applyToolAt(cell.cx, cell.cz, 'down');
+      session.applyToolAt(cell.cx, cell.cz, 'down');
       previewDrag = { mode: 'paint' };
       return;
     }
@@ -237,10 +237,10 @@ previewContainer.addEventListener('pointermove', (e) => {
     if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.index, c.cx, c.cz); }
     return;
   }
-  if (previewDrag.mode === 'paint' && currentDoc && CONTINUOUS_PAINT_TOOLS.has(editorCanvas.getTool())) {
+  if (previewDrag.mode === 'paint' && currentDoc && CONTINUOUS_PAINT_TOOLS.has(session.getTool())) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      editorCanvas.applyToolAt(cell.cx, cell.cz, 'move');
+      session.applyToolAt(cell.cx, cell.cz, 'move');
     }
   }
 });
@@ -248,11 +248,11 @@ function endPreviewDrag(e) {
   if (previewDrag?.mode === 'gizmo') {
     if (previewDrag.moved) commitGizmoDrag(previewDrag.gizmo, e);
     else selectGizmo(previewDrag.gizmo);
-  } else if (previewDrag?.mode === 'pan' && previewDownAt && editorCanvas.getTool() === 'select' && preview) {
+  } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
       const cell = preview.pickCell(e.clientX, e.clientY);
-      if (cell) editorCanvas.setSelection({ cell });
+      if (cell) session.setSelection({ cell });
     }
   }
   previewDrag = null;
@@ -304,24 +304,24 @@ async function walkLoop() {
   step();
 }
 
-// Every canvas mutation/selection change re-renders the panels around it — a click that
-// selects a cell, a paint stroke, an overlay toggle all funnel through here.
-editorCanvas.subscribe(() => refreshAll());
+// Every editing-state mutation/selection change re-renders the panels around it — a click
+// that selects a cell, a paint stroke, an overlay toggle all funnel through here.
+session.subscribe(() => refreshAll());
 
 // --- selection -> 3D focus follow (a free win: `preview.setFocus` already existed, unused) --
 let lastFocusKey = null;
-editorCanvas.subscribe(() => {
-  const sel = editorCanvas.getSelection();
+session.subscribe(() => {
+  const sel = session.getSelection();
   const key = sel.cell ? `${sel.cell.cx},${sel.cell.cz}` : null;
   if (key && key !== lastFocusKey && preview && viewMode !== 'edit') preview.setFocus(sel.cell.cx, sel.cell.cz);
   lastFocusKey = key;
 });
 
-const inspector = makeInspector({ root: inspectorEl, editorCanvas, docRef, history, onChange: refreshAll });
-const bottom = makeBottomPanel({ root: bottomEl, editorCanvas, docRef, history });
-const status = makeStatusBar({ root: statusEl, editorCanvas, docRef });
+const inspector = makeInspector({ root: inspectorEl, session, docRef, history, onChange: refreshAll });
+const bottom = makeBottomPanel({ root: bottomEl, editorCanvas, session, docRef, history });
+const status = makeStatusBar({ root: statusEl, session, docRef });
 
-const validationDrawer = makeValidationDrawer({ docRef, editorCanvas, onRevalidate: () => { invalidateValidation(); refreshAll(); } });
+const validationDrawer = makeValidationDrawer({ docRef, session, onRevalidate: () => { invalidateValidation(); refreshAll(); } });
 
 // `mapPicker` needs the toolbar's map-badge DOM node as its popover anchor, so it is built
 // right after `makeToolbar` using the node that call just created — `onOpenPicker` below reads
@@ -363,8 +363,8 @@ function refreshAll() {
   editorCanvas.render();
   buildOverlayStrip();
   // Only reschedule the (expensive, debounced) 3D rebuild when the document actually changed —
-  // `editorCanvas.subscribe` also fires on bare hover/selection (`canvas.js`'s `pointermove`
-  // calls `notify()` unconditionally, not just on a drag), which used to snap the 3D camera back
+  // `session.subscribe` also fires on bare hover/selection (`session.js`'s `setHover` calls
+  // `notify()` unconditionally, not just on a drag), which used to snap the 3D camera back
   // to spawn on every mouse move over the 2D canvas. `state.js`'s `touch()` is the one thing
   // every real mutation calls, so its `_rev` counter is the signal that separates "something was
   // painted" from "the mouse moved" or "the selection changed".
@@ -388,12 +388,6 @@ function setDocument(doc) {
 }
 
 new ResizeObserver(() => editorCanvas.render()).observe(canvasWrap);
-
-// A DEV-only hook, mirroring the game's own `window.__HOOKS__` — never relied on by the
-// product itself, only by `tools/mapstudio/studio-ui.js`'s headless checks.
-if (new URLSearchParams(location.search).get('hooks') === '1') {
-  window.__MS__ = { get preview() { return preview; }, editorCanvas, docRef, toolbar, history };
-}
 
 // Boot: open the game's first shipped map so the Studio starts on something real, not blank —
 // falling back to a fresh blank map (still `bw2-adastra`) when none have been snapshotted yet.

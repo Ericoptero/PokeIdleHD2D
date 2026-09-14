@@ -9,20 +9,22 @@
  * cells are drawn as deterministic swatches: `catalog.js`'s `colorFor()` once the tileset's
  * catalog has loaded, a stable per-name hash colour before then, so a map is legible the
  * instant it opens instead of flashing grey until a fetch resolves.
+ *
+ * All non-visual editing state — which tool is active, the brush, the selection, hidden/locked
+ * layers, overlay toggles, the hover cell, the single-cell tool dispatch — lives in
+ * `session.js`, not here; this file only reads it (`session.getDoc()`, `session.overlays()`,
+ * `session.getSelection()`, ...) and turns DOM pointer events into `session.applyToolAt(...)`
+ * calls. It subscribes to `session`'s own `notify()` so any editing-state change re-renders
+ * the canvas, regardless of which input surface — this one, or the 3D pane in `main.js` —
+ * caused it. The 2D-gesture-specific `drag` state machine (pan/rect/loop-via-drag/paint) stays
+ * local to this file: it is presentation logic for this one input surface, not session state.
  */
 
-import { cellKey } from './state.js';
 import { colorFor, peekCatalog, dominantImage, peekBitmap } from './catalog.js';
 import { COLLISION_COLOR } from './kinds.js';
-import {
-  paintCell, eraseCell, paintRect, fillRegion, setCollision, adjustHeight, toggleTag,
-  setSpawn, placeMarker, placeObject, stackAt, addNpc, addLight, addSpawnPoint, setLoopVia,
-} from './tools.js';
-import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
+import { paintRect, setLoopVia } from './tools.js';
+import { reachableFrom, CONTINUOUS_PAINT_TOOLS } from './session.js';
 
-const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
-const DIR_DX = [0, -1, 0, 1];
-const DIR_DZ = [1, 0, -1, 0];
 /** Below this cell size a 32² texture is noise, and drawImage-per-cell over a 64×64 map is
  *  the slow path — fall back to the flat swatch. */
 const TEXTURE_MIN_PX = 6;
@@ -31,16 +33,6 @@ function hashColor(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return `hsl(${h % 360} 24% 26%)`;
-}
-
-function passableAt(doc, cx, cz, fromDir) {
-  if (cx < 0 || cz < 0 || cx >= doc.w || cz >= doc.h) return false;
-  const kind = doc.collision[cz * doc.w + cx];
-  if (kind === 'ledge') {
-    const dir = doc.tags[cz * doc.w + cx].find((t) => t.startsWith('ledge:'));
-    return dir ? Number(dir.slice(6)) === fromDir : false;
-  }
-  return COLLISION_PASSABLE.has(kind);
 }
 
 /** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
@@ -62,64 +54,16 @@ function inlineViaNear(doc, cx, cz) {
   return via.findIndex((entry) => typeof entry !== 'string' && entry.cx === cx && entry.cz === cz);
 }
 
-function reachableFrom(doc, start) {
-  const seen = new Uint8Array(doc.w * doc.h);
-  if (!start || start.cx < 0 || start.cz < 0 || start.cx >= doc.w || start.cz >= doc.h) return seen;
-  seen[start.cz * doc.w + start.cx] = 1;
-  const queue = [[start.cx, start.cz]];
-  while (queue.length) {
-    const [cx, cz] = queue.shift();
-    for (let dir = 0; dir < 4; dir++) {
-      const nx = cx + DIR_DX[dir]; const nz = cz + DIR_DZ[dir];
-      if (nx < 0 || nz < 0 || nx >= doc.w || nz >= doc.h) continue;
-      const ni = nz * doc.w + nx;
-      if (seen[ni] || !passableAt(doc, nx, nz, dir)) continue;
-      seen[ni] = 1;
-      queue.push([nx, nz]);
-    }
-  }
-  return seen;
-}
-
-export function makeEditorCanvas({ canvas, history }) {
+export function makeEditorCanvas({ canvas, history, session }) {
   const ctx2d = canvas.getContext('2d');
-  let doc = null;
   const view = { ox: 8, oy: 8, cell: 14 };
-  const overlays = { grid: true, textures: true, collision: false, height: false, tags: false,
-    footprints: true, markers: true, cameras: false, loop: true, encounters: true, lights: true, reach: false };
-  let tool = 'select';
-  let activeLayer = 0;
-  let brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
-    claimFootprint: false, keepCollision: true };
-  let selectedAsset = null; // { name, tileset, w, h }
-  let selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
   let drag = null;
-  let editCount = 0;
-  const hiddenLayers = new Set();
-  const lockedLayers = new Set();
-  const listeners = new Set();
-
-  function notify() { for (const fn of listeners) fn(); }
-
-  function modelInfo(name) {
-    const cat = peekCatalog(doc.tileset);
-    return cat?.byName?.get(name) ?? null;
-  }
-
-  /** Draws one cell/footprint's art: the real texture when loaded and large enough on screen,
-   *  else the instant-paint flat swatch (`catalog.js`'s `colorFor`/local `hashColor`). */
-  function drawArt(c, name, info, x, y, w, h) {
-    const image = overlays.textures && info ? dominantImage(info, peekCatalog(doc.tileset)) : null;
-    const bitmap = view.cell >= TEXTURE_MIN_PX ? peekBitmap(doc.tileset, image) : null;
-    if (bitmap) { c.drawImage(bitmap, x, y, w, h); return; }
-    c.fillStyle = info ? colorFor(info) : hashColor(name);
-    c.fillRect(x, y, w, h);
-  }
 
   function toScreen(cx, cz) { return [view.ox + cx * view.cell, view.oy + cz * view.cell]; }
   function toCell(px, py) { return [Math.floor((px - view.ox) / view.cell), Math.floor((py - view.oy) / view.cell)]; }
 
   function fitView() {
+    const doc = session.getDoc();
     if (!doc) return;
     const pad = 24;
     const availW = canvas.clientWidth - pad;
@@ -140,8 +84,26 @@ export function makeEditorCanvas({ canvas, history }) {
     ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  function modelInfo(doc, name) {
+    const cat = peekCatalog(doc.tileset);
+    return cat?.byName?.get(name) ?? null;
+  }
+
+  /** Draws one cell/footprint's art: the real texture when loaded and large enough on screen,
+   *  else the instant-paint flat swatch (`catalog.js`'s `colorFor`/local `hashColor`). */
+  function drawArt(c, doc, overlays, name, info, x, y, w, h) {
+    const image = overlays.textures && info ? dominantImage(info, peekCatalog(doc.tileset)) : null;
+    const bitmap = view.cell >= TEXTURE_MIN_PX ? peekBitmap(doc.tileset, image) : null;
+    if (bitmap) { c.drawImage(bitmap, x, y, w, h); return; }
+    c.fillStyle = info ? colorFor(info) : hashColor(name);
+    c.fillRect(x, y, w, h);
+  }
+
   function render() {
+    const doc = session.getDoc();
     if (!doc) return;
+    const overlays = session.overlays();
+    const selection = session.getSelection();
     resizeBackingStore();
     const c = ctx2d;
     c.imageSmoothingEnabled = false;
@@ -151,11 +113,11 @@ export function makeEditorCanvas({ canvas, history }) {
 
     // --- base: tile layers, ascending order ---
     for (const [layerNum, grid] of [...doc.tileLayers.entries()].sort((a, b) => a[0] - b[0])) {
-      if (hiddenLayers.has(layerNum)) continue;
+      if (!session.isLayerVisible(layerNum)) continue;
       for (const [key, cell] of grid) {
         const [cx, cz] = key.split(',').map(Number);
         const [x, y] = toScreen(cx, cz);
-        drawArt(c, cell.m, modelInfo(cell.m), x, y, view.cell, view.cell);
+        drawArt(c, doc, overlays, cell.m, modelInfo(doc, cell.m), x, y, view.cell, view.cell);
       }
     }
 
@@ -206,13 +168,13 @@ export function makeEditorCanvas({ canvas, history }) {
 
     // --- objects ---
     for (const obj of doc.objects) {
-      if (hiddenLayers.has(obj.layer)) continue;
-      const info = modelInfo(obj.m);
+      if (!session.isLayerVisible(obj.layer)) continue;
+      const info = modelInfo(doc, obj.m);
       const rot = (obj.rot ?? 0) & 3;
       const fw = rot & 1 ? (info?.h ?? 1) : (info?.w ?? 1);
       const fh = rot & 1 ? (info?.w ?? 1) : (info?.h ?? 1);
       const [x, y] = toScreen(obj.cx, obj.cz);
-      drawArt(c, obj.m, info, x, y, fw * view.cell, fh * view.cell);
+      drawArt(c, doc, overlays, obj.m, info, x, y, fw * view.cell, fh * view.cell);
       if (overlays.footprints) {
         c.strokeStyle = 'rgba(224,166,75,0.6)';
         c.setLineDash([3, 2]);
@@ -382,119 +344,15 @@ export function makeEditorCanvas({ canvas, history }) {
     c.restore();
   }
 
-  /** A light dot is hit-tested in cell space at ~half a cell radius — close enough for a click. */
-  function lightNear(cx, cz) {
-    let best = -1; let bestD = 1.2;
-    doc.lights.forEach((l, i) => {
-      const d = Math.hypot(l.x - (cx + 0.5), l.z - (cz + 0.5));
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    return best;
-  }
-
-  /** A spawn point is on a cell, not a free-floating point — an exact-cell hit is enough. */
-  function spawnPointNear(cx, cz) {
-    return doc.spawnPoints.findIndex((p) => p.cx === cx && p.cz === cz);
-  }
-
-  const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
-
-  function applyToolAt(cx, cz, kind) {
-    if (kind === 'down') selection.cell = { cx, cz };
-    if (LOCKED_TOOLS.has(tool) && lockedLayers.has(activeLayer)) {
-      selection.cell = { cx, cz }; notify(); render(); return;
-    }
-    switch (tool) {
-      case 'select': {
-        const stack = stackAt(doc, cx, cz);
-        selection.cell = { cx, cz };
-        selection.objectId = stack.find((s) => s.kind === 'object')?.id ?? null;
-        selection.lightIndex = overlays.lights ? lightNear(cx, cz) : -1;
-        if (selection.lightIndex < 0) selection.lightIndex = null;
-        const spi = spawnPointNear(cx, cz);
-        selection.spawnPointIndex = spi < 0 ? null : spi;
-        break;
-      }
-      case 'pencil':
-        if (selectedAsset) {
-          paintCell(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint,
-            collision: selectedAsset.collision, claimFootprint: brush.claimFootprint, keepCollision: brush.keepCollision });
-          editCount++;
-        }
-        break;
-      case 'eraser':
-        eraseCell(doc, history, { layer: activeLayer, cx, cz });
-        editCount++;
-        break;
-      case 'fill':
-        if (selectedAsset) { fillRegion(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint }); editCount++; }
-        break;
-      case 'coll':
-        setCollision(doc, history, { cx, cz, kind: brush.collision });
-        editCount++;
-        break;
-      case 'height':
-        adjustHeight(doc, history, { cx, cz, delta: brush.heightStep });
-        editCount++;
-        break;
-      case 'tag':
-        toggleTag(doc, history, { cx, cz, tag: brush.tag });
-        editCount++;
-        break;
-      case 'spawn':
-        setSpawn(doc, history, { cx, cz });
-        editCount++;
-        break;
-      case 'marker': {
-        const name = prompt('Nome do marcador:');
-        if (name) { placeMarker(doc, history, { name, cx, cz }); editCount++; }
-        break;
-      }
-      case 'npc':
-        openAddNpcDialog({ cx, cz, onCreate: (npc) => { addNpc(doc, history, npc); editCount++; notify(); render(); } });
-        break;
-      case 'light':
-        openAddLightDialog({ cx, cz, onCreate: (light) => { addLight(doc, history, light); editCount++; notify(); render(); } });
-        break;
-      case 'wildslot':
-        addSpawnPoint(doc, history, { cx, cz });
-        editCount++;
-        break;
-      case 'loop': {
-        // A drag-to-reposition of an existing inline waypoint is intercepted earlier, in the
-        // raw `pointerdown` handler below, and never reaches this dispatch — a plain click
-        // here always appends a fresh anonymous waypoint at the clicked cell.
-        const via = doc.loop?.via ?? [];
-        setLoopVia(doc, history, { via: [...via, { cx, cz }] });
-        editCount++;
-        break;
-      }
-      case 'object':
-        if (selectedAsset) {
-          const obj = placeObject(doc, history, { m: selectedAsset.name, cx, cz, layer: activeLayer, rot: brush.rot, tint: brush.tint });
-          selection.objectId = obj.id;
-          editCount++;
-        }
-        break;
-      case 'eyedrop': {
-        const cell = doc.tileLayers.get(activeLayer)?.get(cellKey(cx, cz));
-        if (cell) selectedAsset = { name: cell.m, tileset: doc.tileset };
-        break;
-      }
-      default: break;
-    }
-    selection.cell = { cx, cz };
-    notify();
-    render();
-  }
-
   canvas.addEventListener('pointerdown', (e) => {
+    const doc = session.getDoc();
     if (!doc) return;
     const rect = canvas.getBoundingClientRect();
     const [cx, cz] = toCell(e.clientX - rect.left, e.clientY - rect.top);
+    const tool = session.getTool();
     if (tool === 'pan' || e.button === 1) { drag = { pan: true, x: e.clientX, y: e.clientY, ox: view.ox, oy: view.oy }; return; }
     if (cx < 0 || cz < 0 || cx >= doc.w || cz >= doc.h) return;
-    if (tool === 'rect' && selectedAsset) { drag = { rect: true, x0: cx, z0: cz }; return; }
+    if (tool === 'rect' && session.getSelectedAsset()) { drag = { rect: true, x0: cx, z0: cz }; return; }
     if (tool === 'loop') {
       const viaIndex = inlineViaNear(doc, cx, cz);
       // Clicking on top of an existing inline waypoint starts a reposition drag instead of
@@ -502,10 +360,11 @@ export function makeEditorCanvas({ canvas, history }) {
       // `pointerup` commits it as a single `setLoopVia` call, one undo step per drag.
       if (viaIndex >= 0) { drag = { loopVia: true, index: viaIndex, cx, cz }; render(); return; }
     }
-    applyToolAt(cx, cz, 'down');
-    if (tool === 'pencil' || tool === 'eraser' || tool === 'coll' || tool === 'height' || tool === 'tag') drag = { paint: true };
+    session.applyToolAt(cx, cz, 'down');
+    if (CONTINUOUS_PAINT_TOOLS.has(tool)) drag = { paint: true };
   });
   canvas.addEventListener('pointermove', (e) => {
+    const doc = session.getDoc();
     if (!doc) return;
     const rect = canvas.getBoundingClientRect();
     if (drag?.pan) {
@@ -521,27 +380,30 @@ export function makeEditorCanvas({ canvas, history }) {
       if (cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h) { drag.cx = cx; drag.cz = cz; render(); }
       return;
     }
-    if (drag?.paint && cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h) applyToolAt(cx, cz, 'move');
-    hoverCell = cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h ? { cx, cz } : null;
-    notify();
+    if (drag?.paint && cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h) session.applyToolAt(cx, cz, 'move');
+    // `setHover` notifies on its own (a bare hover triggers a notify, not just a drag — see
+    // `main.js`'s own comment at its `session.subscribe` call site) — no second notify here.
+    session.setHover(cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h ? { cx, cz } : null);
   });
   window.addEventListener('pointerup', (e) => {
+    const doc = session.getDoc();
     if (!doc) { drag = null; return; }
     if (drag?.rect) {
       const rect = canvas.getBoundingClientRect();
       const [cx, cz] = toCell(e.clientX - rect.left, e.clientY - rect.top);
-      paintRect(doc, history, { layer: activeLayer, x0: drag.x0, z0: drag.z0, x1: cx, z1: cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint });
+      const brush = session.getBrush();
+      paintRect(doc, history, { layer: session.getActiveLayer(), x0: drag.x0, z0: drag.z0, x1: cx, z1: cz, asset: session.getSelectedAsset(), rot: brush.rot, tint: brush.tint });
       render();
     } else if (drag?.loopVia) {
       const via = doc.loop?.via ?? [];
       const next = via.map((entry, i) => (i === drag.index ? { cx: drag.cx, cz: drag.cz } : entry));
       setLoopVia(doc, history, { via: next });
-      notify(); render();
+      session.notify(); render();
     }
     drag = null;
   });
   canvas.addEventListener('wheel', (e) => {
-    if (!doc) return;
+    if (!session.getDoc()) return;
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
@@ -552,56 +414,26 @@ export function makeEditorCanvas({ canvas, history }) {
     render();
   }, { passive: false });
 
-  let hoverCell = null;
+  // Any editing-state change — a paint stroke, an overlay toggle, a layer visibility flip, a
+  // selection made from the 3D pane — re-renders this canvas, not just the surface that caused
+  // it. This is what lets every non-visual mutator in `session.js` drop the `render()` call it
+  // used to make directly (back when this state lived here) in favour of a plain `notify()`.
+  session.subscribe(() => render());
 
   return {
     setDoc(d) {
-      doc = d; selection = { cell: null, objectId: null, markerName: null, lightIndex: null, spawnPointIndex: null };
-      editCount = 0; hiddenLayers.clear(); lockedLayers.clear();
-      fitView(); render(); notify();
+      // `session.setDoc` resets and notifies on its own (see its own header comment) — no
+      // separate notify needed here, only the visual follow-up: fit the view to the new doc's
+      // size, then paint it.
+      session.setDoc(d);
+      fitView();
+      render();
     },
     render,
     fitView() { fitView(); render(); },
-    zoomBy(mult) { if (!doc) return; view.cell = Math.max(3, Math.min(48, Math.round(view.cell * mult))); render(); },
+    zoomBy(mult) { if (!session.getDoc()) return; view.cell = Math.max(3, Math.min(48, Math.round(view.cell * mult))); render(); },
     /** The 2D canvas's own cell-pixel-size presets (16/32/64 px per cell) — distinct from the
      *  3D preview's `pixelsPerUnit` ladder, but the same three round numbers for consistency. */
-    setZoomPreset(px) { if (!doc) return; view.cell = Math.max(3, Math.min(48, px)); render(); },
-    setOverlay(name, value) { overlays[name] = value; render(); },
-    toggleOverlay(name) { overlays[name] = !overlays[name]; render(); notify(); },
-    overlays: () => ({ ...overlays }),
-    setTool(t) { tool = t; },
-    getTool: () => tool,
-    setActiveLayer(n) { activeLayer = n; },
-    getActiveLayer: () => activeLayer,
-    setLayerVisible(n, on) { if (on) hiddenLayers.delete(n); else hiddenLayers.add(n); render(); notify(); },
-    isLayerVisible: (n) => !hiddenLayers.has(n),
-    setLayerLocked(n, on) { if (on) lockedLayers.add(n); else lockedLayers.delete(n); notify(); },
-    isLayerLocked: (n) => lockedLayers.has(n),
-    setSelectedAsset(a) { selectedAsset = a; },
-    getSelectedAsset: () => selectedAsset,
-    setBrush(patch) { Object.assign(brush, patch); },
-    getBrush: () => ({ ...brush }),
-    getEditCount: () => editCount,
-    getReachStats() {
-      if (!doc) return { unreachable: 0 };
-      const seen = reachableFrom(doc, doc.spawn);
-      let unreachable = 0;
-      for (let cz = 0; cz < doc.h; cz++) for (let cx = 0; cx < doc.w; cx++) {
-        const kind = doc.collision[cz * doc.w + cx];
-        if (kind === 'block' || kind === 'water') continue;
-        if (!seen[cz * doc.w + cx]) unreachable++;
-      }
-      return { unreachable };
-    },
-    getSelection: () => ({ ...selection }),
-    setSelection(patch) { Object.assign(selection, patch); render(); notify(); },
-    getHover: () => hoverCell,
-    stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
-    /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
-     *  3D-pane pick (`preview.js`'s `pickCell`) through the identical brush/fill/coll/height/
-     *  tag/spawn/marker/npc/light logic — including the `LOCKED_TOOLS` guard and the `notify()`/
-     *  `render()` calls at the end — with no second copy of this switch statement anywhere. */
-    applyToolAt: (cx, cz, kind) => applyToolAt(cx, cz, kind),
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    setZoomPreset(px) { if (!session.getDoc()) return; view.cell = Math.max(3, Math.min(48, px)); render(); },
   };
 }

@@ -2,12 +2,13 @@
  * index.js — builds `public/maps/index.json`, the manifest the Studio's map picker
  * (`studio/io.js`'s `listGameMaps`) fetches to know what the game ships.
  *
- * Shared by `tools/mapstudio/snapshot.js` (after writing a batch of snapshots) and the Vite
- * dev-server save endpoint (`vite.config.js`'s Studio-save plugin, after one Salvar) so the
- * two writers can't drift on shape. A directory scan rather than an in-memory list: it stays
- * correct after any subset of files changed — one Studio save, a partial `--only` re-snapshot,
- * a map deleted by hand — where building the index only from what a single call just wrote
- * would silently drop every map it didn't touch.
+ * Called by the Vite dev-server save endpoint (`vite.config.js`'s Studio-save plugin, after one
+ * Salvar) each time a map is written. A directory scan rather than an in-memory list: it stays
+ * correct after any subset of files changed — one Studio save, a map deleted by hand — where
+ * building the index only from what a single call just wrote would silently drop every map it
+ * didn't touch. (There used to be a second writer, a batch snapshot-export script — gone now
+ * that maps are hand-authored and saved from the Studio rather than frozen from procedural
+ * generation; this scan-based approach is why that change needed no update here.)
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';

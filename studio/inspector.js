@@ -41,7 +41,7 @@ function section(title, iconName, body) {
   return h('div', { class: 'ms-section' }, [head, content]);
 }
 
-export function makeInspector({ root, editorCanvas, docRef, history, onChange }) {
+export function makeInspector({ root, session, docRef, history, onChange }) {
   const body = h('div', { class: 'ms-inspector-body' });
   root.appendChild(body);
 
@@ -49,7 +49,7 @@ export function makeInspector({ root, editorCanvas, docRef, history, onChange })
     const doc = docRef.get();
     body.innerHTML = '';
     if (!doc) { body.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum mapa aberto')); return; }
-    const sel = editorCanvas.getSelection();
+    const sel = session.getSelection();
     const set = (key, coerce) => (v) => { setField(doc, history, { key, value: coerce ? coerce(v) : v }); onChange(); };
     const catalog = peekCatalog(doc.tileset);
 
@@ -58,8 +58,8 @@ export function makeInspector({ root, editorCanvas, docRef, history, onChange })
     if (sel.lightIndex != null) body.appendChild(lightCard(doc, history, sel.lightIndex, onChange));
     else if (sel.spawnPointIndex != null) body.appendChild(spawnPointCard(doc, history, sel.spawnPointIndex, onChange));
     else if (sel.cell) {
-      body.appendChild(tileCard(doc, history, sel, editorCanvas, catalog, onChange));
-      body.appendChild(cellCard(doc, history, sel, editorCanvas, onChange));
+      body.appendChild(tileCard(doc, history, sel, session, catalog, onChange));
+      body.appendChild(cellCard(doc, history, sel, session, onChange));
     }
 
     body.appendChild(gameplayCard(doc, history, onChange));
@@ -89,9 +89,9 @@ function mapInfoCard(doc, set) {
   ].filter(Boolean));
 }
 
-function tileCard(doc, history, sel, editorCanvas, catalog, onChange) {
+function tileCard(doc, history, sel, session, catalog, onChange) {
   const { cx, cz } = sel.cell;
-  const layer = editorCanvas.getActiveLayer();
+  const layer = session.getActiveLayer();
   const grid = doc.tileLayers.get(layer);
   const key = `${cx},${cz}`;
   const cell = sel.objectId != null ? doc.objects.find((o) => o.id === sel.objectId) : grid?.get(key);
@@ -128,10 +128,10 @@ function tileCard(doc, history, sel, editorCanvas, catalog, onChange) {
   ].filter(Boolean));
 }
 
-function cellCard(doc, history, sel, editorCanvas, onChange) {
+function cellCard(doc, history, sel, session, onChange) {
   const { cx, cz } = sel.cell;
   const i = cz * doc.w + cx;
-  const stack = editorCanvas.stackAtSelection();
+  const stack = session.stackAtSelection();
   const currentCollision = doc.collision[i];
   const collisionChips = COLLISIONS.map((c) => h('button', {
     class: `ms-coll-chip${currentCollision === c ? ' ms-coll-chip--active' : ''}`,
