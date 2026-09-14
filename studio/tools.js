@@ -389,7 +389,7 @@ export function updateNpc(doc, history, { npc, patch }) {
 
 /**
  * Repositions an existing NPC in place — `addNpc`/`removeNpc` only ever add or remove a whole
- * entry, and until the 3D preview's draggable gizmos (`studio/preview.js`) there was no "move it
+ * entry, and until the 3D preview's draggable gizmos (`studio/viewport/index.js`) there was no "move it
  * to a new cell" command for anything to call. Takes the npc object itself (the same reference
  * `doc.npcs` holds), not an index — an index drifts under undo/redo of other add/remove
  * commands touching the array, object identity does not.

@@ -6,7 +6,7 @@
  * one file.
  *
  * The per-kind dispatch (`makeInspector`'s `rebuild()`) is a lookup into `ENTITIES` (a single
- * source of truth shared with `preview.js`'s gizmos and `session.js`'s select-tool hit test —
+ * source of truth shared with `viewport/index.js`'s gizmos and `session.js`'s select-tool hit test —
  * see `entities.js`'s own header), not a hand-written `if (sel.lightIndex != null) ... else if
  * (sel.spawnPointIndex != null) ...` chain — that chain is exactly what made adding one more
  * selectable kind (an NPC's own card, this slice's motivating example) a three-file change
