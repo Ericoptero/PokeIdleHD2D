@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "hunt-coast",
   "name": "Saltspray Coast",
   "kind": "hunt",
-  "module": "hunts",
   "w": 66,
   "h": 54,
   "tileset": "bw2-adastra",
@@ -35,7 +34,6 @@
       "tileset": "bw2-adastra",
       "role": "draft",
       "models": ["grass","lake_inner_se","lake_straight_edge_s","lake_inner_sw","lake_straight_edge_e","grass_path_side_edge_n","lake_corner_sw","grass_path_side_edge_w","lake_corner_se","grass_path_center","dirt","grass_path_side_edge_e","grass_path_side_edge_s","lake_straight_edge_w","lake_corner_ne","lake_corner_nw","lake_straight_edge_n","walkable_water_center","walk_edge_side_edge_n","walk_edge_corner_ne","walk_edge_corner_nw","walk_edge_side_edge_e","walk_edge_side_edge_w","walk_edge_inner_ne","walk_edge_inner_nw","walk_edge_inner_se","walk_edge_side_edge_s","walk_edge_inner_sw","walk_edge_corner_sw","walk_edge_corner_se","sea","hedge1","hedge1_v2","grass_patch_half","grass_decoration","grass_patch","tall_grass","flower","flower_2","flower_v2"],
-      "modelIds": [36,30,4,31,13,17,3,8,5,9,174,10,1,11,21,19,20,108,116,117,115,109,107,123,124,131,100,132,99,101,129,185,195,141,166,140,125,176,167,177],
       "tiles": [
         {
           "layer": 0,
@@ -8453,7 +8451,6 @@
       "tileset": "props",
       "role": "extra",
       "models": ["bw2-twist__small_rock","sylvan-town__fat_log","sylvan-town__pile_of_logs","sylvan-town__log"],
-      "modelIds": [0,9,11,10],
       "objects": [
         {
           "m": 0,

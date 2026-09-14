@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "hunt-meadow",
   "name": "Sunlit Meadow",
   "kind": "hunt",
-  "module": "hunts",
   "w": 64,
   "h": 60,
   "tileset": "bw2-adastra",
@@ -35,7 +34,6 @@
       "tileset": "bw2-adastra",
       "role": "draft",
       "models": ["grass","grass_path_side_edge_e","dirt","grass_path_side_edge_w","grass_path_center","grass_path_side_edge_s","grass_path_side_edge_n","lake_water_center","lake_corner_nw","lake_straight_edge_n","lake_corner_ne","lake_inner_nw","lake_inner_se","lake_straight_edge_s","lake_corner_se","lake_corner_sw","lake_straight_edge_e","lake_inner_ne","lake_straight_edge_w","lake_inner_sw","tree","round_tree","darker_pine","bridge_v2","hedge1","hedge1_v2","hedge4","hedge3","fence_side_edge_s","fence_cross","grass_patch","grass_decoration","grass_patch_half","tall_grass","flower","flower_2","flower_v2","rot_rocks"],
-      "modelIds": [36,10,174,8,9,1,17,12,19,20,21,23,30,4,5,3,13,22,11,31,202,203,204,198,185,195,180,184,210,215,140,166,141,125,176,167,177,172],
       "tiles": [
         {
           "layer": 0,
@@ -4302,7 +4300,8 @@
       "color": 16743716,
       "intensity": 4.2,
       "radius": 11,
-      "size": 0.17
+      "size": 0.17,
+      "id": "light-0-mu1qb5j0"
     },
     {
       "x": 23,
@@ -4312,7 +4311,8 @@
       "intensity": 3.4,
       "radius": 10,
       "size": 0.02,
-      "point": false
+      "point": false,
+      "id": "light-1-mu1qb5j0"
     }
   ],
   "cameras": {

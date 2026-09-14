@@ -17,8 +17,11 @@
  */
 
 import { encodeRuns, decodeRuns } from '@/terrain/mapfile.js';
+import { stitchLoop } from '@/hunts/compose.js';
+import { peekCatalog } from './catalog.js';
 
 const DEFAULT_TINT = 0xffffff;
+const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 
 function cellKey(cx, cz) { return `${cx},${cz}`; }
 
@@ -41,7 +44,7 @@ export function createDocument(map) {
 
   for (const layer of map.layers ?? []) {
     if (layer.role === 'extra') {
-      extras.push({ tileset: layer.tileset, models: layer.models ?? [], modelIds: layer.modelIds ?? [],
+      extras.push({ tileset: layer.tileset, models: layer.models ?? [],
         objects: (layer.objects ?? []).map((o) => ({ ...o, m: layer.models?.[o.m] ?? `#${o.m}` })) });
       continue;
     }
@@ -71,7 +74,7 @@ export function createDocument(map) {
 
   return {
     w, h, tileset: draftTileset,
-    id: map.id, name: map.name, kind: map.kind ?? 'hunt', module: map.module ?? null,
+    id: map.id, name: map.name, kind: map.kind ?? 'hunt',
     seed: map.seed, requiredLevel: map.requiredLevel ?? 0,
     weather: map.weather ?? null, environmentPreset: map.environmentPreset ?? 'meadow',
     // The map's own yield-multiplier profile (`idle/accrual.js` reads this off
@@ -84,7 +87,10 @@ export function createDocument(map) {
     mapTags: map.tags ?? [],
     collision, height, tags, occupied,
     tileLayers, objects, nextObjectId: objects.length, extras,
-    regions: map.regions ?? [],
+    // Autotile masks the paint tool (Slice 9b, not this one) will populate. `id` is new in v3
+    // (`mapfile.js`'s header) — minted here for any region a pre-v3 file might still carry
+    // without one, the same way a light without one gets minted just below.
+    regions: (map.regions ?? []).map((r, i) => (r.id ? { ...r } : { ...r, id: `region-${i}-${Date.now().toString(36)}` })),
     spawn: map.spawn ? { ...map.spawn } : { cx: w >> 1, cz: h >> 1, dir: 0 },
     markers: (map.markers ?? []).map((m) => ({ ...m })),
     loop: map.loop ? JSON.parse(JSON.stringify(map.loop)) : null,
@@ -92,16 +98,149 @@ export function createDocument(map) {
     // species (`{id, cx, cz, dir, respawnSeconds, species:[{name, chance, when?, bump?}]}`).
     spawnPoints: (map.spawnPoints ?? []).map((p) => ({ ...p, species: (p.species ?? []).map((s) => ({ ...s })) })),
     npcs: (map.npcs ?? []).map((x) => ({ ...x })),
+    // `{id, kind:'door'|'edge'|'stairs', from:{cx,cz}, to:{map, marker?, cx?, cz?, dir?}, label?}`
+    // — see `mapfile.js`'s header. Plain data the document model round-trips untouched; nothing
+    // here resolves a link at edit time (that is a later slice's canvas/inspector work).
     links: (map.links ?? []).map((x) => ({ ...x })),
-    lights: (map.lights ?? []).map((x) => ({ ...x })),
+    // `id` is new in v3, minted here on the same pattern as `regions[]` above, for any light a
+    // pre-v3 file still carries without one.
+    lights: (map.lights ?? []).map((x, i) => (x.id ? { ...x } : { ...x, id: `light-${i}-${Date.now().toString(36)}` })),
     cameras: map.cameras ? JSON.parse(JSON.stringify(map.cameras)) : { default: null, presets: {} },
     formation: map.formation ? { ...map.formation } : null,
     dirty: false,
   };
 }
 
+/** Rotated footprint extents — mirrors `src/tiles/instanced.js`'s exported `footprint()`
+ *  exactly. Inlined rather than imported so this document model does not have to pull in
+ *  `@/tiles` (and, through it, three.js) just for one pure arithmetic swap. */
+function footprintOf(w, h, rot) {
+  return (rot & 1) ? { w: h, h: w } : { w, h };
+}
+
+/**
+ * `grid.occupied` looks, from `doc.objects[]` alone, like something fully re-derivable:
+ * `MapDraft.place()` only ever marks a cell occupied for a placement whose ROTATED footprint
+ * is wider than 1x1 (`src/terrain/draft.js`), so in principle the occupied set is a pure
+ * function of each object's real model dimensions. It is measurably NOT, in this codebase's
+ * actual shipped data: `demo-city.map.json`'s occupied grid carries ~267 cells that back
+ * building-plot reservations with no placement behind them at all — stamped directly onto
+ * `draft.occupied` by the pre-Studio hand-written city builder (`git show
+ * 9876a49~1:src/city/map.js`, now retired) to keep a lot clear of scatter even where the
+ * building itself renders from a separate extras layer — and `hunt-cave`/`hunt-forest`/
+ * `hunt-meadow` show the opposite drift: recomputing from the CURRENT tileset catalog claims
+ * hundreds more cells than they actually shipped with, because prop dimensions have moved
+ * since these files were frozen. A "recompute from objects[] and overwrite" implementation
+ * would therefore silently corrupt real, currently-shipped maps' walkability grids on the very
+ * next Studio save — exactly the "broken map load" outcome this slice's own plan calls out as
+ * the highest risk to avoid. (Verified by hand against all six shipped files before writing
+ * this — see this slice's own final report for the numbers.)
+ *
+ * So `doc.occupied` is still the array actually written; this only VALIDATES it. Whenever the
+ * draft tileset's catalog happens to already be loaded (`peekCatalog`, `./catalog.js` —
+ * resolved only once the canvas/inspector have asked for it; never true inside a headless
+ * decode-then-encode round trip such as `tools/mapstudio/studio-roundtrip.js`, which never
+ * touches the canvas), this warns — once, summarized, never per-cell-spammy — when a
+ * multi-cell object's footprint is NOT a subset of what is already marked, since that specific
+ * direction of disagreement (a claim the file is missing, not an extra one it carries) is the
+ * one a real bug looks like: a multi-cell placement added without going through the brush's
+ * own stamping.
+ */
+function warnIfOccupiedIncomplete(doc) {
+  const catalog = peekCatalog(doc.tileset);
+  if (!catalog) return;
+  const missing = [];
+  for (const o of doc.objects) {
+    const model = catalog.byName.get(o.m);
+    if (!model) continue; // an unresolved name is `model-unresolved`'s (validate.js) problem, not this one's
+    const { w, h } = footprintOf(model.w ?? 1, model.h ?? 1, o.rot ?? 0);
+    if (w <= 1 && h <= 1) continue;
+    for (let dz = 0; dz < h; dz++) {
+      for (let dx = 0; dx < w; dx++) {
+        const cx = o.cx + dx;
+        const cz = o.cz + dz;
+        if (cx < 0 || cz < 0 || cx >= doc.w || cz >= doc.h) continue;
+        if (!doc.occupied[cz * doc.w + cx]) missing.push(`${cx},${cz}`);
+      }
+    }
+  }
+  if (missing.length) {
+    console.warn(`state.js: grid.occupied is missing ${missing.length} cell(s) implied by `
+      + `multi-cell object footprints (e.g. ${missing.slice(0, 5).join(' ')}) — a placement's `
+      + "footprint may not have gone through the brush's own stamping");
+  }
+}
+
+/** Mirrors `MapDraft.passable` (`src/terrain/draft.js`) and `validate.js`'s own `passableOf`,
+ *  off `doc`'s plain decoded arrays — the minimal surface `stitchLoop` (`@/hunts/compose.js`)
+ *  actually reads off a `MapDraft` (`.w`, `.h`, `.passable`, `.tagsAt` — confirmed by reading
+ *  every `draft.` reference in `compose.js`), so a full `MapDraft` is not needed just to
+ *  re-stitch a loop from plain arrays. */
+function loopAdapter(doc) {
+  const inside = (cx, cz) => cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h;
+  const tagsAt = (cx, cz) => (inside(cx, cz) ? (doc.tags[cz * doc.w + cx] ?? []) : []);
+  return {
+    w: doc.w,
+    h: doc.h,
+    tagsAt,
+    passable(cx, cz, fromDir) {
+      if (!inside(cx, cz)) return false;
+      const kind = doc.collision[cz * doc.w + cx];
+      if (kind === 'ledge') {
+        const dir = tagsAt(cx, cz).find((t) => t.startsWith('ledge:'));
+        return dir ? Number(dir.slice(6)) === fromDir : false;
+      }
+      return COLLISION_PASSABLE.has(kind);
+    },
+  };
+}
+
+/** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
+ *  (`null` if the marker was deleted out from under it), or an inline `{cx,cz}` waypoint used
+ *  as-is. Mirrors `studio/canvas.js`'s own `viaPoint` exactly (that file is out of this slice's
+ *  scope to import from — the `loop` tool it belongs to is a later slice's canvas work — so the
+ *  same small resolution rule is duplicated here rather than reached across the boundary). */
+function viaPoint(doc, entry) {
+  if (typeof entry === 'string') {
+    const m = doc.markers.find((x) => x.name === entry);
+    return m ? { cx: m.cx, cz: m.cz } : null;
+  }
+  return entry;
+}
+
+/**
+ * `loop.resolved` used to be decoded from the input file and carried straight through to the
+ * output, so an editor that moved a marker or repainted terrain under an authored loop shipped
+ * a stale circuit — exactly the drift `validate.js`'s `loop-stale` check exists to catch. As of
+ * v3 this re-stitches on every serialize instead: `stitchLoop` (`@/hunts/compose.js`, the pure,
+ * generator-free half of `src/hunts/index.js` — see that file's own module-boundary note on why
+ * only `compose.js` is imported here, never `hunts/index.js` itself) re-runs `doc.loop.via`
+ * against the document's CURRENT terrain (`loopAdapter`, above) every time, so a saved file's
+ * `resolved` always matches what the map actually stitches to right now — `null` when it no
+ * longer closes, exactly like a fresh Studio map that has never been stitched.
+ *
+ * Only runs when the map authors its own `via` list; a map with none (or one already carrying
+ * a `findLoop`-produced `resolved` with no `via` at all — `hunts/index.js`'s own fallback) has
+ * nothing here to regenerate and round-trips its `loop` field unchanged.
+ */
+function freshLoop(doc) {
+  const via = doc.loop?.via;
+  if (!Array.isArray(via) || !via.length) return doc.loop;
+  const points = [];
+  for (const entry of via) {
+    const p = viaPoint(doc, entry);
+    if (!p) return { ...doc.loop, resolved: null }; // an authored marker vanished — `loop-stale` flags this for a human
+    points.push(p);
+  }
+  const resolved = stitchLoop(loopAdapter(doc), points, {
+    straightLead: doc.loop.straightLead, preferTags: doc.loop.preferTags, margin: doc.loop.margin,
+  });
+  return { ...doc.loop, resolved };
+}
+
 /** @param {object} doc @returns {object} a `.map.json`-shaped, RLE-encoded map file */
 export function serializeDocument(doc) {
+  warnIfOccupiedIncomplete(doc);
   const n = doc.w * doc.h;
   const layers = [];
 
@@ -141,14 +280,14 @@ export function serializeDocument(doc) {
     if (o.y != null) obj.y = o.y;
     return obj;
   });
-  layers.push({ tileset: doc.tileset, role: 'draft', models: modelNames, modelIds: [], tiles, objects });
+  layers.push({ tileset: doc.tileset, role: 'draft', models: modelNames, tiles, objects });
 
   for (const ex of doc.extras) {
     const names = [];
     const idx = new Map();
     const pf = (name) => { let i = idx.get(name); if (i === undefined) { i = names.length; names.push(name); idx.set(name, i); } return i; };
     layers.push({
-      tileset: ex.tileset, role: 'extra', models: names, modelIds: [],
+      tileset: ex.tileset, role: 'extra', models: names,
       objects: ex.objects.map((o) => ({ m: pf(o.m), cx: o.cx, cz: o.cz, layer: o.layer ?? 0,
         ...(o.rot ? { rot: o.rot } : {}), ...(o.tint !== undefined && o.tint !== DEFAULT_TINT ? { tint: o.tint } : {}),
         ...(o.y !== undefined ? { y: o.y } : {}) })),
@@ -156,8 +295,8 @@ export function serializeDocument(doc) {
   }
 
   return {
-    format: 'pokeidle.map', version: 2,
-    id: doc.id, name: doc.name, kind: doc.kind, module: doc.module,
+    format: 'pokeidle.map', version: 3,
+    id: doc.id, name: doc.name, kind: doc.kind,
     w: doc.w, h: doc.h, tileset: doc.tileset, seed: doc.seed,
     requiredLevel: doc.requiredLevel, weather: doc.weather, environmentPreset: doc.environmentPreset,
     economy: doc.economy,
@@ -169,10 +308,10 @@ export function serializeDocument(doc) {
       occupied: encodeRuns(doc.occupied),
     },
     layers,
-    regions: doc.regions,
+    regions: doc.regions.map((r) => ({ ...r })),
     spawn: { ...doc.spawn },
     markers: doc.markers.map((m) => ({ ...m })),
-    loop: doc.loop,
+    loop: freshLoop(doc),
     spawnPoints: doc.spawnPoints.map((p) => ({ ...p, species: (p.species ?? []).map((s) => ({ ...s })) })),
     npcs: doc.npcs.map((x) => ({ ...x })), links: doc.links.map((x) => ({ ...x })),
     lights: doc.lights.map((x) => ({ ...x })), cameras: doc.cameras, formation: doc.formation,
@@ -183,7 +322,7 @@ export function serializeDocument(doc) {
 export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-adastra', environmentPreset = 'meadow', kind = 'hunt', groundModel = null }) {
   const n = w * h;
   return {
-    w, h, tileset, id, name, kind, module: kind === 'hunt' ? 'hunts' : kind === 'city' ? 'city' : null,
+    w, h, tileset, id, name, kind,
     seed: 1337, requiredLevel: 0, weather: null, environmentPreset,
     economy: { money: 1, exp: 1, research: 1, encounters: 1, favours: {} },
     mapTags: [],

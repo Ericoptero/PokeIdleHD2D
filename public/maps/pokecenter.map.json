@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "pokecenter",
   "name": "Pokémon Center",
   "kind": "interior",
-  "module": "pokecenter",
   "w": 13,
   "h": 10,
   "tileset": "pt-house-indoor",
@@ -35,7 +34,6 @@
       "tileset": "pt-house-indoor",
       "role": "draft",
       "models": ["wooden_floor_v6","house_wall_c_e","house_wall_side","wooden_floor_v4","house_wall_v3","wooden_floor_v3","house_wall_v2","wooden_floor_v2","house_wall","wooden_floor","wooden_floor_v10","wooden_floor_v9","wooden_floor_v7","house_wall_c_w","house_wall_side_v2","wooden_floor_v5","wooden_floor_v8","table"],
-      "modelIds": [11,54,50,7,63,4,58,3,53,0,19,16,12,52,51,8,15,70],
       "tiles": [
         {
           "layer": 0,
@@ -461,7 +459,6 @@
       "tileset": "hgss-newbark-houses",
       "role": "extra",
       "models": ["window"],
-      "modelIds": [15],
       "objects": [
         {
           "m": 0,
@@ -477,7 +474,6 @@
       "tileset": "bw2-adastra",
       "role": "extra",
       "models": ["bench_e","bench_w"],
-      "modelIds": [170,171],
       "objects": [
         {
           "m": 0,
@@ -507,6 +503,11 @@
       "name": "exit",
       "cx": 6,
       "cz": 9
+    },
+    {
+      "name": "spawn",
+      "cx": 6,
+      "cz": 8
     }
   ],
   "loop": null,
@@ -521,7 +522,21 @@
       "solid": true
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "id": "pokecenter->demo-city",
+      "kind": "door",
+      "to": {
+        "map": "demo-city",
+        "marker": "pokecenter-door",
+        "dir": 0
+      },
+      "from": {
+        "cx": 6,
+        "cz": 9
+      }
+    }
+  ],
   "lights": [
     {
       "x": 6.5,
@@ -531,7 +546,8 @@
       "intensity": 1.1,
       "radius": 6.5,
       "size": 0.34,
-      "groundY": -0.125
+      "groundY": -0.125,
+      "id": "light-0-mu1qb5j5"
     },
     {
       "x": 6.5,
@@ -542,7 +558,8 @@
       "size": 0.14,
       "point": false,
       "pool": false,
-      "groundY": -0.125
+      "groundY": -0.125,
+      "id": "light-1-mu1qb5j5"
     }
   ],
   "cameras": {
