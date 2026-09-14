@@ -12,7 +12,10 @@ import globals from 'globals';
 const nodeAndBrowser = { ...globals.node, ...globals.browser };
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'public/**', 'assets/**', 'shots/**', 'docs/**'] },
+  // `.claude/**` excludes nested git worktrees a background agent may have checked out inside
+  // the repo (`.claude/worktrees/<id>/`) — otherwise a WIP checkout with its own lint state
+  // gets swept into `eslint .` and fails this repo's gate for code that isn't actually here.
+  { ignores: ['dist/**', 'node_modules/**', 'public/**', 'assets/**', 'shots/**', 'docs/**', '.claude/**'] },
   js.configs.recommended,
   {
     rules: {
