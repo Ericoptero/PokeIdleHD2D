@@ -6,7 +6,7 @@
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
 import { runValidation, issueRow } from './validation.js';
-import { addLayer, removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint } from './tools.js';
+import { addLayer, removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint, removeLink } from './tools.js';
 
 const TABS = [
   ['layers', 'Camadas', 'layers'], ['objects', 'Objetos', 'box'], ['gameplay', 'Jogabilidade', 'gamepad-2'],
@@ -40,7 +40,7 @@ export function makeBottomPanel({ root, editorCanvas, session, docRef, history }
     errBadge.hidden = v.errors.length === 0;
     errBadge.textContent = String(v.errors.length);
     const objBadge = badges.get('objects');
-    const objCount = doc.objects.length + doc.markers.length + doc.lights.length + doc.npcs.length;
+    const objCount = doc.objects.length + doc.markers.length + doc.lights.length + doc.npcs.length + doc.links.length;
     objBadge.hidden = objCount === 0;
     objBadge.textContent = String(objCount);
 
@@ -105,23 +105,33 @@ function renderObjects(bodyEl, doc, history, session, rebuild) {
 
   for (const o of doc.objects) {
     entry('box', '#CFC4B7', o.m, `objeto · (${o.cx},${o.cz}) · camada ${o.layer}`,
-      () => session.setSelection({ objectId: o.id, cell: { cx: o.cx, cz: o.cz } }),
-      () => removeObject(doc, history, { id: o.id }));
+      () => session.setSelection({ kind: 'object', ref: o, cell: { cx: o.cx, cz: o.cz } }),
+      () => removeObject(doc, history, o));
   }
   for (const m of doc.markers) {
     entry('map-pin', '#7FC98C', m.name, `marcador · (${m.cx},${m.cz})`,
-      () => session.setSelection({ cell: { cx: m.cx, cz: m.cz } }),
-      () => removeMarker(doc, history, { name: m.name }));
+      () => session.setSelection({ kind: 'marker', ref: m, cell: { cx: m.cx, cz: m.cz } }),
+      () => removeMarker(doc, history, m));
   }
   for (const l of doc.lights) {
     entry('lightbulb', '#E29650', `luz`, `raio ${l.radius} · int ${l.intensity}`,
-      () => session.setSelection({ cell: { cx: Math.round(l.x), cz: Math.round(l.z) } }),
+      () => session.setSelection({ kind: 'light', ref: l, cell: { cx: Math.round(l.x), cz: Math.round(l.z) } }),
       () => removeLight(doc, history, l));
   }
   for (const n of doc.npcs) {
     entry('paw-print', '#9ECBE6', n.name ?? n.species ?? n.trainer, `npc · (${n.cx},${n.cz})`,
-      () => session.setSelection({ cell: { cx: n.cx, cz: n.cz } }),
+      () => session.setSelection({ kind: 'npc', ref: n, cell: { cx: n.cx, cz: n.cz } }),
       () => removeNpc(doc, history, n));
+  }
+  // Links (map-to-map doors/edges/stairs) get their own row here too — a plain cell click can
+  // lose a link to a light/spawnPoint/etc. sharing the same cell in `session.js`'s select-tool
+  // priority chain (a light right at a doorway is a realistic, not even rare, authoring choice —
+  // `demo-city.map.json`'s own door link has exactly this), so this row is the reliable way to
+  // reach one regardless of what else occupies its `from` cell.
+  for (const l of doc.links) {
+    entry('door-open', '#C79BD6', l.id, `link · (${l.from?.cx},${l.from?.cz}) → ${l.to?.map ?? '?'}`,
+      () => session.setSelection({ kind: 'link', ref: l, cell: { cx: l.from?.cx, cz: l.from?.cz } }),
+      () => removeLink(doc, history, l));
   }
   if (!grid.children.length) bodyEl.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum objeto — use as ferramentas de objeto/marcador/luz/npc no canvas'));
 }
@@ -136,10 +146,10 @@ function renderObjects(bodyEl, doc, history, session, rebuild) {
 function renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild) {
   const refresh = () => { rebuild(); editorCanvas.render(); };
   const points = doc.spawnPoints ?? [];
-  const rows = points.map((p, i) => {
+  const rows = points.map((p) => {
     const label = (p.species ?? []).map((s) => s.name || '(sem nome)').join(', ') || 'sem espécies';
     return h('div', { class: 'ms-slot-row', onClick: () => {
-      session.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: i });
+      session.setSelection({ cell: { cx: p.cx, cz: p.cz }, kind: 'spawnPoint', ref: p });
       refresh();
     } }, [
       icon('paw-print', { size: 13 }),
@@ -158,7 +168,9 @@ function renderGameplay(bodyEl, doc, history, session, editorCanvas, rebuild) {
 }
 
 function renderValidation(bodyEl, v, session) {
-  const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz } });
+  // Jumping to a validation issue's cell means "select just this cell" — explicit
+  // `kind: null, ref: null` clears whatever entity was previously selected.
+  const onFocus = (cx, cz) => session.setSelection({ cell: { cx, cz }, kind: null, ref: null });
   for (const i of v.errors) bodyEl.appendChild(issueRow({ ...i, severity: 'error' }, { onFocus }));
   for (const i of v.warnings) bodyEl.appendChild(issueRow({ ...i, severity: 'warn' }, { onFocus }));
   for (const i of v.infos) bodyEl.appendChild(issueRow({ ...i, severity: 'info' }, { onFocus }));

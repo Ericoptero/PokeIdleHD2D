@@ -229,11 +229,18 @@ export function makeLibraryPanel({ root, session, docRef, toolRail, onCatalogLoa
     if (!doc) return;
     for (const [, grid_] of doc.tileLayers) {
       for (const [key, cell] of grid_) {
-        if (cell.m === m.name) { const [cx, cz] = key.split(',').map(Number); session.setSelection({ cell: { cx, cz } }); return; }
+        if (cell.m === m.name) {
+          const [cx, cz] = key.split(',').map(Number);
+          // A plain cell jump, no entity — explicit `kind: null, ref: null` so a previously
+          // selected entity's card does not linger under the new cell (`setSelection`'s merge
+          // never clears a field a patch omits).
+          session.setSelection({ cell: { cx, cz }, kind: null, ref: null });
+          return;
+        }
       }
     }
     const obj = doc.objects.find((o) => o.m === m.name);
-    if (obj) session.setSelection({ cell: { cx: obj.cx, cz: obj.cz }, objectId: obj.id });
+    if (obj) session.setSelection({ cell: { cx: obj.cx, cz: obj.cz }, kind: 'object', ref: obj });
   }
 
   async function init(defaultTileset) {

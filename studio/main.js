@@ -14,10 +14,10 @@ import { makeEditorCanvas } from './canvas.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makePreview } from './preview.js';
-import { setSpawn, placeMarker, updateLight, moveNpc, updateSpawnPoint } from './tools.js';
 import { loadTextureBitmaps } from './catalog.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
+import { ENTITIES } from './entities.js';
 import { invalidateValidation } from './validation.js';
 import { makeToolRail, makeToolbar, makeStatusBar, makeAssetBrushBar } from './panels.js';
 import { makeInspector } from './inspector.js';
@@ -146,53 +146,34 @@ function clampToMap(cx, cz) {
   return { cx: Math.max(0, Math.min(currentDoc.w - 1, cx)), cz: Math.max(0, Math.min(currentDoc.h - 1, cz)) };
 }
 
-/** Commits a finished gizmo drag through the same undo-wired `tools.js` commands the inspector
- *  and the tool rail already use for spawn/marker/light — nothing here writes `doc` by hand
- *  (the P1 pass already went through and fixed the inspector fields that used to). */
+/** Commits a finished gizmo drag through `ENTITIES[gizmo.kind].moveTo` — the same undo-wired
+ *  `tools.js` commands the inspector already uses, looked up generically instead of a 5-branch
+ *  `if/else if` chain (one per kind that happened to support dragging when this was written by
+ *  hand). A kind with a gizmo but no `moveTo` (link/region/loopWaypoint/cameraPreset — no
+ *  gizmo-drag flow yet) never reaches here at all: the `pointermove` handler below only flags a
+ *  gizmo drag as "moved" when `moveTo` exists, so such a gizmo always resolves as a click
+ *  (`selectGizmo`), never a drag commit. Nothing here writes `doc` by hand. */
 function commitGizmoDrag(gizmo, e) {
   const cell = preview.pickCell(e.clientX, e.clientY);
   if (!cell || !currentDoc) return; // the pointer let go off the ground plane — nothing to commit
   const { cx, cz } = clampToMap(cell.cx, cell.cz);
-  if (gizmo.kind === 'spawn') setSpawn(currentDoc, history, { cx, cz });
-  else if (gizmo.kind === 'marker') {
-    const m = currentDoc.markers[gizmo.index];
-    if (m) placeMarker(currentDoc, history, { name: m.name, cx, cz });
-  } else if (gizmo.kind === 'npc') {
-    const npc = currentDoc.npcs[gizmo.index];
-    if (npc) moveNpc(currentDoc, history, { npc, cx, cz });
-  } else if (gizmo.kind === 'light') {
-    // Lights are otherwise free-floating world coordinates (`state.js`'s header) — dragging one
-    // in 3D still snaps it to a cell center like every other gizmo, and keeps its own `y`.
-    updateLight(currentDoc, history, { index: gizmo.index, patch: { x: cx + 0.5, z: cz + 0.5 } });
-  } else if (gizmo.kind === 'spawnPoint') {
-    const point = currentDoc.spawnPoints[gizmo.index];
-    if (point) updateSpawnPoint(currentDoc, history, { point, patch: { cx, cz } });
-  }
+  ENTITIES[gizmo.kind]?.moveTo?.(currentDoc, history, gizmo.ref, { cx, cz });
   refreshAll(); // same pattern `inspector.js`'s onChange callback uses after its own tools.js calls
 }
 
-/** A click (no drag) on a gizmo selects the entity it represents, in the same shape the 2D
- *  canvas's own `select` tool writes to `session` — so the inspector and the bottom panel
- *  light up the same way regardless of which view was clicked. */
+/** A click (no drag) on a gizmo selects the entity it represents, in the same `{cell,kind,ref}`
+ *  shape the 2D canvas's own `select` tool writes to `session` — so the inspector and the
+ *  bottom panel light up the same way regardless of which view was clicked. Generic over every
+ *  `ENTITIES` kind via `positionOf`/`space`, instead of a 5-branch chain. */
 function selectGizmo(gizmo) {
   if (!currentDoc) return;
-  if (gizmo.kind === 'spawn') {
-    session.setSelection({ cell: { cx: currentDoc.spawn.cx, cz: currentDoc.spawn.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
-  } else if (gizmo.kind === 'marker') {
-    const m = currentDoc.markers[gizmo.index];
-    if (m) session.setSelection({ cell: { cx: m.cx, cz: m.cz }, markerName: m.name, lightIndex: null, spawnPointIndex: null });
-  } else if (gizmo.kind === 'npc') {
-    // No dedicated NPC inspector card yet (out of scope for this phase) — cell selection at
-    // least brings up the cell/"Objetos" inspector for where the NPC stands.
-    const n = currentDoc.npcs[gizmo.index];
-    if (n) session.setSelection({ cell: { cx: n.cx, cz: n.cz }, markerName: null, lightIndex: null, spawnPointIndex: null });
-  } else if (gizmo.kind === 'light') {
-    const l = currentDoc.lights[gizmo.index];
-    if (l) session.setSelection({ cell: { cx: Math.floor(l.x), cz: Math.floor(l.z) }, markerName: null, lightIndex: gizmo.index, spawnPointIndex: null });
-  } else if (gizmo.kind === 'spawnPoint') {
-    const p = currentDoc.spawnPoints[gizmo.index];
-    if (p) session.setSelection({ cell: { cx: p.cx, cz: p.cz }, markerName: null, lightIndex: null, spawnPointIndex: gizmo.index });
-  }
+  const entity = ENTITIES[gizmo.kind];
+  const pos = entity?.positionOf(currentDoc, gizmo.ref);
+  if (!pos) return;
+  const cell = entity.space === 'world'
+    ? { cx: Math.floor(pos.x), cz: Math.floor(pos.z) }
+    : { cx: Math.floor(pos.cx), cz: Math.floor(pos.cz) };
+  session.setSelection({ cell, kind: gizmo.kind, ref: gizmo.ref });
 }
 
 previewContainer.addEventListener('pointerdown', (e) => {
@@ -230,11 +211,18 @@ previewContainer.addEventListener('pointermove', (e) => {
     return;
   }
   if (previewDrag.mode === 'gizmo') {
-    previewDrag.moved = true;
-    const cell = preview.pickCell(e.clientX, e.clientY);
-    // Visual-only: the doc is untouched until `pointerup`, so dragging across the whole map is
-    // one undo step, not one per animation frame.
-    if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.index, c.cx, c.cz); }
+    // Only a kind whose `ENTITIES` entry has a `moveTo` actually drags — one without it (link/
+    // region/loopWaypoint/cameraPreset this slice) never flags `moved`, so `endPreviewDrag`
+    // always resolves it as a click (`selectGizmo`) instead of silently dragging the sprite
+    // somewhere `commitGizmoDrag` would then have nothing to commit, leaving it visually
+    // stranded until the next full gizmo rebuild.
+    if (ENTITIES[previewDrag.gizmo.kind]?.moveTo) {
+      previewDrag.moved = true;
+      const cell = preview.pickCell(e.clientX, e.clientY);
+      // Visual-only: the doc is untouched until `pointerup`, so dragging across the whole map is
+      // one undo step, not one per animation frame.
+      if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.ref, c.cx, c.cz); }
+    }
     return;
   }
   if (previewDrag.mode === 'paint' && currentDoc && CONTINUOUS_PAINT_TOOLS.has(session.getTool())) {
@@ -252,7 +240,10 @@ function endPreviewDrag(e) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
       const cell = preview.pickCell(e.clientX, e.clientY);
-      if (cell) session.setSelection({ cell });
+      // A bare 3D-pane click (no gizmo hit) means "select just this cell" — explicit
+      // `kind: null, ref: null` so a PREVIOUS entity selection cannot leak through, since
+      // `setSelection`'s plain `Object.assign` merge does not clear fields a patch omits.
+      if (cell) session.setSelection({ cell, kind: null, ref: null });
     }
   }
   previewDrag = null;
@@ -317,7 +308,7 @@ session.subscribe(() => {
   lastFocusKey = key;
 });
 
-const inspector = makeInspector({ root: inspectorEl, session, docRef, history, onChange: refreshAll });
+const inspector = makeInspector({ root: inspectorEl, session, docRef, history, onChange: refreshAll, getGameMaps: () => gameMapsCache });
 const bottom = makeBottomPanel({ root: bottomEl, editorCanvas, session, docRef, history });
 const status = makeStatusBar({ root: statusEl, session, docRef });
 

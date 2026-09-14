@@ -15,10 +15,11 @@
  * so no NPCs, no dialogue, nothing that would try to touch a DOM the Studio does not have.
  *
  * Interactive since the Studio's P3 pass: `pickCell`/`pickGizmo` raycast the pane so `main.js`
- * can turn a click/drag into a cell (select, paint) or an entity (spawn/marker/npc/light,
- * rendered here as small always-visible sprites — see "gizmos" below). This is the only
- * raycaster in the codebase, scoped to the Studio on purpose; nothing about it assumes the
- * fixed 45-degree rig, but nothing outside the Studio has needed one yet either.
+ * can turn a click/drag into a cell (select, paint) or an entity — every kind `entities.js`'s
+ * `ENTITIES` table marks with a gizmo, rendered here as small always-visible sprites (see
+ * "gizmos" below). This is the only raycaster in the codebase, scoped to the Studio on purpose;
+ * nothing about it assumes the fixed 45-degree rig, but nothing outside the Studio has needed
+ * one yet either.
  */
 
 import * as THREE from 'three';
@@ -32,6 +33,7 @@ import { makeRenderer, makeCameraRig, makeSunShadow } from '@/core/render.js';
 import tiles from '@/tiles/index.js';
 import terrain from '@/terrain/index.js';
 import environment from '@/environment/index.js';
+import { ENTITIES } from './entities.js';
 
 /** @param {{container: HTMLElement}} opts */
 export async function makePreview({ container }) {
@@ -223,7 +225,8 @@ export async function makePreview({ container }) {
     return { cx, cz };
   }
 
-  // --- gizmos: spawn/marker/npc/light, always visible and draggable in 3D --------------------
+  // --- gizmos: every `ENTITIES` kind with a truthy `gizmo`, always visible and (where that
+  // kind's own `moveTo` exists) draggable in 3D ------------------------------------------------
   //
   // Sprites, not meshes with their own rotation logic: a sprite always faces the camera, so a
   // click always lands on a face-on shape regardless of the fixed 45-degree pitch, and
@@ -249,7 +252,7 @@ export async function makePreview({ container }) {
   const dotTexture = makeDotTexture();
   const spawnTexture = makeTriangleTexture();
   const GIZMO_LIFT = 0.4; // world units above the ground a cell-based gizmo floats, so it reads over flat tile art instead of being half-buried in it
-  /** @type {{mesh: THREE.Sprite, kind: 'spawn'|'marker'|'npc'|'light', index: number|null}[]} */
+  /** @type {{mesh: THREE.Sprite, kind: string, ref: any}[]} */
   let gizmos = [];
 
   function disposeGizmos() {
@@ -257,46 +260,56 @@ export async function makePreview({ container }) {
     gizmos = [];
   }
 
-  function addGizmo(kind, index, x, y, z, color, texture, scale) {
+  function addGizmo(kind, ref, x, y, z, color, texture, scale) {
     const material = new THREE.SpriteMaterial({ map: texture, color, depthTest: false, transparent: true });
     const sprite = new THREE.Sprite(material);
     sprite.position.set(x, y, z);
     sprite.scale.setScalar(scale);
     sprite.renderOrder = 999; // "always visible" per the plan — never occluded by a wall or a tree
     view.scene.add(sprite);
-    gizmos.push({ mesh: sprite, kind, index });
+    gizmos.push({ mesh: sprite, kind, ref });
   }
 
   /**
-   * Rebuilds every draggable gizmo from the just-loaded map. Cheap (a handful of sprites, not
-   * the tens of thousands of tile instances `extraWorlds` holds), so a full rebuild on every
-   * `load()` — same place `extraWorlds` itself rebuilds — is simpler than diffing and stays
-   * correct even when an add/remove command changed how many there are. Colors match
-   * `canvas.js`'s own 2D glyphs (`#E0A64B` spawn, `#7FC98C` markers, `#9ECBE6` NPCs) so the two
-   * views read as one document, not two independent renderings of it.
+   * Rebuilds every draggable gizmo from the just-loaded map, driven by `ENTITIES` (`entities.
+   * js`) instead of five hand-written blocks — one per kind whose own `gizmo` field is truthy,
+   * placed via that kind's own `list`/`positionOf`. Cheap (a handful of sprites, not the tens of
+   * thousands of tile instances `extraWorlds` holds), so a full rebuild on every `load()` — same
+   * place `extraWorlds` itself rebuilds — is simpler than diffing and stays correct even when an
+   * add/remove command changed how many there are.
+   *
+   * `map` is the SERIALIZED `.map.json`-shaped snapshot `load()` already works from, not the
+   * live editable `doc` — `ENTITIES[k].list`/`positionOf` are written to accept either (see
+   * `entities.js`'s own header, which verifies this field by field for every gizmo-bearing kind
+   * used here: `spawn`/`markers`/`npcs`/`lights`/`spawnPoints` pass straight through
+   * `serializeDocument`, `links`/`regions`/`loop.via` round-trip the same shape, and `cameras`
+   * is not even cloned). Only `object`/`extraObject` would need an adapter (`tileLayers`/
+   * `objects`/`extras` genuinely differ between the two shapes) — neither has a gizmo, so
+   * neither is ever reached from here.
    */
   function rebuildGizmos(map) {
     disposeGizmos();
-    const terrain = ctx.get('terrain');
-    const spawn = map.spawn ?? { cx: map.w >> 1, cz: map.h >> 1 };
-    addGizmo('spawn', null, spawn.cx + 0.5, terrain.height(spawn.cx, spawn.cz) + GIZMO_LIFT, spawn.cz + 0.5, 0xE0A64B, spawnTexture, 0.9);
-    (map.markers ?? []).forEach((m, i) => addGizmo(
-      'marker', i, m.cx + 0.5, terrain.height(m.cx, m.cz) + GIZMO_LIFT, m.cz + 0.5, 0x7FC98C, dotTexture, 0.6,
-    ));
-    (map.npcs ?? []).forEach((n, i) => addGizmo(
-      'npc', i, n.cx + 0.5, terrain.height(n.cx, n.cz) + GIZMO_LIFT, n.cz + 0.5, 0x9ECBE6, dotTexture, 0.6,
-    ));
-    // Wild spawn points — each a real respawn point with its own species list now, placed
-    // directly by the author rather than derived from the patrol loop. Same magenta the 2D
-    // canvas's own "encounters" overlay uses (`kinds.js`'s OVERLAYS).
-    (map.spawnPoints ?? []).forEach((p, i) => addGizmo(
-      'spawnPoint', i, p.cx + 0.5, terrain.height(p.cx, p.cz) + GIZMO_LIFT, p.cz + 0.5, 0xE38FB0, dotTexture, 0.7,
-    ));
-    // Lights are already world-space (`state.js`'s header) — no `+0.5` here, unlike the
-    // cell-based gizmos above.
-    (map.lights ?? []).forEach((l, i) => addGizmo(
-      'light', i, l.x, (l.y ?? 1) + GIZMO_LIFT * 0.5, l.z, l.color ?? 0xE0A64B, dotTexture, 0.5,
-    ));
+    const terrainApi = ctx.get('terrain');
+    for (const [kind, entity] of Object.entries(ENTITIES)) {
+      if (!entity.gizmo) continue;
+      const texture = entity.gizmo === 'triangle' ? spawnTexture : dotTexture;
+      for (const ref of entity.list(map)) {
+        const pos = entity.positionOf(map, ref);
+        if (!pos) continue; // e.g. a camera preset whose marker was deleted out from under it
+        let x; let y; let z;
+        if (entity.space === 'world') {
+          x = pos.x; z = pos.z;
+          y = (pos.y ?? 1) + GIZMO_LIFT * 0.5;
+        } else {
+          x = pos.cx + 0.5; z = pos.cz + 0.5;
+          y = terrainApi.height(pos.cx, pos.cz) + GIZMO_LIFT;
+        }
+        // Light is the one gizmo whose color varies per-instance (`state.js`'s own authored
+        // `light.color`, defaulting to the table's swatch) rather than being fixed per kind.
+        const color = kind === 'light' ? (ref.color ?? entity.color) : entity.color;
+        addGizmo(kind, ref, x, y, z, color, texture, entity.scale ?? 0.6);
+      }
+    }
   }
 
   /** Gizmo hit-test, tried before `pickCell` on every `main.js` pointerdown — a click on a
@@ -307,19 +320,20 @@ export async function makePreview({ container }) {
     const hit = raycaster.intersectObjects(gizmos.map((g) => g.mesh))[0];
     if (!hit) return null;
     const found = gizmos.find((g) => g.mesh === hit.object);
-    return found ? { kind: found.kind, index: found.index } : null;
+    return found ? { kind: found.kind, ref: found.ref } : null;
   }
 
   /**
    * Moves one gizmo's sprite to a cell, visually only — no `doc`/history write. `main.js` calls
-   * this on every `pointermove` while a gizmo drag is captured, and only commits the real edit
-   * (through the matching `tools.js` command) on `pointerup` — one undo step per drag, not one
-   * per animation frame.
+   * this on every `pointermove` while a gizmo drag is captured (only for a kind whose `ENTITIES`
+   * entry actually has a `moveTo`, per its own guard), and only commits the real edit (through
+   * the matching `tools.js` command, via `ENTITIES[kind].moveTo`) on `pointerup` — one undo step
+   * per drag, not one per animation frame.
    */
-  function moveGizmoTo(kind, index, cx, cz) {
-    const g = gizmos.find((x) => x.kind === kind && x.index === index);
+  function moveGizmoTo(kind, ref, cx, cz) {
+    const g = gizmos.find((x) => x.kind === kind && x.ref === ref);
     if (!g) return;
-    const y = kind === 'light' ? g.mesh.position.y : ctx.get('terrain').height(cx, cz) + GIZMO_LIFT;
+    const y = ENTITIES[kind].space === 'world' ? g.mesh.position.y : ctx.get('terrain').height(cx, cz) + GIZMO_LIFT;
     g.mesh.position.set(cx + 0.5, y, cz + 0.5);
   }
 
