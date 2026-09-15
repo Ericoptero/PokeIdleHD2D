@@ -6,10 +6,10 @@
 
 import { h, setText } from '@/ui/dom/el.js';
 import { icon, iconBtn } from './icons.js';
-import { TOOLS, COLLISIONS, COLLISION_LABEL } from './kinds.js';
+import { TOOLS } from './kinds.js';
 import { runValidation, invalidateValidation } from './validation.js';
 
-export function makeToolRail({ root, editorCanvas }) {
+export function makeToolRail({ root, session }) {
   const buttons = new Map();
   for (const [id, iconName, name, key] of TOOLS) {
     const btn = h('button', { class: 'ms-rail-btn', title: `${name} · ${key}`, onClick: () => setTool(id) },
@@ -18,12 +18,18 @@ export function makeToolRail({ root, editorCanvas }) {
     root.appendChild(btn);
   }
   function setTool(id) {
-    editorCanvas.setTool(id);
+    session.setTool(id);
     for (const [bid, btn] of buttons) btn.classList.toggle('ms-rail-btn--active', bid === id);
   }
   setTool('select');
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+    // A modified keystroke is never a bare tool-keybind — without this guard, `main.js`'s
+    // Ctrl+C/Ctrl+V clipboard shortcuts (Slice 9a) would ALSO match this table's `coll`/`loop`
+    // tool keybinds (`C`/`V`, 4th column below) and silently switch the active tool as an
+    // unwanted side effect of every copy/paste — a real collision, not a hypothetical one,
+    // caught while wiring up those two shortcuts.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     // `e.key` for the spacebar is the literal string ' ', which never matches the rail's
     // display label 'Espaço' — normalize it to the label before comparing.
     const key = e.key === ' ' ? 'Espaço' : e.key;
@@ -33,30 +39,25 @@ export function makeToolRail({ root, editorCanvas }) {
   return { setTool };
 }
 
-const VIEWS = [['edit', 'grid-3x3', 'Edição'], ['game', 'gamepad-2', 'Jogo'], ['split', 'columns-2', 'Dividida']];
-
-export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onView, onWalkLoop }) {
+export function makeToolbar({ root, doc, history, session, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onWalkLoop }) {
   const nameBtn = h('button', { class: 'ms-map-badge', onClick: onOpenPicker }, []);
   const nameEl = h('span', { class: 'ms-map-name' }, '—');
   const dirtyDot = h('span', { class: 'ms-dirty-dot', hidden: true });
   nameBtn.append(icon('layers', { size: 14 }), nameEl, dirtyDot, icon('chevron-down', { size: 14 }));
 
-  const undoBtn = iconBtn('undo-2', { title: 'Desfazer', keybind: 'Ctrl+Z', class: 'ms-toolbtn', onClick: () => { history.undo(); refresh(); } });
-  const redoBtn = iconBtn('redo-2', { title: 'Refazer', keybind: 'Ctrl+Shift+Z', class: 'ms-toolbtn', onClick: () => { history.redo(); refresh(); } });
+  // A bundled bug fix, found while verifying this slice's own stroke-batched undo: `history.
+  // undo()`/`redo()` mutate `doc` directly (every command in `tools.js` does — undo/redo is not
+  // routed through `session.applyToolAt`), so nothing here used to tell `session` a change just
+  // happened. `refresh()` below only touches THIS toolbar's own buttons/badges — it does not
+  // reach `main.js`'s `refreshAll` (bound to `session.subscribe`), so the 3D pane, its overlays
+  // and the minimap all silently went stale on every undo/redo, for every tool, not just
+  // `sculpt` — confirmed by a real Ctrl+Z smoke test on a sculpt stroke that changed `doc.height`
+  // (and moved the entry to the redo list) while the 3D pane kept showing the raised terrain
+  // until an unrelated later edit finally notified. `session.notify()`, not `refreshAll()`
+  // directly — same reasoning as every other direct `tools.js`-call site in `main.js`.
+  const undoBtn = iconBtn('undo-2', { title: 'Desfazer', keybind: 'Ctrl+Z', class: 'ms-toolbtn', onClick: () => { history.undo(); refresh(); session.notify(); } });
+  const redoBtn = iconBtn('redo-2', { title: 'Refazer', keybind: 'Ctrl+Shift+Z', class: 'ms-toolbtn', onClick: () => { history.redo(); refresh(); session.notify(); } });
   const errBadge = h('span', { class: 'ms-err-badge' }, '0');
-
-  const viewBtns = new Map();
-  const viewSeg = h('div', { class: 'ms-view-seg' });
-  for (const [id, iconName, label] of VIEWS) {
-    const btn = h('button', { class: 'ms-view-btn', onClick: () => { setView(id); onView(id); } },
-      [icon(iconName, { size: 14 }), h('span', {}, label)]);
-    viewBtns.set(id, btn);
-    viewSeg.appendChild(btn);
-  }
-  function setView(id) {
-    for (const [vid, btn] of viewBtns) btn.classList.toggle('ms-view-btn--active', vid === id);
-  }
-  setView('edit');
 
   const walkBtn = iconBtn('route', { title: 'Percorrer loop de caça', class: 'ms-btn', onClick: onWalkLoop, label: 'Percorrer loop' });
   const saveBtn = iconBtn('save', { title: 'Salvar em public/maps/ (servidor de desenvolvimento)', class: 'ms-btn', label: 'Salvar', onClick: async () => {
@@ -78,7 +79,6 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
     h('div', { class: 'ms-sep' }),
     undoBtn, redoBtn,
     h('div', { class: 'ms-spacer' }),
-    viewSeg,
     walkBtn,
     h('button', { class: 'ms-btn ms-btn--warn', onClick: onValidate }, [icon('list-checks', { size: 15 }), h('span', {}, 'Validar mapa'), errBadge]),
   ]));
@@ -100,17 +100,21 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
   refresh();
   window.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
-    if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); refresh(); }
-    else if (e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); history.redo(); refresh(); }
+    if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); refresh(); session.notify(); }
+    else if (e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); history.redo(); refresh(); session.notify(); }
   });
-  return { refresh, setView };
+  return { refresh };
 }
 
-export function makeStatusBar({ root, editorCanvas, docRef }) {
+export function makeStatusBar({ root, session, docRef }) {
   const cellEl = h('span', {}, '—');
   const toolEl = h('span', {}, '—');
   const editsEl = h('span', {}, '—');
   const reachEl = h('span', {}, '—');
+  // Visible only while a box selection is active — the reminder that `session.js`'s
+  // `canEditCell` is currently confining pencil/eraser/fill/coll/object to the outlined area,
+  // and how to get out of it without switching tools.
+  const selectionEl = h('span', { class: 'ms-muted', hidden: true }, 'seleção ativa — edição travada na área (Esc libera)');
   const errDot = h('span', { class: 'ms-status-dot ms-status-dot--err' });
   const warnDot = h('span', { class: 'ms-status-dot ms-status-dot--warn' });
   const infoDot = h('span', { class: 'ms-status-dot ms-status-dot--info' });
@@ -119,7 +123,7 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
   const infoCount = h('span', {}, '0');
   const seedEl = h('span', { class: 'ms-muted' }, '—');
   root.appendChild(h('div', { class: 'ms-status' }, [
-    cellEl, toolEl, editsEl, reachEl,
+    cellEl, toolEl, editsEl, reachEl, selectionEl,
     h('div', { class: 'ms-spacer' }),
     h('div', { class: 'ms-status-issue' }, [errDot, errCount]),
     h('div', { class: 'ms-status-issue' }, [warnDot, warnCount]),
@@ -128,19 +132,20 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
   ]));
   function refresh() {
     const doc = docRef.get();
-    const hover = editorCanvas.getHover();
+    const hover = session.getHover();
     setText(cellEl, hover ? `célula ${hover.cx}, ${hover.cz}` : (doc ? `${doc.w} × ${doc.h}` : '—'));
-    setText(toolEl, `ferramenta: ${editorCanvas.getTool()}`);
-    setText(editsEl, `${editorCanvas.getEditCount()} edição(ões) nesta sessão`);
-    const reach = editorCanvas.getReachStats();
+    setText(toolEl, `ferramenta: ${session.getTool()}`);
+    setText(editsEl, `${session.getEditCount()} edição(ões) nesta sessão`);
+    const reach = session.getReachStats();
     setText(reachEl, `${reach.unreachable} célula(s) inalcançável(is)`);
+    selectionEl.hidden = !session.getRectSelection();
     const v = runValidation(doc);
     setText(errCount, `${v.errors.length} erros`);
     setText(warnCount, `${v.warnings.length} avisos`);
     setText(infoCount, `${v.infos.length} infos`);
     setText(seedEl, doc ? `seed ${doc.seed}` : '—');
   }
-  editorCanvas.subscribe(refresh);
+  session.subscribe(refresh);
   refresh();
   return { refresh };
 }
@@ -151,44 +156,41 @@ export function makeStatusBar({ root, editorCanvas, docRef }) {
  *  stay identical if either grows independently. */
 const BRUSH_TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
 
-export function makeAssetBrushBar({ root, editorCanvas }) {
+export function makeAssetBrushBar({ root, session }) {
   const rotBtn = iconBtn('rotate-cw', { title: 'Girar o pincel 90°', class: 'ms-btn ms-btn--small', onClick: () => {
-    editorCanvas.setBrush({ rot: (editorCanvas.getBrush().rot + 1) & 3 });
-    setText(rotLabel, `${editorCanvas.getBrush().rot * 90}°`);
+    session.setBrush({ rot: (session.getBrush().rot + 1) & 3 });
+    setText(rotLabel, `${session.getBrush().rot * 90}°`);
   } });
   const rotLabel = h('span', { class: 'ms-muted' }, '0°');
-  const collSelect = h('select', { class: 'ms-select', onChange: (e) => editorCanvas.setBrush({ collision: e.target.value }) },
-    COLLISIONS.map((c) => h('option', { value: c }, COLLISION_LABEL[c])));
-  const tagInput = h('input', { class: 'ms-field-input', value: 'tallgrass', style: { width: '110px' },
-    onChange: (e) => editorCanvas.setBrush({ tag: e.target.value }) });
 
   const tintRow = h('div', { class: 'ms-tint-row' }, BRUSH_TINTS.map((t, i) => h('div', {
     class: `ms-tint-swatch${i === 0 ? ' ms-tint-swatch--active' : ''}`,
     style: { background: `#${t.toString(16).padStart(6, '0')}` },
     onClick: (e) => {
-      editorCanvas.setBrush({ tint: t });
+      session.setBrush({ tint: t });
       for (const el of tintRow.children) el.classList.remove('ms-tint-swatch--active');
       e.currentTarget.classList.add('ms-tint-swatch--active');
     },
   })));
-  const heightStepInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.05', value: '0.25', style: { width: '56px' },
-    onChange: (e) => editorCanvas.setBrush({ heightStep: Number(e.target.value) || 0.25 }) });
+  // Per-placement Y (Slice: two tiles, one column, different heights) — blank means "follow the
+  // cell's own terrain height" (`doc.height`, unchanged), a number pins the next-painted tile to
+  // that exact world Y regardless of terrain. Paint the ground on one layer with this blank, a
+  // second layer with e.g. `5` here, and both tiles occupy the same `(cx,cz)` at different
+  // heights — `tools.js`'s `paintCell`/`paintRect`/`fillRegion` already accept `y` end to end;
+  // this is the one place that was missing to actually set it from the UI.
+  const yInput = h('input', { class: 'ms-field-input', type: 'number', step: '0.05', placeholder: 'terreno', style: { width: '72px' },
+    title: 'Y do tile pintado — em branco segue a altura do terreno',
+    onChange: (e) => session.setBrush({ y: e.target.value === '' ? null : Number(e.target.value) }) });
   const claimToggle = h('label', { class: 'ms-brush-check', title: 'Marca a célula como ocupada ao pintar' }, [
-    h('input', { type: 'checkbox', onChange: (e) => editorCanvas.setBrush({ claimFootprint: e.target.checked }) }),
+    h('input', { type: 'checkbox', onChange: (e) => session.setBrush({ claimFootprint: e.target.checked }) }),
     h('span', {}, 'Reservar área'),
-  ]);
-  const keepCollisionToggle = h('label', { class: 'ms-brush-check', title: 'Ao desmarcar, pintar com este tile também aplica a colisão do tile' }, [
-    h('input', { type: 'checkbox', checked: true, onChange: (e) => editorCanvas.setBrush({ keepCollision: e.target.checked }) }),
-    h('span', {}, 'Preservar colisão'),
   ]);
 
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
     h('span', { class: 'ms-eyebrow' }, 'Tint'), tintRow,
-    h('span', { class: 'ms-eyebrow' }, 'Colisão'), collSelect,
-    h('span', { class: 'ms-eyebrow' }, 'Tag'), tagInput,
-    h('span', { class: 'ms-eyebrow' }, 'Passo altura'), heightStepInput,
-    claimToggle, keepCollisionToggle,
+    h('span', { class: 'ms-eyebrow' }, 'Y'), yInput,
+    claimToggle,
   ]);
   root.appendChild(bar);
   return bar; // so a caller (main.js: the overlay strip, the preview toggle) can append into the same row

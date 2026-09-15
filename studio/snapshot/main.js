@@ -11,7 +11,7 @@
  * at all — the Studio, and every scene that loads one, rest on it.
  *
  * A minimal boot, not the full game: only `tiles`, `terrain` and `environment` register, the
- * same subset `studio/preview.js` uses — replaying a map needs no NPCs, no battle, no economy.
+ * same subset `studio/viewport/index.js` uses — replaying a map needs no NPCs, no battle, no economy.
  *
  * Driven by `tools/mapstudio/roundtrip.js` over `puppeteer-core`, the same way
  * `tools/shots/shoot.js` drives a capture — this page never runs on its own.
@@ -90,7 +90,7 @@ async function boot() {
     const draft = ctx.get('terrain').draft();
     const report = ctx.get('terrain').report();
     const after = draftToMapFile(draft, {
-      name: before.name, kind: before.kind, module: before.module, resolveModel,
+      name: before.name, kind: before.kind, resolveModel,
       requiredLevel: before.requiredLevel, weather: before.weather,
       environmentPreset: before.environmentPreset, economy: before.economy,
       extras: report?.extras ?? [],

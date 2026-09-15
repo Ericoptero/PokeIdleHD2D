@@ -6,9 +6,9 @@
  * `src/`, see `tools/seams/run.js`) get the same answers.
  *
  * Checks that need more than the file itself (a tileset catalog, another map, the encounter
- * table, the loop-stitching algorithm) take it through `env` and self-report as `skipped`
- * rather than silently passing — a check that always says "fine" because it was never asked
- * a real question is worse than one that says nothing.
+ * table) take it through `env` and self-report as `skipped` rather than silently passing — a
+ * check that always says "fine" because it was never asked a real question is worse than one
+ * that says nothing.
  */
 
 import { decodeRuns } from './mapfile.js';
@@ -162,6 +162,7 @@ const CHECKS = [
       const names = markerNames(map);
       const out = [];
       for (const name of map.loop?.via ?? []) {
+        if (typeof name !== 'string') continue; // an inline {cx,cz} waypoint, not a marker reference
         if (!names.has(name)) out.push({ at: { marker: name }, message: `loop.via cita o marcador "${name}", que não existe` });
       }
       for (const [id, preset] of Object.entries(map.cameras?.presets ?? {})) {
@@ -315,9 +316,35 @@ const CHECKS = [
     run(map, env) {
       const out = [];
       for (const r of map.regions ?? []) {
-        const cat = env.catalogs[r.tileset];
+        // A `Region` has no `tileset` of its own — `set` is resolved against the MAP's own
+        // tileset (`mapfile.js`'s header), the same one `draft.autotile()` always builds
+        // against; there is nowhere else a region's autotile set could live.
+        const cat = env.catalogs[map.tileset];
         if (cat && !cat.autotileSets?.includes(r.set)) {
-          out.push({ message: `região autotile cita o conjunto "${r.set}", que não existe em "${r.tileset}" — a região não desenha nada` });
+          out.push({ message: `região autotile cita o conjunto "${r.set}", que não existe em "${map.tileset}" — a região não desenha nada` });
+        }
+      }
+      return out;
+    },
+  },
+  {
+    code: 'region-tile-overlap', severity: 'error', needs: [],
+    run(map) {
+      const out = [];
+      const n = map.w * map.h;
+      for (const region of map.regions ?? []) {
+        if (region.kind !== 'autotile' || !region.mask) continue;
+        const mask = decodeRuns(region.mask, n);
+        const layer = (map.layers ?? []).find((l) => l.role !== 'extra' && (l.tiles ?? []).some((t) => t.layer === (region.layer ?? 0)));
+        const tileEntry = layer?.tiles?.find((t) => t.layer === (region.layer ?? 0));
+        if (!tileEntry) continue;
+        const modelAt = decodeRuns(tileEntry.model, n);
+        for (let i = 0; i < n; i++) {
+          if (!mask[i]) continue;
+          if (modelAt[i] < 0) continue;
+          const cx = i % map.w;
+          const cz = Math.floor(i / map.w);
+          out.push({ at: { cx, cz }, message: `região "${region.id}" reivindica a célula (${cx},${cz}), que já tem uma peça (${layer.models?.[modelAt[i]] ?? modelAt[i]}) desenhada por cima — a substituição no replay é indefinida` });
         }
       }
       return out;
@@ -395,26 +422,12 @@ const CHECKS = [
       return out;
     },
   },
-  {
-    code: 'loop-stale', severity: 'warn', needs: ['loop'],
-    run(map, env) {
-      if (!map.loop?.via?.length) return [];
-      const fresh = env.loop.stitch(map, map.loop.via);
-      const cached = map.loop.resolved;
-      if (!fresh && cached) return [{ message: 'o loop de patrulha autorado não fecha mais contra o mapa atual — repinte ou reordene os marcadores' }];
-      if (fresh && cached && JSON.stringify(fresh.cells) !== JSON.stringify(cached.cells)) {
-        return [{ message: 'o loop de patrulha em cache está desatualizado — clique em "revalidar" para recalcular' }];
-      }
-      return [];
-    },
-  },
 ];
 
 /**
  * @param {object} map a parsed map file
  * @param {{catalogs?: Record<string,{byName:Map<string,object>, autotileSets?:string[]}>,
- *   maps?: Record<string,object>, tables?: Record<string,object[]>,
- *   loop?: {stitch:(map:object, via:string[]) => object|null}}} [env]
+ *   maps?: Record<string,object>, tables?: Record<string,object[]>}} [env]
  * @returns {{errors:Issue[], warnings:Issue[], infos:Issue[], skipped:string[], stats:object}}
  */
 export function validateMap(map, env = {}) {

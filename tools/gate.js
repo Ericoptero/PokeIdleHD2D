@@ -27,6 +27,8 @@
  *              other stage stayed green
  *   coldboot   tools/shots/shoot.js's time-to-__READY__ budget, measured against that build on `vite preview`
  *   boot       every showcase and every scene draws a real frame, not an empty void
+ *   studio-roundtrip  every shipped map survives a Studio decode-then-encode round trip
+ *                     unchanged — opening and saving a map must not silently perturb it
  *   flows      Playwright user flows at `/` (tests/flows), driven through __HOOKS__ and
  *              asserted on bus events and module state — the things a frame cannot show
  *   parity     the pixel grid is identical across seven viewports
@@ -74,6 +76,7 @@ const STAGES = [
   { name: 'build', argv: null, needsServer: false },
   { name: 'coldboot', argv: null, needsServer: false },
   { name: 'boot', argv: ['tools/shots/boot.js', '--out', `${OUT}/boot`, '--base', BASE], needsServer: true },
+  { name: 'studio-roundtrip', argv: ['tools/mapstudio/studio-roundtrip.js', '--base', BASE], needsServer: true },
   { name: 'flows', argv: null, needsServer: true },
   { name: 'parity', argv: ['tools/shots/parity.js', '--walk', '--out', `${OUT}/parity`, '--base', BASE], needsServer: true },
   { name: 'regress', argv: ['tools/shots/regress.js', '--out', `${OUT}/regress`, '--base', BASE], needsServer: true },

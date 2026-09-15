@@ -1,10 +1,9 @@
 {
   "format": "pokeidle.map",
-  "version": 2,
+  "version": 3,
   "id": "hunt-forest",
   "name": "Verdant Wood",
   "kind": "hunt",
-  "module": "hunts",
   "w": 64,
   "h": 62,
   "tileset": "bw2-adastra",
@@ -35,7 +34,6 @@
       "tileset": "bw2-adastra",
       "role": "draft",
       "models": ["grass","grass_path_side_edge_w","grass_path_center","grass_path_side_edge_e","dirt","grass_path_side_edge_n","grass_path_side_edge_s","round_tree","big_tree_dark","big_tree_dark_v2","tree","darker_pine","hedge1","hedge1_v2","hedge2","hedge3","grass_patch","grass_decoration","flower_v2","grass_patch_half","flower","flower_2","tall_grass","rot_rocks","tall_grass_light"],
-      "modelIds": [36,8,9,10,174,17,1,203,205,206,202,204,185,195,181,184,140,166,177,141,176,167,125,172,133],
       "tiles": [
         {
           "layer": 0,
@@ -5907,7 +5905,6 @@
       "tileset": "props",
       "role": "extra",
       "models": ["bw2-twist__small_rock","sylvan-town__log"],
-      "modelIds": [0,10],
       "objects": [
         {
           "m": 0,
@@ -6484,7 +6481,8 @@
       "color": 16743716,
       "intensity": 4.2,
       "radius": 11,
-      "size": 0.17
+      "size": 0.17,
+      "id": "light-0-mu1qb5iv"
     }
   ],
   "cameras": {

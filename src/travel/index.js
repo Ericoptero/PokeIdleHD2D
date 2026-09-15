@@ -20,6 +20,8 @@
  * `offline` builds its provider list without this module in it and the scene is never saved.
  */
 
+import { linkAt } from './links.js';
+
 /** The registry's null object answers every property with a function — this is the tell. */
 const isLive = (api) => !!api && api.__missing === undefined;
 
@@ -45,6 +47,21 @@ export default {
     let busy = false;
     /** A scene id recovered from the save, waiting for `boot()` to be asked for it. */
     let pending = null;
+    /**
+     * The `{cx,cz}` the most recent `go()` call's `arrival` hint actually resolved to and
+     * teleported the player onto — `null` when that call had no `arrival`, the hint didn't
+     * resolve to a cell, or `simulation` was not live to carry it out. Read by the link
+     * listener below, in the very next line after its own `await go(...)` settles: safe as a
+     * plain closure variable rather than something `go()` returns, because `go()` is serialised
+     * behind `busy` — no second `go()` can start, finish and overwrite this between that
+     * `await` resolving and the listener's read of it, and nothing else runs in between either
+     * (no further `await` separates them). Kept out of `go()`'s own return value on purpose:
+     * every existing caller of `go()` (`party:wiped` below, `src/ui/screens/travel.js`,
+     * `src/travel/pokecenter-race.test.js`, `src/main.js`) expects a plain boolean, and
+     * widening that shape for one new caller would be a bigger, riskier change than a private
+     * variable only the new listener reads.
+     */
+    let lastArrival = null;
 
     const cityApi = () => ctx.get('city');
     const huntsApi = () => ctx.get('hunts');
@@ -90,7 +107,8 @@ export default {
           // Door-only entry (entered by walking through the door): `ui/panels/
           // travel.js` filters this out, so the T panel still shows exactly the city plus
           // every hunt. `travel.go('pokecenter')` still works — `hidden` hides a row, not a
-          // destination — which is what `pokecenter`'s own door listener relies on.
+          // destination — which is what this file's own link listener (below) relies on when
+          // a `door:pokecenter` `Link`'s `to.map` names it.
           hidden: true,
         });
       }
@@ -120,9 +138,17 @@ export default {
      * overlapping `enter()` calls would dispose a map the other one is still building.
      *
      * @param {string} id  a destination id, e.g. `'demo-city'` or `'hunt-forest'`
+     * @param {{marker?:string, cx?:number, cz?:number, dir?:0|1|2|3}} [arrival]  where to stand
+     *   the player once the destination has finished loading, resolved via `arrival.marker`
+     *   first (looked up on the destination's own just-loaded `terrain.draft().markers`),
+     *   falling back to `arrival.cx`/`arrival.cz` when the marker is missing or none was given.
+     *   Optional and purely additive: every existing caller that omits it keeps landing on
+     *   whatever `enter()` treats as that destination's own spawn, exactly as before — the link
+     *   listener below is the one caller that passes it, resolving a map-authored `Link`'s
+     *   `to` field (`src/travel/links.js`).
      * @returns {Promise<boolean>} whether the travel happened
      */
-    async function go(id) {
+    async function go(id, arrival) {
       if (busy) { log.info(`travel: already travelling — "${id}" ignored`); return false; }
       const dest = find(id);
       if (!dest) { log.warn(`travel: no destination "${id}"`); return false; }
@@ -168,6 +194,42 @@ export default {
         await owner.enter(dest.arg ?? undefined);
 
         current = dest;
+
+        // An optional arrival hint places the player somewhere more specific than the
+        // destination's own spawn — the far side of a door a map's `links[]` names
+        // (`src/travel/links.js`). This can only run now, after `owner.enter()` above has
+        // finished loading the destination's own map: `terrain.draft()` answers for whichever
+        // map `terrain.load()` most recently built, and a moment ago that was still the map we
+        // just left. `arrival.marker` is preferred over raw `cx`/`cz` — the whole reason a link
+        // names a marker instead of baking in coordinates is that the destination map can move
+        // its own door without every link that targets it going stale — falling back to
+        // `arrival.cx`/`arrival.cz` when the marker is missing or none was given at all. The
+        // same lookup `pokecenter/index.js`'s own exit handling used to do by hand.
+        lastArrival = null;
+        if (arrival) {
+          const terrain = ctx.get('terrain');
+          const marker = arrival.marker && isLive(terrain) && typeof terrain.draft === 'function'
+            ? terrain.draft()?.markers?.get(arrival.marker)
+            : null;
+          const cx = marker ? marker.cx : arrival.cx;
+          const cz = marker ? marker.cz : arrival.cz;
+          if (Number.isFinite(cx) && Number.isFinite(cz)) {
+            const sim = ctx.get('simulation');
+            if (isLive(sim) && typeof sim.teleport === 'function') {
+              sim.teleport(cx, cz, arrival.dir ?? 0);
+              lastArrival = { cx, cz };
+            } else {
+              log.warn(`travel: "${id}" has an arrival hint but simulation is not live to place the player — landed at ${dest.name}'s own spawn instead`);
+            }
+          } else {
+            // Not thrown: a stale marker name or a link missing both `marker` and `cx`/`cz` is
+            // a content bug in a hand- or Studio-authored map, not a runtime one, and the
+            // player would rather arrive at the ordinary spawn than be stranded mid-travel
+            // because someone renamed or deleted a marker.
+            log.warn(`travel: arrival hint for "${id}" resolved to no cell (marker "${arrival.marker ?? ''}" not found and no cx/cz given) — landed at ${dest.name}'s own spawn instead`);
+          }
+        }
+
         bus.emit('scene:entered', {
           sceneId: dest.id,
           mapId: dest.id,
@@ -232,6 +294,45 @@ export default {
         return true;
       },
     };
+
+    /**
+     * A map-authored door, edge or staircase — the generic mechanism that replaced the Pokemon
+     * Center's old hardcoded `EXIT_TAG` listener (`src/pokecenter/index.js` used to be the only
+     * place in the game that read a door tag pair; now any map's own `links[]` gets a warp for
+     * free, which is the point of this slice). `simulation` announces the cell the player's
+     * head steps onto on every step (`src/simulation/index.js`'s `announce()`), and
+     * `links.js`'s pure `linkAt` — no `ctx`, easy to pin with a plain-object unit test — decides
+     * whether that cell matches one of the current map's authored links.
+     *
+     * `justArrivedAt` is the anti-ping-pong guard `links.js`'s own header explains the "why" of:
+     * a warp can land the player on a cell that is itself another link's own `from` (two rooms
+     * sharing a doorway, say), and without it the very `player:enteredTile` the arrival
+     * teleport itself produces would fire that link right back before the player ever got to
+     * take a step. It is set from `lastArrival` — the cell `go()`'s own arrival resolution
+     * actually teleported onto, `null` if nothing did — read in the same microtask `go()`
+     * resolves in, and cleared on every `player:enteredTile` this listener sees, matched or
+     * not: once the player has been announced standing anywhere, the suppression from a prior
+     * arrival has done its job, and a genuine second visit to that same cell later must be free
+     * to fire the link again.
+     */
+    let justArrivedAt = null;
+    bus.on('player:enteredTile', ({ cx, cz, tags }) => {
+      if (config.showcase) return;             // a showcase stages a frame; it never travels
+      const links = ctx.get('terrain')?.report?.()?.links ?? [];
+      const link = linkAt(links, { cx, cz, tags }, { justArrivedAt });
+      justArrivedAt = null;
+      if (!link) return;
+      queueMicrotask(async () => {
+        try {
+          const ok = await go(link.to.map, {
+            marker: link.to.marker, cx: link.to.cx, cz: link.to.cz, dir: link.to.dir,
+          });
+          if (ok) justArrivedAt = lastArrival;
+        } catch (err) {
+          log.warn(`travel: link "${link.id}" failed — ${err?.message ?? err}`);
+        }
+      });
+    });
 
     /**
      * A wiped party goes to the Pokémon Center itself now, not just the pavement outside it —

@@ -121,6 +121,24 @@ function buildSet(slug, relDir) {
       models.push({ id: tile.index, empty: true, source: tile.OBJNAME ?? null });
       continue;
     }
+    // A flat "floor" — zero vertical extent — authored metres above its own cell reads as a
+    // cliff-top surface to `classifyTile` below (`bounds.min[1] >= 0.5` -> tag `raised`), but a
+    // handful of PDSMS tiles (AdAstra's `grass`/`stone_path`/`cliff_top` variants) are the exact
+    // same flat ground mesh as their `baseY:0` twin, just modeled a second time up on the cliff
+    // shelf for convenience while authoring the source `.pdsts` — with nothing marking that they
+    // were never meant to be placed at ground level. `InstancedWorld.composeMatrix`
+    // (`@/tiles/instanced.js`) places every instance at the raw placement Y with no `baseY`
+    // compensation, so one of these picked from the Studio's asset library (which selects by
+    // name, unlike `tiles.find()`'s own `raised` exclusion) and painted at `y:0` floats the
+    // whole plane in the air with nothing underneath — the confirmed bug this replaces.
+    // Re-based here, at the source, rather than only at runtime (`groundBaseYToZero`,
+    // `@/tiles/materials.js`) so a rebuild ships the correct geometry outright; that runtime
+    // pass stays as a safety net for a tileset rebuilt without this guard.
+    if (bounds.min[1] >= 0.5 && bounds.max[1] - bounds.min[1] < 0.01) {
+      const drop = bounds.min[1];
+      for (const g of groups) for (let i = 1; i < g.position.length; i += 3) g.position[i] -= drop;
+      bounds.min[1] -= drop; bounds.max[1] -= drop;
+    }
     // The dominant texture (most vertices) is what the tile actually looks like.
     const dominant = groups.reduce((a, g) => (g.position.length > (a?.position.length ?? -1) ? g : a), null);
     const cls = classifyTile(tile, materials, bounds, dominant?.textureId);

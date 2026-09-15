@@ -2,7 +2,7 @@
  * validation.js — a memoized wrapper around `@/terrain/validate.js`'s `validateMap`, plus the
  * one issue-row DOM builder the bottom-panel tab and the drawer both use.
  *
- * `validateMap` runs 14 checks including a BFS over the whole grid (`reachableFrom`) — running
+ * `validateMap` runs 19 checks including a BFS over the whole grid (`reachableFrom`) — running
  * it fresh on every keystroke (the toolbar badge used to) is real, measurable waste on a
  * 64×64 map. Memoized on a revision counter the caller bumps once per meaningful edit.
  */
@@ -22,13 +22,6 @@ export function runValidation(doc, { force = false } = {}) {
   if (!force && cache && cache.doc === doc && cache.rev === rev) return cache.result;
   const t0 = performance.now();
   const result = validateMap(serializeDocument(doc), validationEnv());
-  // `marker-missing` (`@/terrain/validate.js`) predates the inline `{cx,cz}` `loop.via`
-  // waypoints the `loop` tool now authors (P4 item 7) and assumes every `via` entry is a
-  // marker-name string; an inline entry trips it as a false "missing marker" (`at.marker`
-  // ends up an object, not a name). Filtered here rather than in the engine check itself —
-  // that file is a separate runtime workstream's concern — since an inline waypoint is valid,
-  // intentional data, not a broken reference.
-  result.errors = result.errors.filter((i) => !(i.code === 'marker-missing' && typeof i.at?.marker === 'object'));
   result.ms = performance.now() - t0;
   cache = { rev, doc, result };
   return result;
@@ -41,9 +34,7 @@ export function invalidateValidation() { cache = null; }
  * The context `validateMap` needs for its non-pure checks. `species` un-skips
  * `spawn-point-species` once the snapshot has loaded (`peekSpeciesNames`, `null` until then,
  * in which case the key is omitted so the check reports `skipped` rather than passing on an
- * empty set); `catalogs`/`maps` un-skip the catalog- and cross-map-dependent checks. `loop`
- * (for `loop-stale`) is intentionally not provided — re-stitching needs `src/hunts/compose.js`,
- * which the Studio does not import for this path (see that check's own doc).
+ * empty set); `catalogs`/`maps` un-skip the catalog- and cross-map-dependent checks.
  */
 export function validationEnv(extra = {}) {
   const species = peekSpeciesNames();

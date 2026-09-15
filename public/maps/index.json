@@ -40,5 +40,12 @@
     "kind": "interior",
     "w": 13,
     "h": 10
+  },
+  {
+    "id": "teste",
+    "name": "Teste",
+    "kind": "hunt",
+    "w": 32,
+    "h": 32
   }
 ]

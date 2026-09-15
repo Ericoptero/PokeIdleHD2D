@@ -58,7 +58,7 @@
 .ms-btn--danger { border-color: var(--c-bad-line); color: var(--c-bad-light); }
 .ms-btn--small { height: 22px; padding: 0 8px; font-size: 11px; }
 .ms-toolbtn, .ms-iconbtn {
-  width: 30px; height: 30px; border-radius: var(--r-xs); border: none; background: transparent;
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: var(--r-xs); border: none; background: transparent;
   color: var(--c-ink-quiet); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
 .ms-toolbtn:hover:not(:disabled), .ms-iconbtn:hover:not(:disabled) { background: var(--c-fill); color: var(--c-ink-strong); }
@@ -67,16 +67,25 @@
 .ms-iconbtn-label { font-size: 12px; font-weight: 600; }
 .ms-err-badge { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: var(--r-pill); background: var(--c-bad); color: #170B09; }
 
-.ms-view-seg { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(0,0,0,0.35); border: 1px solid var(--c-line-soft); }
-.ms-view-btn { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 6px; border: none; background: transparent; color: var(--c-ink-dim); cursor: pointer; font-size: 11.5px; font-weight: 700; }
-.ms-view-btn--active { background: #2A231A; color: var(--c-amber-lighter); box-shadow: inset 0 0 0 1px var(--c-amber-line); }
-
 /* ---- body layout ---- */
 .ms-body { flex: 1; min-height: 0; display: flex; }
 .ms-panel { display: flex; flex-direction: column; background: var(--c-panel-0); overflow-y: auto; }
-.ms-panel--library { width: 280px; flex-shrink: 0; border-right: 1px solid var(--c-line); }
-.ms-panel--inspector { width: 320px; flex-shrink: 0; border-left: 1px solid var(--c-line); padding: 10px 12px; gap: 8px; }
+.ms-panel--library { width: 280px; flex-shrink: 0; border-right: 1px solid var(--c-line); transition: width 0.12s ease; }
+.ms-panel--inspector { width: 320px; flex-shrink: 0; border-left: 1px solid var(--c-line); padding: 10px 12px; gap: 8px; transition: width 0.12s ease; }
 .ms-panel--bottom { flex-shrink: 0; height: 190px; border-top: 1px solid var(--c-line); background: var(--c-panel-0); overflow: hidden; display: flex; flex-direction: column; }
+
+/* Collapsible side panels (`library.js`/`inspector.js`): a persistent title strip (always
+   visible, hosts the toggle) stays; everything else (`.ms-panel-content`) hides and the panel
+   shrinks to a narrow rail — the toggle itself is never the thing that disappears. */
+.ms-panel-strip { flex-shrink: 0; }
+/* Flex column, filling the rest of the panel — `library.js`'s own `.ms-lib-scroll { flex: 1 }`
+   (and, before this wrapper existed, every direct child of `.ms-panel` itself) depends on its
+   immediate parent being a flex container to size correctly within the panel's fixed height. */
+.ms-panel-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ms-panel--collapsed { width: 40px !important; padding: 10px 4px !important; overflow: hidden; }
+.ms-panel--collapsed .ms-panel-content { display: none; }
+.ms-panel--collapsed .ms-panel-strip { justify-content: center; }
+.ms-panel--collapsed .ms-panel-strip .ms-eyebrow { display: none; }
 
 .ms-tool-rail { width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; background: var(--c-panel-0); border-right: 1px solid var(--c-line); }
 .ms-rail-btn { width: 32px; height: 32px; border-radius: var(--r-xs); border: none; background: transparent; color: var(--c-ink-quiet); cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -94,23 +103,31 @@
 .ms-ovl-more-wrap { position: relative; flex-shrink: 0; }
 .ms-ovl-more { display: flex; align-items: center; gap: 3px; height: 22px; padding: 0 7px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--c-line-soft); color: var(--c-ink-dim); cursor: pointer; font-size: 10.5px; font-weight: 600; }
 .ms-ovl-menu { position: absolute; top: 26px; left: 0; z-index: 40; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 9px; background: #1B1712; border: 1px solid var(--c-line); box-shadow: var(--shadow-card); min-width: 170px; }
-.ms-ovl-zoom { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.ms-zoom-btn { height: 22px; padding: 0 8px; border-radius: 6px; border: none; background: rgba(255,255,255,0.04); color: var(--c-ink-dim); cursor: pointer; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; }
-.ms-zoom-btn:hover { background: var(--c-fill-strong); color: var(--c-ink-strong); }
 
 /* ---- workspace ---- */
+/* Slice 7: the 3D viewport is the only workspace — no more `.ms-canvas-wrap` (the deleted 2D
+   canvas) sharing this row with `.ms-preview-wrap`, so the latter is never `[hidden]` either. */
 .ms-workspace { flex: 1; min-height: 0; display: flex; }
-.ms-canvas-wrap { flex: 1; min-width: 0; min-height: 0; position: relative; background: radial-gradient(130% 110% at 50% 0%, #13100D, #090705 70%); }
-.ms-canvas-wrap[hidden] { display: none; }
-.ms-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
 
-.ms-preview-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--c-line); background: #05070c; }
-.ms-preview-wrap[hidden] { display: none; }
-.ms-preview-head { height: 30px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--c-panel-0); border-bottom: 1px solid var(--c-line-soft); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-ink-mute); }
+.ms-preview-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #05070c; }
+.ms-preview-head { height: 30px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--c-panel-0); border-bottom: 1px solid var(--c-line-soft); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-ink-mute); overflow-x: auto; }
 .ms-preview-canvas { flex: 1; min-height: 0; position: relative; cursor: grab; }
 .ms-preview-canvas.is-panning { cursor: grabbing; }
+/* Tela cheia targets `.ms-preview-wrap` (`main.js`'s own header comment on the fullscreen button
+   explains why: `.ms-preview-head`'s controls must stay inside the fullscreened subtree, not be
+   a sibling of it), so this is `:fullscreen` on the wrap, not the canvas pane alone. */
+.ms-preview-wrap:fullscreen { background: #05070c; }
 .ms-preview-canvas canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .ms-tod-slider { width: 90px; }
+
+/* Read-only minimap (`minimap.js`, Slice 7) — a corner overlay pinned over the 3D viewport,
+   bottom-right. The nested selector beats `.ms-preview-canvas canvas`'s own `width:100%;
+   height:100%` above on specificity, so the minimap's own fixed size actually sticks. */
+.ms-preview-canvas .ms-minimap {
+  position: absolute; right: 12px; bottom: 12px; width: 168px; height: 168px;
+  border-radius: 10px; border: 1px solid var(--c-line); box-shadow: var(--shadow-card);
+  cursor: pointer; z-index: 5; background: #0a0806;
+}
 
 .ms-brush-bar { height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--c-panel-0); border-bottom: 1px solid var(--c-line-soft); overflow-x: auto; }
 .ms-brush-bar .ms-tint-row { flex: 0 0 auto; }
@@ -132,9 +149,10 @@
 .ms-asset-card { display: flex; flex-direction: column; gap: 3px; padding: 4px; border-radius: var(--r-xs); cursor: pointer; border: 1px solid transparent; }
 .ms-asset-card:hover { border-color: var(--c-line); }
 .ms-asset-card--sel { border-color: var(--c-amber-line-strong); background: var(--c-amber-wash); }
-.ms-asset-thumb { position: relative; height: 44px; perspective: 200px; }
-.ms-asset-thumb-top { position: absolute; inset: 0 0 8px 0; border-radius: 6px 6px 0 0; background-size: cover; background-position: center; image-rendering: pixelated; }
-.ms-asset-thumb-side { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; border-radius: 0 0 6px 6px; background-size: cover; background-position: center; filter: brightness(0.62); image-rendering: pixelated; }
+.ms-asset-thumb { position: relative; height: 52px; }
+/* A real offscreen 3D render (`viewport/thumbnails.js`), `contain` so the whole model shows
+   instead of being cropped/stretched the way a flat texture crop used to be. */
+.ms-asset-thumb-render { position: absolute; inset: 0; border-radius: 6px; background-size: contain; background-repeat: no-repeat; background-position: center; }
 .ms-asset-badge { position: absolute; left: 3px; top: 3px; font-family: var(--font-mono); font-size: 8px; font-weight: 700; padding: 1px 3px; border-radius: 4px; background: rgba(0,0,0,0.6); color: var(--c-ink); z-index: 2; }
 .ms-asset-dot { position: absolute; right: 3px; top: 3px; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0,0,0,0.5); z-index: 2; }
 .ms-asset-fav { position: absolute; right: 3px; bottom: 10px; color: rgba(255,255,255,0.35); z-index: 2; cursor: pointer; }
@@ -142,14 +160,16 @@
 .ms-asset-name { font-size: 9px; color: var(--c-ink-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms-recents-head { padding: 12px 0 4px; }
 .ms-recents-row { display: flex; gap: 6px; padding-bottom: 4px; }
-.ms-recent-swatch { width: 32px; height: 32px; border-radius: 7px; cursor: pointer; border: 1px solid var(--c-line-soft); background-size: cover; background-position: center; image-rendering: pixelated; }
+.ms-recent-swatch { width: 32px; height: 32px; border-radius: 7px; cursor: pointer; border: 1px solid var(--c-line-soft); background-size: contain; background-repeat: no-repeat; background-position: center; }
 .ms-recent-swatch:hover { border-color: var(--c-amber-line-strong); }
 
 .ms-asset-detail { flex-shrink: 0; padding: 10px 12px; border-top: 1px solid var(--c-line-soft); background: var(--c-panel-1); font-size: 12px; }
 .ms-detail-row { display: flex; gap: 10px; align-items: center; }
 .ms-detail-swatch { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; background-size: cover; background-position: center; image-rendering: pixelated; }
-.ms-detail-iso { width: 56px; height: 48px; flex-shrink: 0; perspective: 240px; display: flex; align-items: center; justify-content: center; }
-.ms-detail-iso-face { width: 40px; height: 40px; border-radius: 7px; transform: rotateX(56deg); background-size: cover; background-position: center; image-rendering: pixelated; box-shadow: 0 12px 16px -10px rgba(0,0,0,0.9); }
+/* A live, drag-to-orbit 3D view of the selected tile (`viewport/thumbnails.js`'s
+   `mountLiveModelView`) — real depth now, so no CSS tilt/perspective illusion is needed the way
+   the old flat-texture swatch required. */
+.ms-detail-iso { width: 84px; height: 72px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: var(--c-panel-0); }
 .ms-detail-name { font-weight: 700; color: var(--c-ink-strong); }
 .ms-detail-id { font-family: var(--font-mono); font-size: 10.5px; color: var(--c-ink-mute); }
 .ms-detail-actions { display: flex; gap: 2px; margin-left: auto; }
@@ -239,6 +259,8 @@
 .ms-object-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .ms-object-card { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 9px; background: #16120F; border: 1px solid var(--c-line-soft); cursor: pointer; min-width: 0; }
 .ms-object-card:hover { border-color: var(--c-amber-line); }
+.ms-object-card--add { background: transparent; border-style: dashed; color: var(--c-ink-mute); justify-content: center; }
+.ms-object-card--add:hover { color: var(--c-ink-strong); }
 .ms-object-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .ms-object-name { font-size: 11px; font-weight: 600; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms-object-meta { font-family: var(--font-mono); font-size: 9px; color: var(--c-ink-mute); }

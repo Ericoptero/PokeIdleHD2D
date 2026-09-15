@@ -15,12 +15,12 @@
 </head>
 <body>
   <!--
-    Headless boot target for `tools/mapstudio/snapshot.js`: boots the real game module stack
-    (same modules `src/main.js` registers) without navigating anywhere, then freezes maps on
-    demand through `window.__SNAPSHOT__`. Never linked from the game or the Studio UI — a
-    tool page, not a route. See `studio/snapshot/main.js` for why this has to run in a real
-    browser rather than a Node script (src/hunts/selftest.js's own header explains the stub
-    tileset and RNG-stream traps this sidesteps).
+    Headless boot target for `tools/mapstudio/roundtrip.js`: boots the real game module stack
+    (same modules `src/main.js` registers) without navigating anywhere, then round-trips maps
+    on demand through `window.__ROUNDTRIP__`/`window.__SNAPSHOT_LIST__`. Never linked from the
+    game or the Studio UI — a tool page, not a route. See `studio/snapshot/main.js` for why
+    this has to run in a real browser rather than a Node script (src/hunts/selftest.js's own
+    header explains the stub tileset and RNG-stream traps this sidesteps).
   -->
   <div id="stage"></div>
   <div id="ui"></div>

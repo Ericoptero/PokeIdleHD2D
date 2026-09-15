@@ -302,7 +302,25 @@ export function makeRenderer({ container, config, log }) {
     const oh = ih * scale;
     // Reallocating render targets is expensive and config changes every frame while the
     // clock runs, so bail out unless something that matters actually moved.
-    if (ow === outW && oh === outH && iw === inW && ih === inH) return;
+    //
+    // The confirmed bug this replaces: this guard only compares buffer/canvas pixel
+    // dimensions, which depend on `pixelScale` alone — never on `pixelsPerUnit` (the actual
+    // zoom). A caller that only ever moves `pixelsPerUnit` (`rig.fitFraming` picking a new
+    // rung with the same `pixelScale` — the common case at a narrow viewport, where the
+    // scale search has nowhere else to land) used to return here before ever reaching the
+    // frustum write below, making zoom a silent no-op. The expensive render-target/canvas
+    // resize below still only runs when a dimension actually moved; the frustum itself is
+    // cheap enough (four assignments, one matrix update) to just always refresh from
+    // whatever `config.pixelsPerUnit` currently is.
+    if (ow === outW && oh === outH && iw === inW && ih === inH) {
+      const ppu = Math.max(1, config.pixelsPerUnit);
+      camera.left = -inW / (2 * ppu);
+      camera.right = inW / (2 * ppu);
+      camera.top = inH / (2 * ppu);
+      camera.bottom = -inH / (2 * ppu);
+      camera.updateProjectionMatrix();
+      return;
+    }
     outW = ow; outH = oh; inW = iw; inH = ih;
     compositeMat.uniforms.uInternal.value.set(inW, inH);
 
@@ -481,9 +499,13 @@ export function makeCameraRig({ camera, config, view = null }) {
 
   function recomputeOffset() {
     const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
+    const yaw = THREE.MathUtils.degToRad(config.cameraYaw);
     const d = config.cameraDistance;
-    // Looking north-ish and down: the camera sits south of and above the focus.
-    offset.set(0, Math.sin(pitch) * d, Math.cos(pitch) * d);
+    // Looking north-ish and down: the camera sits south of and above the focus, and `yaw`
+    // orbits that position around the focus at the same fixed pitch — Studio-only, and 0 in
+    // the game and every showcase. At 0 this is exactly the old expression: sin(0) is 0, so
+    // the X term drops out, and cos(0) is 1, so the Y and Z terms are untouched.
+    offset.set(Math.sin(yaw) * Math.cos(pitch) * d, Math.sin(pitch) * d, Math.cos(yaw) * Math.cos(pitch) * d);
   }
 
   return {
@@ -546,6 +568,23 @@ export function makeCameraRig({ camera, config, view = null }) {
       target.set(x, y, z);
       if (immediate || !snapped) { focus.copy(target); snapped = true; }
     },
+    /**
+     * Studio-only: orbit the rig to `deg` degrees of yaw around the focus, at the same fixed
+     * `cameraPitch`. Nothing in the shipped game or any showcase calls this, so `cameraYaw`
+     * stays at its default 0 and `recomputeOffset()`/`update()` keep computing exactly what
+     * they compute today.
+     *
+     * Also resets the debug basis-drift assertion at the bottom of `update()`: that check
+     * exists to catch code that quietly rotates the camera basis out from under
+     * `pokemon/field.js`'s sprite placement, and a deliberate yaw from here is exactly that
+     * rotation, on purpose — without the reset the very next frame would report the change
+     * the Studio just asked for as the bug the assertion was written to catch.
+     */
+    setYaw(deg) {
+      config.set({ cameraYaw: deg });
+      basis0 = null;
+      basisWarned = false;
+    },
     update(dt) {
       recomputeOffset();
       // Exponential smoothing that is frame-rate independent.
@@ -563,7 +602,8 @@ export function makeCameraRig({ camera, config, view = null }) {
       // were not square. Setting the rotation makes the pitch exactly what the config says,
       // so the pre-stretch is exact and a sprite texel is a square block of pixels.
       const pitch = THREE.MathUtils.degToRad(config.cameraPitch);
-      camera.rotation.set(-pitch, 0, 0, 'YXZ');
+      const yaw = THREE.MathUtils.degToRad(config.cameraYaw);
+      camera.rotation.set(-pitch, yaw, 0, 'YXZ');
       camera.position.copy(focus).add(offset);
 
       // Put the world on a whole internal pixel — AFTER the aim, which is the whole trick.

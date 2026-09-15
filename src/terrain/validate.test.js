@@ -11,7 +11,7 @@ function baseMap(overrides = {}) {
   const tags = new Array(w * h).fill([]);
   const occupied = new Array(w * h).fill(0);
   return {
-    format: 'pokeidle.map', version: 2, id: 'test-map', name: 'Test', kind: 'hunt',
+    format: 'pokeidle.map', version: 3, id: 'test-map', name: 'Test', kind: 'hunt',
     w, h, tileset: 'bw2-adastra', seed: 1,
     economy: { money: 1, exp: 1, research: 1, encounters: 1, favours: {} },
     grid: {
@@ -68,6 +68,12 @@ describe('validateMap', () => {
     expect(errors.some((e) => e.code === 'marker-missing')).toBe(true);
   });
 
+  it('does not flag an inline {cx,cz} loop.via waypoint as a missing marker', () => {
+    const map = baseMap({ loop: { via: [{ cx: 1, cz: 1 }, { cx: 2, cz: 1 }] } });
+    const { errors } = validateMap(map);
+    expect(errors.some((e) => e.code === 'marker-missing')).toBe(false);
+  });
+
   it('finds an unreachable walkable island behind a wall of blocked cells', () => {
     const map = baseMap({ spawn: { cx: 0, cz: 0, dir: 0 } });
     // Wall off column 2 entirely so column 3 is unreachable from spawn at (0,0).
@@ -102,5 +108,44 @@ describe('validateMap', () => {
     setCollision(map, 2, 2, 'block');
     const { errors } = validateMap(map);
     expect(errors.some((e) => e.code === 'spawn-point-blocked')).toBe(true);
+  });
+
+  it('resolves a region\'s autotile set against the MAP\'s own tileset, not a non-existent Region.tileset', () => {
+    const mask = new Array(16).fill(0);
+    mask[5] = 1;
+    const map = baseMap({
+      regions: [{ id: 'r0', kind: 'autotile', set: 'set0', layer: 0, mask: encodeRuns(mask) }],
+    });
+    // The map's own tileset ("bw2-adastra") carries "set0"; a region has no `tileset` field of
+    // its own for the check to have been misreading in the first place.
+    const clean = validateMap(map, { catalogs: { 'bw2-adastra': { autotileSets: ['set0'] } } });
+    expect(clean.errors.some((e) => e.code === 'autotile-set-missing')).toBe(false);
+
+    const dirty = validateMap(map, { catalogs: { 'bw2-adastra': { autotileSets: ['other-set'] } } });
+    expect(dirty.errors.some((e) => e.code === 'autotile-set-missing')).toBe(true);
+  });
+
+  it('flags a region mask cell that a layer\'s own tile grid already draws something on', () => {
+    const modelAt = new Array(16).fill(-1);
+    modelAt[5] = 0; // something already drawn at cell (1,1)
+    const mask = new Array(16).fill(0);
+    mask[5] = 1; // the region claims the same cell
+    const map = baseMap({
+      layers: [{ tileset: 'bw2-adastra', role: 'draft', models: ['grass'], tiles: [{ layer: 0, model: encodeRuns(modelAt) }], objects: [] }],
+      regions: [{ id: 'r0', kind: 'autotile', set: 'set0', layer: 0, mask: encodeRuns(mask) }],
+    });
+    const { errors } = validateMap(map);
+    expect(errors.some((e) => e.code === 'region-tile-overlap')).toBe(true);
+  });
+
+  it('does not flag a region mask cell that the layer leaves empty (-1)', () => {
+    const mask = new Array(16).fill(0);
+    mask[5] = 1;
+    const map = baseMap({
+      layers: [{ tileset: 'bw2-adastra', role: 'draft', models: [], tiles: [{ layer: 0, model: encodeRuns(new Array(16).fill(-1)) }], objects: [] }],
+      regions: [{ id: 'r0', kind: 'autotile', set: 'set0', layer: 0, mask: encodeRuns(mask) }],
+    });
+    const { errors } = validateMap(map);
+    expect(errors.some((e) => e.code === 'region-tile-overlap')).toBe(false);
   });
 });

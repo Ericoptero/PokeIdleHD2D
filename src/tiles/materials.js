@@ -769,6 +769,54 @@ export function dropEdgeOnTwins(pack, floats, stride) {
 }
 
 /**
+ * Zeroes the baked elevation of a "cliff-top floor" mistakenly authored into the general
+ * ground pool. `baseY` (`tools/assets/build-tiles.js`) is just the OBJ's own bounding-box
+ * minimum Y — for almost every model it is a small, intentional offset (a tree's root flare, a
+ * lake shore sinking below the shoreline) that other code relies on for correct layering
+ * (`@/simulation/surface.js`, `@/tiles/autotile.js`'s `riseY`). But a genuine FLOOR — zero
+ * vertical extent, `w:1 h:1` — authored `baseY` units above its own cell is never meant to be
+ * placed at ground level: `InstancedWorld.composeMatrix` (`./instanced.js`) places every
+ * instance at the raw placement Y with no `baseY` compensation, so painting one at `y:0` (the
+ * Studio's own ground default) floats the entire plane `baseY` units in the air with nothing
+ * underneath it — the reported bug (`grass_v2` reads identically to `grass`, its `baseY:0`
+ * twin, down to the shared source mesh and material, except for this).
+ *
+ * `@/tiles/index.js`'s `tiles.find()` already excludes any `raised`-tagged model from a blind
+ * query for exactly this reason, but that guard only protects the retired code-side generators
+ * — the Studio's asset library selects by name and never calls `find()`, so an author can still
+ * pick one straight off the shelf. Normalizing the three that shipped this way (found by
+ * scanning every catalog for `baseY >= 0.5` with less than a hundredth of a unit of vertical
+ * extent — `bw2-adastra`'s `grass_v2`, `stone_path`, `cliff_top_center`; no other tileset has
+ * one) removes the trap instead of relying on every future author to notice the "Elev. base"
+ * readout in time. Dropping `raised` also un-hides them from `tiles.find()` — desirable, since
+ * nothing about them still needs hiding once `baseY` is 0.
+ *
+ * A genuine cliff FACE (`tall_mountain_*`, `baseY:1.5`, several units of vertical extent) is
+ * left alone: it is a real 3D volume meant to abut a raised bank, not a floor floating over one,
+ * and shifting it down would just as wrongly bury its own base underground.
+ *
+ * @returns {number} models normalized, for the log
+ */
+export function groundBaseYToZero(pack, floats, stride) {
+  let fixed = 0;
+  for (const m of pack.models) {
+    if (m.empty || !m.groups || !m.bounds) continue;
+    const baseY = m.baseY ?? 0;
+    const thickness = (m.bounds.max?.[1] ?? 0) - (m.bounds.min?.[1] ?? 0);
+    if (baseY < 0.5 || thickness >= 0.01) continue;
+    for (const g of m.groups) {
+      const start = g.offset / 4;
+      for (let o = start; o < start + g.count * stride; o += stride) floats[o + 1] -= baseY;
+    }
+    m.bounds.min[1] -= baseY; m.bounds.max[1] -= baseY;
+    m.baseY = 0;
+    m.tags = (m.tags ?? []).filter((t) => t !== 'raised');
+    fixed++;
+  }
+  return fixed;
+}
+
+/**
  * The one material property the pack does carry and the loader used to drop: `emissive`,
  * read from the MTL's `Ke` by `tools/assets/obj.js`. Only the authored sets (`structures`,
  * `props`) have it, because a `.pdsts` has no place to put one — so a set that is silent
