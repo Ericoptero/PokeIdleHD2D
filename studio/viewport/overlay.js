@@ -37,6 +37,19 @@
  *   5. a selection outline over `getSelection().cell`, always on regardless of the overlay
  *      toggles above — selection feedback is the same "always visible" category as a gizmo, not
  *      an optional overlay.
+ *   6. (Slice 9a) a second, differently-colored outline over `getRectSelection()` — the
+ *      `boxselect` tool's committed (or, mid-drag, live) rectangle. Same "always visible"
+ *      category as #5, not gated by a toggle, and a distinct color so the two outlines never
+ *      read as the same kind of highlight when both happen to be showing at once (selecting a
+ *      single cell inside an existing box-select rect is an explicitly supported workflow —
+ *      `session.js`'s own header). A solid line, not a literal animated marching-ants dash —
+ *      `THREE.Line` has no dash support without a shader/material extension, the same
+ *      simplification `buildLoop`'s own comment below already accepts for the loop route.
+ *   7. (Slice 9a) a paste ghost — a translucent quad sized to the clipboard's `w`×`h`, anchored
+ *      at the hovered cell, shown only while `boxselect` is the active tool, a clipboard exists,
+ *      and a cell is hovered. A flat tinted rectangle, not the clip's real tile art — enough
+ *      feedback for "here is where a paste would land" without re-rendering actual placements
+ *      for content that has not been committed yet.
  */
 
 import * as THREE from 'three';
@@ -49,6 +62,13 @@ const SELECTION_COLOR = 0xE0A64B;
 /** `kinds.js`'s `OVERLAYS` table's own dot color for the `grid` entry. */
 const GRID_COLOR = 0xF2EBE0;
 const GRID_OPACITY = 0.35;
+
+/** The `boxselect` rectangle's own outline color (Slice 9a) — deliberately NOT `SELECTION_COLOR`
+ *  (see this file's header, item 6) so a multi-cell rect and a single selected cell never blur
+ *  into "the same highlight" when both are visible together. Lavender, matching one of
+ *  `panels.js`'s own `BRUSH_TINTS` swatches — an "authoring accent" already used elsewhere in
+ *  the Studio's UI, not a brand-new hue invented just for this. */
+const RECT_SELECTION_COLOR = 0xC79BD6;
 
 /** Parses one `rgba()` string into a `THREE.Color` + opacity — once, at module load, so every
  *  rebuild reuses the same small table instead of re-parsing strings every time a cell repaints.
@@ -67,6 +87,11 @@ const REACH_PARSED = {
   reachable: parseRgba('rgba(127,201,140,0.14)'),
   unreachable: parseRgba('rgba(214,104,91,0.30)'),
 };
+
+/** The paste-ghost quad's own tint (Slice 9a) — a cool blue found nowhere else in this file's
+ *  palette (collision/reach lean warm-red/green, the rect outline above is lavender), so a
+ *  pending-paste preview never reads as one of those other overlays by color alone. */
+const PASTE_GHOST_PARSED = parseRgba('rgba(100,181,246,0.28)');
 
 /** The 2D canvas's own loop colors: `#F7F1E7` for the resolved cache, amber for the authored
  *  `via` sequence (the same amber `SELECTION_COLOR` above already uses, and `entities.js`'s own
@@ -121,20 +146,41 @@ export function makeOverlay({ session, getHeight }) {
   let loopGroup = null;
 
   // --- selection: always-on outline, independent of every toggle above ------------------------
-  const selectionOutline = makeSelectionOutline();
+  const selectionOutline = makeSelectionOutline(SELECTION_COLOR);
   scene.add(selectionOutline);
 
-  function makeSelectionOutline() {
-    // A closed 1×1 square tracing the selected cell's own footprint — `LineLoop` needs only the
-    // four corners, unlike the eight endpoints `LineSegments` would take for the same shape.
+  // --- box-select rectangle: a second always-on outline (Slice 9a), same category as the
+  // single-cell one above — see this file's header, item 6. Built from the SAME unit-square
+  // geometry as `selectionOutline`, just scaled to the rect's own `w`×`h` instead of always 1×1
+  // (a `LineLoop`'s vertex positions do not need to change to trace a bigger square — scaling
+  // the whole object does the same thing far cheaper than rebuilding geometry per rect resize). -
+  const rectSelectionOutline = makeSelectionOutline(RECT_SELECTION_COLOR);
+  scene.add(rectSelectionOutline);
+
+  /** A closed 1×1 square tracing one cell's own footprint — `LineLoop` needs only the four
+   *  corners, unlike the eight endpoints `LineSegments` would take for the same shape. Shared
+   *  shape for both outlines above; only the color differs per call site. */
+  function makeSelectionOutline(color) {
     const positions = new Float32Array([0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const mat = new THREE.LineBasicMaterial({ color: SELECTION_COLOR, depthTest: false, transparent: true });
+    const mat = new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true });
     const loop = new THREE.LineLoop(geo, mat);
     loop.renderOrder = 999; // same "always visible" convention `viewport/index.js`'s gizmo sprites use
     loop.visible = false;
     return loop;
+  }
+
+  // --- paste ghost: a translucent quad, rebuilt (not resized in place — its cell count changes
+  // with the clipboard's own `w`×`h`, unlike the fixed-shape outlines above) whenever it needs to
+  // show, move, resize or hide (Slice 9a) ------------------------------------------------------
+  let pasteGhost = null;
+  function disposePasteGhost() {
+    if (!pasteGhost) return;
+    scene.remove(pasteGhost);
+    pasteGhost.geometry.dispose();
+    pasteGhost.material.dispose();
+    pasteGhost = null;
   }
 
   function disposeGrid() {
@@ -291,6 +337,39 @@ export function makeOverlay({ session, getHeight }) {
     selectionOutline.position.set(cell.cx, getHeight(cell.cx, cell.cz) + 0.02, cell.cz);
   }
 
+  /** `boxselect`'s own rectangle (Slice 9a) — either the committed selection or, mid-drag, the
+   *  live in-progress one (`main.js` calls `session.setRectSelection` continuously during the
+   *  drag, not just on release, specifically so this reads a live-growing rect with no second
+   *  "live rect" concept of its own to plumb through). Flat at the rect's own top-left corner's
+   *  height, not per-cell — a reasonable approximation for a multi-cell footprint (the height
+   *  field only "varies gently" per `ARCHITECTURE.md`), unlike the single-cell outline above,
+   *  which can afford to be exactly right for just one cell. */
+  function updateRectSelection(doc, rect) {
+    if (!doc || !rect) { rectSelectionOutline.visible = false; return; }
+    rectSelectionOutline.visible = true;
+    rectSelectionOutline.position.set(rect.x0, getHeight(rect.x0, rect.z0) + 0.02, rect.z0);
+    rectSelectionOutline.scale.set(rect.x1 - rect.x0 + 1, 1, rect.z1 - rect.z0 + 1);
+  }
+
+  /** The pending-paste preview (Slice 9a) — a flat tinted quad sized to the clipboard's own
+   *  `w`×`h`, anchored at the hovered cell. Rebuilt from scratch on every call rather than
+   *  resized in place: cheap (a handful of quads at most, the same tolerance every other overlay
+   *  in this file gets) and simpler than tracking whether the clip's own dimensions changed
+   *  since the last hover. Hidden (disposed) whenever any one of its three preconditions —
+   *  `boxselect` is the active tool, a clipboard exists, a cell is hovered — is not met. */
+  function updatePasteGhost(doc) {
+    disposePasteGhost();
+    if (!doc || session.getTool() !== 'boxselect') return;
+    const clip = session.getClipboard();
+    const hover = session.getHover();
+    if (!clip || !clip.w || !clip.h || !hover) return;
+    const cells = [];
+    for (let dz = 0; dz < clip.h; dz++) for (let dx = 0; dx < clip.w; dx++) cells.push(hover.cx + dx, hover.cz + dz);
+    pasteGhost = makeTintMesh(cells, PASTE_GHOST_PARSED);
+    pasteGhost.renderOrder = 3;
+    scene.add(pasteGhost);
+  }
+
   // --- rebuild cadence: on `session` notify, not on every frame --------------------------------
   //
   // A full-map grid/collision/reach/loop rebuild is cheap (a handful of line segments and, at
@@ -329,8 +408,13 @@ export function makeOverlay({ session, getHeight }) {
     }
     // The selection can move independently of the document (a bare `select`-tool click touches
     // no `doc._rev`), so this runs on every notify regardless of `changed` above — cheap either
-    // way, it only repositions one existing object.
+    // way, it only repositions one existing object. `rectSelection`/the paste ghost (Slice 9a)
+    // are the same story — session-local state that changes far more often than `doc._rev` does
+    // (every dragged cell of a `boxselect`, every hovered cell of a pending paste) and are cheap
+    // enough (a handful of quads/one line loop, at most) to just redo unconditionally too.
     updateSelection(doc, session.getSelection());
+    updateRectSelection(doc, session.getRectSelection());
+    updatePasteGhost(doc);
   }
   const unsubscribe = session.subscribe(rebuildIfNeeded);
   rebuildIfNeeded(); // paint whatever `session` already holds at construction time
@@ -343,8 +427,11 @@ export function makeOverlay({ session, getHeight }) {
       disposeCollision();
       disposeReach();
       disposeLoop();
+      disposePasteGhost();
       selectionOutline.geometry.dispose();
       selectionOutline.material.dispose();
+      rectSelectionOutline.geometry.dispose();
+      rectSelectionOutline.material.dispose();
     },
   };
 }

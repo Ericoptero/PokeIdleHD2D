@@ -106,6 +106,18 @@ export function makeSession({ history }) {
   // independently on the same click) — `applyToolAt`'s `'select'` case below picks one by
   // priority when more than one entity occupies the clicked cell.
   let selection = { cell: null, kind: null, ref: null };
+  // `boxselect`'s own committed rectangle (Slice 9a) — `{x0,z0,x1,z1}`, always normalized
+  // (`x0<=x1`, `z0<=z1`) on write so every reader (the overlay's outline, `main.js`'s Ctrl+C/X/
+  // V handlers, `copyRect`/`pasteClip`/`clearRect` themselves) can trust the corners without
+  // re-normalizing a second time. Lives independently of `tool`/`selection` above on purpose —
+  // picking `boxselect`, dragging a rect, then switching to `select` to inspect one cell inside
+  // it (and switching back) must not lose the rect, so nothing here ever clears it on a tool
+  // change; only a fresh document (`setDoc` below) does.
+  let rectSelection = null;
+  // The copy/cut buffer `copyRect` fills and `pasteClip` reads (`tools.js`) — a plain
+  // `{w,h,cells,objects}` snapshot, never cleared by `setDoc`: a copy made on one map is still
+  // meaningful to paste into another (nothing here is map-id-scoped).
+  let clipboard = null;
   let editCount = 0;
   const hiddenLayers = new Set();
   const lockedLayers = new Set();
@@ -250,6 +262,7 @@ export function makeSession({ history }) {
     setDoc(d) {
       doc = d;
       selection = { cell: null, kind: null, ref: null };
+      rectSelection = null; // a rect selected on the OLD map's grid means nothing on a new one
       editCount = 0;
       hiddenLayers.clear();
       lockedLayers.clear();
@@ -284,6 +297,20 @@ export function makeSession({ history }) {
     setSelection(patch) { Object.assign(selection, patch); notify(); },
     getHover: () => hoverCell,
     setHover(cell) { hoverCell = cell; notify(); },
+    getRectSelection: () => (rectSelection ? { ...rectSelection } : null),
+    /** `rect` is normalized here (min/max swapped as needed) rather than trusting the caller —
+     *  `main.js`'s `boxselect` drag hands this whichever corner order the pointer actually moved
+     *  in, same as `paintRect`'s own `x0,z0,x1,z1` never assume `x0<=x1`. `null` clears the
+     *  selection (nothing left to copy/cut/clear, the overlay hides its outline). */
+    setRectSelection(rect) {
+      rectSelection = rect ? {
+        x0: Math.min(rect.x0, rect.x1), x1: Math.max(rect.x0, rect.x1),
+        z0: Math.min(rect.z0, rect.z1), z1: Math.max(rect.z0, rect.z1),
+      } : null;
+      notify();
+    },
+    getClipboard: () => clipboard,
+    setClipboard(clip) { clipboard = clip; notify(); },
     stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
     /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
      *  3D-pane pick (`viewport/index.js`'s `pickCell`) through the identical brush/fill/coll/height/

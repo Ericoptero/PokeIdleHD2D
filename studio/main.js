@@ -12,7 +12,7 @@ import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
 import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
-import { paintRect } from './tools.js';
+import { paintRect, copyRect, pasteClip, clearRect } from './tools.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
@@ -110,9 +110,13 @@ let previewRebuildTimer = null;
 let lastRebuildRev = -1;
 // The 3D pane's one pointer-drag state machine: `{ mode: 'pan' }` (camera drag, the pane's
 // original and still-default behaviour), `{ mode: 'gizmo', gizmo, moved }` (dragging a spawn/
-// marker/npc/light handle) or `{ mode: 'paint' }` (an active paint tool clicked/dragged a cell).
-// Exactly one of these is live at a time — a gizmo hit always wins over painting, and painting
-// always wins over panning, decided once on `pointerdown` (below).
+// marker/npc/light handle), `{ mode: 'paint' }` (an active paint tool clicked/dragged a cell),
+// `{ mode: 'rect', x0, z0 }` (the `rect` tool's two-corner drag, committed once on release) or
+// `{ mode: 'boxselect', x0, z0 }` (Slice 9a: the `boxselect` tool's own two-corner drag — same
+// shape as `rect`, but committed continuously to `session.setRectSelection` on every moved cell
+// instead of once on release, so the overlay's outline grows live during the drag). Exactly one
+// of these is live at a time — a gizmo hit always wins over painting, and painting always wins
+// over panning, decided once on `pointerdown` (below).
 let previewDrag = null;
 let previewDownAt = null; // pointerdown client (x,y) — tells a click from a drag on pointerup
 
@@ -234,6 +238,19 @@ previewContainer.addEventListener('pointerdown', (e) => {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell) { previewDrag = { mode: 'rect', x0: cell.cx, z0: cell.cz }; return; }
   }
+  // `boxselect` (Slice 9a): the same two-corner drag shape as `rect` just above, but with no
+  // selected-asset requirement (there is nothing to paint) and a LIVE preview — every corner the
+  // drag passes through is committed straight to `session.setRectSelection` (pointermove below),
+  // not just the final one on release, so the overlay's outline grows as the pointer moves
+  // instead of only appearing after the fact.
+  if (tool === 'boxselect' && currentDoc) {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell) {
+      previewDrag = { mode: 'boxselect', x0: cell.cx, z0: cell.cz };
+      session.setRectSelection({ x0: cell.cx, z0: cell.cz, x1: cell.cx, z1: cell.cz });
+      return;
+    }
+  }
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -250,7 +267,16 @@ previewContainer.addEventListener('pointerdown', (e) => {
   previewContainer.classList.add('is-panning');
 });
 previewContainer.addEventListener('pointermove', (e) => {
-  if (!preview || !previewDrag) return;
+  if (!preview) return;
+  if (!previewDrag) {
+    // Idle hover, no drag in progress — the pre-Slice-7 2D canvas's own `pointermove` used to
+    // drive `session.setHover` on every idle move; nothing has since it was deleted, which
+    // silently left `session.getHover()` permanently `null` (the status bar's own "célula X, Z"
+    // readout, Ctrl+V's target-cell fallback, and this slice's paste-ghost overlay all read it).
+    // Restored here, scoped to the one pointer surface the Studio has left.
+    session.setHover(preview.pickCell(e.clientX, e.clientY));
+    return;
+  }
   if (previewDrag.mode === 'pan') {
     preview.panBy(e.clientX - previewDrag.x, e.clientY - previewDrag.y);
     previewDrag.x = e.clientX; previewDrag.y = e.clientY;
@@ -276,6 +302,18 @@ previewContainer.addEventListener('pointermove', (e) => {
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
       session.applyToolAt(cell.cx, cell.cz, 'move');
     }
+    return;
+  }
+  if (previewDrag.mode === 'boxselect') {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    // Live-growing rectangle DURING the drag (unlike `rect`, which has no live preview at all —
+    // a selection tool benefits from seeing what it is about to select, a paint tool commits
+    // paint you can already undo). `setRectSelection` itself calls `notify()`, which is what
+    // makes the overlay's outline re-render on every dragged cell — this only ever touches
+    // session-local `previewDrag`/`rectSelection` state, never `doc._rev`, so it cannot trip
+    // `refreshAll`'s debounced full 3D world reload (`lastRebuildRev`'s own comment) no matter
+    // how many cells the drag crosses.
+    if (cell) session.setRectSelection({ x0: previewDrag.x0, z0: previewDrag.z0, x1: cell.cx, z1: cell.cz });
   }
 });
 function endPreviewDrag(e) {
@@ -298,6 +336,15 @@ function endPreviewDrag(e) {
       // and `minimap.js` a rectangle of cells just changed.
       session.notify();
     }
+  } else if (previewDrag?.mode === 'boxselect' && currentDoc) {
+    // One more, definitive `setRectSelection` on release — the drag already committed every
+    // intermediate corner live (`pointermove` above), so this only matters when the final
+    // pointerup cell differs from whatever the last `pointermove` saw (e.g. the pointer left the
+    // 3D pane's own bounds mid-drag and `pointermove` stopped firing, but `pointerup`/
+    // `pointercancel` still land — `previewContainer.setPointerCapture` on `pointerdown` is what
+    // guarantees that).
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell) session.setRectSelection({ x0: previewDrag.x0, z0: previewDrag.z0, x1: cell.cx, z1: cell.cz });
   } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
@@ -343,6 +390,75 @@ window.addEventListener('keydown', (e) => {
   if (!preview) return;
   if (e.key === '[') { e.preventDefault(); preview.setYaw(preview.getYaw() - 1); }
   else if (e.key === ']') { e.preventDefault(); preview.setYaw(preview.getYaw() + 1); }
+});
+
+/** Same lock guard `session.js`'s `applyToolAt` runs before painting (`LOCKED_TOOLS.has(tool) &&
+ *  lockedLayers.has(activeLayer)`), applied here at the commit site instead: a `boxselect`
+ *  gesture never goes through `applyToolAt` at all (it is a `previewDrag`-driven two-corner
+ *  gesture, same as `rect`), so there is no single dispatch point for `LOCKED_TOOLS` to gate.
+ *  This is the narrowest equivalent — checked right before each paste/cut/clear commit below,
+ *  not baked into the `boxselect` tool id itself, since SELECTING and COPYING from a locked
+ *  layer stays allowed (only writing back to one is blocked, same as every painting tool). */
+function activeLayerLocked() {
+  return session.isLayerLocked(session.getActiveLayer());
+}
+
+// --- clipboard shortcuts (Slice 9a): Ctrl+C/X/V copy/cut/paste `session.getRectSelection()`,
+// Delete/Backspace clears it — guarded the same way the yaw keybinds above are (never while
+// typing in a field, only once the 3D pane has booted). Ctrl+X is copy-then-clear as two
+// separate calls rather than the `moveRect` command in `tools.js` — that command is reserved for
+// a FUTURE drag-move gesture; cut-to-clipboard and "move within the map" are different user
+// actions the plan explicitly calls out as not sharing one implementation. -----------------------
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+  if (!preview || !currentDoc) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'c') {
+    const rect = session.getRectSelection();
+    if (!rect) return;
+    e.preventDefault();
+    session.setClipboard(copyRect(currentDoc, rect));
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'x') {
+    const rect = session.getRectSelection();
+    if (!rect) return;
+    e.preventDefault();
+    // Copy always succeeds, even on a locked active layer (selecting/copying stays allowed) —
+    // only the clear half is gated, so a locked layer degrades a Ctrl+X into a plain Ctrl+C
+    // instead of silently discarding the user's own protection.
+    session.setClipboard(copyRect(currentDoc, rect));
+    if (activeLayerLocked()) {
+      console.warn('Map Studio: recorte copiado, mas a camada ativa está bloqueada — nada foi apagado.');
+    } else {
+      clearRect(currentDoc, history, { ...rect, layer: session.getActiveLayer() });
+      session.notify();
+    }
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'v') {
+    const clip = session.getClipboard();
+    if (!clip) return;
+    e.preventDefault();
+    // Best available anchor: the single-cell selection first (an explicit "paste here"), the
+    // hovered cell otherwise (an implicit "paste under the cursor") — `session.js`'s own header
+    // note on why `selection`/`hoverCell` are two independent fields, not one, is exactly why
+    // both are worth trying in order here instead of picking just one.
+    const target = session.getSelection().cell ?? session.getHover();
+    if (!target) { console.warn('Map Studio: nenhuma célula selecionada ou sob o cursor para colar.'); return; }
+    if (activeLayerLocked()) { console.warn('Map Studio: camada ativa bloqueada — colagem cancelada.'); return; }
+    pasteClip(currentDoc, history, { clip, cx: target.cx, cz: target.cz });
+    session.notify();
+    return;
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && session.getTool() === 'boxselect') {
+    const rect = session.getRectSelection();
+    if (!rect) return;
+    e.preventDefault();
+    if (activeLayerLocked()) { console.warn('Map Studio: camada ativa bloqueada — limpeza cancelada.'); return; }
+    clearRect(currentDoc, history, { ...rect, layer: session.getActiveLayer() });
+    session.notify();
+  }
 });
 
 // --- percorrer loop (the "Playtest" slot's real, honest stand-in — see the plan) -----------

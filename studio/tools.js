@@ -100,6 +100,241 @@ export function paintRect(doc, history, { layer, x0, z0, x1, z1, asset, rot = 0,
   });
 }
 
+/** Clamps and normalizes an unnormalized two-corner rect to `[0,w)×[0,h)` — shared by
+ *  `copyRect`/`moveRect`/`clearRect` below, the three `boxselect` commands that all start from
+ *  the same `{x0,z0,x1,z1}` shape `session.getRectSelection()` hands them. Returns `null` when
+ *  nothing of the rect survives clamping (e.g. a drag that started and ended entirely past one
+ *  edge of the map) — every caller treats that as "nothing to do", the same tolerance
+ *  `paintRect`'s own per-cell `inside()` check already gives an out-of-bounds cell. */
+function clampRect(doc, x0, z0, x1, z1) {
+  const minX = Math.max(0, Math.min(x0, x1));
+  const maxX = Math.min(doc.w - 1, Math.max(x0, x1));
+  const minZ = Math.max(0, Math.min(z0, z1));
+  const maxZ = Math.min(doc.h - 1, Math.max(z0, z1));
+  if (maxX < minX || maxZ < minZ) return null;
+  return { minX, maxX, minZ, maxZ };
+}
+
+/**
+ * A pure read of a rectangular region of the document, for `session.setClipboard` to hold and
+ * `pasteClip` (below) to later re-anchor anywhere — no `history` entry, since copying does not
+ * mutate anything. `cells[]`/`objects[]` store OFFSETS from the rect's own top-left corner
+ * (`dx,dz`), not absolute coordinates, which is exactly what lets `pasteClip` drop the same
+ * shape down at a different `(cx,cz)`.
+ *
+ * Scope cut, deliberate: only `doc.tileLayers` (every layer, not just the active one — a
+ * box-select copies everything visibly stacked in the rect) and `doc.objects` travel with a
+ * copy. `collision`/`height`/`tags`/`occupied` never do, in this slice — a box-select is an
+ * authoring convenience for moving decorative content around, not a full terrain-clone tool.
+ *
+ * An object is only included when its OWN origin cell (`o.cx,o.cz`) falls inside the rect — a
+ * multi-cell object whose origin sits outside but whose footprint overlaps the rect's edge is
+ * NOT copied, and a copied multi-cell object's footprint may extend outside the copied bounds
+ * once pasted elsewhere. Both are an accepted quirk of a plain rectangular copy, not something
+ * this slice tries to solve.
+ *
+ * @param {object} doc
+ * @param {{x0:number, z0:number, x1:number, z1:number}} rect unnormalized/out-of-bounds is fine
+ * @returns {{w:number, h:number, cells:object[], objects:object[]}}
+ */
+export function copyRect(doc, { x0, z0, x1, z1 }) {
+  const r = clampRect(doc, x0, z0, x1, z1);
+  if (!r) return { w: 0, h: 0, cells: [], objects: [] };
+  const { minX, maxX, minZ, maxZ } = r;
+  const cells = [];
+  for (const [layer, grid] of doc.tileLayers) {
+    for (let cz = minZ; cz <= maxZ; cz++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const cell = grid.get(cellKey(cx, cz));
+        if (cell) cells.push({ dx: cx - minX, dz: cz - minZ, layer, m: cell.m, rot: cell.rot, tint: cell.tint, y: cell.y });
+      }
+    }
+  }
+  const objects = doc.objects
+    .filter((o) => o.cx >= minX && o.cx <= maxX && o.cz >= minZ && o.cz <= maxZ)
+    .map((o) => ({ dx: o.cx - minX, dz: o.cz - minZ, layer: o.layer, m: o.m, rot: o.rot, tint: o.tint, y: o.y }));
+  return { w: maxX - minX + 1, h: maxZ - minZ + 1, cells, objects };
+}
+
+/**
+ * Pastes `clip` (from `copyRect`) anchored at `(cx,cz)` — one undo step for the WHOLE paste,
+ * however many cells/objects it touches, not one per cell/object. A target cell outside
+ * `[0,w)×[0,h)` is skipped rather than throwing — the same edge tolerance `paintRect`'s own
+ * bounds check already has, so pasting near the map edge clips silently instead of crashing.
+ *
+ * Every touched tile layer's `Map` is resolved once (existing, or freshly minted the same way
+ * `paintCell`'s own `doc.tileLayers.get(layer) ?? new Map()` does — never through `addLayer`,
+ * which pushes its OWN undo step; a paste that happens to touch a brand-new layer number still
+ * needs to stay one undo step, not two) and reused across every redo of this one command.
+ */
+export function pasteClip(doc, history, { clip, cx, cz }) {
+  if (!clip || (!clip.cells.length && !clip.objects.length)) return;
+  const grids = new Map(); // layer -> live Map reference, resolved once per touched layer
+  const gridFor = (layer) => {
+    if (!grids.has(layer)) grids.set(layer, doc.tileLayers.get(layer) ?? new Map());
+    return grids.get(layer);
+  };
+  const cellWrites = []; // { layer, key, before, after }
+  for (const c of clip.cells) {
+    const tx = cx + c.dx; const tz = cz + c.dz;
+    if (!inside(doc, tx, tz)) continue;
+    const grid = gridFor(c.layer);
+    const key = cellKey(tx, tz);
+    cellWrites.push({ layer: c.layer, key, before: grid.get(key) ?? null, after: { m: c.m, rot: c.rot, tint: c.tint, y: c.y } });
+  }
+  // Every pasted object's `id` is minted up front, once (`doc.nextObjectId++`, the same counter
+  // `placeObject` reuses — never a second, duplicate one) — so a redo after an undo re-creates
+  // the SAME objects instead of minting a second, different set every time this command replays.
+  const newObjects = [];
+  for (const o of clip.objects) {
+    const tx = cx + o.dx; const tz = cz + o.dz;
+    if (!inside(doc, tx, tz)) continue;
+    newObjects.push({ id: doc.nextObjectId++, m: o.m, cx: tx, cz: tz, layer: o.layer, rot: o.rot, tint: o.tint, y: o.y });
+  }
+  if (!cellWrites.length && !newObjects.length) return; // the whole clip clipped off the map — nothing to commit
+  history.push({
+    label: 'colar',
+    redo() {
+      for (const [layer, grid] of grids) doc.tileLayers.set(layer, grid);
+      for (const w of cellWrites) grids.get(w.layer).set(w.key, w.after);
+      for (const o of newObjects) doc.objects.push(o);
+      touch(doc);
+    },
+    undo() {
+      for (const w of cellWrites) {
+        const grid = grids.get(w.layer);
+        if (w.before) grid.set(w.key, w.before); else grid.delete(w.key);
+      }
+      const ids = new Set(newObjects.map((o) => o.id));
+      doc.objects = doc.objects.filter((o) => !ids.has(o.id));
+      touch(doc);
+    },
+  });
+}
+
+/**
+ * Cut = copy + clear, as one command (one undo step) — for a FUTURE drag-move gesture
+ * (`(x0,z0)-(x1,z1)` is the source rect, `(dx,dz)` the offset to the destination). NOT what
+ * Ctrl+X calls: cut-to-clipboard and "move within the map" are different user actions, so
+ * `main.js`'s Ctrl+X handler calls `copyRect` then `clearRect` instead — two separate steps for
+ * a genuinely different gesture, not a missed reuse of this function.
+ *
+ * Reads every source cell/object BEFORE clearing or writing anything, exactly like `copyRect`
+ * would, so a self-overlapping move (source and destination rects intersect) never reads back a
+ * cell this same command already blanked. Spans every tile layer (matching `copyRect`'s own
+ * cross-layer read) rather than one — unlike `clearRect` below, which is deliberately scoped to
+ * one layer for the Delete key's own, more conservative default.
+ */
+export function moveRect(doc, history, { x0, z0, x1, z1, dx, dz }) {
+  const r = clampRect(doc, x0, z0, x1, z1);
+  if (!r) return;
+  const { minX, maxX, minZ, maxZ } = r;
+
+  const grids = new Map(); // layer -> live Map reference
+  const gridFor = (layer) => {
+    if (!grids.has(layer)) grids.set(layer, doc.tileLayers.get(layer) ?? new Map());
+    return grids.get(layer);
+  };
+  const DELETE = Symbol('moveRect delete'); // a per-call sentinel — never leaks past this function
+  const beforeByLayer = new Map(); // layer -> Map<key, valueOrNull> — every touched key's pre-move value, for undo
+  const afterByLayer = new Map(); // layer -> Map<key, valueOrDELETE> — every touched key's post-move value, for redo
+  for (const [layer, grid] of doc.tileLayers) {
+    for (let cz = minZ; cz <= maxZ; cz++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const key = cellKey(cx, cz);
+        const cell = grid.get(key);
+        if (!cell) continue;
+        gridFor(layer);
+        if (!beforeByLayer.has(layer)) beforeByLayer.set(layer, new Map());
+        if (!afterByLayer.has(layer)) afterByLayer.set(layer, new Map());
+        const before = beforeByLayer.get(layer);
+        const after = afterByLayer.get(layer);
+        if (!before.has(key)) before.set(key, cell);
+        after.set(key, DELETE); // this source cell disappears — unless a target write below lands right back on it
+        const tx = cx + dx; const tz = cz + dz;
+        if (inside(doc, tx, tz)) {
+          const tkey = cellKey(tx, tz);
+          if (!before.has(tkey)) before.set(tkey, grid.get(tkey) ?? null);
+          after.set(tkey, cell); // overwrites the DELETE above when `tkey` happens to equal a source key
+        } // else: this cell moved off the map — dropped, matching `pasteClip`'s own edge tolerance
+      }
+    }
+  }
+
+  const sourceObjects = doc.objects.filter((o) => o.cx >= minX && o.cx <= maxX && o.cz >= minZ && o.cz <= maxZ);
+  const newObjects = [];
+  for (const o of sourceObjects) {
+    const tx = o.cx + dx; const tz = o.cz + dz;
+    if (!inside(doc, tx, tz)) continue; // moved off the map — dropped, same tolerance as above
+    newObjects.push({ id: doc.nextObjectId++, m: o.m, cx: tx, cz: tz, layer: o.layer, rot: o.rot, tint: o.tint, y: o.y });
+  }
+
+  if (!afterByLayer.size && !sourceObjects.length) return; // an empty rect — nothing to move
+
+  history.push({
+    label: 'mover seleção',
+    redo() {
+      for (const [layer, grid] of grids) doc.tileLayers.set(layer, grid);
+      for (const [layer, after] of afterByLayer) {
+        const grid = grids.get(layer);
+        for (const [key, val] of after) { if (val === DELETE) grid.delete(key); else grid.set(key, val); }
+      }
+      const removedIds = new Set(sourceObjects.map((o) => o.id));
+      doc.objects = doc.objects.filter((o) => !removedIds.has(o.id));
+      for (const o of newObjects) doc.objects.push(o);
+      touch(doc);
+    },
+    undo() {
+      for (const [layer, before] of beforeByLayer) {
+        const grid = grids.get(layer);
+        for (const [key, val] of before) { if (val) grid.set(key, val); else grid.delete(key); }
+      }
+      const newIds = new Set(newObjects.map((o) => o.id));
+      doc.objects = doc.objects.filter((o) => !newIds.has(o.id));
+      for (const o of sourceObjects) doc.objects.push(o);
+      touch(doc);
+    },
+  });
+}
+
+/**
+ * Clears every tile-grid entry and every origin-inside object in the rect, on `layer` ONLY —
+ * the caller's active layer, threaded through the same way `paintRect`/`fillRegion` already
+ * take `layer` rather than reaching for a module-level "current layer" of their own. Never every
+ * layer at once: that would make a Delete-key press a far more destructive default than the
+ * rest of this tool rail gives any other key, and nothing about a rectangular selection implies
+ * "every layer" the way `copyRect`/`moveRect`'s own cross-layer read does for a copy/move.
+ */
+export function clearRect(doc, history, { x0, z0, x1, z1, layer }) {
+  const r = clampRect(doc, x0, z0, x1, z1);
+  if (!r) return;
+  const { minX, maxX, minZ, maxZ } = r;
+  const grid = doc.tileLayers.get(layer);
+  const before = new Map();
+  if (grid) {
+    for (let cz = minZ; cz <= maxZ; cz++) for (let cx = minX; cx <= maxX; cx++) {
+      const key = cellKey(cx, cz);
+      const cell = grid.get(key);
+      if (cell) before.set(key, cell);
+    }
+  }
+  const objects = doc.objects.filter((o) => o.layer === layer && o.cx >= minX && o.cx <= maxX && o.cz >= minZ && o.cz <= maxZ);
+  if (!before.size && !objects.length) return;
+  history.push({
+    label: 'limpar seleção',
+    redo() {
+      for (const key of before.keys()) grid.delete(key);
+      if (objects.length) { const ids = new Set(objects.map((o) => o.id)); doc.objects = doc.objects.filter((o) => !ids.has(o.id)); }
+      touch(doc);
+    },
+    undo() {
+      for (const [key, val] of before) grid.set(key, val);
+      for (const o of objects) doc.objects.push(o);
+      touch(doc);
+    },
+  });
+}
+
 /** Flood-fills the 4-connected region sharing the clicked cell's current model. */
 export function fillRegion(doc, history, { layer, cx, cz, asset, rot = 0, tint = 0xffffff }) {
   if (!inside(doc, cx, cz)) return;
