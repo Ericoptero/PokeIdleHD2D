@@ -14,15 +14,13 @@
  * (`viewport/`) is one DOM-bound renderer of this state, and does not own it.
  */
 
-import { cellKey } from './state.js';
 import {
-  stackAt, paintCell, eraseCell, fillRegion, setCollision, adjustHeight, toggleTag,
-  setSpawn, placeMarker, placeObject, addNpc, addLight, addSpawnPoint, setLoopVia,
-  pasteClip, rotateClipBy,
+  stackAt, paintCell, eraseCell, fillRegion, setCollision,
+  setSpawn, placeObject, addNpc, addLight, addSpawnPoint, setLoopVia,
 } from './tools.js';
 import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
 import { ENTITIES, regionContains } from './entities.js';
-import { getStamp } from './stamps.js';
+import { peekCatalog } from './catalog.js';
 
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 const DIR_DX = [0, -1, 0, 1];
@@ -63,13 +61,13 @@ export function reachableFrom(doc, start) {
 
 /** Tools `applyToolAt` refuses to run on a locked layer — every painting/placement tool.
  *  `select` and the read-only tools stay usable so a locked layer can still be inspected. */
-export const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object', 'stamp']);
+export const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
 
 /** Tools that keep acting on every dragged cell while the pointer stays down, read by `main.js`'s
  *  3D pointer routing (and, before Slice 7 deleted it, the 2D canvas's own pointerdown
  *  drag-detection too — one Set, imported by both, instead of two hand-kept-in-sync copies).
- *  Everything else that paints (fill/spawn/marker/npc/light/object) fires once per pointerdown. */
-export const CONTINUOUS_PAINT_TOOLS = new Set(['pencil', 'eraser', 'coll', 'height', 'tag']);
+ *  Everything else that paints (fill/spawn/npc/light/object) fires once per pointerdown. */
+export const CONTINUOUS_PAINT_TOOLS = new Set(['pencil', 'eraser', 'coll']);
 
 /** A light dot is hit-tested in cell space at ~half a cell radius — close enough for a click. */
 function lightNear(doc, cx, cz) {
@@ -90,14 +88,12 @@ export function makeSession({ history }) {
   let doc = null;
   let tool = 'select';
   let activeLayer = 0;
-  const brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
-    claimFootprint: false,
-    // `sculpt` tool settings (Slice 9c) — a multi-cell brush stroke, unlike every field above
-    // (all single-cell `applyToolAt` dispatch settings). `sculptStrength` matches `heightStep`'s
-    // own default magnitude (±0.25) so the two height tools feel the same scale to an author
-    // switching between a precise nudge and a soft brush. `main.js`'s sculpt gesture and
-    // `viewport/overlay.js`'s brush-radius ring both read these straight off `getBrush()`.
-    sculptMode: 'raise', sculptRadius: 2, sculptStrength: 0.25 };
+  // `y` (Slice: per-placement height) — `null` follows the cell's own terrain height
+  // (`doc.height`, unchanged), a number pins the painted tile to that exact world Y regardless
+  // of terrain — how two tiles land in the same column at different heights (paint one layer at
+  // `y: null`, a second layer at `y: 5`). Read by `paintCell`/`paintRect`/`fillRegion`
+  // (`tools.js`) at their `session.js` call sites below.
+  const brush = { rot: 0, tint: 0xffffff, collision: 'walk', claimFootprint: false, y: null };
   let selectedAsset = null; // { name, tileset, w, h }
   // `{cell, kind, ref}` — `cell` keeps meaning what it always meant (drives `tileCard`/
   // `cellCard`, set alongside `kind`/`ref` for every cell-anchored entity so the cell inspector
@@ -126,20 +122,6 @@ export function makeSession({ history }) {
   // `{w,h,cells,objects}` snapshot, never cleared by `setDoc`: a copy made on one map is still
   // meaningful to paste into another (nothing here is map-id-scoped).
   let clipboard = null;
-  // Carimbo/stamp (Slice 9d): which SAVED stamp (`stamps.js`, a plain name key into its own
-  // `localStorage` table) the `stamp` tool is about to place, and its pending placement-only
-  // rotation (`rotateClipBy`, `tools.js` — quarter turns, wrapped mod 4). Neither is reset by
-  // `setDoc` below, on purpose: like `clipboard` just above, a saved stamp (and whatever rotation
-  // an author left it at) is not map-scoped — it stays just as meaningful after switching maps.
-  let activeStampName = null;
-  let stampRotation = 0;
-  // Região (Slice 9b): which region a `region`-tool stroke targets, and the stroke itself while
-  // one is in progress. `regionStroke` is `{on, cells:Set<string>}` (`"cx,cz"` keys) or `null` —
-  // it lives here, not in `main.js`'s own `previewDrag`, because `viewport/overlay.js` needs to
-  // read it live for the in-progress-stroke highlight the same way it already reads `getHover`/
-  // `getSelection` from here rather than from whichever renderer happens to set them.
-  let activeRegionId = null;
-  let regionStroke = null;
   let editCount = 0;
   const hiddenLayers = new Set();
   const lockedLayers = new Set();
@@ -150,9 +132,24 @@ export function makeSession({ history }) {
 
   function notify() { for (const fn of listeners) fn(); }
 
+  /** True with no active box selection; inside it otherwise (see the public `canEditCell` this
+   *  backs, above, for the multi-cell commands that need the raw rect instead). */
+  function canEditCell(cx, cz) {
+    if (!rectSelection) return true;
+    return cx >= rectSelection.x0 && cx <= rectSelection.x1 && cz >= rectSelection.z0 && cz <= rectSelection.z1;
+  }
+
+  /** Single-cell tools an active box selection actually bounds — placement/marker/light/NPC
+   *  tools, `select` and `eyedrop` are unaffected: a selection narrows where GROUND gets
+   *  painted, it does not forbid standing an NPC or a light outside it. */
+  const SELECTION_BOUND_TOOLS = new Set(['pencil', 'eraser', 'fill', 'coll', 'object']);
+
   function applyToolAt(cx, cz, kind) {
     if (kind === 'down') selection.cell = { cx, cz };
     if (LOCKED_TOOLS.has(tool) && lockedLayers.has(activeLayer)) {
+      selection.cell = { cx, cz }; selection.kind = null; selection.ref = null; notify(); return;
+    }
+    if (SELECTION_BOUND_TOOLS.has(tool) && !canEditCell(cx, cz)) {
       selection.cell = { cx, cz }; selection.kind = null; selection.ref = null; notify(); return;
     }
     // Every tool but `select` starts this click with no entity selected — `select`'s own case
@@ -208,7 +205,7 @@ export function makeSession({ history }) {
       case 'pencil':
         if (selectedAsset) {
           paintCell(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint,
-            claimFootprint: brush.claimFootprint });
+            y: brush.y, claimFootprint: brush.claimFootprint });
           editCount++;
         }
         break;
@@ -217,29 +214,16 @@ export function makeSession({ history }) {
         editCount++;
         break;
       case 'fill':
-        if (selectedAsset) { fillRegion(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint }); editCount++; }
+        if (selectedAsset) { fillRegion(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint, y: brush.y, clip: rectSelection }); editCount++; }
         break;
       case 'coll':
         setCollision(doc, history, { cx, cz, kind: brush.collision });
-        editCount++;
-        break;
-      case 'height':
-        adjustHeight(doc, history, { cx, cz, delta: brush.heightStep });
-        editCount++;
-        break;
-      case 'tag':
-        toggleTag(doc, history, { cx, cz, tag: brush.tag });
         editCount++;
         break;
       case 'spawn':
         setSpawn(doc, history, { cx, cz });
         editCount++;
         break;
-      case 'marker': {
-        const name = prompt('Nome do marcador:');
-        if (name) { placeMarker(doc, history, { name, cx, cz }); editCount++; }
-        break;
-      }
       case 'npc':
         openAddNpcDialog({ cx, cz, onCreate: (npc) => { addNpc(doc, history, npc); editCount++; notify(); } });
         break;
@@ -269,24 +253,23 @@ export function makeSession({ history }) {
           editCount++;
         }
         break;
-      // Carimbo/stamp (Slice 9d): a single click, exactly like `object` above — not a drag —
-      // reuses `pasteClip` (`tools.js`) wholesale rather than a second placement command, so a
-      // stamp commits the exact same "one undo step for the whole clip" guarantee a plain
-      // Ctrl+V paste already gives. `rotateClipBy` applies whatever pending rotation `,`/`.`
-      // (`main.js`) left `stampRotation` at — a scratch rotation of `raw`, never written back to
-      // the saved stamp (`stamps.js`) or `activeStampName` itself.
-      case 'stamp': {
-        const raw = getStamp(activeStampName);
-        if (raw) {
-          const clip = rotateClipBy(raw, stampRotation);
-          pasteClip(doc, history, { clip, cx, cz });
-          editCount++;
-        }
-        break;
-      }
+      // Picks the TOPMOST placement at the cell — every layer's grid tile, not just the active
+      // one, plus any object — via `stackAt` (`tools.js`, already sorted highest layer first),
+      // the same source `select`'s own object hit-test above reads. `selectedAsset` needs the
+      // full shape `library.js`'s own `select(m)` builds (`{name, tileset, w, h, collision}`,
+      // not just `{name, tileset}`) so a picked model paints back with its real footprint/
+      // collision rather than silently defaulting to 1×1 walkable — `peekCatalog` is the
+      // already-loaded catalog for `doc.tileset` (`library.js` loads it on document open; a miss
+      // here — a picked model whose catalog has not been fetched yet — falls back to the bare
+      // name/tileset pair, same as before this fix).
       case 'eyedrop': {
-        const cell = doc.tileLayers.get(activeLayer)?.get(cellKey(cx, cz));
-        if (cell) selectedAsset = { name: cell.m, tileset: doc.tileset };
+        const top = stackAt(doc, cx, cz)[0];
+        if (top) {
+          const model = peekCatalog(doc.tileset)?.byName?.get(top.m);
+          selectedAsset = model
+            ? { name: top.m, tileset: doc.tileset, w: model.w ?? 1, h: model.h ?? 1, collision: model.collision }
+            : { name: top.m, tileset: doc.tileset };
+        }
         break;
       }
       default: break;
@@ -303,10 +286,6 @@ export function makeSession({ history }) {
       editCount = 0;
       hiddenLayers.clear();
       lockedLayers.clear();
-      // A region reference or an in-progress stroke from the PREVIOUS document has no meaning
-      // once `doc` itself is swapped out from under it.
-      activeRegionId = null;
-      regionStroke = null;
       notify();
     },
     getDoc: () => doc,
@@ -314,27 +293,29 @@ export function makeSession({ history }) {
       tool = t;
       // Broadcasts the change — previously silent, since nothing depended on it before this
       // slice (`panels.js`'s `toolRail` manages its own button highlight directly, without going
-      // through `session.subscribe`). `viewport/overlay.js`'s tool-gated region preview and
-      // `panels.js`'s own region brush-bar section both need to show/hide the instant the rail
-      // switches into or out of `region`, not on the next incidental edit or hover. A free side
-      // benefit: the status bar's "ferramenta: X" label (`panels.js`'s `makeStatusBar`) was stale
-      // until the next unrelated notify before now.
+      // through `session.subscribe`). The status bar's "ferramenta: X" label (`panels.js`'s
+      // `makeStatusBar`) was stale until the next unrelated notify before now.
       notify();
     },
     getTool: () => tool,
-    setActiveLayer(n) { activeLayer = n; },
+    // Notifies (matching `setLayerVisible`/`setLayerLocked` right below) — the inspector's own
+    // tile card reads `session.getActiveLayer()` for the SAME selected cell (`tileCard`,
+    // `inspector.js`), so switching the active layer without a notify left it showing the
+    // previous layer's tile until some unrelated edit happened to refresh it. Confirmed while
+    // verifying per-placement height: switching from "Camada 1" (`y:5`) back to the ground layer
+    // kept showing "Camada 1"'s own tile in the inspector.
+    setActiveLayer(n) { activeLayer = n; notify(); },
     getActiveLayer: () => activeLayer,
-    // Região (Slice 9b) — see this file's own `regionStroke` declaration above for why the
-    // stroke lives here instead of in `main.js`'s `previewDrag`.
-    getActiveRegionId: () => activeRegionId,
-    setActiveRegionId(id) { activeRegionId = id; notify(); },
-    getRegionStroke: () => regionStroke,
-    setRegionStroke(stroke) { regionStroke = stroke; notify(); },
     setLayerVisible(n, on) { if (on) hiddenLayers.delete(n); else hiddenLayers.add(n); notify(); },
     isLayerVisible: (n) => !hiddenLayers.has(n),
     setLayerLocked(n, on) { if (on) lockedLayers.add(n); else lockedLayers.delete(n); notify(); },
     isLayerLocked: (n) => lockedLayers.has(n),
-    setSelectedAsset(a) { selectedAsset = a; },
+    // Notifies (unlike most plain setters here, which read back through a getter no renderer
+    // polls) so a pick that did NOT come from the library's own card click — the eyedrop tool's
+    // `applyToolAt` case already notifies on its own, but a future caller of this method
+    // directly would not otherwise — still reaches `library.js`'s `syncSelection()`
+    // (`main.js`'s own `session.subscribe`) and re-applies the `.ms-asset-card--sel` highlight.
+    setSelectedAsset(a) { selectedAsset = a; notify(); },
     getSelectedAsset: () => selectedAsset,
     setBrush(patch) { Object.assign(brush, patch); },
     getBrush: () => ({ ...brush }),
@@ -368,18 +349,17 @@ export function makeSession({ history }) {
     },
     getClipboard: () => clipboard,
     setClipboard(clip) { clipboard = clip; notify(); },
-    // Carimbo/stamp (Slice 9d) — see this file's own `activeStampName`/`stampRotation`
-    // declaration above for why neither resets on `setDoc`. Picking a NEW stamp resets the
-    // pending rotation back to 0 — an author rotating stamp A three quarter-turns almost
-    // certainly does not want stamp B to start pre-rotated the same way.
-    getActiveStampName: () => activeStampName,
-    setActiveStampName(name) { activeStampName = name; stampRotation = 0; notify(); },
-    getStampRotation: () => stampRotation,
-    setStampRotation(n) { stampRotation = ((n % 4) + 4) % 4; notify(); },
     stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
+    /** True when `(cx,cz)` is paintable under the current box selection — always true with no
+     *  selection, only inside it otherwise. `applyToolAt` checks this for the tools listed in
+     *  `SELECTION_BOUND_TOOLS` above; `main.js`'s `rect`-drag commit and `fillRegion`'s own
+     *  flood-walk (both outside `applyToolAt`'s single-cell dispatch) read the raw rect off
+     *  `getRectSelection()` instead, to clip their own multi-cell regions rather than test one
+     *  cell at a time. */
+    canEditCell: (cx, cz) => canEditCell(cx, cz),
     /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
-     *  3D-pane pick (`viewport/index.js`'s `pickCell`) through the identical brush/fill/coll/height/
-     *  tag/spawn/marker/npc/light logic — including the `LOCKED_TOOLS` guard and the `notify()`
+     *  3D-pane pick (`viewport/index.js`'s `pickCell`) through the identical brush/fill/coll/
+     *  spawn/npc/light logic — including the `LOCKED_TOOLS`/selection guards and the `notify()`
      *  call at the end — with no second copy of this switch statement anywhere. */
     applyToolAt: (cx, cz, kind) => applyToolAt(cx, cz, kind),
     overlays: () => ({ ...overlays }),

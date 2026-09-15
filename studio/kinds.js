@@ -63,52 +63,36 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 21 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
- *  `rect`, `boxselect`, `sculpt` and `region` are the four exceptions: a two-corner drag, a
- *  multi-cell brush stroke and a mask paint-stroke all have no single-cell meaning, so each is
- *  its own gesture in `main.js`'s 3D pointer routing (`paintRect` / `rectSelection` /
- *  `beginSculptStroke`+`sculptTick`+`endSculptStroke` / `paintRegionMask`, `tools.js`) rather
- *  than a case in `applyToolAt`'s switch — see that file's own comments where it handles each of
- *  them specially. `A` for "Área" (`boxselect`): every plain letter that reads as "select" is
- *  already taken (`S` is the `select` tool itself), and `A` is otherwise unclaimed on this
- *  table. */
+/** The tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+ *  `rect` and `boxselect` are the two exceptions: a two-corner drag has no single-cell meaning,
+ *  so each is its own gesture in `main.js`'s 3D pointer routing (`paintRect` / `rectSelection`,
+ *  `tools.js`) rather than a case in `applyToolAt`'s switch — see that file's own comments where
+ *  it handles each of them specially. `A` for "Área" (`boxselect`): every plain letter that reads
+ *  as "select" is already taken (`S` is the `select` tool itself), and `A` is otherwise unclaimed
+ *  on this table.
+ *
+ *  Carimbo/stamp, Altura (single-cell), Esculpir altura, Tag and Região autotile (Slices 9b–9d)
+ *  were removed from the rail as authoring surface the game does not need: height is now an
+ *  editable field on the cell's own properties (`inspector.js`'s `cellCard`) rather than a brush,
+ *  and the others either duplicated a card already reachable another way (a marker: `bottom.js`'s
+ *  own "+ marcador" button) or added a gesture with no matching need (carimbo/tag/região). Their
+ *  data — `doc.height`, `doc.tags`, `doc.regions[]`, markers — and every command that still
+ *  legitimately writes to it (`toggleTag`, `placeMarker`, the autotile replay) are unaffected;
+ *  only the paint-stroke gestures are gone. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['boxselect', 'square-dashed', 'Selecionar área', 'A'],
-  // Places a saved NAMED clip (`stamps.js`, Slice 9d — "carimbo" is Portuguese for stamp) at the
-  // clicked cell — a single-click gesture, like `object` below, NOT a drag: `pasteClip`
-  // (`tools.js`) already commits a whole clip as one undo step no matter how many cells/objects
-  // it touches, so this needs no `main.js` drag mode of its own the way `boxselect`/`rect` do.
-  // `copy`: an icon already defined in `icons.js`'s own table but never wired to any button until
-  // now — reads naturally for "drop a saved copy". Keybind `Y`: every letter in `Carimbo` itself
-  // (C/A/R/I/M/B/O) is already claimed elsewhere on this table, so — following `região`'s own
-  // precedent of tying the letter to the ICON glyph instead once the label's own letters are gone
-  // — `Y` is the one still-unclaimed letter in `copy`.
-  ['stamp', 'copy', 'Carimbo', 'Y'],
   ['pencil', 'pencil', 'Lápis', 'B'],
   ['eraser', 'eraser', 'Borracha', 'E'],
   ['rect', 'square-dashed', 'Retângulo', 'U'],
   ['fill', 'paint-bucket', 'Balde', 'F'],
   ['object', 'box', 'Objeto', 'O'],
-  ['height', 'mountain', 'Altura', 'H'],
-  // A soft, multi-cell brush (radius/falloff, one undo step per stroke) — a generalization of
-  // `height`'s precise single-cell nudge, not a replacement for it; both stay on the rail.
-  // `palette` (not `mountain` again): a distinct glyph for a distinct gesture, and unclaimed by
-  // any other tool/overlay chip in this file. Keybind `R` ("Relevo") — `E`/`H`, the letters that
-  // would actually spell "esculpir"/"altura", are already eraser/height.
-  ['sculpt', 'palette', 'Esculpir altura', 'R'],
   ['coll', 'ban', 'Colisão', 'C'],
-  ['tag', 'tag', 'Tag', 'T'],
-  ['marker', 'map-pin', 'Marcador', 'M'],
   ['spawn', 'flag', 'Spawn', 'P'],
   ['npc', 'paw-print', 'NPC', 'N'],
   ['light', 'lightbulb', 'Luz', 'L'],
   // `footprints`, not `paw-print` — the `npc` tool already owns that glyph on this same rail.
   ['wildslot', 'footprints', 'Vaga selvagem', 'W'],
-  // Paints/erases membership in the ACTIVE region's autotile mask (`panels.js`'s brush bar picks
-  // and mints the active region — see its own header). `G` for the tool's own "grid-3x3" glyph
-  // — `R` was already claimed by `sculpt` ("Relevo") by the time this tool was added.
-  ['region', 'grid-3x3', 'Região autotile', 'G'],
   // Click appends an anonymous `{cx,cz}` waypoint to `doc.loop.via`. The deleted 2D canvas used
   // to let a click-and-drag on an existing inline waypoint reposition it instead of adding a
   // new one; that gesture has no 3D-pane replacement yet (`entities.js`'s `loopWaypoint` kind

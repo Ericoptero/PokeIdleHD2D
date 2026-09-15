@@ -6,7 +6,10 @@
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
 import { runValidation, issueRow } from './validation.js';
-import { addLayer, removeObject, removeMarker, removeNpc, removeLight, removeSpawnPoint, removeLink } from './tools.js';
+import {
+  addLayer, renameLayer, removeObject, placeMarker, removeMarker, removeNpc, removeLight,
+  removeSpawnPoint, removeLink,
+} from './tools.js';
 
 const TABS = [
   ['layers', 'Camadas', 'layers'], ['objects', 'Objetos', 'box'], ['gameplay', 'Jogabilidade', 'gamepad-2'],
@@ -68,6 +71,20 @@ function renderLayers(bodyEl, doc, history, session, rebuild) {
     const count = doc.tileLayers.get(layer).size;
     const visible = session.isLayerVisible(layer);
     const locked = session.isLayerLocked(layer);
+    // `stopPropagation` on the input's own click, deliberately: the row's `onClick` below
+    // activates the layer through `session.setActiveLayer`, which now notifies (so the
+    // inspector's tile card follows the active layer) — and every notify reaches `main.js`'s
+    // `refreshAll`, which rebuilds THIS WHOLE TAB from scratch. Letting a click that only meant
+    // to focus the field for editing bubble up would destroy the very input the browser just
+    // focused, on every keystroke's initial click — a rename would never get past one character.
+    // The accepted trade-off: clicking the name alone no longer also activates that layer (the
+    // eye/lock icons or the tileset/count columns to its right still do); a field mid-edit takes
+    // priority over the row's other click behavior, matching how a file manager's own rename
+    // field does not re-run the selection click either.
+    const nameInput = h('input', { class: 'ms-field-input ms-flex',
+      value: doc.layerNames.get(layer) ?? `Camada ${layer}`,
+      onClick: (e) => e.stopPropagation(),
+      onChange: (e) => { renameLayer(doc, history, layer, e.target.value); rebuild(); } });
     // Order is the layer number itself (`title` explains it) — no drag-to-reorder handle here;
     // a grip icon reads as "drag me" regardless of what a tooltip says, so it isn't shown.
     const row = h('div', { class: 'ms-layer-row', title: 'ordem = número da camada', onClick: () => { session.setActiveLayer(layer); rebuild(); } }, [
@@ -75,7 +92,7 @@ function renderLayers(bodyEl, doc, history, session, rebuild) {
         [icon(visible ? 'eye' : 'eye-off', { size: 14 })]),
       h('span', { class: 'ms-layer-icon', onClick: (e) => { e.stopPropagation(); session.setLayerLocked(layer, !locked); rebuild(); } },
         [icon(locked ? 'lock' : 'unlock', { size: 13 })]),
-      h('span', { class: 'ms-flex' }, `Camada ${layer}`),
+      nameInput,
       h('span', { class: 'ms-muted', style: { width: '150px' } }, doc.tileset),
       h('span', { class: 'ms-mono', style: { width: '70px', textAlign: 'right' } }, String(count)),
     ]);
@@ -113,6 +130,19 @@ function renderObjects(bodyEl, doc, history, session, rebuild) {
       () => session.setSelection({ kind: 'marker', ref: m, cell: { cx: m.cx, cz: m.cz } }),
       () => removeMarker(doc, history, m));
   }
+  // The `marker` rail tool was removed (this row is now the only way to create one) — markers
+  // are the anchors `hunts/index.js`'s loop-finder searches around, so a map with none still
+  // needs a way to get one without a click-to-place gesture. Drops the new marker at the current
+  // selection, or the spawn point with nothing selected — a `map-pin` gizmo is draggable
+  // (`entities.js`'s `marker.moveTo`) the instant it exists, so placement here only has to be
+  // reasonable, not exact.
+  grid.appendChild(h('div', { class: 'ms-object-card ms-object-card--add', onClick: () => {
+    const name = prompt('Nome do marcador:');
+    if (!name) return;
+    const at = session.getSelection().cell ?? doc.spawn;
+    placeMarker(doc, history, { name, cx: at.cx, cz: at.cz });
+    rebuild();
+  } }, [icon('plus', { size: 16 }), h('div', { class: 'ms-object-text' }, [h('span', { class: 'ms-object-name' }, '+ marcador')])]));
   for (const l of doc.lights) {
     entry('lightbulb', '#E29650', `luz`, `raio ${l.radius} · int ${l.intensity}`,
       () => session.setSelection({ kind: 'light', ref: l, cell: { cx: Math.round(l.x), cz: Math.round(l.z) } }),
@@ -133,7 +163,10 @@ function renderObjects(bodyEl, doc, history, session, rebuild) {
       () => session.setSelection({ kind: 'link', ref: l, cell: { cx: l.from?.cx, cz: l.from?.cz } }),
       () => removeLink(doc, history, l));
   }
-  if (!grid.children.length) bodyEl.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum objeto — use as ferramentas de objeto/marcador/luz/npc no canvas'));
+  // Counts real entries only — the "+ marcador" card above is always present, so `grid.children`
+  // itself is never empty any more.
+  const realCount = doc.objects.length + doc.markers.length + doc.lights.length + doc.npcs.length + doc.links.length;
+  if (!realCount) bodyEl.appendChild(h('div', { class: 'ms-empty' }, 'Nenhum objeto — use as ferramentas de objeto/luz/npc no canvas, ou "+ marcador" acima'));
 }
 
 /**

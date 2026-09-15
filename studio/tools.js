@@ -5,7 +5,6 @@
  */
 
 import { cellKey, touch } from './state.js';
-import { encodeRuns, decodeRuns } from '@/terrain/mapfile.js';
 
 const idx = (doc, cx, cz) => cz * doc.w + cx;
 const inside = (doc, cx, cz) => cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h;
@@ -30,6 +29,13 @@ function applyPatch(target, patch) {
  * painting a tile and setting its collision are always two independent, deliberate actions (the
  * `coll` tool, or the inspector's own collision chips). `claimFootprint` is the one opt-in this
  * still carries: it stamps `doc.occupied` at the cell (the inspector's "Reservar área" toggle).
+ *
+ * `y`, `null` by default, pins this ONE placement to a world height regardless of `doc.height` at
+ * the cell (`session.js`'s brush; also editable per-tile afterward via `setTileY` below). This is
+ * how two tiles land in the same `(cx,cz)` column at different heights — paint the ground on one
+ * layer at `y:null`, a second layer at `y:5` — with no format change: `mapfile.js` already
+ * carries a per-cell `y` RLE grid alongside the model grid, and `MapDraft.place`
+ * (`src/terrain/draft.js`) already honours `opts.y ?? heightAt` per placement.
  */
 export function paintCell(doc, history, {
   layer, cx, cz, asset, rot = 0, tint = 0xffffff, y = null, claimFootprint = false,
@@ -70,11 +76,19 @@ export function eraseCell(doc, history, { layer, cx, cz }) {
   });
 }
 
-/** Rectangle fill — `paintCell` repeated, batched into one undo step. */
-export function paintRect(doc, history, { layer, x0, z0, x1, z1, asset, rot = 0, tint = 0xffffff }) {
+/** Rectangle fill — `paintCell` repeated, batched into one undo step. `clip` (an active box
+ *  selection, `session.getRectSelection()`) intersects the painted area when given — a rect
+ *  drag that starts or ends outside the selection still only paints the overlap, the same
+ *  boundary `applyToolAt`'s own `SELECTION_BOUND_TOOLS` guard (`session.js`) gives every
+ *  single-cell tool. */
+export function paintRect(doc, history, { layer, x0, z0, x1, z1, asset, rot = 0, tint = 0xffffff, y = null, clip = null }) {
   const grid = doc.tileLayers.get(layer) ?? new Map();
-  const minX = Math.min(x0, x1); const maxX = Math.max(x0, x1);
-  const minZ = Math.min(z0, z1); const maxZ = Math.max(z0, z1);
+  let minX = Math.min(x0, x1); let maxX = Math.max(x0, x1);
+  let minZ = Math.min(z0, z1); let maxZ = Math.max(z0, z1);
+  if (clip) {
+    minX = Math.max(minX, clip.x0); maxX = Math.min(maxX, clip.x1);
+    minZ = Math.max(minZ, clip.z0); maxZ = Math.min(maxZ, clip.z1);
+  }
   const before = new Map();
   for (let cz = minZ; cz <= maxZ; cz++) for (let cx = minX; cx <= maxX; cx++) {
     if (!inside(doc, cx, cz)) continue;
@@ -85,7 +99,7 @@ export function paintRect(doc, history, { layer, x0, z0, x1, z1, asset, rot = 0,
     label: 'pintar retângulo',
     redo() {
       doc.tileLayers.set(layer, grid);
-      for (const key of before.keys()) grid.set(key, { m: asset.name, rot, tint, y: null });
+      for (const key of before.keys()) grid.set(key, { m: asset.name, rot, tint, y });
       touch(doc);
     },
     undo() {
@@ -205,35 +219,6 @@ export function pasteClip(doc, history, { clip, cx, cz }) {
       touch(doc);
     },
   });
-}
-
-/**
- * Rotates a `copyRect`-shaped clip (`{w,h,cells,objects}`) 90° clockwise around its own
- * footprint — swaps `w`/`h`, remaps every cell/object's `dx,dz` offset into the rotated
- * footprint (the standard "rotate a grid 90° CW" transform: a column `h-1-dz` from the old
- * right edge becomes the new row), and turns each entry's own `rot` a quarter turn (mod 4) so
- * its facing rotates along with its position. Pure — returns a NEW clip, never mutates `clip`
- * itself: Slice 9d's `stamp` tool calls this (via `rotateClipBy` below) on a scratch copy of the
- * picked stamp at PLACEMENT time only, never on the stamp actually saved in `localStorage`
- * (`stamps.js`) or the plain clipboard buffer `pasteClip` itself reads.
- */
-export function rotateClip(clip) {
-  if (!clip) return clip;
-  const { w, h } = clip;
-  const remap = (e) => ({ ...e, dx: h - 1 - e.dz, dz: e.dx, rot: ((e.rot ?? 0) + 1) & 3 });
-  return { w: h, h: w, cells: clip.cells.map(remap), objects: clip.objects.map(remap) };
-}
-
-/** Applies `rotateClip` `times` quarter-turns — negative rotates counter-clockwise (three
- *  clockwise turns is one counter-clockwise turn on a 4-step cycle), normalized once here
- *  (`((times % 4) + 4) % 4`) rather than at every call site. `session.js`'s `stamp` tool and
- *  `viewport/overlay.js`'s matching ghost preview both call this instead of hand-rolling their
- *  own loop, so the two never drift on how a negative rotation is folded back into range. */
-export function rotateClipBy(clip, times) {
-  const n = ((times % 4) + 4) % 4;
-  let out = clip;
-  for (let i = 0; i < n; i++) out = rotateClip(out);
-  return out;
 }
 
 /**
@@ -377,18 +362,23 @@ export function clearRect(doc, history, { x0, z0, x1, z1, layer }) {
 }
 
 /** Flood-fills the 4-connected region sharing the clicked cell's current model. */
-export function fillRegion(doc, history, { layer, cx, cz, asset, rot = 0, tint = 0xffffff }) {
+/** Flood-fills the connected run of same-model cells touching `(cx,cz)` — `clip` (an active box
+ *  selection, `session.getRectSelection()`) walls the flood off at its own edges when given, the
+ *  same boundary `applyToolAt`'s `SELECTION_BOUND_TOOLS` guard (`session.js`) already gives the
+ *  bucket everywhere else: the fill neither spreads past the selection nor paints outside it. */
+export function fillRegion(doc, history, { layer, cx, cz, asset, rot = 0, tint = 0xffffff, y = null, clip = null }) {
   if (!inside(doc, cx, cz)) return;
   const grid = doc.tileLayers.get(layer) ?? new Map();
   const target = grid.get(cellKey(cx, cz))?.m ?? null;
   if (target === asset.name) return;
+  const inClip = (x, z) => !clip || (x >= clip.x0 && x <= clip.x1 && z >= clip.z0 && z <= clip.z1);
   const seen = new Set();
   const stack = [[cx, cz]];
   const before = new Map();
   while (stack.length) {
     const [x, z] = stack.pop();
     const key = cellKey(x, z);
-    if (seen.has(key) || !inside(doc, x, z)) continue;
+    if (seen.has(key) || !inside(doc, x, z) || !inClip(x, z)) continue;
     seen.add(key);
     if ((grid.get(key)?.m ?? null) !== target) continue;
     before.set(key, grid.get(key) ?? null);
@@ -398,7 +388,7 @@ export function fillRegion(doc, history, { layer, cx, cz, asset, rot = 0, tint =
     label: 'balde de tinta',
     redo() {
       doc.tileLayers.set(layer, grid);
-      for (const key of before.keys()) grid.set(key, { m: asset.name, rot, tint, y: null });
+      for (const key of before.keys()) grid.set(key, { m: asset.name, rot, tint, y });
       touch(doc);
     },
     undo() {
@@ -420,123 +410,25 @@ export function setCollision(doc, history, { cx, cz, kind }) {
   });
 }
 
-export function adjustHeight(doc, history, { cx, cz, delta }) {
+/** Snaps a height value to the nearest 0.05 so a hand-typed terrain height lands on the same
+ *  grid `canStep`/`ELEVATION_EPS` (`src/terrain/draft.js`) reasons about, rather than a
+ *  near-miss like 0.2601 that reads identically on screen but silently changes walkability. */
+const snapHeight = (v) => Math.round(v * 20) / 20;
+
+/** Sets a cell's own terrain height to an absolute value — the cell inspector's "Altura" field
+ *  (`inspector.js`'s `cellCard`), replacing the old height/sculpt brush tools: height is now a
+ *  property of the cell, edited the same way collision or a tag is. Snapped to 0.05 like every
+ *  other height write in this file. */
+export function setHeight(doc, history, { cx, cz, value }) {
   if (!inside(doc, cx, cz)) return;
   const i = idx(doc, cx, cz);
   const before = doc.height[i];
-  const after = Math.round((before + delta) * 20) / 20;
+  const after = snapHeight(value);
+  if (after === before) return;
   history.push({
     label: 'altura',
     redo() { doc.height[i] = after; touch(doc); },
     undo() { doc.height[i] = before; touch(doc); },
-  });
-}
-
-/** Snaps a height value to the nearest 0.05 — `adjustHeight`'s own precedent, matched exactly
- *  (not reinvented) so a sculpted terrace lands on the same grid `canStep`/`ELEVATION_EPS`
- *  (`src/terrain/draft.js`) reason about, rather than a near-miss like 0.2601 that reads
- *  identically on screen but silently changes walkability. */
-const snapHeight = (v) => Math.round(v * 20) / 20;
-
-/** The mean height of a cell's own 3×3 neighborhood (itself included), clipped to the map —
- *  `sculptTick`'s `smooth` mode target. A plain average, not distance-weighted: the tick's own
- *  radius falloff (below) already does the "softer at the edge" job; a second weighting here
- *  would just be two falloffs fighting each other for one visual effect. */
-function neighborMeanHeight(doc, cx, cz) {
-  let sum = 0;
-  let count = 0;
-  for (let dz = -1; dz <= 1; dz++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const nx = cx + dx;
-      const nz = cz + dz;
-      if (!inside(doc, nx, nz)) continue;
-      sum += doc.height[idx(doc, nx, nz)];
-      count++;
-    }
-  }
-  return count ? sum / count : doc.height[idx(doc, cx, cz)];
-}
-
-/**
- * Opens a sculpt stroke — call once per `pointerdown` on the `sculpt` tool. `before` is a lazy
- * `idx -> original height` map, populated by `sculptTick` the first time each cell is actually
- * touched, and read back by `endSculptStroke` to close the WHOLE stroke into one undo step
- * (`paintRect`'s own before/after-map shape, generalized from a rectangle to a round brush).
- * `targetHeight` is `flatten`'s pin — the height under the pointer at the moment the stroke
- * started — captured lazily by the first `sculptTick` call instead of here, since that call
- * already knows the stroke's starting cell and this one does not need to.
- */
-export function beginSculptStroke(_doc) {
-  return { before: new Map() };
-}
-
-/**
- * Applies one tick of the brush at `(cx,cz)` — one call per `pointerdown`/`pointermove` while a
- * sculpt stroke is live. Round, not square (Euclidean distance, not Chebyshev/Manhattan), with a
- * linear falloff from full strength at the center to nothing at `radius`. Mutates `doc.height`
- * and bumps `doc._rev` (`touch`) directly — no history entry per tick, matching the doc's own
- * comment above `sculptTick`'s design: the undo grain is the whole STROKE, not the tick, so
- * `endSculptStroke` is what actually pushes to `history`.
- *
- * `stroke.before` only ever records a cell's PRE-STROKE value, the first time any tick in this
- * stroke actually changes it (`stroke.before.has(idx)` guards every write) — a cell revisited by
- * a later tick of the same stroke (a slow drag lingering over one spot, which is expected brush
- * behaviour, not a bug to de-duplicate) must not overwrite that original with an
- * already-modified value, or `endSculptStroke`'s undo would restore the wrong thing.
- */
-export function sculptTick(doc, stroke, { cx, cz, mode, radius, strength }) {
-  if (!inside(doc, cx, cz)) return;
-  if (mode === 'flatten' && stroke.targetHeight === undefined) {
-    stroke.targetHeight = doc.height[idx(doc, cx, cz)];
-  }
-  const r = Math.max(0, radius);
-  const minX = Math.max(0, Math.floor(cx - r));
-  const maxX = Math.min(doc.w - 1, Math.ceil(cx + r));
-  const minZ = Math.max(0, Math.floor(cz - r));
-  const maxZ = Math.min(doc.h - 1, Math.ceil(cz + r));
-  let changed = false;
-  for (let nz = minZ; nz <= maxZ; nz++) {
-    for (let nx = minX; nx <= maxX; nx++) {
-      const dist = Math.hypot(nx - cx, nz - cz);
-      if (dist > r) continue; // outside the round brush footprint, even though inside its bounding square
-      const weight = r > 0 ? Math.max(0, Math.min(1, 1 - dist / r)) : 1;
-      const i = idx(doc, nx, nz);
-      const before = doc.height[i];
-      let after;
-      if (mode === 'raise' || mode === 'lower') {
-        after = snapHeight(before + (mode === 'raise' ? 1 : -1) * strength * weight);
-      } else if (mode === 'flatten') {
-        after = snapHeight(before + (stroke.targetHeight - before) * strength * weight);
-      } else if (mode === 'smooth') {
-        after = snapHeight(before + (neighborMeanHeight(doc, nx, nz) - before) * strength * weight);
-      } else {
-        after = before;
-      }
-      if (after === before) continue; // a strength/radius-0 tick (or a fully-flat/leveled cell) is inert, not a spurious edit
-      if (!stroke.before.has(i)) stroke.before.set(i, before);
-      doc.height[i] = after;
-      changed = true;
-    }
-  }
-  if (changed) touch(doc);
-}
-
-/**
- * Closes a sculpt stroke into one undo entry covering every cell it touched — a no-op when the
- * stroke never actually changed anything (a click entirely off the map, or a down/up so quick no
- * tick ran, or every tick's delta rounded to zero). Mirrors `paintRect`'s own before/after-map
- * redo/undo shape: `after` is read back from the LIVE `doc.height` (already written by every
- * `sculptTick` call this stroke made) at push time, not recomputed, since the ticks already did
- * the real math — this command only needs to remember it as one atomic edit.
- */
-export function endSculptStroke(doc, history, stroke) {
-  if (!stroke.before.size) return;
-  const after = new Map();
-  for (const i of stroke.before.keys()) after.set(i, doc.height[i]);
-  history.push({
-    label: 'esculpir altura',
-    redo() { for (const [i, v] of after) doc.height[i] = v; touch(doc); },
-    undo() { for (const [i, v] of stroke.before) doc.height[i] = v; touch(doc); },
   });
 }
 
@@ -849,6 +741,30 @@ export function setCellTint(doc, history, { layer, cx, cz, tint }) {
   });
 }
 
+/**
+ * Rewrites one grid tile's own world Y, in place — `null` clears the override (the placement
+ * follows `doc.height` at its cell again); a number pins it regardless of terrain. This is what
+ * lets two tiles occupy the same `(cx,cz)` column at different heights: paint the ground on one
+ * layer with no override, a second layer at `y:5`, and both round-trip through the `.map.json`
+ * format untouched (`mapfile.js`'s per-cell `y` RLE grid, `frommap.js`'s decode, `MapDraft.place`'s
+ * `opts.y ?? heightAt` — none of this needed a format change). See `setCellRotation`'s own note
+ * on why an object's Y goes through `updateObject` instead.
+ */
+export function setTileY(doc, history, { layer, cx, cz, y }) {
+  const grid = doc.tileLayers.get(layer);
+  const key = cellKey(cx, cz);
+  const cell = grid?.get(key);
+  if (!cell) return;
+  const value = y == null ? null : snapHeight(y);
+  if (value === (cell.y ?? null)) return;
+  const before = { ...cell };
+  history.push({
+    label: 'altura do tile',
+    redo() { grid.set(key, { ...cell, y: value }); touch(doc); },
+    undo() { grid.set(key, before); touch(doc); },
+  });
+}
+
 /** Adds an empty tile layer at number `n` — undoable, and marks the doc dirty/bumps `_rev`
  *  via `touch()`, unlike the bottom panel's old direct `doc.tileLayers.set(...)`. */
 export function addLayer(doc, history, n) {
@@ -857,6 +773,20 @@ export function addLayer(doc, history, n) {
     label: 'nova camada',
     redo() { doc.tileLayers.set(n, new Map()); touch(doc); },
     undo() { doc.tileLayers.delete(n); touch(doc); },
+  });
+}
+
+/** Names a tile layer — `doc.layerNames` (`state.js`), a plain `Map<layerNumber,string>` empty
+ *  until an author renames one. An empty/whitespace-only `name` clears the entry (the layer goes
+ *  back to `bottom.js`'s own synthesized "Camada N" label) rather than storing a blank string. */
+export function renameLayer(doc, history, layer, name) {
+  const trimmed = (name ?? '').trim();
+  const before = doc.layerNames.get(layer);
+  if ((before ?? '') === trimmed) return;
+  history.push({
+    label: 'renomear camada',
+    redo() { if (trimmed) doc.layerNames.set(layer, trimmed); else doc.layerNames.delete(layer); touch(doc); },
+    undo() { if (before) doc.layerNames.set(layer, before); else doc.layerNames.delete(layer); touch(doc); },
   });
 }
 
@@ -905,136 +835,12 @@ export function updateLink(doc, history, { link, patch }) {
 }
 
 // --- regions: authored autotile masks (`{id, kind:'autotile', set, layer?, collision?, tags?,
-// mask:Runs<0|1>}`, `mapfile.js`'s header). Slice 9b adds the two commands below (`addRegion`,
-// `paintRegionMask`) — the first real mask-painting tool; everything else in this section
-// predates it and only let an already-authored region (none shipped before this slice) be
-// selected/edited/removed. -----------------------------------------------------------------------
-
-/**
- * Creates a new empty-mask region and pushes it, undoable — matches `addLink`'s own shape.
- * `set` is fixed here for good: `inspector.js`'s own `regionCard` only ever shows it as a
- * read-only field row (`fieldRow('Conjunto (set)', region.set)`), so the brush bar's "nova
- * região" picker (`panels.js`) is the only place an author ever chooses it. `layer`/`collision`/
- * `tags` stay editable afterward through `updateRegion`, unchanged by this slice. The mask starts
- * fully empty — `mapfile.js`'s own header is explicit that nothing here should ever pre-fill it
- * from anything else; painting membership is `paintRegionMask`'s job alone.
- */
-export function addRegion(doc, history, { set, layer, collision, tags }) {
-  const region = {
-    // Same minting convention `entities.js`'s header points at for `spawnPoint`/`light`: an
-    // index into the array plus a base-36 timestamp, unique for a Studio session and carried
-    // through unchanged on every later save.
-    id: `region-${doc.regions.length}-${Date.now().toString(36)}`,
-    kind: 'autotile', set, layer, collision, tags: tags ?? [],
-    mask: encodeRuns(new Array(doc.w * doc.h).fill(0)),
-  };
-  history.push({
-    label: 'nova região',
-    redo() { doc.regions.push(region); touch(doc); },
-    undo() { doc.regions = doc.regions.filter((r) => r !== region); touch(doc); },
-  });
-  return region;
-}
-
-/**
- * Adds or removes `cells` (an array of `{cx,cz}` — whatever `main.js`'s own region drag gesture
- * naturally collects from its pointer-move `Set<string>` of `"cx,cz"` keys) from `region`'s mask.
- * ONE undo step per STROKE: call once on pointerup with every cell the drag touched, never once
- * per cell.
- *
- * This is where this slice's whole invariant actually lives (see the slice plan's own "read this
- * twice" section): **a region owns its masked cells on its own layer, exclusively.** `on: true`
- * adds membership and, for every NEWLY-masked cell, immediately —
- *  1. clears that layer's `doc.tileLayers` grid entry at the cell (if any), and
- *  2. removes any `doc.objects[]` entry whose origin cell matches (on that same layer), and
- *  3. steals the cell away from any OTHER region on the SAME layer that currently claims it
- *     (regions on one layer are mutually exclusive by mask, the same way a `tileLayers` Map slot
- *     holds only one entry — painting region B over a cell region A already owns makes B win,
- *     exactly like painting a normal tile over another one already does).
- * Doing this NOW, not deferred to `serializeDocument` time, is what keeps `validate.js`'s
- * `region-tile-overlap` check passing and keeps `frommap.js`'s replay from ever placing the same
- * cell twice (that file's own header: `regions[]` replays before `tiles[]`/`objects[]`, so a
- * masked cell that still had a real placement under it would draw both, doubled, on the very next
- * load — including the Studio's own live 3D pane, which reloads through the identical path).
- *
- * `on: false` (erasing membership) ONLY ever clears this region's own mask bit. It never restores
- * whatever the resolved autotile preview had been rendering there — that resolution is a LIVE
- * PREVIEW only (`mapfile.js`'s header: a snapshot of an existing map never fills `regions[]`; the
- * same "never bake a resolved placement back into a snapshot" rule applies symmetrically to
- * un-painting one here), so an erased cell simply becomes ordinary empty space again, exactly as
- * empty as a cell that was never masked at all.
- */
-export function paintRegionMask(doc, history, { region, cells, on }) {
-  const n = doc.w * doc.h;
-  const layer = region.layer ?? 0;
-  const beforeMask = decodeRuns(region.mask, n);
-  const afterMask = beforeMask.slice();
-
-  // Snapshot everything this stroke is about to touch, BEFORE anything is mutated, so `redo`/
-  // `undo` below are plain data replays — the same shape every other command in this file uses
-  // (`paintCell`'s own `before`/`after`, computed ahead of `history.push`). A partial undo (the
-  // mask reverts but a cleared tile does not come back) would be worse than no undo at all here,
-  // so every side effect below — the grid cell, the removed objects, the OTHER region's stolen
-  // mask bits — gets its own "before" captured up front.
-  const grid = doc.tileLayers.get(layer);
-  const clearedTiles = []; // { key, before } — this region's own layer's grid cells cleared by painting ON
-  const removedObjects = []; // real `doc.objects[]` references removed by painting ON
-  const touchedIdx = [];
-  const seen = new Set();
-
-  for (const c of cells) {
-    if (!inside(doc, c.cx, c.cz)) continue;
-    const i = idx(doc, c.cx, c.cz);
-    if (seen.has(i)) continue; // a drag can revisit a cell; act on it once
-    seen.add(i);
-    touchedIdx.push(i);
-    afterMask[i] = on ? 1 : 0;
-    if (!on) continue; // erasing touches nothing but this region's own mask bit — see the header above
-    const key = cellKey(c.cx, c.cz);
-    if (grid?.has(key)) clearedTiles.push({ key, before: grid.get(key) });
-    for (const obj of doc.objects) {
-      if (obj.cx === c.cx && obj.cz === c.cz && (obj.layer ?? 0) === layer) removedObjects.push(obj);
-    }
-  }
-  if (!touchedIdx.length) return; // every cell was out of bounds or duplicate — nothing to paint
-
-  // Steal newly-masked cells away from any other same-layer region that already claims them —
-  // only relevant when ADDING membership; erasing never touches another region's mask.
-  const stolenFrom = new Map(); // otherRegion -> { before: Runs, after: Runs }
-  if (on) {
-    for (const other of doc.regions) {
-      if (other === region || (other.layer ?? 0) !== layer) continue;
-      const otherMask = decodeRuns(other.mask, n);
-      let changed = false;
-      for (const i of touchedIdx) if (otherMask[i]) { otherMask[i] = 0; changed = true; }
-      if (changed) stolenFrom.set(other, { before: other.mask, after: encodeRuns(otherMask) });
-    }
-  }
-
-  const beforeMaskEncoded = region.mask;
-  const afterMaskEncoded = encodeRuns(afterMask);
-
-  history.push({
-    label: on ? 'pintar região' : 'apagar região',
-    redo() {
-      region.mask = afterMaskEncoded;
-      for (const { key } of clearedTiles) grid?.delete(key);
-      if (removedObjects.length) {
-        const removedSet = new Set(removedObjects);
-        doc.objects = doc.objects.filter((o) => !removedSet.has(o));
-      }
-      for (const [other, { after }] of stolenFrom) other.mask = after;
-      touch(doc);
-    },
-    undo() {
-      region.mask = beforeMaskEncoded;
-      for (const { key, before } of clearedTiles) grid?.set(key, before);
-      if (removedObjects.length) doc.objects.push(...removedObjects);
-      for (const [other, { before }] of stolenFrom) other.mask = before;
-      touch(doc);
-    },
-  });
-}
+// mask:Runs<0|1>}`, `mapfile.js`'s header). The Studio's own paint tool that created and painted
+// these (`addRegion`/`paintRegionMask`, the rail's "Região autotile") was removed — regions
+// remain fully supported data: an already-authored one (hand-written or from an earlier Studio
+// session) is still selectable, editable and removable below, still replays through
+// `frommap.js`'s `draft.autotile()` in both the game and this Studio's own 3D pane, and still
+// gets `validate.js`'s `autotile-set-missing`/`region-tile-overlap` checks. -----------------------
 
 export function removeRegion(doc, history, region) {
   history.push({

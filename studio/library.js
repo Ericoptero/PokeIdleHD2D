@@ -329,6 +329,14 @@ export function makeLibraryPanel({ root, session, docRef, toolRail, onCatalogLoa
   return {
     init,
     setTileset: (slug) => { tilesetSelect.value = slug; return loadFor(slug); },
+    /** Re-applies the `.ms-asset-card--sel` highlight from `session.getSelectedAsset()` without
+     *  reloading the catalog — `refreshAll()` (`main.js`) never rebuilds this panel on an
+     *  ordinary session notify (a search keystroke would otherwise blow away the grid's own
+     *  scroll position on every unrelated selection change), so the eyedrop tool's pick
+     *  (`session.js`'s `eyedrop` case) needs this one explicit call to catch the card up when
+     *  the newly selected asset was not clicked from the grid itself. A no-op — same cost as one
+     *  more keystroke in the search box — when nothing changed or the catalog has not loaded. */
+    syncSelection: () => { if (catalog) renderGrid(); },
   };
 }
 

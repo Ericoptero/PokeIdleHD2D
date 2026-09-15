@@ -12,7 +12,7 @@ import { InstancedWorld, footprint } from './instanced.js';
 import {
   ALPHA, alphaProfile, materialGeometryRoles, emissiveStrength, makeGlowTexture,
   liftNormalsAboveHorizon, rewindDownwardFaces, uprightUvToImageOrder, dropEdgeOnTwins,
-  makeMaterial, globalUvStep, crownNormalsToSetConvention,
+  groundBaseYToZero, makeMaterial, globalUvStep, crownNormalsToSetConvention,
   liftNormalsInShader, makeFoliagePatch, foliageHueScales, applyShaderPatches,
   FOLIAGE_LIT_KNEE_DEG, FOLIAGE_LIT_NIGHT_LIFT,
 } from './materials.js';
@@ -94,6 +94,12 @@ async function loadTileset(slug, { log }) {
   // Fourth: half of every crossed billboard pair is edge-on to a camera that never yaws, and
   // draws a pale pole through the crown plus a hard shadow wedge across its own twin.
   const twins = params.get('crossed') === '1' ? 0 : dropEdgeOnTwins(pack, wholeBuffer, STRIDE);
+  // Fifth: a handful of flat ground/path tiles were authored on top of a cliff (`baseY >= 0.5`)
+  // instead of at ground level, which floats them the moment they are placed at `y:0` — see the
+  // function's own header. Independent of the four passes above (it moves whole models' worth
+  // of vertices by a fixed offset, not per-triangle winding/UV/normal fixes), so order relative
+  // to them does not matter.
+  const groundFixed = groundBaseYToZero(pack, wholeBuffer, STRIDE);
   // OFF by default and deliberately so — see `crownNormalsToSetConvention` for the trade it
   // makes and the numbers behind it. `?crownN=1` turns it on, which is the whole rig for
   // re-measuring it once environment's fills are stable. It runs after the twin drop so a card
@@ -267,6 +273,7 @@ async function loadTileset(slug, { log }) {
   log.info(`tileset "${slug}": ${models.length} models, ${materials.length} materials `
     + `(${softCount} soft, ${decalCount} decal, ${emissives.length} emissive), `
     + `${lifted} normals lifted, ${rewound} faces rewound, ${uvFixed} upright uvs righted, ${twins} edge-on twins dropped`
+    + (groundFixed ? `, ${groundFixed} ground models re-based to y:0` : '')
     + (crowns.cards
       ? `, crown cards ${crowns.moved}/${crowns.cards} snapped to (${crowns.dir?.map((v) => v.toFixed(2)).join(', ')})`
       : '')

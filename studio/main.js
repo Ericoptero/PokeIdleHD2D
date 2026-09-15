@@ -11,17 +11,15 @@ import tokens from '@/ui/css/tokens.css?inline';
 import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
-import { createDocument, createBlankDocument, serializeDocument, createHistory, cellKey } from './state.js';
-import {
-  paintRect, copyRect, pasteClip, clearRect, beginSculptStroke, sculptTick, endSculptStroke, paintRegionMask,
-} from './tools.js';
+import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
+import { paintRect, copyRect, pasteClip, clearRect } from './tools.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
 import { makeMinimap } from './minimap.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
-import { ENTITIES, regionContains } from './entities.js';
+import { ENTITIES } from './entities.js';
 import { invalidateValidation } from './validation.js';
 import { makeToolRail, makeToolbar, makeStatusBar, makeAssetBrushBar } from './panels.js';
 import { makeInspector } from './inspector.js';
@@ -76,13 +74,7 @@ const library = makeLibraryPanel({
   // never runs until after that has already resolved.
   getViewport: () => preview,
 });
-makeAssetBrushBar({
-  root: brushBarEl, session, docRef, history,
-  // `preview` is assigned later, by `bootViewport()` below — but this callback is only ever
-  // INVOKED once the brush bar's región section actually needs the list (the user has switched to
-  // the `region` tool), well after `boot()`'s own `await bootViewport()` has resolved.
-  getAutotileSets: () => (currentDoc ? preview?.autotileSets(currentDoc.tileset) ?? [] : []),
-});
+makeAssetBrushBar({ root: brushBarEl, session });
 
 // --- overlay strip: the toggles `session` already implements but nothing called -----------
 // (Slice 7: down to 4 entries — `kinds.js`'s own `OVERLAYS` header explains what left the table
@@ -124,15 +116,12 @@ let lastRebuildRev = -1;
 // The 3D pane's one pointer-drag state machine: `{ mode: 'pan' }` (camera drag, the pane's
 // original and still-default behaviour), `{ mode: 'gizmo', gizmo, moved }` (dragging a spawn/
 // marker/npc/light handle), `{ mode: 'paint' }` (an active paint tool clicked/dragged a cell),
-// `{ mode: 'rect', x0, z0 }` (the `rect` tool's two-corner drag, committed once on release),
+// `{ mode: 'rect', x0, z0 }` (the `rect` tool's two-corner drag, committed once on release), or
 // `{ mode: 'boxselect', x0, z0 }` (Slice 9a: the `boxselect` tool's own two-corner drag — same
 // shape as `rect`, but committed continuously to `session.setRectSelection` on every moved cell
-// instead of once on release, so the overlay's outline grows live during the drag), or
-// `{ mode: 'sculpt', stroke }` (Slice 9c: a multi-cell height-brush stroke, `stroke` the handle
-// `beginSculptStroke`/`sculptTick`/`endSculptStroke`, `tools.js`, thread through the whole drag
-// and closed into one undo entry on release). Exactly one of these is live at a time — a gizmo
-// hit always wins over painting, and painting always wins over panning, decided once on
-// `pointerdown` (below).
+// instead of once on release, so the overlay's outline grows live during the drag). Exactly one
+// of these is live at a time — a gizmo hit always wins over painting, and painting always wins
+// over panning, decided once on `pointerdown` (below).
 let previewDrag = null;
 let previewDownAt = null; // pointerdown client (x,y) — tells a click from a drag on pointerup
 
@@ -156,7 +145,14 @@ async function bootViewport() {
   previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Zoom'));
   const zoomOut = h('button', { class: 'ms-iconbtn', title: 'Diminuir zoom', onClick: () => preview.zoomSteps(1) }, [icon('zoom-out', { size: 13 })]);
   const zoomIn = h('button', { class: 'ms-iconbtn', title: 'Aumentar zoom', onClick: () => preview.zoomSteps(-1) }, [icon('zoom-in', { size: 13 })]);
-  const fitBtn = h('button', { class: 'ms-iconbtn', title: 'Enquadrar mapa', onClick: () => currentDoc && preview.fitMap(currentDoc.w, currentDoc.h) }, [icon('scan', { size: 13 })]);
+  // The confirmed bug this replaces: this button used `icon('scan')`, a four-corner-bracket
+  // glyph visually indistinguishable at 13px from the fullscreen button's `maximize` right next
+  // to it (also four corner brackets) — reported as "two fullscreen buttons, one of them dead".
+  // `crosshair` (already used for "Focar" in `library.js`) reads unambiguously as "frame/target"
+  // instead. It was also a genuine no-op on the old quantized zoom ladder; `camera.js`'s
+  // `fitMap` fix makes it actually change the framing now.
+  const fitBtn = h('button', { class: 'ms-iconbtn', title: 'Enquadrar mapa (ajustar zoom)', onClick: () => currentDoc && preview.fitMap(currentDoc.w, currentDoc.h) }, [icon('crosshair', { size: 13 })]);
+  previewHead.append(zoomOut, zoomIn, fitBtn);
   // Tela cheia — the Fullscreen API on `previewWrap` (`previewHead` + `previewContainer`
   // together), NOT `previewContainer` alone: the Fullscreen API hides everything outside the
   // fullscreened element's own subtree, and `previewHead` — the zoom/yaw/fullscreen buttons and
@@ -167,8 +163,12 @@ async function bootViewport() {
   // once out of the fullscreened subtree. The pane still resizes correctly either way
   // (`viewport/index.js`'s own `ResizeObserver` watches `previewContainer` regardless of which
   // ancestor is the fullscreen element).
+  //
+  // Pushed to the far right of the head (`marginLeft: 'auto'`) and given its own distinct
+  // `maximize`/`minimize` glyph pair — it used to sit directly beside `fitBtn`'s near-identical
+  // corner-bracket icon, which is what read as "two fullscreen buttons, only one working".
   let fullscreenIcon = icon('maximize', { size: 13 });
-  const fullscreenBtn = h('button', { class: 'ms-iconbtn', title: 'Tela cheia', onClick: () => {
+  const fullscreenBtn = h('button', { class: 'ms-iconbtn', title: 'Tela cheia', style: { marginLeft: 'auto' }, onClick: () => {
     if (document.fullscreenElement === previewWrap) document.exitFullscreen();
     else previewWrap.requestFullscreen();
   } }, [fullscreenIcon]);
@@ -179,17 +179,18 @@ async function bootViewport() {
     fullscreenIcon = next;
     fullscreenBtn.title = on ? 'Sair da tela cheia' : 'Tela cheia';
   });
-  previewHead.append(zoomOut, zoomIn, fitBtn, fullscreenBtn);
+  previewHead.appendChild(fullscreenBtn);
 }
 
-// Tools with their own meaning in the 3D pane already — `select` and `pan` (click-to-select,
-// drag-to-pan) and `eyedrop` (no 3D-specific behaviour yet) never dispatch through
-// `session.applyToolAt`. Everything else does, which is also how an `npc`/`light`/`marker`
-// click in 3D ends up popping the exact same modal/prompt the 2D canvas's tool rail does —
-// `applyToolAt` is the one dispatch, not a second copy of it. `CONTINUOUS_PAINT_TOOLS` (which
-// tools keep acting on every dragged cell) is `session.js`'s own single-source Set, imported
-// above rather than kept as a second hand-synced copy here.
-const NON_PAINT_TOOLS = new Set(['select', 'pan', 'eyedrop']);
+// Tools with their own meaning in the 3D pane already — `select` (click-to-select) and `pan`
+// (drag-to-pan) never dispatch through `session.applyToolAt`. Everything else does — `eyedrop`
+// included, since `session.js`'s own `eyedrop` case now has real 3D behaviour (picks the topmost
+// placement at the clicked cell) — which is also how an `npc`/`light` click in 3D ends up
+// popping the exact same modal the 2D canvas's tool rail once did — `applyToolAt` is the one
+// dispatch, not a second copy of it. `CONTINUOUS_PAINT_TOOLS` (which tools keep acting on every
+// dragged cell) is `session.js`'s own single-source Set, imported above rather than kept as a
+// second hand-synced copy here.
+const NON_PAINT_TOOLS = new Set(['select', 'pan']);
 
 /** Confines a dragged gizmo to the map — `setSpawn`/`placeMarker`/`moveNpc`/`updateLight` do not
  *  bounds-check the way `tools.js`'s cell-painting commands do (the 2D canvas never lets them:
@@ -289,49 +290,6 @@ previewContainer.addEventListener('pointerdown', (e) => {
       return;
     }
   }
-  // `sculpt` (Slice 9c), like `rect`/`boxselect` above, never went through `session.applyToolAt`
-  // — a brush stroke accumulates over many ticks under ONE undo entry (`beginSculptStroke`/
-  // `endSculptStroke`, `tools.js`), which is not a shape `applyToolAt`'s single-cell-dispatch
-  // switch has a case for. The first tick fires right here, on `pointerdown`, exactly like every
-  // other paint tool below.
-  if (tool === 'sculpt' && currentDoc) {
-    const cell = preview.pickCell(e.clientX, e.clientY);
-    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      const stroke = beginSculptStroke(currentDoc);
-      const brush = session.getBrush();
-      sculptTick(currentDoc, stroke, {
-        cx: cell.cx, cz: cell.cz, mode: brush.sculptMode, radius: brush.sculptRadius, strength: brush.sculptStrength,
-      });
-      session.notify(); // see `commitGizmoDrag`'s own note on why a direct `tools.js` call needs this
-      previewDrag = { mode: 'sculpt', stroke };
-      return;
-    }
-  }
-  // Região (Slice 9b): also its own drag gesture, not a case in `session.applyToolAt`'s switch —
-  // a mask paint-stroke has no single-cell meaning either, the same reasoning the `rect` branch
-  // above already established. `on` is decided ONCE, from the FIRST cell's current membership,
-  // and held fixed for the whole drag (a common paint-tool convention: painting starts by ADDING
-  // membership if the first cell is not yet a member, or REMOVING it if it already is, so a user
-  // never has to release and re-press to switch between add/remove mid-map). No active region
-  // selected (`panels.js`'s brush bar is where one gets created/picked) falls through to the
-  // generic dispatch below, which has no `'region'` case either — a harmless no-op, same as
-  // `rect` with nothing selected just above.
-  if (tool === 'region' && currentDoc) {
-    const cell = preview.pickCell(e.clientX, e.clientY);
-    const region = currentDoc.regions.find((r) => r.id === session.getActiveRegionId());
-    if (cell && region && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      const on = !regionContains(currentDoc, region, cell.cx, cell.cz);
-      const cells = new Set([cellKey(cell.cx, cell.cz)]);
-      previewDrag = { mode: 'region', region, on, cells };
-      // Live-preview-only: does not touch `doc`/`doc._rev` (`state.js`'s `touch()` never runs
-      // here) — `viewport/overlay.js` reads this straight off `session` to tint the in-progress
-      // stroke, distinctly from the region's own already-committed mask, while the pointer is
-      // still down. `paintRegionMask` (`tools.js`) is the only thing that ever writes `doc`,
-      // called once on `pointerup` below with the whole stroke.
-      session.setRegionStroke({ on, cells });
-      return;
-    }
-  }
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -341,9 +299,9 @@ previewContainer.addEventListener('pointerdown', (e) => {
     }
   }
 
-  // Default: the pane's original behaviour — drag pans the camera. A `select`/`pan`/`eyedrop`
-  // click (or a paint click that missed the map) falls into this too; `pointerup` below turns a
-  // *motionless* `select` one of those into a cell selection — the 3D pane's click-to-select.
+  // Default: the pane's original behaviour — drag pans the camera. A `select`/`pan` click (or a
+  // paint click that missed the map) falls into this too; `pointerup` below turns a *motionless*
+  // `select` one of those into a cell selection — the 3D pane's click-to-select.
   previewDrag = { mode: 'pan', x: e.clientX, y: e.clientY };
   previewContainer.classList.add('is-panning');
 });
@@ -353,19 +311,11 @@ previewContainer.addEventListener('pointermove', (e) => {
     // Idle hover, no drag in progress — the pre-Slice-7 2D canvas's own `pointermove` used to
     // drive `session.setHover` on every idle move; nothing has since it was deleted, which
     // silently left `session.getHover()` permanently `null` (the status bar's own "célula X, Z"
-    // readout, Ctrl+V's target-cell fallback, this slice's paste-ghost overlay, and `sculpt`'s
-    // own brush-radius ring below all read it). Restored here, scoped to the one pointer surface
-    // the Studio has left.
+    // readout and Ctrl+V's target-cell fallback both read it). Restored here, scoped to the one
+    // pointer surface the Studio has left.
     session.setHover(preview.pickCell(e.clientX, e.clientY));
     return;
   }
-  // `sculpt`'s live brush-radius ring (`viewport/overlay.js`) also needs a hover update WHILE a
-  // stroke is dragging, not just before one starts — every other drag mode has no reason to pay
-  // the extra `notify()` a hover update costs (`setHover` fans out to a full inspector/toolbar/
-  // bottom-panel rebuild via `refreshAll`, on top of whatever this drag mode's own branch below
-  // already does), so this stays scoped to the one tool that actually needs a per-pixel signal
-  // mid-drag.
-  if (session.getTool() === 'sculpt') session.setHover(preview.pickCell(e.clientX, e.clientY));
   if (previewDrag.mode === 'pan') {
     preview.panBy(e.clientX - previewDrag.x, e.clientY - previewDrag.y);
     previewDrag.x = e.clientX; previewDrag.y = e.clientY;
@@ -383,17 +333,6 @@ previewContainer.addEventListener('pointermove', (e) => {
       // Visual-only: the doc is untouched until `pointerup`, so dragging across the whole map is
       // one undo step, not one per animation frame.
       if (cell) { const c = clampToMap(cell.cx, cell.cz); preview.moveGizmoTo(previewDrag.gizmo.kind, previewDrag.gizmo.index, c.cx, c.cz); }
-    }
-    return;
-  }
-  if (previewDrag.mode === 'region' && currentDoc) {
-    const cell = preview.pickCell(e.clientX, e.clientY);
-    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      previewDrag.cells.add(cellKey(cell.cx, cell.cz));
-      // Same `Set` reference `previewDrag.cells` already is — `setRegionStroke` still needs to
-      // re-run so `viewport/overlay.js`'s own subscriber notices this stroke object is "new"
-      // enough to warrant a rebuild (its own change-signature check reads `stroke.cells.size`).
-      session.setRegionStroke({ on: previewDrag.on, cells: previewDrag.cells });
     }
     return;
   }
@@ -415,19 +354,6 @@ previewContainer.addEventListener('pointermove', (e) => {
     // how many cells the drag crosses.
     if (cell) session.setRectSelection({ x0: previewDrag.x0, z0: previewDrag.z0, x1: cell.cx, z1: cell.cz });
   }
-  if (previewDrag.mode === 'sculpt' && currentDoc) {
-    // Repeated ticks on the SAME cell during a slow drag are fine and expected — a brush
-    // accumulates, it does not stamp once — so this never checks whether `cell` differs from the
-    // last one it saw.
-    const cell = preview.pickCell(e.clientX, e.clientY);
-    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
-      const brush = session.getBrush();
-      sculptTick(currentDoc, previewDrag.stroke, {
-        cx: cell.cx, cz: cell.cz, mode: brush.sculptMode, radius: brush.sculptRadius, strength: brush.sculptStrength,
-      });
-      session.notify(); // same reason as the `pointerdown` tick above — no `applyToolAt` in this path to notify for it
-    }
-  }
 });
 function endPreviewDrag(e) {
   if (previewDrag?.mode === 'gizmo') {
@@ -442,6 +368,7 @@ function endPreviewDrag(e) {
       paintRect(currentDoc, history, {
         layer: session.getActiveLayer(), x0: previewDrag.x0, z0: previewDrag.z0,
         x1: cell.cx, z1: cell.cz, asset: session.getSelectedAsset(), rot: brush.rot, tint: brush.tint,
+        y: brush.y, clip: session.getRectSelection(),
       });
       // `session.notify()`, not `refreshAll()` — see `commitGizmoDrag`'s own comment on why:
       // `paintRect` is called directly, bypassing `session.applyToolAt`'s own trailing
@@ -458,22 +385,6 @@ function endPreviewDrag(e) {
     // guarantees that).
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell) session.setRectSelection({ x0: previewDrag.x0, z0: previewDrag.z0, x1: cell.cx, z1: cell.cz });
-  } else if (previewDrag?.mode === 'sculpt' && currentDoc) {
-    // Closes the WHOLE stroke into one undo entry — see `tools.js`'s own header on
-    // `endSculptStroke` for why this is a no-op rather than an empty history entry when the
-    // stroke never actually changed anything.
-    endSculptStroke(currentDoc, history, previewDrag.stroke);
-    session.notify();
-  } else if (previewDrag?.mode === 'region' && currentDoc) {
-    // One `paintRegionMask` call, one undo step, for the WHOLE drag — matching `rect`'s own
-    // single-commit-on-release convention right above.
-    const cells = [...previewDrag.cells].map((key) => {
-      const [cx, cz] = key.split(',').map(Number);
-      return { cx, cz };
-    });
-    paintRegionMask(currentDoc, history, { region: previewDrag.region, cells, on: previewDrag.on });
-    session.setRegionStroke(null); // the live-preview highlight; the committed mask now speaks for itself
-    session.notify();
   } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
@@ -490,10 +401,6 @@ function endPreviewDrag(e) {
 }
 previewContainer.addEventListener('pointerup', endPreviewDrag);
 previewContainer.addEventListener('pointercancel', endPreviewDrag);
-// Clears the sculpt hover so its brush-radius ring does not linger at the last-known cell once
-// the pointer has actually left the pane — cheap (a `null` write) and only matters for this one
-// tool, since nothing else reads `session.getHover()` today.
-previewContainer.addEventListener('pointerleave', () => { if (session.getTool() === 'sculpt') session.setHover(null); });
 previewContainer.addEventListener('wheel', (e) => {
   if (!preview) return;
   e.preventDefault();
@@ -591,25 +498,15 @@ window.addEventListener('keydown', (e) => {
     if (activeLayerLocked()) { console.warn('Map Studio: camada ativa bloqueada — limpeza cancelada.'); return; }
     clearRect(currentDoc, history, { ...rect, layer: session.getActiveLayer() });
     session.notify();
+    return;
   }
-});
-
-// --- carimbo/stamp rotation (Slice 9d, optional per the slice's own plan): `,`/`.` cycle the
-// picked stamp's PENDING rotation a quarter-turn CCW/CW while the `stamp` tool is active —
-// applied only at placement time (`session.js`'s `applyToolAt` 'stamp' case, via `rotateClipBy`),
-// never mutating the saved stamp itself (`stamps.js`) or the plain clipboard buffer.
-//
-// Deliberately NOT `[`/`]`, the slice brief's own suggested keys: this file's `[`/`]` keybind
-// above already rotates the 3D pane's own camera yaw, UNCONDITIONALLY — not gated by tool — so
-// reusing them here would silently double as "spin the camera" on every stamp rotation, exactly
-// the class of silent keybind collision `kinds.js`'s own `TOOLS` table has already been bitten by
-// once this session. `,`/`.` are unclaimed anywhere else in the Studio (`rg "e\.key ==="
-// studio/`) and read as "step/rotate" the same way `[`/`]` do, without the collision.
-window.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-  if (session.getTool() !== 'stamp') return;
-  if (e.key === ',') { e.preventDefault(); session.setStampRotation(session.getStampRotation() - 1); }
-  else if (e.key === '.') { e.preventDefault(); session.setStampRotation(session.getStampRotation() + 1); }
+  // Releases the box selection's paint lock (`session.js`'s `canEditCell`) without switching
+  // away from the `boxselect` tool itself — the outline just disappears, the same one-key
+  // "never mind" every other selection-clear in this file already gives Ctrl+C/X/V's own target.
+  if (e.key === 'Escape' && session.getRectSelection()) {
+    e.preventDefault();
+    session.setRectSelection(null);
+  }
 });
 
 // --- percorrer loop (the "Playtest" slot's real, honest stand-in — see the plan) -----------
@@ -634,6 +531,13 @@ async function walkLoop() {
 // Every editing-state mutation/selection change re-renders the panels around it — a click
 // that selects a cell, a paint stroke, an overlay toggle all funnel through here.
 session.subscribe(() => refreshAll());
+
+// Keeps the asset library's `.ms-asset-card--sel` highlight following `session.getSelectedAsset()`
+// even when the pick did NOT come from clicking a card there — the eyedrop tool's own pick,
+// chiefly (`session.js`'s `eyedrop` case in `applyToolAt`). `refreshAll` above never touches the
+// library panel (a search keystroke's own full-grid rebuild would otherwise fight the debounced
+// 3D reload it triggers on every unrelated notify), so this is a second, narrow subscriber.
+session.subscribe(() => library.syncSelection());
 
 // --- selection -> 3D focus follow (a free win: `preview.setFocus` already existed, unused) --
 let lastFocusKey = null;

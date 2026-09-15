@@ -78,10 +78,16 @@ export async function makeViewport({ container, session }) {
     view.resize(container.clientWidth || 1, container.clientHeight || 1);
   }
   resize();
-  const ro = new ResizeObserver(resize);
-  ro.observe(container);
 
   const camera = makeViewportCamera({ rig, view, config, ctx, resize });
+  // `camera.refitZoom()`, not plain `resize()` — a container resize changes `view.internalSize`,
+  // which `camera.js`'s zoom reads to turn an editor-chosen cell count into `pixelsPerUnit`
+  // (see its own header). Re-running only `resize()` here would leave `pixelsPerUnit` at
+  // whatever it was, so the number of cells visible would silently drift with the pane's size
+  // instead of the admin's own zoom choice staying put.
+  const ro = new ResizeObserver(() => camera.refitZoom());
+  ro.observe(container);
+
   const overlay = makeOverlay({ session, getHeight: (cx, cz) => ctx.get('terrain').height(cx, cz) });
   // Asset-library previews (Slice: real 3D tile thumbnails) — reached through this module's own
   // `ctx` (the same loaded `tiles` instance the 3D pane itself renders with), not a second
@@ -399,16 +405,6 @@ export async function makeViewport({ container, session }) {
     fitMap: camera.fitMap, getZoom: camera.getZoom,
     getYaw: camera.getYaw, setYaw,
     pickCell, pickGizmo, moveGizmoTo,
-    /**
-     * Which autotile sets THIS viewport's own `tiles` instance knows for `slug` — the region
-     * tool's brush-bar "nova região" set picker (`panels.js`) needs this, and `ctx.get('tiles')`
-     * here is the one seam to reach it through, matching `camera.js`'s own note on why (a second
-     * `@/tiles/index.js` import would `init()` a completely separate, un-loaded instance — this
-     * module's own header explains the mini-registry `tiles`/`terrain`/`environment` boot). `[]`
-     * before `slug` has finished loading (`main.js`'s brush bar re-reads this on every session
-     * notify, so an empty first read is only ever transient, never stuck).
-     */
-    autotileSets: (slug) => ctx.get('tiles').autotile.sets(slug) ?? [],
     // The Library panel's real 3D tile previews (`viewport/thumbnails.js`) — see that file's own
     // header for what each does and why they share one technique but not one renderer.
     renderThumbnail: thumbnailer.renderThumbnail,

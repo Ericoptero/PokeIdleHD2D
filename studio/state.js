@@ -38,6 +38,10 @@ export function createDocument(map) {
 
   // One draft-role layer group per distinct layer number: Map<layerNumber, Map<'cx,cz', {m,rot,tint,y}>>.
   const tileLayers = new Map();
+  // An author-given name per layer number, `Map<layerNumber,string>` — empty until a layer is
+  // renamed (`bottom.js`'s layers tab); `bottom.js` falls back to a synthesized "Camada N" for
+  // any layer with no entry here, so a layer never goes nameless.
+  const layerNames = new Map();
   const objects = [];
   let extras = [];
   let draftTileset = map.tileset;
@@ -50,6 +54,7 @@ export function createDocument(map) {
     }
     draftTileset = layer.tileset;
     for (const t of layer.tiles ?? []) {
+      if (t.name) layerNames.set(t.layer, t.name);
       const modelAt = decodeRuns(t.model, n);
       const rotAt = t.rot ? decodeRuns(t.rot, n) : null;
       const tintAt = t.tint ? decodeRuns(t.tint, n) : null;
@@ -86,7 +91,7 @@ export function createDocument(map) {
     // three lines below — the two are unrelated concepts.
     mapTags: map.tags ?? [],
     collision, height, tags, occupied,
-    tileLayers, objects, nextObjectId: objects.length, extras,
+    tileLayers, layerNames, objects, nextObjectId: objects.length, extras,
     // Autotile masks the paint tool (Slice 9b, not this one) will populate. `id` is new in v3
     // (`mapfile.js`'s header) — minted here for any region a pre-v3 file might still carry
     // without one, the same way a light without one gets minted just below.
@@ -271,6 +276,8 @@ export function serializeDocument(doc) {
     if (anyRot) entry.rot = encodeRuns(rotAt);
     if (anyTint) entry.tint = encodeRuns(tintAt);
     if (anyY) entry.y = encodeRuns(yAt);
+    const name = doc.layerNames.get(layerNum);
+    if (name) entry.name = name;
     tiles.push(entry);
   }
   const objects = doc.objects.map((o) => {
@@ -332,6 +339,7 @@ export function createBlankDocument({ id, name, w = 32, h = 32, tileset = 'bw2-a
       ? new Map([[0, new Map(Array.from({ length: n }, (_, i) =>
         [cellKey(i % w, Math.floor(i / w)), { m: groundModel, rot: 0, tint: DEFAULT_TINT, y: null }]))]])
       : new Map(),
+    layerNames: new Map(),
     objects: [], nextObjectId: 0, extras: [],
     regions: [],
     spawn: { cx: w >> 1, cz: h >> 1, dir: 0 },

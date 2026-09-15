@@ -50,27 +50,16 @@
  *      and a cell is hovered. A flat tinted rectangle, not the clip's real tile art — enough
  *      feedback for "here is where a paste would land" without re-rendering actual placements
  *      for content that has not been committed yet.
- *   8. (Slice 9c) a live brush-radius ring for the `sculpt` tool, centered on `session.
- *      getHover()` and sized to `session.getBrush().sculptRadius` — the same "always visible
- *      while relevant" category as the selection outline, gated on the active tool instead of an
- *      overlay toggle since it is direct tool feedback, not optional map information.
- *   9. the región paint tool's own live preview (Slice 9b) — gated on `session.getTool() ===
- *      'region'`, not on an `OVERLAYS`-table toggle like 1-4 above (there is nothing to leave on
- *      once the tool is put away; a região has no meaning to keep tinted while painting a fence).
- *      A FLAT MASK TINT, deliberately, not the actual resolved autotile case art: see
- *      `buildRegion`'s own comment for why that scope cut is honest rather than a missed corner.
- *  10. (Slice 9d) the `stamp` tool's own hover-ghost — the same flat-tinted-quad technique as #7's
- *      paste ghost, sized to the PICKED, SAVED stamp's own `w`×`h` (after any pending `,`/`.`
- *      placement-only rotation) instead of the plain clipboard's, and in a different color so the
- *      two previews never look like the same thing even though both commit through `pasteClip`.
+ *
+ *  A brush-radius ring for the `sculpt` tool (Slice 9c), a mask-membership tint for the `region`
+ *  tool (Slice 9b) and a hover-ghost for the `stamp` tool (Slice 9d) used to live here as items
+ *  8-10 — removed along with those tools; `regions[]`/`doc.tags`/`doc.height` themselves are
+ *  untouched, only the paint-stroke preview each tool's own gesture needed is gone.
  */
 
 import * as THREE from 'three';
 import { COLLISION_COLOR } from '../kinds.js';
 import { reachableFrom } from '../session.js';
-import { rotateClipBy } from '../tools.js';
-import { getStamp } from '../stamps.js';
-import { decodeRuns } from '@/terrain/mapfile.js';
 
 /** The 2D canvas's own selection-ring color (`canvas.js`, before Slice 7 deleted it) — matched
  *  here so the two views read as one document's selection, not two independently-colored ones. */
@@ -109,37 +98,12 @@ const REACH_PARSED = {
  *  pending-paste preview never reads as one of those other overlays by color alone. */
 const PASTE_GHOST_PARSED = parseRgba('rgba(100,181,246,0.28)');
 
-/** The `stamp` tool's own hover-ghost tint (Slice 9d) — a distinct teal, unclaimed by every
- *  other color in this file (the paste ghost's blue, the rect-selection outline's lavender, the
- *  warm collision/región/reach tints), so a stamp preview never reads as an ad-hoc paste ghost
- *  even though both ultimately place through the identical `pasteClip` — the two previews are
- *  different SOURCES to the author (a plain clipboard vs. a saved, named stamp) and are worth
- *  looking different for that reason alone. */
-const STAMP_GHOST_PARSED = parseRgba('rgba(94,204,184,0.32)');
-
 /** The 2D canvas's own loop colors: `#F7F1E7` for the resolved cache, amber for the authored
  *  `via` sequence (the same amber `SELECTION_COLOR` above already uses, and `entities.js`'s own
  *  `loopWaypoint` gizmo color — one amber across the whole Studio, not three). */
 const LOOP_RESOLVED_COLOR = 0xF7F1E7;
 const LOOP_VIA_COLOR = 0xE0A64B;
 const LOOP_LINE_OPACITY = 0.85;
-
-/** The `sculpt` brush ring's own color (Slice 9c) — a cool blue unclaimed by any other overlay
- *  or gizmo in this file (collision/reach/loop/selection are all warm greens/reds/amber), so a
- *  brush preview never reads as one of those instead. */
-const SCULPT_RING_COLOR = 0x6FB8E0;
-const SCULPT_RING_SEGMENTS = 48; // enough to read as round, not faceted, at any on-screen zoom
-
-/**
- * Região (Slice 9b) tint colors — same `parseRgba`/`makeTintMesh` technique as collision/reach
- * above, three buckets instead of a per-kind palette: the ACTIVE region's own already-committed
- * mask (dim, so it reads as "already saved"), and the in-progress stroke's pending cells, colored
- * by whether the drag is currently ADDING or REMOVING membership so it reads correctly before the
- * pointer is even released.
- */
-const REGION_MASK_PARSED = parseRgba('rgba(242,217,168,0.30)');  // `entities.js`'s own region gizmo color (0xF2D9A8), translucent
-const REGION_ADD_PARSED = parseRgba('rgba(247,241,231,0.55)');   // brighter than the mask tint — `LOOP_RESOLVED_COLOR`'s own off-white
-const REGION_REMOVE_PARSED = parseRgba('rgba(214,104,91,0.50)'); // `COLLISION_PARSED.block`'s own red — a removal reads as a warning, not a fill
 
 /** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
  *  (`null` if the marker was deleted out from under it), or an inline `{cx,cz}` waypoint used
@@ -185,10 +149,6 @@ export function makeOverlay({ session, getHeight }) {
   // --- loop: the resolved-cache line plus the authored-via line, both flat at y=0 --------------
   let loopGroup = null;
 
-  // --- região (Slice 9b): the active region's mask tint + the in-progress stroke's own tint,
-  // both flat at y=0, tool-gated rather than overlay-toggle-gated (see this file's own header) --
-  let regionGroup = null;
-
   // --- selection: always-on outline, independent of every toggle above ------------------------
   const selectionOutline = makeSelectionOutline(SELECTION_COLOR);
   scene.add(selectionOutline);
@@ -225,40 +185,6 @@ export function makeOverlay({ session, getHeight }) {
     pasteGhost.geometry.dispose();
     pasteGhost.material.dispose();
     pasteGhost = null;
-  }
-
-  // --- stamp ghost (Slice 9d): same rebuild-from-scratch technique as the paste ghost above,
-  // sized to the picked, saved stamp instead of the plain clipboard --------------------------
-  let stampGhost = null;
-  function disposeStampGhost() {
-    if (!stampGhost) return;
-    scene.remove(stampGhost);
-    stampGhost.geometry.dispose();
-    stampGhost.material.dispose();
-    stampGhost = null;
-  }
-
-  // --- sculpt brush ring: always-on (while the tool is active), independent of every toggle ----
-  const sculptRing = makeSculptRing();
-  scene.add(sculptRing);
-
-  /** A unit circle (radius 1, centered on the origin, flat on XZ) — `updateSculptRing` below
-   *  scales it to the brush's actual `sculptRadius` on every notify rather than rebuilding the
-   *  geometry each time a radius input changes, the same "scale, don't regeometry" trick a sprite
-   *  gizmo already uses for its own size. */
-  function makeSculptRing() {
-    const positions = new Float32Array(SCULPT_RING_SEGMENTS * 3);
-    for (let i = 0; i < SCULPT_RING_SEGMENTS; i++) {
-      const t = (i / SCULPT_RING_SEGMENTS) * Math.PI * 2;
-      positions.set([Math.cos(t), 0, Math.sin(t)], i * 3);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const mat = new THREE.LineBasicMaterial({ color: SCULPT_RING_COLOR, depthTest: false, transparent: true, opacity: 0.9 });
-    const loop = new THREE.LineLoop(geo, mat);
-    loop.renderOrder = 999;
-    loop.visible = false;
-    return loop;
   }
 
   function disposeGrid() {
@@ -431,51 +357,6 @@ export function makeOverlay({ session, getHeight }) {
     return group;
   }
 
-  function disposeRegion() {
-    if (!regionGroup) return;
-    scene.remove(regionGroup);
-    for (const child of regionGroup.children) { child.geometry.dispose(); child.material.dispose(); }
-    regionGroup = null;
-  }
-
-  /**
-   * Região (Slice 9b) live preview: the ACTIVE region's own committed mask, plus — while a
-   * stroke is in progress — the cells it is about to add or remove. `stroke` is `session.
-   * getRegionStroke()`'s own `{on, cells:Set<string>}` shape (`null` when no drag is live).
-   *
-   * A FLAT TINT over mask membership, not the actual resolved autotile case art
-   * (`tiles.autotile.solvePlacements`) — a deliberate, honest scope cut for this slice: wiring
-   * real tile geometry into this overlay scene would need a second tile renderer here (materials,
-   * per-case geometry lookups, a live `tiles` module reference this file otherwise has none of —
-   * this file's own header, "no registry access of its own"), for a preview that is only ever a
-   * few hundred milliseconds stale anyway. `main.js`'s own debounced `schedulePreviewRebuild`
-   * reloads the whole 3D pane through the EXACT SAME `frommap.js`/`draft.autotile` path the
-   * shipped game uses the moment a stroke commits (`paintRegionMask`'s `history.push` bumps
-   * `doc._rev`), at which point the real resolved art already shows correctly. Matches the
-   * technique `buildCollision`/`buildReach` above already use — one merged mesh per tint color,
-   * not one draw call per cell.
-   */
-  function buildRegion(doc, activeRegionId, stroke) {
-    const group = new THREE.Group();
-    const region = doc.regions.find((r) => r.id === activeRegionId);
-    if (region) {
-      const mask = decodeRuns(region.mask, doc.w * doc.h);
-      const cells = [];
-      for (let i = 0; i < mask.length; i++) {
-        if (!mask[i]) continue;
-        cells.push(i % doc.w, Math.floor(i / doc.w));
-      }
-      if (cells.length) group.add(makeTintMesh(cells, REGION_MASK_PARSED));
-    }
-    if (stroke?.cells?.size) {
-      const cells = [];
-      for (const key of stroke.cells) { const [cx, cz] = key.split(',').map(Number); cells.push(cx, cz); }
-      group.add(makeTintMesh(cells, stroke.on ? REGION_ADD_PARSED : REGION_REMOVE_PARSED));
-    }
-    group.renderOrder = 3; // above collision/reach/loop (2) — a live stroke must never look hidden under them
-    return group;
-  }
-
   function updateSelection(doc, selection) {
     const cell = selection.cell;
     if (!doc || !cell) { selectionOutline.visible = false; return; }
@@ -519,43 +400,6 @@ export function makeOverlay({ session, getHeight }) {
     scene.add(pasteGhost);
   }
 
-  /** The `stamp` tool's own pending-placement preview (Slice 9d) — `updatePasteGhost`'s exact
-   *  technique, re-anchored to the picked, SAVED stamp (`stamps.js`'s own `getStamp`, resolved by
-   *  name from `session.getActiveStampName()`) instead of the plain clipboard, and rotated by
-   *  whatever pending quarter-turn count `session.getStampRotation()` currently holds
-   *  (`rotateClipBy`, `tools.js` — a scratch rotation, never written back to the saved stamp).
-   *  Hidden whenever any precondition — `stamp` is the active tool, a stamp is actually picked
-   *  and still exists, a cell is hovered — is not met. */
-  function updateStampGhost(doc) {
-    disposeStampGhost();
-    if (!doc || session.getTool() !== 'stamp') return;
-    const raw = getStamp(session.getActiveStampName());
-    if (!raw) return;
-    const clip = rotateClipBy(raw, session.getStampRotation());
-    const hover = session.getHover();
-    if (!clip.w || !clip.h || !hover) return;
-    const cells = [];
-    for (let dz = 0; dz < clip.h; dz++) for (let dx = 0; dx < clip.w; dx++) cells.push(hover.cx + dx, hover.cz + dz);
-    stampGhost = makeTintMesh(cells, STAMP_GHOST_PARSED);
-    stampGhost.renderOrder = 3;
-    scene.add(stampGhost);
-  }
-
-  /** Positions/sizes/shows the `sculpt` brush ring — visible only while the tool is active AND
-   *  the pointer is actually over the pane (`session.getHover()`, `main.js`'s own pointermove
-   *  handler is what keeps this current; see that file's comment on why it is scoped to `sculpt`
-   *  rather than tracked for every tool). Terrain-following like the selection outline, not flat
-   *  like the grid/collision/reach/loop meshes — both are "where is my cursor" feedback, and both
-   *  already pay for a per-notify `getHeight` call for the exact same reason. */
-  function updateSculptRing(doc) {
-    const hover = session.getHover();
-    if (!doc || !hover || session.getTool() !== 'sculpt') { sculptRing.visible = false; return; }
-    const radius = Math.max(session.getBrush().sculptRadius ?? 0, 0.001); // a zero-radius ring would collapse to an invisible point via scale
-    sculptRing.visible = true;
-    sculptRing.scale.set(radius, 1, radius);
-    sculptRing.position.set(hover.cx + 0.5, getHeight(hover.cx, hover.cz) + 0.03, hover.cz + 0.5);
-  }
-
   // --- rebuild cadence: on `session` notify, not on every frame --------------------------------
   //
   // A full-map grid/collision/reach/loop rebuild is cheap (a handful of line segments and, at
@@ -571,7 +415,6 @@ export function makeOverlay({ session, getHeight }) {
   let lastCollisionOn = null;
   let lastReachOn = null;
   let lastLoopOn = null;
-  let lastRegionSig = null;
 
   function rebuildIfNeeded() {
     const doc = session.getDoc();
@@ -594,34 +437,15 @@ export function makeOverlay({ session, getHeight }) {
       if (doc && overlays.loop) { loopGroup = buildLoop(doc); scene.add(loopGroup); }
     }
 
-    // Região (Slice 9b): its own change signature, independent of the `changed` block above — it
-    // depends on the ACTIVE TOOL and the in-progress stroke, neither of which the four overlay
-    // toggles have any reason to know about, and it must react on EVERY stroke pointermove
-    // (`main.js` calls `session.notify()` on each one via `session.setRegionStroke`), not only on
-    // a committed document edit.
-    const tool = session.getTool();
-    const activeRegionId = session.getActiveRegionId();
-    const stroke = session.getRegionStroke();
-    const regionSig = tool !== 'region' ? 'off'
-      : `${activeRegionId ?? ''}|${rev}|${stroke ? `${stroke.on}:${stroke.cells.size}` : ''}`;
-    if (regionSig !== lastRegionSig) {
-      lastRegionSig = regionSig;
-      disposeRegion();
-      if (doc && tool === 'region') { regionGroup = buildRegion(doc, activeRegionId, stroke); scene.add(regionGroup); }
-    }
-
     // The selection can move independently of the document (a bare `select`-tool click touches
     // no `doc._rev`), so this runs on every notify regardless of `changed` above — cheap either
     // way, it only repositions one existing object. `rectSelection`/the paste ghost (Slice 9a)
-    // and the sculpt ring (Slice 9c) are the same story — session-local state that changes far
-    // more often than `doc._rev` does (every dragged cell of a `boxselect`, every hovered cell
-    // of a pending paste or an active sculpt stroke) and are cheap enough (a handful of quads/
-    // one line loop, at most) to just redo unconditionally too.
+    // are the same story — session-local state that changes far more often than `doc._rev` does
+    // (every dragged cell of a `boxselect`, every hovered cell of a pending paste) and are cheap
+    // enough (a handful of quads/one line loop, at most) to just redo unconditionally too.
     updateSelection(doc, session.getSelection());
     updateRectSelection(doc, session.getRectSelection());
     updatePasteGhost(doc);
-    updateStampGhost(doc);
-    updateSculptRing(doc);
   }
   const unsubscribe = session.subscribe(rebuildIfNeeded);
   rebuildIfNeeded(); // paint whatever `session` already holds at construction time
@@ -635,14 +459,10 @@ export function makeOverlay({ session, getHeight }) {
       disposeReach();
       disposeLoop();
       disposePasteGhost();
-      disposeStampGhost();
-      disposeRegion();
       selectionOutline.geometry.dispose();
       selectionOutline.material.dispose();
       rectSelectionOutline.geometry.dispose();
       rectSelectionOutline.material.dispose();
-      sculptRing.geometry.dispose();
-      sculptRing.material.dispose();
     },
   };
 }

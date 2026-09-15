@@ -779,9 +779,18 @@ export default {
      * tileset has to match the file's own `layers[]` for `role:'draft'` placements to resolve
      * against the right catalog (`mapfile.js`'s header).
      *
-     * A hunt map's own id carries the `hunt-` prefix in the manifest (`hunt-forest`, …).
-     * Stripped here to a bare id — `hunts.list()`, `built`, `byId` and `travel`'s
-     * `hunt-${b.id}` reconstruction all use the bare form.
+     * A hunt map's own id conventionally carries a `hunt-` prefix in the manifest
+     * (`hunt-forest`, …), stripped here to a bare id — `hunts.list()`, `built`, `byId` and
+     * `travel`'s `hunt-${b.id}` reconstruction all use the bare form for the *scene* id
+     * `terrain.register`/`terrain.load` key their draft builder under (`hunt-${biome.id}`,
+     * below). Nothing enforces that convention on the manifest entry itself, though (the
+     * Studio's "Novo mapa" dialog does not add the prefix), so `entry.id` — the manifest's own
+     * id, which is what the file on disk is actually named after — is kept on the descriptor as
+     * `file` and used for every *file* fetch. Reconstructing the filename from the bare id
+     * (`hunt-${bare}`) instead used to 404 for any hunt map whose own id had no `hunt-` prefix
+     * — it round-tripped correctly by coincidence for the four maps that happened to already be
+     * named that way, and broke silently (an entered-but-never-loads destination) the first time
+     * an author saved a hunt map under a plain id, e.g. "teste".
      * @type {Map<string, object>}
      */
     const descriptors = new Map();
@@ -800,6 +809,7 @@ export default {
           if (!mapFile) continue;
           descriptors.set(bare, {
             id: bare,
+            file: entry.id,
             name: mapFile.name ?? entry.name ?? bare,
             tileset: mapFile.tileset ?? 'bw2-adastra',
             w: Number(mapFile.w) || Number(entry.w) || 64,
@@ -984,7 +994,11 @@ export default {
       async enter(id) {
         const biome = byId(id ?? [...descriptors.keys()][0]);
         const env = ctx.get('environment');
-        const map = await terrain.loadMapFile(`hunt-${biome.id}`);
+        // `biome.file` (the manifest's own id, above) — NOT `hunt-${biome.id}` — is the file this
+        // map actually lives at; see the `descriptors` header comment for why reconstructing it
+        // from the bare id 404s for any hunt map not already named `hunt-*`. The `??` only
+        // matters for `byId`'s own unknown-id fallback object, which carries no `file`.
+        const map = await terrain.loadMapFile(biome.file ?? `hunt-${biome.id}`);
         // Liveness is tested on a *value*, never on `typeof`: the registry's null object
         // answers a typeof check with true even when the module is dead.
         if (isLive(env)) {

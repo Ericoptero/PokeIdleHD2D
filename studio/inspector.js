@@ -22,8 +22,8 @@ import { COLLISIONS, COLLISION_LABEL, COLLISION_DOT, DIR_LABEL, WEATHERS, CELL_T
 import { peekCatalog, peekSpeciesNames } from './catalog.js';
 import { ENTITIES, regionCellCount } from './entities.js';
 import {
-  setCollision, toggleTag, adjustHeight, setSpawn,
-  setCellRotation, setCellTint, updateObject, moveObject, removeObject,
+  setCollision, toggleTag, setHeight, setSpawn,
+  setCellRotation, setCellTint, setTileY, updateObject, moveObject, removeObject,
   updateLight, removeLight,
   setField, setLoopVia, setDefaultCamera, setEconomy,
   updateSpawnPoint, removeSpawnPoint,
@@ -59,6 +59,18 @@ function numberRow(label, value, onChange) {
   return h('div', { class: 'ms-field-row' }, [
     h('span', { class: 'ms-field-label' }, label),
     h('input', { class: 'ms-field-input', type: 'number', value: String(value ?? 0), onChange: (e) => onChange(Number(e.target.value) || 0) }),
+  ]);
+}
+
+/** Like `numberRow`, but a CLEARED field means `null`, not `0` — `numberRow`'s own
+ *  `Number(v) || 0` coercion cannot express "no value" at all. Used wherever `null` is a real,
+ *  distinct state a field can be in (a tile's per-placement Y following the cell's own terrain
+ *  height instead of pinning to a number, `paintCell`'s own `y: null` default). */
+function nullableNumberRow(label, value, onChange, placeholder) {
+  return h('div', { class: 'ms-field-row' }, [
+    h('span', { class: 'ms-field-label' }, label),
+    h('input', { class: 'ms-field-input', type: 'number', step: '0.05', value: value == null ? '' : String(value), placeholder,
+      onChange: (e) => onChange(e.target.value === '' ? null : Number(e.target.value)) }),
   ]);
 }
 
@@ -249,6 +261,16 @@ export function tileCard(doc, history, sel, ui) {
     ].map(([k, v]) => h('div', { class: 'ms-prop-cell' }, [h('span', { class: 'ms-prop-k' }, k), h('span', { class: 'ms-prop-v' }, String(v))]))) : null,
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Rotação'), h('div', { class: 'ms-rot-row' }, rotBtns)]),
     h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Tint'), h('div', { class: 'ms-tint-row' }, tintSwatches)]),
+    // Per-placement Y — blank follows the cell's own terrain height (`doc.height`); a number
+    // pins this ONE tile/object regardless of it. This is what lets a second layer occupy the
+    // same `(cx,cz)` column at a different height than the first (`tools.js`'s own header on
+    // `setTileY` has the full story) — `updateObject`'s `patch.y` already round-tripped an
+    // object's Y before this slice; `setTileY` gives a grid tile the same editable field.
+    nullableNumberRow('Y', cell.y, (v) => {
+      if (isObject) updateObject(doc, history, { object: cell, patch: { y: v } });
+      else setTileY(doc, history, { layer, cx, cz, y: v });
+      onChange();
+    }, 'terreno'),
     // Position/layer editing — new: an object could not be repositioned from the inspector
     // before (only placed, or moved by re-placing). A grid tile has no equivalent: its cell
     // IS its identity in the `Map`, so "moving" one is paint-elsewhere, not an edit.
@@ -326,14 +348,13 @@ function cellCard(doc, history, sel, ui) {
     h('div', { class: 'ms-coll-grid' }, collisionChips),
     ledgeSection,
     h('div', { class: 'ms-prop-grid' }, [
-      ['Altura', doc.height[i].toFixed(2)],
       ['Ocupada', doc.occupied[i] ? 'sim' : 'não'],
     ].map(([k, v]) => h('div', { class: 'ms-prop-cell' }, [h('span', { class: 'ms-prop-k' }, k), h('span', { class: 'ms-prop-v' }, v)]))),
-    h('div', { class: 'ms-field-row' }, [
-      h('span', { class: 'ms-field-label' }, 'Ajustar altura'),
-      h('button', { class: 'ms-btn ms-btn--small', onClick: () => { adjustHeight(doc, history, { cx, cz, delta: -0.25 }); onChange(); } }, '−0.25'),
-      h('button', { class: 'ms-btn ms-btn--small', onClick: () => { adjustHeight(doc, history, { cx, cz, delta: 0.25 }); onChange(); } }, '+0.25'),
-    ]),
+    // The cell's own terrain height — an editable field, replacing the `height`/`sculpt` rail
+    // tools this slice removed: altitude is now a property of the cell, edited the same way
+    // collision or a tag is, not a separate brush stroke. `setHeight` snaps to 0.05, same grid
+    // `canStep`'s `ELEVATION_EPS` (`src/terrain/draft.js`) reasons about.
+    numberRow('Altura', doc.height[i], (v) => { setHeight(doc, history, { cx, cz, value: v }); onChange(); }),
     h('div', { class: 'ms-stack-title' }, 'Tags da célula'),
     h('div', { class: 'ms-tag-row' }, [...tagChips, addKnownSelect, addTag]),
     h('div', { class: 'ms-stack-title' }, 'Objetos nesta célula'),

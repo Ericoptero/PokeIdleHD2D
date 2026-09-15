@@ -6219,8 +6219,7 @@
    "tags": [
     "flat",
     "floor",
-    "grass",
-    "raised"
+    "grass"
    ],
    "biomes": [
     "city",
@@ -6231,18 +6230,18 @@
    "collision": "walk",
    "w": 1,
    "h": 1,
-   "baseY": 5,
+   "baseY": 0,
    "globalUv": true,
    "uvScale": 0.25,
    "bounds": {
     "min": [
      0,
-     5,
+     0,
      0
     ],
     "max": [
      1,
-     5,
+     0,
      1
     ]
    },
@@ -6402,7 +6401,6 @@
     "flat",
     "floor",
     "path",
-    "raised",
     "stone"
    ],
    "biomes": [
@@ -6414,18 +6412,18 @@
    "collision": "walk",
    "w": 1,
    "h": 1,
-   "baseY": 5,
+   "baseY": 0,
    "globalUv": true,
    "uvScale": 0.25,
    "bounds": {
     "min": [
      0,
-     5,
+     0,
      0
     ],
     "max": [
      1,
-     5,
+     0,
      1
     ]
    },
@@ -7693,7 +7691,6 @@
     "cliff-top",
     "flat",
     "floor",
-    "raised",
     "stone"
    ],
    "biomes": [
@@ -7702,18 +7699,18 @@
    "collision": "walk",
    "w": 1,
    "h": 1,
-   "baseY": 5,
+   "baseY": 0,
    "globalUv": true,
    "uvScale": 1,
    "bounds": {
     "min": [
      0,
-     5,
+     0,
      0
     ],
     "max": [
      1,
-     5,
+     0,
      1
     ]
    },
