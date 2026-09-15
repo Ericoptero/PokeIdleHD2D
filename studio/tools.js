@@ -5,6 +5,7 @@
  */
 
 import { cellKey, touch } from './state.js';
+import { encodeRuns, decodeRuns } from '@/terrain/mapfile.js';
 
 const idx = (doc, cx, cz) => cz * doc.w + cx;
 const inside = (doc, cx, cz) => cx >= 0 && cz >= 0 && cx < doc.w && cz < doc.h;
@@ -521,8 +522,136 @@ export function updateLink(doc, history, { link, patch }) {
 }
 
 // --- regions: authored autotile masks (`{id, kind:'autotile', set, layer?, collision?, tags?,
-// mask:Runs<0|1>}`, `mapfile.js`'s header) — mask PAINTING is a later slice's paint tool; this
-// slice only lets an already-authored region (none ship yet) be selected/edited/removed. -------
+// mask:Runs<0|1>}`, `mapfile.js`'s header). Slice 9b adds the two commands below (`addRegion`,
+// `paintRegionMask`) — the first real mask-painting tool; everything else in this section
+// predates it and only let an already-authored region (none shipped before this slice) be
+// selected/edited/removed. -----------------------------------------------------------------------
+
+/**
+ * Creates a new empty-mask region and pushes it, undoable — matches `addLink`'s own shape.
+ * `set` is fixed here for good: `inspector.js`'s own `regionCard` only ever shows it as a
+ * read-only field row (`fieldRow('Conjunto (set)', region.set)`), so the brush bar's "nova
+ * região" picker (`panels.js`) is the only place an author ever chooses it. `layer`/`collision`/
+ * `tags` stay editable afterward through `updateRegion`, unchanged by this slice. The mask starts
+ * fully empty — `mapfile.js`'s own header is explicit that nothing here should ever pre-fill it
+ * from anything else; painting membership is `paintRegionMask`'s job alone.
+ */
+export function addRegion(doc, history, { set, layer, collision, tags }) {
+  const region = {
+    // Same minting convention `entities.js`'s header points at for `spawnPoint`/`light`: an
+    // index into the array plus a base-36 timestamp, unique for a Studio session and carried
+    // through unchanged on every later save.
+    id: `region-${doc.regions.length}-${Date.now().toString(36)}`,
+    kind: 'autotile', set, layer, collision, tags: tags ?? [],
+    mask: encodeRuns(new Array(doc.w * doc.h).fill(0)),
+  };
+  history.push({
+    label: 'nova região',
+    redo() { doc.regions.push(region); touch(doc); },
+    undo() { doc.regions = doc.regions.filter((r) => r !== region); touch(doc); },
+  });
+  return region;
+}
+
+/**
+ * Adds or removes `cells` (an array of `{cx,cz}` — whatever `main.js`'s own region drag gesture
+ * naturally collects from its pointer-move `Set<string>` of `"cx,cz"` keys) from `region`'s mask.
+ * ONE undo step per STROKE: call once on pointerup with every cell the drag touched, never once
+ * per cell.
+ *
+ * This is where this slice's whole invariant actually lives (see the slice plan's own "read this
+ * twice" section): **a region owns its masked cells on its own layer, exclusively.** `on: true`
+ * adds membership and, for every NEWLY-masked cell, immediately —
+ *  1. clears that layer's `doc.tileLayers` grid entry at the cell (if any), and
+ *  2. removes any `doc.objects[]` entry whose origin cell matches (on that same layer), and
+ *  3. steals the cell away from any OTHER region on the SAME layer that currently claims it
+ *     (regions on one layer are mutually exclusive by mask, the same way a `tileLayers` Map slot
+ *     holds only one entry — painting region B over a cell region A already owns makes B win,
+ *     exactly like painting a normal tile over another one already does).
+ * Doing this NOW, not deferred to `serializeDocument` time, is what keeps `validate.js`'s
+ * `region-tile-overlap` check passing and keeps `frommap.js`'s replay from ever placing the same
+ * cell twice (that file's own header: `regions[]` replays before `tiles[]`/`objects[]`, so a
+ * masked cell that still had a real placement under it would draw both, doubled, on the very next
+ * load — including the Studio's own live 3D pane, which reloads through the identical path).
+ *
+ * `on: false` (erasing membership) ONLY ever clears this region's own mask bit. It never restores
+ * whatever the resolved autotile preview had been rendering there — that resolution is a LIVE
+ * PREVIEW only (`mapfile.js`'s header: a snapshot of an existing map never fills `regions[]`; the
+ * same "never bake a resolved placement back into a snapshot" rule applies symmetrically to
+ * un-painting one here), so an erased cell simply becomes ordinary empty space again, exactly as
+ * empty as a cell that was never masked at all.
+ */
+export function paintRegionMask(doc, history, { region, cells, on }) {
+  const n = doc.w * doc.h;
+  const layer = region.layer ?? 0;
+  const beforeMask = decodeRuns(region.mask, n);
+  const afterMask = beforeMask.slice();
+
+  // Snapshot everything this stroke is about to touch, BEFORE anything is mutated, so `redo`/
+  // `undo` below are plain data replays — the same shape every other command in this file uses
+  // (`paintCell`'s own `before`/`after`, computed ahead of `history.push`). A partial undo (the
+  // mask reverts but a cleared tile does not come back) would be worse than no undo at all here,
+  // so every side effect below — the grid cell, the removed objects, the OTHER region's stolen
+  // mask bits — gets its own "before" captured up front.
+  const grid = doc.tileLayers.get(layer);
+  const clearedTiles = []; // { key, before } — this region's own layer's grid cells cleared by painting ON
+  const removedObjects = []; // real `doc.objects[]` references removed by painting ON
+  const touchedIdx = [];
+  const seen = new Set();
+
+  for (const c of cells) {
+    if (!inside(doc, c.cx, c.cz)) continue;
+    const i = idx(doc, c.cx, c.cz);
+    if (seen.has(i)) continue; // a drag can revisit a cell; act on it once
+    seen.add(i);
+    touchedIdx.push(i);
+    afterMask[i] = on ? 1 : 0;
+    if (!on) continue; // erasing touches nothing but this region's own mask bit — see the header above
+    const key = cellKey(c.cx, c.cz);
+    if (grid?.has(key)) clearedTiles.push({ key, before: grid.get(key) });
+    for (const obj of doc.objects) {
+      if (obj.cx === c.cx && obj.cz === c.cz && (obj.layer ?? 0) === layer) removedObjects.push(obj);
+    }
+  }
+  if (!touchedIdx.length) return; // every cell was out of bounds or duplicate — nothing to paint
+
+  // Steal newly-masked cells away from any other same-layer region that already claims them —
+  // only relevant when ADDING membership; erasing never touches another region's mask.
+  const stolenFrom = new Map(); // otherRegion -> { before: Runs, after: Runs }
+  if (on) {
+    for (const other of doc.regions) {
+      if (other === region || (other.layer ?? 0) !== layer) continue;
+      const otherMask = decodeRuns(other.mask, n);
+      let changed = false;
+      for (const i of touchedIdx) if (otherMask[i]) { otherMask[i] = 0; changed = true; }
+      if (changed) stolenFrom.set(other, { before: other.mask, after: encodeRuns(otherMask) });
+    }
+  }
+
+  const beforeMaskEncoded = region.mask;
+  const afterMaskEncoded = encodeRuns(afterMask);
+
+  history.push({
+    label: on ? 'pintar região' : 'apagar região',
+    redo() {
+      region.mask = afterMaskEncoded;
+      for (const { key } of clearedTiles) grid?.delete(key);
+      if (removedObjects.length) {
+        const removedSet = new Set(removedObjects);
+        doc.objects = doc.objects.filter((o) => !removedSet.has(o));
+      }
+      for (const [other, { after }] of stolenFrom) other.mask = after;
+      touch(doc);
+    },
+    undo() {
+      region.mask = beforeMaskEncoded;
+      for (const { key, before } of clearedTiles) grid?.set(key, before);
+      if (removedObjects.length) doc.objects.push(...removedObjects);
+      for (const [other, { before }] of stolenFrom) other.mask = before;
+      touch(doc);
+    },
+  });
+}
 
 export function removeRegion(doc, history, region) {
   history.push({

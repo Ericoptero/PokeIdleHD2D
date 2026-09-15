@@ -11,15 +11,15 @@ import tokens from '@/ui/css/tokens.css?inline';
 import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
-import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
-import { paintRect } from './tools.js';
+import { createDocument, createBlankDocument, serializeDocument, createHistory, cellKey } from './state.js';
+import { paintRect, paintRegionMask } from './tools.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
 import { makeMinimap } from './minimap.js';
 import { icon } from './icons.js';
 import { OVERLAYS } from './kinds.js';
-import { ENTITIES } from './entities.js';
+import { ENTITIES, regionContains } from './entities.js';
 import { invalidateValidation } from './validation.js';
 import { makeToolRail, makeToolbar, makeStatusBar, makeAssetBrushBar } from './panels.js';
 import { makeInspector } from './inspector.js';
@@ -69,7 +69,13 @@ const library = makeLibraryPanel({
   root: libraryEl, session, docRef, toolRail,
   onCatalogLoaded: () => bottom.rebuild(),
 });
-makeAssetBrushBar({ root: brushBarEl, session });
+makeAssetBrushBar({
+  root: brushBarEl, session, docRef, history,
+  // `preview` is assigned later, by `bootViewport()` below — but this callback is only ever
+  // INVOKED once the brush bar's región section actually needs the list (the user has switched to
+  // the `region` tool), well after `boot()`'s own `await bootViewport()` has resolved.
+  getAutotileSets: () => (currentDoc ? preview?.autotileSets(currentDoc.tileset) ?? [] : []),
+});
 
 // --- overlay strip: the toggles `session` already implements but nothing called -----------
 // (Slice 7: down to 4 entries — `kinds.js`'s own `OVERLAYS` header explains what left the table
@@ -234,6 +240,31 @@ previewContainer.addEventListener('pointerdown', (e) => {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell) { previewDrag = { mode: 'rect', x0: cell.cx, z0: cell.cz }; return; }
   }
+  // Região (Slice 9b): also its own drag gesture, not a case in `session.applyToolAt`'s switch —
+  // a mask paint-stroke has no single-cell meaning either, the same reasoning the `rect` branch
+  // above already established. `on` is decided ONCE, from the FIRST cell's current membership,
+  // and held fixed for the whole drag (a common paint-tool convention: painting starts by ADDING
+  // membership if the first cell is not yet a member, or REMOVING it if it already is, so a user
+  // never has to release and re-press to switch between add/remove mid-map). No active region
+  // selected (`panels.js`'s brush bar is where one gets created/picked) falls through to the
+  // generic dispatch below, which has no `'region'` case either — a harmless no-op, same as
+  // `rect` with nothing selected just above.
+  if (tool === 'region' && currentDoc) {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    const region = currentDoc.regions.find((r) => r.id === session.getActiveRegionId());
+    if (cell && region && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
+      const on = !regionContains(currentDoc, region, cell.cx, cell.cz);
+      const cells = new Set([cellKey(cell.cx, cell.cz)]);
+      previewDrag = { mode: 'region', region, on, cells };
+      // Live-preview-only: does not touch `doc`/`doc._rev` (`state.js`'s `touch()` never runs
+      // here) — `viewport/overlay.js` reads this straight off `session` to tint the in-progress
+      // stroke, distinctly from the region's own already-committed mask, while the pointer is
+      // still down. `paintRegionMask` (`tools.js`) is the only thing that ever writes `doc`,
+      // called once on `pointerup` below with the whole stroke.
+      session.setRegionStroke({ on, cells });
+      return;
+    }
+  }
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -271,6 +302,17 @@ previewContainer.addEventListener('pointermove', (e) => {
     }
     return;
   }
+  if (previewDrag.mode === 'region' && currentDoc) {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
+      previewDrag.cells.add(cellKey(cell.cx, cell.cz));
+      // Same `Set` reference `previewDrag.cells` already is — `setRegionStroke` still needs to
+      // re-run so `viewport/overlay.js`'s own subscriber notices this stroke object is "new"
+      // enough to warrant a rebuild (its own change-signature check reads `stroke.cells.size`).
+      session.setRegionStroke({ on: previewDrag.on, cells: previewDrag.cells });
+    }
+    return;
+  }
   if (previewDrag.mode === 'paint' && currentDoc && CONTINUOUS_PAINT_TOOLS.has(session.getTool())) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -298,6 +340,16 @@ function endPreviewDrag(e) {
       // and `minimap.js` a rectangle of cells just changed.
       session.notify();
     }
+  } else if (previewDrag?.mode === 'region' && currentDoc) {
+    // One `paintRegionMask` call, one undo step, for the WHOLE drag — matching `rect`'s own
+    // single-commit-on-release convention right above.
+    const cells = [...previewDrag.cells].map((key) => {
+      const [cx, cz] = key.split(',').map(Number);
+      return { cx, cz };
+    });
+    paintRegionMask(currentDoc, history, { region: previewDrag.region, cells, on: previewDrag.on });
+    session.setRegionStroke(null); // the live-preview highlight; the committed mask now speaks for itself
+    session.notify();
   } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {

@@ -394,6 +394,16 @@ export async function makeViewport({ container, session }) {
     fitMap: camera.fitMap, getZoom: camera.getZoom,
     getYaw: camera.getYaw, setYaw,
     pickCell, pickGizmo, moveGizmoTo,
+    /**
+     * Which autotile sets THIS viewport's own `tiles` instance knows for `slug` — the region
+     * tool's brush-bar "nova região" set picker (`panels.js`) needs this, and `ctx.get('tiles')`
+     * here is the one seam to reach it through, matching `camera.js`'s own note on why (a second
+     * `@/tiles/index.js` import would `init()` a completely separate, un-loaded instance — this
+     * module's own header explains the mini-registry `tiles`/`terrain`/`environment` boot). `[]`
+     * before `slug` has finished loading (`main.js`'s brush bar re-reads this on every session
+     * notify, so an empty first read is only ever transient, never stuck).
+     */
+    autotileSets: (slug) => ctx.get('tiles').autotile.sets(slug) ?? [],
     dispose() {
       running = false;
       ro.disconnect();

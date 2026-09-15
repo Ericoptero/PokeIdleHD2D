@@ -63,10 +63,11 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 17 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
- *  `rect` is the one exception: a two-corner drag has no single-cell meaning, so it is its own
- *  gesture in `main.js`'s 3D pointer routing (`paintRect`, `tools.js`) rather than a case in
- *  `applyToolAt`'s switch — see that file's own comment where it handles `rect` specially. */
+/** The 18 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+ *  `rect` and `region` are the two exceptions: a two-corner drag and a mask paint-stroke both
+ *  have no single-cell meaning, so each is its own gesture in `main.js`'s 3D pointer routing
+ *  (`paintRect`/`paintRegionMask`, `tools.js`) rather than a case in `applyToolAt`'s switch — see
+ *  that file's own comments where it handles them specially. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['pencil', 'pencil', 'Lápis', 'B'],
@@ -83,6 +84,9 @@ export const TOOLS = [
   ['light', 'lightbulb', 'Luz', 'L'],
   // `footprints`, not `paw-print` — the `npc` tool already owns that glyph on this same rail.
   ['wildslot', 'footprints', 'Vaga selvagem', 'W'],
+  // Paints/erases membership in the ACTIVE region's autotile mask (`panels.js`'s brush bar picks
+  // and mints the active region — see its own header). `R`: unclaimed on this rail.
+  ['region', 'grid-3x3', 'Região autotile', 'R'],
   // Click appends an anonymous `{cx,cz}` waypoint to `doc.loop.via`. The deleted 2D canvas used
   // to let a click-and-drag on an existing inline waypoint reposition it instead of adding a
   // new one; that gesture has no 3D-pane replacement yet (`entities.js`'s `loopWaypoint` kind
