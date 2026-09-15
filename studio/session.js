@@ -18,9 +18,11 @@ import { cellKey } from './state.js';
 import {
   stackAt, paintCell, eraseCell, fillRegion, setCollision, adjustHeight, toggleTag,
   setSpawn, placeMarker, placeObject, addNpc, addLight, addSpawnPoint, setLoopVia,
+  pasteClip, rotateClipBy,
 } from './tools.js';
 import { openAddNpcDialog, openAddLightDialog } from './dialogs.js';
 import { ENTITIES, regionContains } from './entities.js';
+import { getStamp } from './stamps.js';
 
 const COLLISION_PASSABLE = new Set(['walk', 'stairs', 'shallow', 'door']);
 const DIR_DX = [0, -1, 0, 1];
@@ -61,7 +63,7 @@ export function reachableFrom(doc, start) {
 
 /** Tools `applyToolAt` refuses to run on a locked layer — every painting/placement tool.
  *  `select` and the read-only tools stay usable so a locked layer can still be inspected. */
-export const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object']);
+export const LOCKED_TOOLS = new Set(['pencil', 'eraser', 'fill', 'rect', 'object', 'stamp']);
 
 /** Tools that keep acting on every dragged cell while the pointer stays down, read by `main.js`'s
  *  3D pointer routing (and, before Slice 7 deleted it, the 2D canvas's own pointerdown
@@ -124,6 +126,13 @@ export function makeSession({ history }) {
   // `{w,h,cells,objects}` snapshot, never cleared by `setDoc`: a copy made on one map is still
   // meaningful to paste into another (nothing here is map-id-scoped).
   let clipboard = null;
+  // Carimbo/stamp (Slice 9d): which SAVED stamp (`stamps.js`, a plain name key into its own
+  // `localStorage` table) the `stamp` tool is about to place, and its pending placement-only
+  // rotation (`rotateClipBy`, `tools.js` — quarter turns, wrapped mod 4). Neither is reset by
+  // `setDoc` below, on purpose: like `clipboard` just above, a saved stamp (and whatever rotation
+  // an author left it at) is not map-scoped — it stays just as meaningful after switching maps.
+  let activeStampName = null;
+  let stampRotation = 0;
   // Região (Slice 9b): which region a `region`-tool stroke targets, and the stroke itself while
   // one is in progress. `regionStroke` is `{on, cells:Set<string>}` (`"cx,cz"` keys) or `null` —
   // it lives here, not in `main.js`'s own `previewDrag`, because `viewport/overlay.js` needs to
@@ -260,6 +269,21 @@ export function makeSession({ history }) {
           editCount++;
         }
         break;
+      // Carimbo/stamp (Slice 9d): a single click, exactly like `object` above — not a drag —
+      // reuses `pasteClip` (`tools.js`) wholesale rather than a second placement command, so a
+      // stamp commits the exact same "one undo step for the whole clip" guarantee a plain
+      // Ctrl+V paste already gives. `rotateClipBy` applies whatever pending rotation `,`/`.`
+      // (`main.js`) left `stampRotation` at — a scratch rotation of `raw`, never written back to
+      // the saved stamp (`stamps.js`) or `activeStampName` itself.
+      case 'stamp': {
+        const raw = getStamp(activeStampName);
+        if (raw) {
+          const clip = rotateClipBy(raw, stampRotation);
+          pasteClip(doc, history, { clip, cx, cz });
+          editCount++;
+        }
+        break;
+      }
       case 'eyedrop': {
         const cell = doc.tileLayers.get(activeLayer)?.get(cellKey(cx, cz));
         if (cell) selectedAsset = { name: cell.m, tileset: doc.tileset };
@@ -344,6 +368,14 @@ export function makeSession({ history }) {
     },
     getClipboard: () => clipboard,
     setClipboard(clip) { clipboard = clip; notify(); },
+    // Carimbo/stamp (Slice 9d) — see this file's own `activeStampName`/`stampRotation`
+    // declaration above for why neither resets on `setDoc`. Picking a NEW stamp resets the
+    // pending rotation back to 0 — an author rotating stamp A three quarter-turns almost
+    // certainly does not want stamp B to start pre-rotated the same way.
+    getActiveStampName: () => activeStampName,
+    setActiveStampName(name) { activeStampName = name; stampRotation = 0; notify(); },
+    getStampRotation: () => stampRotation,
+    setStampRotation(n) { stampRotation = ((n % 4) + 4) % 4; notify(); },
     stackAtSelection: () => (selection.cell ? stackAt(doc, selection.cell.cx, selection.cell.cz) : []),
     /** Exposes the same tool dispatch a 2D pointer event drives, so `main.js` can route a
      *  3D-pane pick (`viewport/index.js`'s `pickCell`) through the identical brush/fill/coll/height/

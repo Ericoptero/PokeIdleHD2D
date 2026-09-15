@@ -214,6 +214,35 @@ export function pasteClip(doc, history, { clip, cx, cz }) {
 }
 
 /**
+ * Rotates a `copyRect`-shaped clip (`{w,h,cells,objects}`) 90° clockwise around its own
+ * footprint — swaps `w`/`h`, remaps every cell/object's `dx,dz` offset into the rotated
+ * footprint (the standard "rotate a grid 90° CW" transform: a column `h-1-dz` from the old
+ * right edge becomes the new row), and turns each entry's own `rot` a quarter turn (mod 4) so
+ * its facing rotates along with its position. Pure — returns a NEW clip, never mutates `clip`
+ * itself: Slice 9d's `stamp` tool calls this (via `rotateClipBy` below) on a scratch copy of the
+ * picked stamp at PLACEMENT time only, never on the stamp actually saved in `localStorage`
+ * (`stamps.js`) or the plain clipboard buffer `pasteClip` itself reads.
+ */
+export function rotateClip(clip) {
+  if (!clip) return clip;
+  const { w, h } = clip;
+  const remap = (e) => ({ ...e, dx: h - 1 - e.dz, dz: e.dx, rot: ((e.rot ?? 0) + 1) & 3 });
+  return { w: h, h: w, cells: clip.cells.map(remap), objects: clip.objects.map(remap) };
+}
+
+/** Applies `rotateClip` `times` quarter-turns — negative rotates counter-clockwise (three
+ *  clockwise turns is one counter-clockwise turn on a 4-step cycle), normalized once here
+ *  (`((times % 4) + 4) % 4`) rather than at every call site. `session.js`'s `stamp` tool and
+ *  `viewport/overlay.js`'s matching ghost preview both call this instead of hand-rolling their
+ *  own loop, so the two never drift on how a negative rotation is folded back into range. */
+export function rotateClipBy(clip, times) {
+  const n = ((times % 4) + 4) % 4;
+  let out = clip;
+  for (let i = 0; i < n; i++) out = rotateClip(out);
+  return out;
+}
+
+/**
  * Cut = copy + clear, as one command (one undo step) — for a FUTURE drag-move gesture
  * (`(x0,z0)-(x1,z1)` is the source rect, `(dx,dz)` the offset to the destination). NOT what
  * Ctrl+X calls: cut-to-clipboard and "move within the map" are different user actions, so

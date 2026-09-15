@@ -567,6 +567,24 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- carimbo/stamp rotation (Slice 9d, optional per the slice's own plan): `,`/`.` cycle the
+// picked stamp's PENDING rotation a quarter-turn CCW/CW while the `stamp` tool is active —
+// applied only at placement time (`session.js`'s `applyToolAt` 'stamp' case, via `rotateClipBy`),
+// never mutating the saved stamp itself (`stamps.js`) or the plain clipboard buffer.
+//
+// Deliberately NOT `[`/`]`, the slice brief's own suggested keys: this file's `[`/`]` keybind
+// above already rotates the 3D pane's own camera yaw, UNCONDITIONALLY — not gated by tool — so
+// reusing them here would silently double as "spin the camera" on every stamp rotation, exactly
+// the class of silent keybind collision `kinds.js`'s own `TOOLS` table has already been bitten by
+// once this session. `,`/`.` are unclaimed anywhere else in the Studio (`rg "e\.key ==="
+// studio/`) and read as "step/rotate" the same way `[`/`]` do, without the collision.
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+  if (session.getTool() !== 'stamp') return;
+  if (e.key === ',') { e.preventDefault(); session.setStampRotation(session.getStampRotation() - 1); }
+  else if (e.key === '.') { e.preventDefault(); session.setStampRotation(session.getStampRotation() + 1); }
+});
+
 // --- percorrer loop (the "Playtest" slot's real, honest stand-in — see the plan) -----------
 let walking = false;
 async function walkLoop() {
