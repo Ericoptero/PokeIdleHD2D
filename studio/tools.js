@@ -238,26 +238,43 @@ export function moveRect(doc, history, { x0, z0, x1, z1, dx, dz }) {
   const DELETE = Symbol('moveRect delete'); // a per-call sentinel — never leaks past this function
   const beforeByLayer = new Map(); // layer -> Map<key, valueOrNull> — every touched key's pre-move value, for undo
   const afterByLayer = new Map(); // layer -> Map<key, valueOrDELETE> — every touched key's post-move value, for redo
+  // Two passes per layer, not one interleaved pass: an EARLIER-processed source cell's own
+  // target write (`after.set(tkey, cell)`) must never be clobbered by a LATER-processed source
+  // cell's own delete-marking (`after.set(key, DELETE)`) when that later cell's `key` happens to
+  // equal the earlier one's `tkey` — exactly what an overlapping same-direction shift produces
+  // (e.g. cells at cx=0,1,2,3 all moving +1: cx=0's write to cx=1 must survive cx=1's own
+  // "I am now empty" marking, which runs right after it in cell order). Collecting every
+  // `{key, tkey, cell}` first and applying every deletion before any target write — for the
+  // whole layer, not per cell — makes the final target write for a given key always win,
+  // regardless of processing order, the same way a plain doc.objects.push after a filter
+  // already does not care what order its own two steps ran in for two different objects.
   for (const [layer, grid] of doc.tileLayers) {
+    const moves = [];
     for (let cz = minZ; cz <= maxZ; cz++) {
       for (let cx = minX; cx <= maxX; cx++) {
         const key = cellKey(cx, cz);
         const cell = grid.get(key);
-        if (!cell) continue;
-        gridFor(layer);
-        if (!beforeByLayer.has(layer)) beforeByLayer.set(layer, new Map());
-        if (!afterByLayer.has(layer)) afterByLayer.set(layer, new Map());
-        const before = beforeByLayer.get(layer);
-        const after = afterByLayer.get(layer);
-        if (!before.has(key)) before.set(key, cell);
-        after.set(key, DELETE); // this source cell disappears — unless a target write below lands right back on it
-        const tx = cx + dx; const tz = cz + dz;
-        if (inside(doc, tx, tz)) {
-          const tkey = cellKey(tx, tz);
-          if (!before.has(tkey)) before.set(tkey, grid.get(tkey) ?? null);
-          after.set(tkey, cell); // overwrites the DELETE above when `tkey` happens to equal a source key
-        } // else: this cell moved off the map — dropped, matching `pasteClip`'s own edge tolerance
+        if (cell) moves.push({ key, cell, tx: cx + dx, tz: cz + dz });
       }
+    }
+    if (!moves.length) continue;
+    gridFor(layer);
+    if (!beforeByLayer.has(layer)) beforeByLayer.set(layer, new Map());
+    if (!afterByLayer.has(layer)) afterByLayer.set(layer, new Map());
+    const before = beforeByLayer.get(layer);
+    const after = afterByLayer.get(layer);
+    // Pass 1: every source cell disappears.
+    for (const mv of moves) {
+      if (!before.has(mv.key)) before.set(mv.key, mv.cell);
+      after.set(mv.key, DELETE);
+    }
+    // Pass 2: every target write lands, overwriting pass 1's DELETE wherever a target key
+    // happens to equal some other cell's own source key (self-overlap).
+    for (const mv of moves) {
+      if (!inside(doc, mv.tx, mv.tz)) continue; // moved off the map — dropped, matching `pasteClip`'s own edge tolerance
+      const tkey = cellKey(mv.tx, mv.tz);
+      if (!before.has(tkey)) before.set(tkey, grid.get(tkey) ?? null);
+      after.set(tkey, mv.cell);
     }
   }
 
