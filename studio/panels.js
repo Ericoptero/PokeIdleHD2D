@@ -24,6 +24,12 @@ export function makeToolRail({ root, session }) {
   setTool('select');
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+    // A modified keystroke is never a bare tool-keybind — without this guard, `main.js`'s
+    // Ctrl+C/Ctrl+V clipboard shortcuts (Slice 9a) would ALSO match this table's `coll`/`loop`
+    // tool keybinds (`C`/`V`, 4th column below) and silently switch the active tool as an
+    // unwanted side effect of every copy/paste — a real collision, not a hypothetical one,
+    // caught while wiring up those two shortcuts.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     // `e.key` for the spacebar is the literal string ' ', which never matches the rail's
     // display label 'Espaço' — normalize it to the label before comparing.
     const key = e.key === ' ' ? 'Espaço' : e.key;

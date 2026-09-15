@@ -63,12 +63,16 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 17 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
- *  `rect` is the one exception: a two-corner drag has no single-cell meaning, so it is its own
- *  gesture in `main.js`'s 3D pointer routing (`paintRect`, `tools.js`) rather than a case in
- *  `applyToolAt`'s switch — see that file's own comment where it handles `rect` specially. */
+/** The 18 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+ *  `rect` and `boxselect` are the two exceptions: a two-corner drag has no single-cell meaning,
+ *  so each is its own gesture in `main.js`'s 3D pointer routing (`paintRect`/`rectSelection`)
+ *  rather than a case in `applyToolAt`'s switch — see that file's own comment where it handles
+ *  `rect` specially, and its `boxselect` branch right next to it (Slice 9a) that mirrors the
+ *  exact same shape. `A` for "Área": every plain letter that reads as "select" is already taken
+ *  (`S` is the `select` tool itself), and `A` is otherwise unclaimed on this table. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
+  ['boxselect', 'square-dashed', 'Selecionar área', 'A'],
   ['pencil', 'pencil', 'Lápis', 'B'],
   ['eraser', 'eraser', 'Borracha', 'E'],
   ['rect', 'square-dashed', 'Retângulo', 'U'],
