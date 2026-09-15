@@ -6,7 +6,7 @@
 
 import { h, setText } from '@/ui/dom/el.js';
 import { icon, iconBtn } from './icons.js';
-import { TOOLS, COLLISIONS, COLLISION_LABEL } from './kinds.js';
+import { TOOLS, CELL_TAGS } from './kinds.js';
 import { runValidation, invalidateValidation } from './validation.js';
 import { addRegion } from './tools.js';
 import { listStamps, saveStamp, deleteStamp } from './stamps.js';
@@ -167,10 +167,22 @@ export function makeAssetBrushBar({ root, session, docRef, history, getAutotileS
     setText(rotLabel, `${session.getBrush().rot * 90}°`);
   } });
   const rotLabel = h('span', { class: 'ms-muted' }, '0°');
-  const collSelect = h('select', { class: 'ms-select', onChange: (e) => session.setBrush({ collision: e.target.value }) },
-    COLLISIONS.map((c) => h('option', { value: c }, COLLISION_LABEL[c])));
   const tagInput = h('input', { class: 'ms-field-input', value: 'tallgrass', style: { width: '110px' },
+    title: 'Tag livre — qualquer texto; só as tags conhecidas (menu ao lado) têm efeito hoje',
     onChange: (e) => session.setBrush({ tag: e.target.value }) });
+  // Known-effect shortlist (`kinds.js`'s own `CELL_TAGS`) — picking one fills the free-text field
+  // above so its own effect is legible before painting, rather than leaving "which tag does what"
+  // to tribal knowledge; the input itself stays for an author-defined tag with no effect (yet).
+  const tagKnownSelect = h('select', { class: 'ms-select ms-select--tiny', title: 'Tags conhecidas e seu efeito',
+    onChange: (e) => {
+      if (!e.target.value) return;
+      tagInput.value = e.target.value;
+      session.setBrush({ tag: e.target.value });
+      e.target.value = '';
+    } }, [
+    h('option', { value: '' }, '— tag conhecida —'),
+    ...CELL_TAGS.map(([tag, label, effect]) => h('option', { value: tag, title: effect }, `${label} (${tag})`)),
+  ]);
 
   const tintRow = h('div', { class: 'ms-tint-row' }, BRUSH_TINTS.map((t, i) => h('div', {
     class: `ms-tint-swatch${i === 0 ? ' ms-tint-swatch--active' : ''}`,
@@ -187,17 +199,13 @@ export function makeAssetBrushBar({ root, session, docRef, history, getAutotileS
     h('input', { type: 'checkbox', onChange: (e) => session.setBrush({ claimFootprint: e.target.checked }) }),
     h('span', {}, 'Reservar área'),
   ]);
-  const keepCollisionToggle = h('label', { class: 'ms-brush-check', title: 'Ao desmarcar, pintar com este tile também aplica a colisão do tile' }, [
-    h('input', { type: 'checkbox', checked: true, onChange: (e) => session.setBrush({ keepCollision: e.target.checked }) }),
-    h('span', {}, 'Preservar colisão'),
-  ]);
 
   // `sculpt` tool's own controls (Slice 9c) — mode/raio/força for the multi-cell height brush,
   // matching `heightStepInput` right above for the single-cell `height` tool. Rendered
-  // unconditionally, same as every other row in this bar (`rotBtn`/`tintRow`/`collSelect`/… are
-  // all always visible regardless of which tool is active) rather than only while `sculpt` is
-  // selected — this bar has no precedent for tool-conditional visibility, and adding the first
-  // one here would be a bigger, unreviewed change than three more always-on controls.
+  // unconditionally, same as every other row in this bar (`rotBtn`/`tintRow`/… are all always
+  // visible regardless of which tool is active) rather than only while `sculpt` is selected —
+  // this bar has no precedent for tool-conditional visibility, and adding the first one here
+  // would be a bigger, unreviewed change than three more always-on controls.
   const sculptModeSelect = h('select', { class: 'ms-select', onChange: (e) => session.setBrush({ sculptMode: e.target.value }) }, [
     h('option', { value: 'raise' }, 'Levantar'),
     h('option', { value: 'lower' }, 'Abaixar'),
@@ -305,10 +313,9 @@ export function makeAssetBrushBar({ root, session, docRef, history, getAutotileS
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
     h('span', { class: 'ms-eyebrow' }, 'Tint'), tintRow,
-    h('span', { class: 'ms-eyebrow' }, 'Colisão'), collSelect,
-    h('span', { class: 'ms-eyebrow' }, 'Tag'), tagInput,
+    h('span', { class: 'ms-eyebrow' }, 'Tag da célula'), tagInput, tagKnownSelect,
     h('span', { class: 'ms-eyebrow' }, 'Passo altura'), heightStepInput,
-    claimToggle, keepCollisionToggle,
+    claimToggle,
     h('span', { class: 'ms-eyebrow' }, 'Modo escultura'), sculptModeSelect,
     h('span', { class: 'ms-eyebrow' }, 'Raio'), sculptRadiusInput,
     h('span', { class: 'ms-eyebrow' }, 'Força'), sculptStrengthInput,

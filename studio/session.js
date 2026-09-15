@@ -91,7 +91,7 @@ export function makeSession({ history }) {
   let tool = 'select';
   let activeLayer = 0;
   const brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
-    claimFootprint: false, keepCollision: true,
+    claimFootprint: false,
     // `sculpt` tool settings (Slice 9c) — a multi-cell brush stroke, unlike every field above
     // (all single-cell `applyToolAt` dispatch settings). `sculptStrength` matches `heightStep`'s
     // own default magnitude (±0.25) so the two height tools feel the same scale to an author
@@ -208,7 +208,7 @@ export function makeSession({ history }) {
       case 'pencil':
         if (selectedAsset) {
           paintCell(doc, history, { layer: activeLayer, cx, cz, asset: selectedAsset, rot: brush.rot, tint: brush.tint,
-            collision: selectedAsset.collision, claimFootprint: brush.claimFootprint, keepCollision: brush.keepCollision });
+            claimFootprint: brush.claimFootprint });
           editCount++;
         }
         break;

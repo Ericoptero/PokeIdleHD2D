@@ -1,0 +1,74 @@
+{
+  "format": "pokeidle.map",
+  "version": 3,
+  "id": "teste",
+  "name": "Teste",
+  "kind": "hunt",
+  "w": 32,
+  "h": 32,
+  "tileset": "bw2-adastra",
+  "seed": 1337,
+  "requiredLevel": 0,
+  "weather": null,
+  "environmentPreset": "meadow",
+  "economy": {
+    "money": 1,
+    "exp": 1,
+    "research": 1,
+    "encounters": 1,
+    "favours": {}
+  },
+  "tags": [],
+  "grid": {
+    "collision": {
+      "p": ["walk"],
+      "r": [[0,1024]]
+    },
+    "height": {
+      "p": [0],
+      "r": [[0,1024]]
+    },
+    "tags": {
+      "p": [[]],
+      "r": [[0,1024]]
+    },
+    "occupied": {
+      "p": [0],
+      "r": [[0,1024]]
+    }
+  },
+  "layers": [
+    {
+      "tileset": "bw2-adastra",
+      "role": "draft",
+      "models": ["grass_v2"],
+      "tiles": [
+        {
+          "layer": 0,
+          "model": {
+            "p": [0],
+            "r": [[0,1024]]
+          }
+        }
+      ],
+      "objects": []
+    }
+  ],
+  "regions": [],
+  "spawn": {
+    "cx": 16,
+    "cz": 16,
+    "dir": 0
+  },
+  "markers": [],
+  "loop": null,
+  "spawnPoints": [],
+  "npcs": [],
+  "links": [],
+  "lights": [],
+  "cameras": {
+    "default": null,
+    "presets": {}
+  },
+  "formation": null
+}

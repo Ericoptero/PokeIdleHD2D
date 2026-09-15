@@ -48,15 +48,23 @@ export function makeViewportCamera({ rig, view, config, ctx, resize }) {
   let zoomCells = 22;
   function applyZoom() {
     rig.fitFraming(zoomCells);
-    // The confirmed bug this replaces: `resize()`'s frustum rewrite is guarded by an early
-    // return when none of (outW,outH,inW,inH) changed, and a bare `pixelsPerUnit` write moves
-    // none of them — the old `setPpu` was a silent no-op for exactly that reason. `fitFraming`
-    // also sets `pixelScale`, which does move `inW/inH`, but only once `resize()` is actually
-    // called — hence this explicit call rather than relying on some other code path to do it.
+    // `fitFraming` only writes `config` — nothing reads `pixelsPerUnit`/`pixelScale` back out
+    // into the camera until `resize()` runs (see its own header on why a bare dimension-unchanged
+    // call still refreshes the frustum), so this explicit call is what actually applies the zoom
+    // rather than relying on some other code path to trigger it.
     resize();
   }
   function zoomSteps(dir) {
-    zoomCells = Math.max(4, Math.min(96, Math.round(zoomCells * (dir > 0 ? 1.12 : 1 / 1.12))));
+    // The confirmed bug this replaces: a plain `round(zoomCells * 1.12)` gets stuck at the
+    // ladder's own floor — `4 * 1.12 = 4.48` rounds right back down to `4`, so once a user
+    // zoomed in enough to hit the `4`-cell floor, the zoom-OUT button went permanently dead (no
+    // amount of further clicking could move `zoomCells` away from it). Always moving at least one
+    // whole cell in the requested direction (before the floor/ceiling clamp) guarantees a click
+    // always does something, the same way the floor/ceiling themselves already guarantee it stops
+    // somewhere sane.
+    const grown = Math.round(zoomCells * (dir > 0 ? 1.12 : 1 / 1.12));
+    const next = dir > 0 ? Math.max(zoomCells + 1, grown) : Math.min(zoomCells - 1, grown);
+    zoomCells = Math.max(4, Math.min(96, next));
     applyZoom();
   }
   function setZoomCells(n) { zoomCells = Math.max(4, Math.min(96, n)); applyZoom(); }

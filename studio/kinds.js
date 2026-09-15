@@ -122,3 +122,27 @@ export const TOOLS = [
 export const WEATHERS = [
   ['Limpo', 'sun'], ['Chuva', 'cloud-rain'], ['Névoa', 'cloud-fog'], ['Neve', 'snowflake'],
 ];
+
+/**
+ * Per-cell tags (`doc.tags[]` / `grid.tags`, `state.js`) with a real, verified runtime effect —
+ * `[tag, label, effect]`. The brush bar's tag picker and the inspector's cell-tag card both read
+ * this instead of leaving "which tag does what" to tribal knowledge; a cell can still carry any
+ * other free-form tag typed by hand (`toggleTag`, `tools.js`), this is only the known-effect
+ * shortlist. `ledge:0..3` is not here — it already has its own dedicated direction UI
+ * (`inspector.js`'s ledge row) rather than being typed as a plain tag.
+ */
+export const CELL_TAGS = [
+  ['tallgrass', 'Grama alta', 'Ativa encontros selvagens (66% de chance) — src/encounter/index.js'],
+  ['counter', 'Balcão', 'Cura a equipe ao interagir — Centro Pokémon (src/pokecenter/index.js)'],
+  ['path', 'Caminho', 'NPCs e o loop de caça preferem passar por aqui (routing)'],
+];
+
+/**
+ * Map-wide gameplay tags (`doc.mapTags[]` / top-level `map.tags`, `state.js`) with a real,
+ * verified runtime effect — `[tag, label, effect]`. Distinct from `CELL_TAGS` above: these
+ * describe the whole map, not one cell, and only a ball's bonus in `economy/items.js` reads them.
+ */
+export const MAP_TAGS = [
+  ['cave', 'Caverna', 'Dusk Ball: ×3 de efetividade — economy/items.js'],
+  ['coastal', 'Costeira', 'Dive Ball: ×3.5 de efetividade — economy/items.js'],
+];

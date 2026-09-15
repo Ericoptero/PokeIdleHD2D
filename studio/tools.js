@@ -26,15 +26,13 @@ function applyPatch(target, patch) {
  * Paints one cell of the active layer with `asset` (a catalog model), grid or object bucket
  * chosen the same way the exporter chooses it: 1x1 and alone at that cell -> grid.
  *
- * Two opt-ins the inspector's "Tile selecionado" toggles drive (both default to the previous,
- * paint-only behaviour): `claimFootprint` stamps `doc.occupied` at the cell, and passing
- * `collision` with `keepCollision:false` stamps that kind into `doc.collision` — until now
- * `paintCell` never touched either array, which is why "Preservar colisão existente" had
- * nothing real to preserve.
+ * Never touches `doc.collision` — that array has exactly one writer, `setCollision` below, so
+ * painting a tile and setting its collision are always two independent, deliberate actions (the
+ * `coll` tool, or the inspector's own collision chips). `claimFootprint` is the one opt-in this
+ * still carries: it stamps `doc.occupied` at the cell (the inspector's "Reservar área" toggle).
  */
 export function paintCell(doc, history, {
-  layer, cx, cz, asset, rot = 0, tint = 0xffffff, y = null,
-  collision = null, claimFootprint = false, keepCollision = true,
+  layer, cx, cz, asset, rot = 0, tint = 0xffffff, y = null, claimFootprint = false,
 }) {
   if (!inside(doc, cx, cz) || !asset) return;
   const grid = doc.tileLayers.get(layer) ?? new Map();
@@ -42,21 +40,17 @@ export function paintCell(doc, history, {
   const before = grid.get(key) ?? null;
   const after = { m: asset.name, rot, tint, y };
   const i = idx(doc, cx, cz);
-  const beforeCollision = doc.collision[i];
   const beforeOccupied = doc.occupied[i];
-  const stampCollision = !keepCollision && collision;
   history.push({
     label: 'pintar tile',
     redo() {
       doc.tileLayers.set(layer, grid);
       grid.set(key, after);
-      if (stampCollision) doc.collision[i] = collision;
       if (claimFootprint) doc.occupied[i] = 1;
       touch(doc);
     },
     undo() {
       if (before) grid.set(key, before); else grid.delete(key);
-      if (stampCollision) doc.collision[i] = beforeCollision;
       if (claimFootprint) doc.occupied[i] = beforeOccupied;
       touch(doc);
     },

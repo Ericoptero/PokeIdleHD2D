@@ -302,7 +302,25 @@ export function makeRenderer({ container, config, log }) {
     const oh = ih * scale;
     // Reallocating render targets is expensive and config changes every frame while the
     // clock runs, so bail out unless something that matters actually moved.
-    if (ow === outW && oh === outH && iw === inW && ih === inH) return;
+    //
+    // The confirmed bug this replaces: this guard only compares buffer/canvas pixel
+    // dimensions, which depend on `pixelScale` alone — never on `pixelsPerUnit` (the actual
+    // zoom). A caller that only ever moves `pixelsPerUnit` (`rig.fitFraming` picking a new
+    // rung with the same `pixelScale` — the common case at a narrow viewport, where the
+    // scale search has nowhere else to land) used to return here before ever reaching the
+    // frustum write below, making zoom a silent no-op. The expensive render-target/canvas
+    // resize below still only runs when a dimension actually moved; the frustum itself is
+    // cheap enough (four assignments, one matrix update) to just always refresh from
+    // whatever `config.pixelsPerUnit` currently is.
+    if (ow === outW && oh === outH && iw === inW && ih === inH) {
+      const ppu = Math.max(1, config.pixelsPerUnit);
+      camera.left = -inW / (2 * ppu);
+      camera.right = inW / (2 * ppu);
+      camera.top = inH / (2 * ppu);
+      camera.bottom = -inH / (2 * ppu);
+      camera.updateProjectionMatrix();
+      return;
+    }
     outW = ow; outH = oh; inW = iw; inH = ih;
     compositeMat.uniforms.uInternal.value.set(inW, inH);
 

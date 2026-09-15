@@ -7,7 +7,7 @@ import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
 import { createBlankDocument } from './state.js';
 import { runValidation, issueRow } from './validation.js';
-import { loadCatalog } from './catalog.js';
+import { loadCatalog, listTilesets } from './catalog.js';
 import { DIR_LABEL } from './kinds.js';
 
 /** Every token in `@/ui/css/tokens.css` is scoped to `#ui-dom` (never `:root`), and these
@@ -36,7 +36,10 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
   const wInput = h('input', { class: 'ms-field-input', value: String(selected.w) });
   const hInput = h('input', { class: 'ms-field-input', value: String(selected.h) });
   const presetInput = h('input', { class: 'ms-field-input', value: selected.environmentPreset });
-  const tilesetInput = h('input', { class: 'ms-field-input', value: selected.tileset });
+  // A `<select>`, not a free-text field: every value is a real, loadable tileset
+  // (`catalog.js`'s own `TILESETS` list) rather than a slug a typo can silently break — the same
+  // list `library.js`'s own tileset picker already builds from.
+  const tilesetInput = h('select', { class: 'ms-select' }, [h('option', { value: selected.tileset }, selected.tileset)]);
   const groundSelect = h('select', { class: 'ms-select' }, [h('option', { value: '' }, '—')]);
   const seedInput = h('input', { class: 'ms-field-input', value: '1337' });
 
@@ -46,8 +49,15 @@ export function openNewMapDialog({ onCreate, hasUnsaved }) {
     try {
       const cat = await loadCatalog(tilesetInput.value.trim());
       for (const m of cat.models.filter((m2) => m2.category === 'ground')) groundSelect.appendChild(h('option', { value: m.name }, m.name));
-    } catch { /* tileset typed by hand may not exist yet — leave the list empty */ }
+    } catch { /* should not happen now that the tileset comes from a real list, but stay defensive */ }
   }
+  // `listTilesets()` resolves same-tick (it wraps a static array — `catalog.js`'s own header),
+  // so this fills the select before the dialog is ever shown to the admin.
+  listTilesets().then((list) => {
+    const current = tilesetInput.value;
+    tilesetInput.innerHTML = '';
+    for (const t of list) tilesetInput.appendChild(h('option', { value: t.slug, selected: t.slug === current }, t.slug));
+  });
   refreshGroundOptions();
   tilesetInput.addEventListener('change', refreshGroundOptions);
 

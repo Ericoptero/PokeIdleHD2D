@@ -48,6 +48,7 @@ import environment from '@/environment/index.js';
 import { ENTITIES } from '../entities.js';
 import { makeViewportCamera } from './camera.js';
 import { makeOverlay } from './overlay.js';
+import { makeThumbnailer } from './thumbnails.js';
 
 /** @param {{container: HTMLElement, session: object}} opts `session` (`studio/session.js`) is
  *  read live by `viewport/overlay.js` for the grid/collision/selection overlays — not a
@@ -82,6 +83,10 @@ export async function makeViewport({ container, session }) {
 
   const camera = makeViewportCamera({ rig, view, config, ctx, resize });
   const overlay = makeOverlay({ session, getHeight: (cx, cz) => ctx.get('terrain').height(cx, cz) });
+  // Asset-library previews (Slice: real 3D tile thumbnails) — reached through this module's own
+  // `ctx` (the same loaded `tiles` instance the 3D pane itself renders with), not a second
+  // `@/tiles/index.js` import, matching `camera.js`'s own note on why.
+  const thumbnailer = makeThumbnailer({ ctx });
 
   let extraWorlds = [];
   let generation = 0;
@@ -404,11 +409,16 @@ export async function makeViewport({ container, session }) {
      * notify, so an empty first read is only ever transient, never stuck).
      */
     autotileSets: (slug) => ctx.get('tiles').autotile.sets(slug) ?? [],
+    // The Library panel's real 3D tile previews (`viewport/thumbnails.js`) — see that file's own
+    // header for what each does and why they share one technique but not one renderer.
+    renderThumbnail: thumbnailer.renderThumbnail,
+    mountLiveModelView: thumbnailer.mountLiveModelView,
     dispose() {
       running = false;
       ro.disconnect();
       disposeExtras();
       disposeGizmos();
+      thumbnailer.dispose();
       dotTexture.dispose();
       spawnTexture.dispose();
       overlay.dispose();

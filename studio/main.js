@@ -70,6 +70,11 @@ const toolRail = makeToolRail({ root: railEl, session });
 const library = makeLibraryPanel({
   root: libraryEl, session, docRef, toolRail,
   onCatalogLoaded: () => bottom.rebuild(),
+  // Real 3D tile previews (item 5) — same not-yet-booted-at-construction-time lazy-getter
+  // pattern `getAutotileSets` below already uses, for the same reason: `preview` is assigned
+  // later, by `bootViewport()`, but `library.init()` (`boot()` at the bottom of this file)
+  // never runs until after that has already resolved.
+  getViewport: () => preview,
 });
 makeAssetBrushBar({
   root: brushBarEl, session, docRef, history,
@@ -149,10 +154,32 @@ async function bootViewport() {
   const yawRightBtn = h('button', { class: 'ms-iconbtn', title: 'Girar vista à direita (90°) · ]', onClick: () => preview.setYaw(preview.getYaw() + 1) }, [icon('rotate-cw', { size: 13 })]);
   previewHead.append(yawLeftBtn, yawRightBtn);
   previewHead.appendChild(h('span', { class: 'ms-eyebrow' }, 'Zoom'));
-  const zoomOut = h('button', { class: 'ms-iconbtn', onClick: () => preview.zoomSteps(1) }, [icon('zoom-out', { size: 13 })]);
-  const zoomIn = h('button', { class: 'ms-iconbtn', onClick: () => preview.zoomSteps(-1) }, [icon('zoom-in', { size: 13 })]);
+  const zoomOut = h('button', { class: 'ms-iconbtn', title: 'Diminuir zoom', onClick: () => preview.zoomSteps(1) }, [icon('zoom-out', { size: 13 })]);
+  const zoomIn = h('button', { class: 'ms-iconbtn', title: 'Aumentar zoom', onClick: () => preview.zoomSteps(-1) }, [icon('zoom-in', { size: 13 })]);
   const fitBtn = h('button', { class: 'ms-iconbtn', title: 'Enquadrar mapa', onClick: () => currentDoc && preview.fitMap(currentDoc.w, currentDoc.h) }, [icon('scan', { size: 13 })]);
-  previewHead.append(zoomOut, zoomIn, fitBtn);
+  // Tela cheia — the Fullscreen API on `previewWrap` (`previewHead` + `previewContainer`
+  // together), NOT `previewContainer` alone: the Fullscreen API hides everything outside the
+  // fullscreened element's own subtree, and `previewHead` — the zoom/yaw/fullscreen buttons and
+  // the TOD slider — is `previewContainer`'s SIBLING, not its descendant (`previewWrap.
+  // appendChild(previewHead); previewWrap.appendChild(previewContainer);`, both above). The
+  // confirmed bug this replaces: fullscreening `previewContainer` alone strands the admin with no
+  // in-UI way back out (Esc/F11 only) — its own exit button goes along with the rest of the head
+  // once out of the fullscreened subtree. The pane still resizes correctly either way
+  // (`viewport/index.js`'s own `ResizeObserver` watches `previewContainer` regardless of which
+  // ancestor is the fullscreen element).
+  let fullscreenIcon = icon('maximize', { size: 13 });
+  const fullscreenBtn = h('button', { class: 'ms-iconbtn', title: 'Tela cheia', onClick: () => {
+    if (document.fullscreenElement === previewWrap) document.exitFullscreen();
+    else previewWrap.requestFullscreen();
+  } }, [fullscreenIcon]);
+  document.addEventListener('fullscreenchange', () => {
+    const on = document.fullscreenElement === previewWrap;
+    const next = icon(on ? 'minimize' : 'maximize', { size: 13 });
+    fullscreenIcon.replaceWith(next);
+    fullscreenIcon = next;
+    fullscreenBtn.title = on ? 'Sair da tela cheia' : 'Tela cheia';
+  });
+  previewHead.append(zoomOut, zoomIn, fitBtn, fullscreenBtn);
 }
 
 // Tools with their own meaning in the 3D pane already — `select` and `pan` (click-to-select,

@@ -165,11 +165,10 @@ export function makeOverlay({ session, getHeight }) {
 
   // --- grid: world-space lines along cell boundaries, doc.w × doc.h --------------------------
   //
-  // Flat at y=0 — an acceptable first pass per the plan. Following terrain height per-cell (so
-  // the grid hugs a ramp or a terrace edge the way the ground mesh itself does) is a reasonable
-  // future improvement, not attempted here: a flat grid still reads correctly for this slice's
-  // purpose (orientation and cell-boundary counting), and the height field only "varies gently"
-  // (`ARCHITECTURE.md`) so the flat approximation is rarely far from the ground.
+  // Follows `doc.height` per vertex (see `buildGrid`/`heightAtVertex` below) rather than sitting
+  // flat at y=0 — a flat grid read as visibly misaligned against a ramp, a terrace, or even an
+  // ordinary path/dirt tile's own small baked baseY at the fixed 45° camera pitch, where a height
+  // difference reads on screen as an apparent Z-shift.
   let gridLines = null;
 
   // --- collision / reach: semi-transparent tint quads, one merged mesh per color in use --------
@@ -270,10 +269,36 @@ export function makeOverlay({ session, getHeight }) {
     gridLines = null;
   }
 
+  /** A grid vertex sits on a cell CORNER, shared by up to 4 cells — there is no single "the"
+   *  height there, so this reads the nearest in-bounds cell's own `doc.height`, clamped at the
+   *  map edge. `doc.height` only (never a ground model's own baked `baseY` — `state.js`'s
+   *  `heightAt` equivalent has no such per-model lookup, and adding one here would need a loaded
+   *  catalog this file has no reason to depend on for a visual aid); the residual sub-cell offset
+   *  that leaves on a flat path/dirt tile is accepted, same spirit as this function's own
+   *  pre-existing "flat is close enough" stance, just tightened to follow authored height instead
+   *  of always sitting at y=0. */
+  function heightAtVertex(doc, vx, vz) {
+    const cx = Math.max(0, Math.min(doc.w - 1, vx));
+    const cz = Math.max(0, Math.min(doc.h - 1, vz));
+    return doc.height[cz * doc.w + cx] ?? 0;
+  }
+
+  /** World-space grid lines along cell boundaries, hugging `doc.height` — built from short
+   *  per-cell segments (not one long polyline per row/column) so each segment can carry its own
+   *  pair of corner heights and the line follows a ramp or a terrace edge the way the ground mesh
+   *  itself does, instead of floating flat at y=0 regardless of the terrain underneath it. */
   function buildGrid(doc) {
     const pts = [];
-    for (let cx = 0; cx <= doc.w; cx++) pts.push(cx, 0, 0, cx, 0, doc.h);
-    for (let cz = 0; cz <= doc.h; cz++) pts.push(0, 0, cz, doc.w, 0, cz);
+    for (let cx = 0; cx <= doc.w; cx++) {
+      for (let cz = 0; cz < doc.h; cz++) {
+        pts.push(cx, heightAtVertex(doc, cx, cz), cz, cx, heightAtVertex(doc, cx, cz + 1), cz + 1);
+      }
+    }
+    for (let cz = 0; cz <= doc.h; cz++) {
+      for (let cx = 0; cx < doc.w; cx++) {
+        pts.push(cx, heightAtVertex(doc, cx, cz), cz, cx + 1, heightAtVertex(doc, cx + 1, cz), cz);
+      }
+    }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
     const mat = new THREE.LineBasicMaterial({

@@ -18,7 +18,7 @@
 
 import { h } from '@/ui/dom/el.js';
 import { icon } from './icons.js';
-import { COLLISIONS, COLLISION_LABEL, COLLISION_DOT, DIR_LABEL, WEATHERS } from './kinds.js';
+import { COLLISIONS, COLLISION_LABEL, COLLISION_DOT, DIR_LABEL, WEATHERS, CELL_TAGS, MAP_TAGS } from './kinds.js';
 import { peekCatalog, peekSpeciesNames } from './catalog.js';
 import { ENTITIES, regionCellCount } from './entities.js';
 import {
@@ -99,7 +99,20 @@ function section(title, iconName, body) {
  */
 export function makeInspector({ root, session, docRef, history, onChange, getGameMaps }) {
   const body = h('div', { class: 'ms-inspector-body' });
-  root.appendChild(body);
+  // Collapse toggle — same technique as `library.js`'s own header strip (a fixed left/right
+  // chevron via the core `chevron-down` rotated, `root.classList.toggle` on the panel element
+  // passed in directly): the Inspector had no header row at all before this, since every card
+  // inside `body` already carries its own collapsible `section()`. This one is for the whole
+  // panel, so a card's own collapsed state stays reachable at a glance without opening it back up.
+  const collapseIcon = icon('chevron-down', { size: 14 });
+  collapseIcon.style.transform = 'rotate(-90deg)'; // points right, toward the outer edge: "collapse"
+  const collapseBtn = h('button', { class: 'ms-iconbtn ms-iconbtn--ghost', title: 'Recolher painel', onClick: () => {
+    const collapsed = root.classList.toggle('ms-panel--collapsed');
+    collapseIcon.style.transform = collapsed ? 'rotate(90deg)' : 'rotate(-90deg)'; // left, back toward the content: "expand"
+    collapseBtn.title = collapsed ? 'Expandir painel' : 'Recolher painel';
+  } }, [collapseIcon]);
+  root.appendChild(h('div', { class: 'ms-lib-row ms-panel-strip' }, [h('span', { class: 'ms-eyebrow' }, 'Propriedades'), collapseBtn]));
+  root.appendChild(h('div', { class: 'ms-panel-content' }, [body]));
 
   function rebuild() {
     const doc = docRef.get();
@@ -110,7 +123,13 @@ export function makeInspector({ root, session, docRef, history, onChange, getGam
     const catalog = peekCatalog(doc.tileset);
     const ui = { onChange, session, catalog, gameMaps: getGameMaps ? getGameMaps() : [] };
 
-    body.appendChild(mapInfoCard(doc, set));
+    body.appendChild(mapInfoCard(doc, history, set, onChange));
+
+    // The `coll` tool's own "which kind does it paint" picker — shown whenever that tool is
+    // active, independent of the current selection, so this panel stays the ONE place collision
+    // is ever chosen (the brush bar used to duplicate this with its own select + a "Preservar
+    // colisão" checkbox that quietly let the pencil stamp collision too — both removed).
+    if (session.getTool() === 'coll') body.appendChild(collisionBrushCard(session, onChange));
 
     // One lookup into `ENTITIES` instead of the old `sel.lightIndex != null` / `sel.
     // spawnPointIndex != null` chain — `sel.kind` is `null` for a bare cell (the ordinary
@@ -132,7 +151,39 @@ export function makeInspector({ root, session, docRef, history, onChange, getGam
   return { rebuild };
 }
 
-function mapInfoCard(doc, set) {
+/** `doc.mapTags` (`state.js`) — map-wide gameplay categories, DISTINCT from a cell's own
+ *  `doc.tags[i]` (`cellCard` below) despite the similar name; see `state.js`'s own header on why
+ *  they are two unrelated arrays. Chip-editable, same removable-chip pattern `regionCard` already
+ *  uses, fed by `kinds.js`'s `MAP_TAGS` shortlist so the two ball bonuses that actually key off
+ *  this field are a click away instead of typed blind into a bare comma-separated string. */
+function mapTagsRow(doc, history, onChange) {
+  const tags = doc.mapTags ?? [];
+  const setTags = (next) => { setField(doc, history, { key: 'mapTags', value: next }); onChange(); };
+  const known = (t) => MAP_TAGS.find(([tag]) => tag === t);
+  const chips = tags.map((t) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable', title: known(t)?.[2] ?? '' }, [
+    t, h('span', { onClick: () => setTags(tags.filter((x) => x !== t)) }, [icon('close', { size: 10 })]),
+  ]));
+  const addSelect = h('select', { class: 'ms-select ms-select--tiny', title: 'Tags conhecidas e seu efeito',
+    onChange: (e) => {
+      if (!e.target.value || tags.includes(e.target.value)) return;
+      setTags([...tags, e.target.value]);
+      e.target.value = '';
+    } }, [
+    h('option', { value: '' }, '— tag conhecida —'),
+    ...MAP_TAGS.filter(([tag]) => !tags.includes(tag)).map(([tag, label, effect]) => h('option', { value: tag, title: effect }, `${label} (${tag})`)),
+  ]);
+  const addCustom = h('span', { class: 'ms-tag-add', onClick: () => {
+    const t = prompt('Nova tag do mapa:');
+    if (t && !tags.includes(t.trim())) setTags([...tags, t.trim()]);
+  } }, '+ outra');
+  return [
+    h('div', { class: 'ms-field-row' }, [h('span', { class: 'ms-field-label' }, 'Tags do mapa'), addSelect]),
+    h('div', { class: 'ms-tag-row' }, [...chips, addCustom]),
+    h('div', { class: 'ms-hint-line' }, 'cave → Dusk Ball ×3 · coastal → Dive Ball ×3.5. Uma tag sem efeito conhecido não faz nada hoje.'),
+  ];
+}
+
+function mapInfoCard(doc, history, set, onChange) {
   return section('Informações do mapa', 'map', [
     fieldRow('Map ID', doc.id, set('id')),
     fieldRow('Nome exibido', doc.name, set('name')),
@@ -142,12 +193,7 @@ function mapInfoCard(doc, set) {
     fieldRow('Tileset base', doc.tileset),
     doc.extras?.length ? fieldRow('Tilesets extra', doc.extras.map((e) => e.tileset).join(', ')) : null,
     fieldRow('Nível exigido', doc.requiredLevel, set('requiredLevel', Number)),
-    // `mapTags` (`state.js`) — free-form gameplay categories ('cave', 'coastal', …) a ball
-    // can key off (`economy/items.js`'s Dive/Dusk Ball) since the map no longer needs to be
-    // named after the one biome it happens to look like. Comma-separated in and out, same
-    // convention the game's own tag fields use nowhere else in the UI but reads plainly here.
-    fieldRow('Tags de jogabilidade', (doc.mapTags ?? []).join(', '),
-      (v) => set('mapTags')(v.split(',').map((t) => t.trim()).filter(Boolean))),
+    ...mapTagsRow(doc, history, onChange),
   ].filter(Boolean));
 }
 
@@ -213,6 +259,21 @@ export function tileCard(doc, history, sel, ui) {
   ].filter(Boolean));
 }
 
+/** The `coll` tool's active kind — same chip markup `cellCard`'s own `collisionChips` renders
+ *  below, bound to the BRUSH (`session.getBrush().collision`/`setBrush`) instead of a selected
+ *  cell, since this shows regardless of what (if anything) is selected. */
+function collisionBrushCard(session, onChange) {
+  const active = session.getBrush().collision;
+  const chips = COLLISIONS.map((c) => h('button', {
+    class: `ms-coll-chip${active === c ? ' ms-coll-chip--active' : ''}`,
+    onClick: () => { session.setBrush({ collision: c }); onChange(); },
+  }, [h('span', { class: 'ms-coll-dot', style: { background: COLLISION_DOT[c] } }), COLLISION_LABEL[c]]));
+  return section('Colisão (ferramenta ativa)', 'ban', [
+    h('div', { class: 'ms-hint-line' }, 'Clique numa célula na prévia 3D para pintar com esta colisão.'),
+    h('div', { class: 'ms-coll-grid' }, chips),
+  ]);
+}
+
 function cellCard(doc, history, sel, ui) {
   const { session, onChange } = ui;
   const { cx, cz } = sel.cell;
@@ -239,13 +300,27 @@ function cellCard(doc, history, sel, ui) {
     }, label)),
   ]) : null;
 
-  const tagChips = doc.tags[i].map((t) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable' }, [
+  // `CELL_TAGS` (`kinds.js`) — the known-effect shortlist; a known tag's chip carries its effect
+  // as a tooltip instead of leaving it to tribal knowledge. Any other tag (typed via "+ outra")
+  // is still accepted and round-trips fine — it simply does nothing at runtime today.
+  const known = (t) => CELL_TAGS.find(([tag]) => tag === t);
+  const tagChips = doc.tags[i].map((t) => h('span', { class: 'ms-tag-chip ms-tag-chip--removable', title: known(t)?.[2] ?? 'Tag sem efeito conhecido' }, [
     t, h('span', { onClick: () => { toggleTag(doc, history, { cx, cz, tag: t }); onChange(); } }, [icon('close', { size: 10 })]),
   ]));
+  const addKnownSelect = h('select', { class: 'ms-select ms-select--tiny', title: 'Tags conhecidas e seu efeito',
+    onChange: (e) => {
+      if (!e.target.value) return;
+      toggleTag(doc, history, { cx, cz, tag: e.target.value });
+      onChange();
+      e.target.value = '';
+    } }, [
+    h('option', { value: '' }, '— tag conhecida —'),
+    ...CELL_TAGS.filter(([tag]) => !doc.tags[i].includes(tag)).map(([tag, label, effect]) => h('option', { value: tag, title: effect }, `${label} (${tag})`)),
+  ]);
   const addTag = h('span', { class: 'ms-tag-add', onClick: () => {
     const t = prompt('Nova tag:');
     if (t) { toggleTag(doc, history, { cx, cz, tag: t }); onChange(); }
-  } }, '+ tag');
+  } }, '+ outra');
 
   return section('Propriedades da célula', 'square', [
     h('div', { class: 'ms-coll-grid' }, collisionChips),
@@ -259,7 +334,8 @@ function cellCard(doc, history, sel, ui) {
       h('button', { class: 'ms-btn ms-btn--small', onClick: () => { adjustHeight(doc, history, { cx, cz, delta: -0.25 }); onChange(); } }, '−0.25'),
       h('button', { class: 'ms-btn ms-btn--small', onClick: () => { adjustHeight(doc, history, { cx, cz, delta: 0.25 }); onChange(); } }, '+0.25'),
     ]),
-    h('div', { class: 'ms-tag-row' }, [...tagChips, addTag]),
+    h('div', { class: 'ms-stack-title' }, 'Tags da célula'),
+    h('div', { class: 'ms-tag-row' }, [...tagChips, addKnownSelect, addTag]),
     h('div', { class: 'ms-stack-title' }, 'Objetos nesta célula'),
     h('div', { class: 'ms-stack-list' }, stack.length
       ? stack.map((s) => h('div', { class: 'ms-stack-item' }, `${s.kind === 'object' ? 'objeto' : 'tile'} · camada ${s.layer} · ${s.m}`))
