@@ -54,11 +54,17 @@
  *      getHover()` and sized to `session.getBrush().sculptRadius` — the same "always visible
  *      while relevant" category as the selection outline, gated on the active tool instead of an
  *      overlay toggle since it is direct tool feedback, not optional map information.
+ *   9. the región paint tool's own live preview (Slice 9b) — gated on `session.getTool() ===
+ *      'region'`, not on an `OVERLAYS`-table toggle like 1-4 above (there is nothing to leave on
+ *      once the tool is put away; a região has no meaning to keep tinted while painting a fence).
+ *      A FLAT MASK TINT, deliberately, not the actual resolved autotile case art: see
+ *      `buildRegion`'s own comment for why that scope cut is honest rather than a missed corner.
  */
 
 import * as THREE from 'three';
 import { COLLISION_COLOR } from '../kinds.js';
 import { reachableFrom } from '../session.js';
+import { decodeRuns } from '@/terrain/mapfile.js';
 
 /** The 2D canvas's own selection-ring color (`canvas.js`, before Slice 7 deleted it) — matched
  *  here so the two views read as one document's selection, not two independently-colored ones. */
@@ -110,6 +116,17 @@ const LOOP_LINE_OPACITY = 0.85;
 const SCULPT_RING_COLOR = 0x6FB8E0;
 const SCULPT_RING_SEGMENTS = 48; // enough to read as round, not faceted, at any on-screen zoom
 
+/**
+ * Região (Slice 9b) tint colors — same `parseRgba`/`makeTintMesh` technique as collision/reach
+ * above, three buckets instead of a per-kind palette: the ACTIVE region's own already-committed
+ * mask (dim, so it reads as "already saved"), and the in-progress stroke's pending cells, colored
+ * by whether the drag is currently ADDING or REMOVING membership so it reads correctly before the
+ * pointer is even released.
+ */
+const REGION_MASK_PARSED = parseRgba('rgba(242,217,168,0.30)');  // `entities.js`'s own region gizmo color (0xF2D9A8), translucent
+const REGION_ADD_PARSED = parseRgba('rgba(247,241,231,0.55)');   // brighter than the mask tint — `LOOP_RESOLVED_COLOR`'s own off-white
+const REGION_REMOVE_PARSED = parseRgba('rgba(214,104,91,0.50)'); // `COLLISION_PARSED.block`'s own red — a removal reads as a warning, not a fill
+
 /** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
  *  (`null` if the marker was deleted out from under it), or an inline `{cx,cz}` waypoint used
  *  as-is. A tiny copy of `canvas.js`'s old `viaPoint` (deleted with the rest of that file in
@@ -154,6 +171,10 @@ export function makeOverlay({ session, getHeight }) {
 
   // --- loop: the resolved-cache line plus the authored-via line, both flat at y=0 --------------
   let loopGroup = null;
+
+  // --- região (Slice 9b): the active region's mask tint + the in-progress stroke's own tint,
+  // both flat at y=0, tool-gated rather than overlay-toggle-gated (see this file's own header) --
+  let regionGroup = null;
 
   // --- selection: always-on outline, independent of every toggle above ------------------------
   const selectionOutline = makeSelectionOutline(SELECTION_COLOR);
@@ -360,6 +381,51 @@ export function makeOverlay({ session, getHeight }) {
     return group;
   }
 
+  function disposeRegion() {
+    if (!regionGroup) return;
+    scene.remove(regionGroup);
+    for (const child of regionGroup.children) { child.geometry.dispose(); child.material.dispose(); }
+    regionGroup = null;
+  }
+
+  /**
+   * Região (Slice 9b) live preview: the ACTIVE region's own committed mask, plus — while a
+   * stroke is in progress — the cells it is about to add or remove. `stroke` is `session.
+   * getRegionStroke()`'s own `{on, cells:Set<string>}` shape (`null` when no drag is live).
+   *
+   * A FLAT TINT over mask membership, not the actual resolved autotile case art
+   * (`tiles.autotile.solvePlacements`) — a deliberate, honest scope cut for this slice: wiring
+   * real tile geometry into this overlay scene would need a second tile renderer here (materials,
+   * per-case geometry lookups, a live `tiles` module reference this file otherwise has none of —
+   * this file's own header, "no registry access of its own"), for a preview that is only ever a
+   * few hundred milliseconds stale anyway. `main.js`'s own debounced `schedulePreviewRebuild`
+   * reloads the whole 3D pane through the EXACT SAME `frommap.js`/`draft.autotile` path the
+   * shipped game uses the moment a stroke commits (`paintRegionMask`'s `history.push` bumps
+   * `doc._rev`), at which point the real resolved art already shows correctly. Matches the
+   * technique `buildCollision`/`buildReach` above already use — one merged mesh per tint color,
+   * not one draw call per cell.
+   */
+  function buildRegion(doc, activeRegionId, stroke) {
+    const group = new THREE.Group();
+    const region = doc.regions.find((r) => r.id === activeRegionId);
+    if (region) {
+      const mask = decodeRuns(region.mask, doc.w * doc.h);
+      const cells = [];
+      for (let i = 0; i < mask.length; i++) {
+        if (!mask[i]) continue;
+        cells.push(i % doc.w, Math.floor(i / doc.w));
+      }
+      if (cells.length) group.add(makeTintMesh(cells, REGION_MASK_PARSED));
+    }
+    if (stroke?.cells?.size) {
+      const cells = [];
+      for (const key of stroke.cells) { const [cx, cz] = key.split(',').map(Number); cells.push(cx, cz); }
+      group.add(makeTintMesh(cells, stroke.on ? REGION_ADD_PARSED : REGION_REMOVE_PARSED));
+    }
+    group.renderOrder = 3; // above collision/reach/loop (2) — a live stroke must never look hidden under them
+    return group;
+  }
+
   function updateSelection(doc, selection) {
     const cell = selection.cell;
     if (!doc || !cell) { selectionOutline.visible = false; return; }
@@ -433,6 +499,7 @@ export function makeOverlay({ session, getHeight }) {
   let lastCollisionOn = null;
   let lastReachOn = null;
   let lastLoopOn = null;
+  let lastRegionSig = null;
 
   function rebuildIfNeeded() {
     const doc = session.getDoc();
@@ -454,6 +521,23 @@ export function makeOverlay({ session, getHeight }) {
       if (doc && overlays.reach) { reachGroup = buildReach(doc); scene.add(reachGroup); }
       if (doc && overlays.loop) { loopGroup = buildLoop(doc); scene.add(loopGroup); }
     }
+
+    // Região (Slice 9b): its own change signature, independent of the `changed` block above — it
+    // depends on the ACTIVE TOOL and the in-progress stroke, neither of which the four overlay
+    // toggles have any reason to know about, and it must react on EVERY stroke pointermove
+    // (`main.js` calls `session.notify()` on each one via `session.setRegionStroke`), not only on
+    // a committed document edit.
+    const tool = session.getTool();
+    const activeRegionId = session.getActiveRegionId();
+    const stroke = session.getRegionStroke();
+    const regionSig = tool !== 'region' ? 'off'
+      : `${activeRegionId ?? ''}|${rev}|${stroke ? `${stroke.on}:${stroke.cells.size}` : ''}`;
+    if (regionSig !== lastRegionSig) {
+      lastRegionSig = regionSig;
+      disposeRegion();
+      if (doc && tool === 'region') { regionGroup = buildRegion(doc, activeRegionId, stroke); scene.add(regionGroup); }
+    }
+
     // The selection can move independently of the document (a bare `select`-tool click touches
     // no `doc._rev`), so this runs on every notify regardless of `changed` above — cheap either
     // way, it only repositions one existing object. `rectSelection`/the paste ghost (Slice 9a)
@@ -478,6 +562,7 @@ export function makeOverlay({ session, getHeight }) {
       disposeReach();
       disposeLoop();
       disposePasteGhost();
+      disposeRegion();
       selectionOutline.geometry.dispose();
       selectionOutline.material.dispose();
       rectSelectionOutline.geometry.dispose();

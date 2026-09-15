@@ -63,14 +63,15 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 19 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
- *  `rect`, `boxselect` and `sculpt` are the three exceptions: a two-corner drag and a multi-cell
- *  brush stroke both have no single-cell meaning, so each is its own gesture in `main.js`'s 3D
- *  pointer routing (`paintRect` / `rectSelection` / `beginSculptStroke`+`sculptTick`+
- *  `endSculptStroke`, `tools.js`) rather than a case in `applyToolAt`'s switch — see that file's
- *  own comments where it handles each of them specially. `A` for "Área" (`boxselect`): every
- *  plain letter that reads as "select" is already taken (`S` is the `select` tool itself), and
- *  `A` is otherwise unclaimed on this table. */
+/** The 20 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+ *  `rect`, `boxselect`, `sculpt` and `region` are the four exceptions: a two-corner drag, a
+ *  multi-cell brush stroke and a mask paint-stroke all have no single-cell meaning, so each is
+ *  its own gesture in `main.js`'s 3D pointer routing (`paintRect` / `rectSelection` /
+ *  `beginSculptStroke`+`sculptTick`+`endSculptStroke` / `paintRegionMask`, `tools.js`) rather
+ *  than a case in `applyToolAt`'s switch — see that file's own comments where it handles each of
+ *  them specially. `A` for "Área" (`boxselect`): every plain letter that reads as "select" is
+ *  already taken (`S` is the `select` tool itself), and `A` is otherwise unclaimed on this
+ *  table. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['boxselect', 'square-dashed', 'Selecionar área', 'A'],
@@ -94,6 +95,10 @@ export const TOOLS = [
   ['light', 'lightbulb', 'Luz', 'L'],
   // `footprints`, not `paw-print` — the `npc` tool already owns that glyph on this same rail.
   ['wildslot', 'footprints', 'Vaga selvagem', 'W'],
+  // Paints/erases membership in the ACTIVE region's autotile mask (`panels.js`'s brush bar picks
+  // and mints the active region — see its own header). `G` for the tool's own "grid-3x3" glyph
+  // — `R` was already claimed by `sculpt` ("Relevo") by the time this tool was added.
+  ['region', 'grid-3x3', 'Região autotile', 'G'],
   // Click appends an anonymous `{cx,cz}` waypoint to `doc.loop.via`. The deleted 2D canvas used
   // to let a click-and-drag on an existing inline waypoint reposition it instead of adding a
   // new one; that gesture has no 3D-pane replacement yet (`entities.js`'s `loopWaypoint` kind

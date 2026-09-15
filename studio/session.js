@@ -124,6 +124,13 @@ export function makeSession({ history }) {
   // `{w,h,cells,objects}` snapshot, never cleared by `setDoc`: a copy made on one map is still
   // meaningful to paste into another (nothing here is map-id-scoped).
   let clipboard = null;
+  // Região (Slice 9b): which region a `region`-tool stroke targets, and the stroke itself while
+  // one is in progress. `regionStroke` is `{on, cells:Set<string>}` (`"cx,cz"` keys) or `null` —
+  // it lives here, not in `main.js`'s own `previewDrag`, because `viewport/overlay.js` needs to
+  // read it live for the in-progress-stroke highlight the same way it already reads `getHover`/
+  // `getSelection` from here rather than from whichever renderer happens to set them.
+  let activeRegionId = null;
+  let regionStroke = null;
   let editCount = 0;
   const hiddenLayers = new Set();
   const lockedLayers = new Set();
@@ -272,13 +279,33 @@ export function makeSession({ history }) {
       editCount = 0;
       hiddenLayers.clear();
       lockedLayers.clear();
+      // A region reference or an in-progress stroke from the PREVIOUS document has no meaning
+      // once `doc` itself is swapped out from under it.
+      activeRegionId = null;
+      regionStroke = null;
       notify();
     },
     getDoc: () => doc,
-    setTool(t) { tool = t; },
+    setTool(t) {
+      tool = t;
+      // Broadcasts the change — previously silent, since nothing depended on it before this
+      // slice (`panels.js`'s `toolRail` manages its own button highlight directly, without going
+      // through `session.subscribe`). `viewport/overlay.js`'s tool-gated region preview and
+      // `panels.js`'s own region brush-bar section both need to show/hide the instant the rail
+      // switches into or out of `region`, not on the next incidental edit or hover. A free side
+      // benefit: the status bar's "ferramenta: X" label (`panels.js`'s `makeStatusBar`) was stale
+      // until the next unrelated notify before now.
+      notify();
+    },
     getTool: () => tool,
     setActiveLayer(n) { activeLayer = n; },
     getActiveLayer: () => activeLayer,
+    // Região (Slice 9b) — see this file's own `regionStroke` declaration above for why the
+    // stroke lives here instead of in `main.js`'s `previewDrag`.
+    getActiveRegionId: () => activeRegionId,
+    setActiveRegionId(id) { activeRegionId = id; notify(); },
+    getRegionStroke: () => regionStroke,
+    setRegionStroke(stroke) { regionStroke = stroke; notify(); },
     setLayerVisible(n, on) { if (on) hiddenLayers.delete(n); else hiddenLayers.add(n); notify(); },
     isLayerVisible: (n) => !hiddenLayers.has(n),
     setLayerLocked(n, on) { if (on) lockedLayers.add(n); else lockedLayers.delete(n); notify(); },

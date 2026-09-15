@@ -8,6 +8,7 @@ import { h, setText } from '@/ui/dom/el.js';
 import { icon, iconBtn } from './icons.js';
 import { TOOLS, COLLISIONS, COLLISION_LABEL } from './kinds.js';
 import { runValidation, invalidateValidation } from './validation.js';
+import { addRegion } from './tools.js';
 
 export function makeToolRail({ root, session }) {
   const buttons = new Map();
@@ -151,7 +152,15 @@ export function makeStatusBar({ root, session, docRef }) {
  *  stay identical if either grows independently. */
 const BRUSH_TINTS = [0xffffff, 0xe0a64b, 0x7fc98c, 0x9ecbe6, 0xc79bd6];
 
-export function makeAssetBrushBar({ root, session }) {
+/**
+ * @param {object} opts
+ * @param {() => object[]} opts.getAutotileSets returns the current map's own draft-tileset
+ *   autotile sets (`tiles.autotile.sets(doc.tileset)`, via `main.js`'s `preview.autotileSets` —
+ *   the viewport's own loaded `tiles` instance is the one seam, see that file's own comment) for
+ *   the região "nova região" set picker below. Called lazily, on demand, not once at
+ *   construction — `preview` itself only exists once `main.js`'s async `bootViewport` resolves.
+ */
+export function makeAssetBrushBar({ root, session, docRef, history, getAutotileSets }) {
   const rotBtn = iconBtn('rotate-cw', { title: 'Girar o pincel 90°', class: 'ms-btn ms-btn--small', onClick: () => {
     session.setBrush({ rot: (session.getBrush().rot + 1) & 3 });
     setText(rotLabel, `${session.getBrush().rot * 90}°`);
@@ -198,6 +207,55 @@ export function makeAssetBrushBar({ root, session }) {
     onChange: (e) => session.setBrush({ sculptRadius: Math.max(0, Number(e.target.value) || 0) }) });
   const sculptStrengthInput = h('input', { class: 'ms-field-input', type: 'number', min: '0.05', max: '1', step: '0.05', value: '0.25', style: { width: '56px' },
     onChange: (e) => session.setBrush({ sculptStrength: Number(e.target.value) || 0.25 }) });
+  // --- região (Slice 9b): which region is ACTIVE — the `region` tool's own create-or-select
+  // control. Hidden unless that tool is selected: every OTHER control in this bar stays visible
+  // regardless of the active tool (this file's own long-standing convention — rot/tint/collision/
+  // tag/height apply whenever their own tool happens to run), but "which region" has no meaning
+  // for any other tool, so a dead dropdown would be the odd one out here, not this one.
+  //
+  // `set` is picked ONCE, right here, at creation time, and never again: `inspector.js`'s own
+  // `regionCard` only ever shows it as a read-only field row (`fieldRow('Conjunto (set)',
+  // region.set)`) — `layer`/`collision`/`tags` are the fields that card actually lets an author
+  // edit afterward (this slice's own plan). Restricted to the map's own DRAFT tileset (`doc.
+  // tileset`) — `draft.autotile()` (`src/terrain/draft.js`) only ever resolves against that one
+  // tileset's catalog, never an extra layer's; painting a region against a different tileset is
+  // out of this slice's scope (`mapfile.js`'s own header on why extras are a separate concept).
+  const regionSelect = h('select', { class: 'ms-select', onChange: (e) => session.setActiveRegionId(e.target.value || null) });
+  const newRegionSetSelect = h('select', { class: 'ms-select ms-select--tiny' });
+  const newRegionBtn = h('button', { class: 'ms-btn ms-btn--small', onClick: () => {
+    const doc = docRef.get();
+    const set = newRegionSetSelect.value;
+    if (!doc || !set) return;
+    const region = addRegion(doc, history, { set, layer: session.getActiveLayer(), collision: null, tags: [] });
+    // `addRegion`'s own `history.push` already bumped `doc._rev`; this is what tells the section
+    // below (and `viewport/overlay.js`'s tool-gated preview) a new region now exists to select.
+    session.setActiveRegionId(region.id);
+  } }, [icon('plus', { size: 12 }), h('span', {}, 'Nova região')]);
+  const regionSection = h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+    h('span', { class: 'ms-eyebrow' }, 'Região'), regionSelect,
+    h('span', { class: 'ms-eyebrow' }, 'Conjunto'), newRegionSetSelect, newRegionBtn,
+  ]);
+  function refreshRegionUi() {
+    const isRegionTool = session.getTool() === 'region';
+    regionSection.hidden = !isRegionTool;
+    if (!isRegionTool) return;
+    const doc = docRef.get();
+    const activeId = session.getActiveRegionId();
+    regionSelect.innerHTML = '';
+    regionSelect.appendChild(h('option', { value: '' }, doc?.regions.length ? '— selecione —' : '— nenhuma região —'));
+    for (const r of doc?.regions ?? []) {
+      regionSelect.appendChild(h('option', { value: r.id, selected: r.id === activeId }, `${r.id} · ${r.set}`));
+    }
+    const sets = getAutotileSets?.() ?? [];
+    const prevSet = newRegionSetSelect.value;
+    newRegionSetSelect.innerHTML = '';
+    for (const s of sets) newRegionSetSelect.appendChild(h('option', { value: s.id, selected: s.id === prevSet }, s.name ?? s.id));
+    newRegionBtn.disabled = !doc || !sets.length;
+  }
+  // Fires on every `session.notify()` — including every región stroke pointermove and, since this
+  // slice's own `setTool` change, every tool switch — cheap either way (a handful of `<option>`s).
+  session.subscribe(refreshRegionUi);
+  refreshRegionUi();
 
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
@@ -209,6 +267,7 @@ export function makeAssetBrushBar({ root, session }) {
     h('span', { class: 'ms-eyebrow' }, 'Modo escultura'), sculptModeSelect,
     h('span', { class: 'ms-eyebrow' }, 'Raio'), sculptRadiusInput,
     h('span', { class: 'ms-eyebrow' }, 'Força'), sculptStrengthInput,
+    regionSection,
   ]);
   root.appendChild(bar);
   return bar; // so a caller (main.js: the overlay strip, the preview toggle) can append into the same row
