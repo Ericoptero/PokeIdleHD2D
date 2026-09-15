@@ -59,11 +59,17 @@
  *      once the tool is put away; a região has no meaning to keep tinted while painting a fence).
  *      A FLAT MASK TINT, deliberately, not the actual resolved autotile case art: see
  *      `buildRegion`'s own comment for why that scope cut is honest rather than a missed corner.
+ *  10. (Slice 9d) the `stamp` tool's own hover-ghost — the same flat-tinted-quad technique as #7's
+ *      paste ghost, sized to the PICKED, SAVED stamp's own `w`×`h` (after any pending `,`/`.`
+ *      placement-only rotation) instead of the plain clipboard's, and in a different color so the
+ *      two previews never look like the same thing even though both commit through `pasteClip`.
  */
 
 import * as THREE from 'three';
 import { COLLISION_COLOR } from '../kinds.js';
 import { reachableFrom } from '../session.js';
+import { rotateClipBy } from '../tools.js';
+import { getStamp } from '../stamps.js';
 import { decodeRuns } from '@/terrain/mapfile.js';
 
 /** The 2D canvas's own selection-ring color (`canvas.js`, before Slice 7 deleted it) — matched
@@ -102,6 +108,14 @@ const REACH_PARSED = {
  *  palette (collision/reach lean warm-red/green, the rect outline above is lavender), so a
  *  pending-paste preview never reads as one of those other overlays by color alone. */
 const PASTE_GHOST_PARSED = parseRgba('rgba(100,181,246,0.28)');
+
+/** The `stamp` tool's own hover-ghost tint (Slice 9d) — a distinct teal, unclaimed by every
+ *  other color in this file (the paste ghost's blue, the rect-selection outline's lavender, the
+ *  warm collision/región/reach tints), so a stamp preview never reads as an ad-hoc paste ghost
+ *  even though both ultimately place through the identical `pasteClip` — the two previews are
+ *  different SOURCES to the author (a plain clipboard vs. a saved, named stamp) and are worth
+ *  looking different for that reason alone. */
+const STAMP_GHOST_PARSED = parseRgba('rgba(94,204,184,0.32)');
 
 /** The 2D canvas's own loop colors: `#F7F1E7` for the resolved cache, amber for the authored
  *  `via` sequence (the same amber `SELECTION_COLOR` above already uses, and `entities.js`'s own
@@ -212,6 +226,17 @@ export function makeOverlay({ session, getHeight }) {
     pasteGhost.geometry.dispose();
     pasteGhost.material.dispose();
     pasteGhost = null;
+  }
+
+  // --- stamp ghost (Slice 9d): same rebuild-from-scratch technique as the paste ghost above,
+  // sized to the picked, saved stamp instead of the plain clipboard --------------------------
+  let stampGhost = null;
+  function disposeStampGhost() {
+    if (!stampGhost) return;
+    scene.remove(stampGhost);
+    stampGhost.geometry.dispose();
+    stampGhost.material.dispose();
+    stampGhost = null;
   }
 
   // --- sculpt brush ring: always-on (while the tool is active), independent of every toggle ----
@@ -469,6 +494,28 @@ export function makeOverlay({ session, getHeight }) {
     scene.add(pasteGhost);
   }
 
+  /** The `stamp` tool's own pending-placement preview (Slice 9d) — `updatePasteGhost`'s exact
+   *  technique, re-anchored to the picked, SAVED stamp (`stamps.js`'s own `getStamp`, resolved by
+   *  name from `session.getActiveStampName()`) instead of the plain clipboard, and rotated by
+   *  whatever pending quarter-turn count `session.getStampRotation()` currently holds
+   *  (`rotateClipBy`, `tools.js` — a scratch rotation, never written back to the saved stamp).
+   *  Hidden whenever any precondition — `stamp` is the active tool, a stamp is actually picked
+   *  and still exists, a cell is hovered — is not met. */
+  function updateStampGhost(doc) {
+    disposeStampGhost();
+    if (!doc || session.getTool() !== 'stamp') return;
+    const raw = getStamp(session.getActiveStampName());
+    if (!raw) return;
+    const clip = rotateClipBy(raw, session.getStampRotation());
+    const hover = session.getHover();
+    if (!clip.w || !clip.h || !hover) return;
+    const cells = [];
+    for (let dz = 0; dz < clip.h; dz++) for (let dx = 0; dx < clip.w; dx++) cells.push(hover.cx + dx, hover.cz + dz);
+    stampGhost = makeTintMesh(cells, STAMP_GHOST_PARSED);
+    stampGhost.renderOrder = 3;
+    scene.add(stampGhost);
+  }
+
   /** Positions/sizes/shows the `sculpt` brush ring — visible only while the tool is active AND
    *  the pointer is actually over the pane (`session.getHover()`, `main.js`'s own pointermove
    *  handler is what keeps this current; see that file's comment on why it is scoped to `sculpt`
@@ -548,6 +595,7 @@ export function makeOverlay({ session, getHeight }) {
     updateSelection(doc, session.getSelection());
     updateRectSelection(doc, session.getRectSelection());
     updatePasteGhost(doc);
+    updateStampGhost(doc);
     updateSculptRing(doc);
   }
   const unsubscribe = session.subscribe(rebuildIfNeeded);
@@ -562,6 +610,7 @@ export function makeOverlay({ session, getHeight }) {
       disposeReach();
       disposeLoop();
       disposePasteGhost();
+      disposeStampGhost();
       disposeRegion();
       selectionOutline.geometry.dispose();
       selectionOutline.material.dispose();

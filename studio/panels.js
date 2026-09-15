@@ -9,6 +9,7 @@ import { icon, iconBtn } from './icons.js';
 import { TOOLS, COLLISIONS, COLLISION_LABEL } from './kinds.js';
 import { runValidation, invalidateValidation } from './validation.js';
 import { addRegion } from './tools.js';
+import { listStamps, saveStamp, deleteStamp } from './stamps.js';
 
 export function makeToolRail({ root, session }) {
   const buttons = new Map();
@@ -257,6 +258,50 @@ export function makeAssetBrushBar({ root, session, docRef, history, getAutotileS
   session.subscribe(refreshRegionUi);
   refreshRegionUi();
 
+  // --- carimbo/stamp (Slice 9d): pick a SAVED stamp for the `stamp` tool to place, save the
+  // current clipboard as a new named one, or delete the picked one — hidden unless that tool is
+  // active, same convention as `regionSection` right above. `stamps.js` is a flat, doc-independent
+  // localStorage table (never touches `doc`/`history`), so — unlike `newRegionBtn`, which mints a
+  // real `doc.regions[]` entry through an undoable `tools.js` command — saving/deleting a stamp
+  // is NOT an undo-able document edit; only PLACING one (`session.applyToolAt`'s own `stamp`
+  // case) ever touches `history`.
+  const stampSelect = h('select', { class: 'ms-select', onChange: (e) => session.setActiveStampName(e.target.value || null) });
+  const saveStampBtn = h('button', { class: 'ms-btn ms-btn--small', title: 'Salva o recorte (Ctrl+C/X) atual como um novo carimbo nomeado', onClick: () => {
+    const clip = session.getClipboard();
+    if (!clip || (!clip.cells.length && !clip.objects.length)) return;
+    const name = prompt('Nome do carimbo:');
+    if (!name) return;
+    saveStamp(name, clip);
+    session.setActiveStampName(name);
+    refreshStampUi();
+  } }, [icon('plus', { size: 12 }), h('span', {}, 'Salvar carimbo')]);
+  const deleteStampBtn = h('button', { class: 'ms-btn ms-btn--small ms-btn--warn', title: 'Apaga o carimbo selecionado', onClick: () => {
+    const name = session.getActiveStampName();
+    if (!name) return;
+    deleteStamp(name);
+    session.setActiveStampName(null);
+    refreshStampUi();
+  } }, [icon('trash', { size: 12 })]);
+  const stampSection = h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+    h('span', { class: 'ms-eyebrow' }, 'Carimbo'), stampSelect, saveStampBtn, deleteStampBtn,
+  ]);
+  function refreshStampUi() {
+    const isStampTool = session.getTool() === 'stamp';
+    stampSection.hidden = !isStampTool;
+    if (!isStampTool) return;
+    const names = listStamps();
+    const activeName = session.getActiveStampName();
+    stampSelect.innerHTML = '';
+    stampSelect.appendChild(h('option', { value: '' }, names.length ? '— selecione —' : '— nenhum carimbo —'));
+    for (const n of names) stampSelect.appendChild(h('option', { value: n, selected: n === activeName }, n));
+    const clip = session.getClipboard();
+    saveStampBtn.disabled = !clip || (!clip.cells.length && !clip.objects.length);
+    deleteStampBtn.disabled = !activeName;
+  }
+  // Same "cheap enough to just rerun" reasoning as `refreshRegionUi` above.
+  session.subscribe(refreshStampUi);
+  refreshStampUi();
+
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
     h('span', { class: 'ms-eyebrow' }, 'Tint'), tintRow,
@@ -268,6 +313,7 @@ export function makeAssetBrushBar({ root, session, docRef, history, getAutotileS
     h('span', { class: 'ms-eyebrow' }, 'Raio'), sculptRadiusInput,
     h('span', { class: 'ms-eyebrow' }, 'Força'), sculptStrengthInput,
     regionSection,
+    stampSection,
   ]);
   root.appendChild(bar);
   return bar; // so a caller (main.js: the overlay strip, the preview toggle) can append into the same row

@@ -63,7 +63,7 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 20 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+/** The 21 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
  *  `rect`, `boxselect`, `sculpt` and `region` are the four exceptions: a two-corner drag, a
  *  multi-cell brush stroke and a mask paint-stroke all have no single-cell meaning, so each is
  *  its own gesture in `main.js`'s 3D pointer routing (`paintRect` / `rectSelection` /
@@ -75,6 +75,16 @@ export const OVERLAYS = [
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['boxselect', 'square-dashed', 'Selecionar área', 'A'],
+  // Places a saved NAMED clip (`stamps.js`, Slice 9d — "carimbo" is Portuguese for stamp) at the
+  // clicked cell — a single-click gesture, like `object` below, NOT a drag: `pasteClip`
+  // (`tools.js`) already commits a whole clip as one undo step no matter how many cells/objects
+  // it touches, so this needs no `main.js` drag mode of its own the way `boxselect`/`rect` do.
+  // `copy`: an icon already defined in `icons.js`'s own table but never wired to any button until
+  // now — reads naturally for "drop a saved copy". Keybind `Y`: every letter in `Carimbo` itself
+  // (C/A/R/I/M/B/O) is already claimed elsewhere on this table, so — following `região`'s own
+  // precedent of tying the letter to the ICON glyph instead once the label's own letters are gone
+  // — `Y` is the one still-unclaimed letter in `copy`.
+  ['stamp', 'copy', 'Carimbo', 'Y'],
   ['pencil', 'pencil', 'Lápis', 'B'],
   ['eraser', 'eraser', 'Borracha', 'E'],
   ['rect', 'square-dashed', 'Retângulo', 'U'],
