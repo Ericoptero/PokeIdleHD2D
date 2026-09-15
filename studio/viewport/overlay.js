@@ -50,6 +50,10 @@
  *      and a cell is hovered. A flat tinted rectangle, not the clip's real tile art — enough
  *      feedback for "here is where a paste would land" without re-rendering actual placements
  *      for content that has not been committed yet.
+ *   8. (Slice 9c) a live brush-radius ring for the `sculpt` tool, centered on `session.
+ *      getHover()` and sized to `session.getBrush().sculptRadius` — the same "always visible
+ *      while relevant" category as the selection outline, gated on the active tool instead of an
+ *      overlay toggle since it is direct tool feedback, not optional map information.
  */
 
 import * as THREE from 'three';
@@ -99,6 +103,12 @@ const PASTE_GHOST_PARSED = parseRgba('rgba(100,181,246,0.28)');
 const LOOP_RESOLVED_COLOR = 0xF7F1E7;
 const LOOP_VIA_COLOR = 0xE0A64B;
 const LOOP_LINE_OPACITY = 0.85;
+
+/** The `sculpt` brush ring's own color (Slice 9c) — a cool blue unclaimed by any other overlay
+ *  or gizmo in this file (collision/reach/loop/selection are all warm greens/reds/amber), so a
+ *  brush preview never reads as one of those instead. */
+const SCULPT_RING_COLOR = 0x6FB8E0;
+const SCULPT_RING_SEGMENTS = 48; // enough to read as round, not faceted, at any on-screen zoom
 
 /** Resolves one `loop.via` entry to a concrete cell — a marker name looked up in `doc.markers`
  *  (`null` if the marker was deleted out from under it), or an inline `{cx,cz}` waypoint used
@@ -181,6 +191,29 @@ export function makeOverlay({ session, getHeight }) {
     pasteGhost.geometry.dispose();
     pasteGhost.material.dispose();
     pasteGhost = null;
+  }
+
+  // --- sculpt brush ring: always-on (while the tool is active), independent of every toggle ----
+  const sculptRing = makeSculptRing();
+  scene.add(sculptRing);
+
+  /** A unit circle (radius 1, centered on the origin, flat on XZ) — `updateSculptRing` below
+   *  scales it to the brush's actual `sculptRadius` on every notify rather than rebuilding the
+   *  geometry each time a radius input changes, the same "scale, don't regeometry" trick a sprite
+   *  gizmo already uses for its own size. */
+  function makeSculptRing() {
+    const positions = new Float32Array(SCULPT_RING_SEGMENTS * 3);
+    for (let i = 0; i < SCULPT_RING_SEGMENTS; i++) {
+      const t = (i / SCULPT_RING_SEGMENTS) * Math.PI * 2;
+      positions.set([Math.cos(t), 0, Math.sin(t)], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.LineBasicMaterial({ color: SCULPT_RING_COLOR, depthTest: false, transparent: true, opacity: 0.9 });
+    const loop = new THREE.LineLoop(geo, mat);
+    loop.renderOrder = 999;
+    loop.visible = false;
+    return loop;
   }
 
   function disposeGrid() {
@@ -370,6 +403,21 @@ export function makeOverlay({ session, getHeight }) {
     scene.add(pasteGhost);
   }
 
+  /** Positions/sizes/shows the `sculpt` brush ring — visible only while the tool is active AND
+   *  the pointer is actually over the pane (`session.getHover()`, `main.js`'s own pointermove
+   *  handler is what keeps this current; see that file's comment on why it is scoped to `sculpt`
+   *  rather than tracked for every tool). Terrain-following like the selection outline, not flat
+   *  like the grid/collision/reach/loop meshes — both are "where is my cursor" feedback, and both
+   *  already pay for a per-notify `getHeight` call for the exact same reason. */
+  function updateSculptRing(doc) {
+    const hover = session.getHover();
+    if (!doc || !hover || session.getTool() !== 'sculpt') { sculptRing.visible = false; return; }
+    const radius = Math.max(session.getBrush().sculptRadius ?? 0, 0.001); // a zero-radius ring would collapse to an invisible point via scale
+    sculptRing.visible = true;
+    sculptRing.scale.set(radius, 1, radius);
+    sculptRing.position.set(hover.cx + 0.5, getHeight(hover.cx, hover.cz) + 0.03, hover.cz + 0.5);
+  }
+
   // --- rebuild cadence: on `session` notify, not on every frame --------------------------------
   //
   // A full-map grid/collision/reach/loop rebuild is cheap (a handful of line segments and, at
@@ -409,12 +457,14 @@ export function makeOverlay({ session, getHeight }) {
     // The selection can move independently of the document (a bare `select`-tool click touches
     // no `doc._rev`), so this runs on every notify regardless of `changed` above — cheap either
     // way, it only repositions one existing object. `rectSelection`/the paste ghost (Slice 9a)
-    // are the same story — session-local state that changes far more often than `doc._rev` does
-    // (every dragged cell of a `boxselect`, every hovered cell of a pending paste) and are cheap
-    // enough (a handful of quads/one line loop, at most) to just redo unconditionally too.
+    // and the sculpt ring (Slice 9c) are the same story — session-local state that changes far
+    // more often than `doc._rev` does (every dragged cell of a `boxselect`, every hovered cell
+    // of a pending paste or an active sculpt stroke) and are cheap enough (a handful of quads/
+    // one line loop, at most) to just redo unconditionally too.
     updateSelection(doc, session.getSelection());
     updateRectSelection(doc, session.getRectSelection());
     updatePasteGhost(doc);
+    updateSculptRing(doc);
   }
   const unsubscribe = session.subscribe(rebuildIfNeeded);
   rebuildIfNeeded(); // paint whatever `session` already holds at construction time
@@ -432,6 +482,8 @@ export function makeOverlay({ session, getHeight }) {
       selectionOutline.material.dispose();
       rectSelectionOutline.geometry.dispose();
       rectSelectionOutline.material.dispose();
+      sculptRing.geometry.dispose();
+      sculptRing.material.dispose();
     },
   };
 }

@@ -89,7 +89,13 @@ export function makeSession({ history }) {
   let tool = 'select';
   let activeLayer = 0;
   const brush = { rot: 0, tint: 0xffffff, collision: 'walk', tag: 'tallgrass', heightStep: 0.25,
-    claimFootprint: false, keepCollision: true };
+    claimFootprint: false, keepCollision: true,
+    // `sculpt` tool settings (Slice 9c) — a multi-cell brush stroke, unlike every field above
+    // (all single-cell `applyToolAt` dispatch settings). `sculptStrength` matches `heightStep`'s
+    // own default magnitude (±0.25) so the two height tools feel the same scale to an author
+    // switching between a precise nudge and a soft brush. `main.js`'s sculpt gesture and
+    // `viewport/overlay.js`'s brush-radius ring both read these straight off `getBrush()`.
+    sculptMode: 'raise', sculptRadius: 2, sculptStrength: 0.25 };
   let selectedAsset = null; // { name, tileset, w, h }
   // `{cell, kind, ref}` — `cell` keeps meaning what it always meant (drives `tileCard`/
   // `cellCard`, set alongside `kind`/`ref` for every cell-anchored entity so the cell inspector
