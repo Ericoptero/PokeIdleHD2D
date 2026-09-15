@@ -33,14 +33,24 @@ export function makeToolRail({ root, session }) {
   return { setTool };
 }
 
-export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onWalkLoop }) {
+export function makeToolbar({ root, doc, history, session, onNew, onOpenPicker, onImport, onExport, onSave, onValidate, onWalkLoop }) {
   const nameBtn = h('button', { class: 'ms-map-badge', onClick: onOpenPicker }, []);
   const nameEl = h('span', { class: 'ms-map-name' }, '—');
   const dirtyDot = h('span', { class: 'ms-dirty-dot', hidden: true });
   nameBtn.append(icon('layers', { size: 14 }), nameEl, dirtyDot, icon('chevron-down', { size: 14 }));
 
-  const undoBtn = iconBtn('undo-2', { title: 'Desfazer', keybind: 'Ctrl+Z', class: 'ms-toolbtn', onClick: () => { history.undo(); refresh(); } });
-  const redoBtn = iconBtn('redo-2', { title: 'Refazer', keybind: 'Ctrl+Shift+Z', class: 'ms-toolbtn', onClick: () => { history.redo(); refresh(); } });
+  // A bundled bug fix, found while verifying this slice's own stroke-batched undo: `history.
+  // undo()`/`redo()` mutate `doc` directly (every command in `tools.js` does — undo/redo is not
+  // routed through `session.applyToolAt`), so nothing here used to tell `session` a change just
+  // happened. `refresh()` below only touches THIS toolbar's own buttons/badges — it does not
+  // reach `main.js`'s `refreshAll` (bound to `session.subscribe`), so the 3D pane, its overlays
+  // and the minimap all silently went stale on every undo/redo, for every tool, not just
+  // `sculpt` — confirmed by a real Ctrl+Z smoke test on a sculpt stroke that changed `doc.height`
+  // (and moved the entry to the redo list) while the 3D pane kept showing the raised terrain
+  // until an unrelated later edit finally notified. `session.notify()`, not `refreshAll()`
+  // directly — same reasoning as every other direct `tools.js`-call site in `main.js`.
+  const undoBtn = iconBtn('undo-2', { title: 'Desfazer', keybind: 'Ctrl+Z', class: 'ms-toolbtn', onClick: () => { history.undo(); refresh(); session.notify(); } });
+  const redoBtn = iconBtn('redo-2', { title: 'Refazer', keybind: 'Ctrl+Shift+Z', class: 'ms-toolbtn', onClick: () => { history.redo(); refresh(); session.notify(); } });
   const errBadge = h('span', { class: 'ms-err-badge' }, '0');
 
   const walkBtn = iconBtn('route', { title: 'Percorrer loop de caça', class: 'ms-btn', onClick: onWalkLoop, label: 'Percorrer loop' });
@@ -84,8 +94,8 @@ export function makeToolbar({ root, doc, history, onNew, onOpenPicker, onImport,
   refresh();
   window.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
-    if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); refresh(); }
-    else if (e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); history.redo(); refresh(); }
+    if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); refresh(); session.notify(); }
+    else if (e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); history.redo(); refresh(); session.notify(); }
   });
   return { refresh };
 }
@@ -166,6 +176,23 @@ export function makeAssetBrushBar({ root, session }) {
     h('span', {}, 'Preservar colisão'),
   ]);
 
+  // `sculpt` tool's own controls (Slice 9c) — mode/raio/força for the multi-cell height brush,
+  // matching `heightStepInput` right above for the single-cell `height` tool. Rendered
+  // unconditionally, same as every other row in this bar (`rotBtn`/`tintRow`/`collSelect`/… are
+  // all always visible regardless of which tool is active) rather than only while `sculpt` is
+  // selected — this bar has no precedent for tool-conditional visibility, and adding the first
+  // one here would be a bigger, unreviewed change than three more always-on controls.
+  const sculptModeSelect = h('select', { class: 'ms-select', onChange: (e) => session.setBrush({ sculptMode: e.target.value }) }, [
+    h('option', { value: 'raise' }, 'Levantar'),
+    h('option', { value: 'lower' }, 'Abaixar'),
+    h('option', { value: 'flatten' }, 'Nivelar'),
+    h('option', { value: 'smooth' }, 'Suavizar'),
+  ]);
+  const sculptRadiusInput = h('input', { class: 'ms-field-input', type: 'number', min: '0', max: '12', step: '1', value: '2', style: { width: '48px' },
+    onChange: (e) => session.setBrush({ sculptRadius: Math.max(0, Number(e.target.value) || 0) }) });
+  const sculptStrengthInput = h('input', { class: 'ms-field-input', type: 'number', min: '0.05', max: '1', step: '0.05', value: '0.25', style: { width: '56px' },
+    onChange: (e) => session.setBrush({ sculptStrength: Number(e.target.value) || 0.25 }) });
+
   const bar = h('div', { class: 'ms-brush-bar' }, [
     h('span', { class: 'ms-eyebrow' }, 'Pincel'), rotBtn, rotLabel,
     h('span', { class: 'ms-eyebrow' }, 'Tint'), tintRow,
@@ -173,6 +200,9 @@ export function makeAssetBrushBar({ root, session }) {
     h('span', { class: 'ms-eyebrow' }, 'Tag'), tagInput,
     h('span', { class: 'ms-eyebrow' }, 'Passo altura'), heightStepInput,
     claimToggle, keepCollisionToggle,
+    h('span', { class: 'ms-eyebrow' }, 'Modo escultura'), sculptModeSelect,
+    h('span', { class: 'ms-eyebrow' }, 'Raio'), sculptRadiusInput,
+    h('span', { class: 'ms-eyebrow' }, 'Força'), sculptStrengthInput,
   ]);
   root.appendChild(bar);
   return bar; // so a caller (main.js: the overlay strip, the preview toggle) can append into the same row

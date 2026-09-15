@@ -12,7 +12,7 @@ import base from '@/ui/css/base.css?inline';
 import studioCss from './css/studio.css?inline';
 
 import { createDocument, createBlankDocument, serializeDocument, createHistory } from './state.js';
-import { paintRect } from './tools.js';
+import { paintRect, beginSculptStroke, sculptTick, endSculptStroke } from './tools.js';
 import { makeSession, CONTINUOUS_PAINT_TOOLS } from './session.js';
 import { makeLibraryPanel } from './library.js';
 import { makeViewport } from './viewport/index.js';
@@ -110,9 +110,12 @@ let previewRebuildTimer = null;
 let lastRebuildRev = -1;
 // The 3D pane's one pointer-drag state machine: `{ mode: 'pan' }` (camera drag, the pane's
 // original and still-default behaviour), `{ mode: 'gizmo', gizmo, moved }` (dragging a spawn/
-// marker/npc/light handle) or `{ mode: 'paint' }` (an active paint tool clicked/dragged a cell).
-// Exactly one of these is live at a time — a gizmo hit always wins over painting, and painting
-// always wins over panning, decided once on `pointerdown` (below).
+// marker/npc/light handle), `{ mode: 'paint' }` (an active paint tool clicked/dragged a cell),
+// `{ mode: 'rect', x0, z0 }` (a two-corner rectangle drag, committed once on release) or
+// `{ mode: 'sculpt', stroke }` (a multi-cell height-brush stroke, also committed once on release
+// — `stroke` is the handle `beginSculptStroke`/`sculptTick`/`endSculptStroke`, `tools.js`, thread
+// through the whole drag). Exactly one of these is live at a time — a gizmo hit always wins over
+// painting, and painting always wins over panning, decided once on `pointerdown` (below).
 let previewDrag = null;
 let previewDownAt = null; // pointerdown client (x,y) — tells a click from a drag on pointerup
 
@@ -234,6 +237,23 @@ previewContainer.addEventListener('pointerdown', (e) => {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell) { previewDrag = { mode: 'rect', x0: cell.cx, z0: cell.cz }; return; }
   }
+  // `sculpt`, like `rect` just above, never went through `session.applyToolAt` — a brush stroke
+  // accumulates over many ticks under ONE undo entry (`beginSculptStroke`/`endSculptStroke`,
+  // `tools.js`), which is not a shape `applyToolAt`'s single-cell-dispatch switch has a case for.
+  // The first tick fires right here, on `pointerdown`, exactly like every other paint tool below.
+  if (tool === 'sculpt' && currentDoc) {
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
+      const stroke = beginSculptStroke(currentDoc);
+      const brush = session.getBrush();
+      sculptTick(currentDoc, stroke, {
+        cx: cell.cx, cz: cell.cz, mode: brush.sculptMode, radius: brush.sculptRadius, strength: brush.sculptStrength,
+      });
+      session.notify(); // see `commitGizmoDrag`'s own note on why a direct `tools.js` call needs this
+      previewDrag = { mode: 'sculpt', stroke };
+      return;
+    }
+  }
   if (currentDoc && !NON_PAINT_TOOLS.has(tool)) {
     const cell = preview.pickCell(e.clientX, e.clientY);
     if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
@@ -250,7 +270,16 @@ previewContainer.addEventListener('pointerdown', (e) => {
   previewContainer.classList.add('is-panning');
 });
 previewContainer.addEventListener('pointermove', (e) => {
-  if (!preview || !previewDrag) return;
+  if (!preview) return;
+  // `sculpt`'s live brush-radius ring (`viewport/overlay.js`) reads `session.getHover()` to know
+  // where to draw. Scoped to the `sculpt` tool rather than tracking hover unconditionally: the
+  // deleted 2D canvas USED to call the equivalent of this on every `pointermove` regardless of
+  // tool (`viewport/index.js`'s own header quotes the bug that caused — a debounced reload
+  // snapping the camera back to spawn), and `setHover` still calls `notify()` on every call,
+  // which still fans out to a full inspector/toolbar/bottom-panel rebuild via `refreshAll`. That
+  // cost is worth paying only for the one tool that actually needs a per-pixel hover signal.
+  if (session.getTool() === 'sculpt') session.setHover(preview.pickCell(e.clientX, e.clientY));
+  if (!previewDrag) return;
   if (previewDrag.mode === 'pan') {
     preview.panBy(e.clientX - previewDrag.x, e.clientY - previewDrag.y);
     previewDrag.x = e.clientX; previewDrag.y = e.clientY;
@@ -277,6 +306,19 @@ previewContainer.addEventListener('pointermove', (e) => {
       session.applyToolAt(cell.cx, cell.cz, 'move');
     }
   }
+  if (previewDrag.mode === 'sculpt' && currentDoc) {
+    // Repeated ticks on the SAME cell during a slow drag are fine and expected — a brush
+    // accumulates, it does not stamp once — so this never checks whether `cell` differs from the
+    // last one it saw.
+    const cell = preview.pickCell(e.clientX, e.clientY);
+    if (cell && cell.cx >= 0 && cell.cz >= 0 && cell.cx < currentDoc.w && cell.cz < currentDoc.h) {
+      const brush = session.getBrush();
+      sculptTick(currentDoc, previewDrag.stroke, {
+        cx: cell.cx, cz: cell.cz, mode: brush.sculptMode, radius: brush.sculptRadius, strength: brush.sculptStrength,
+      });
+      session.notify(); // same reason as the `pointerdown` tick above — no `applyToolAt` in this path to notify for it
+    }
+  }
 });
 function endPreviewDrag(e) {
   if (previewDrag?.mode === 'gizmo') {
@@ -298,6 +340,12 @@ function endPreviewDrag(e) {
       // and `minimap.js` a rectangle of cells just changed.
       session.notify();
     }
+  } else if (previewDrag?.mode === 'sculpt' && currentDoc) {
+    // Closes the WHOLE stroke into one undo entry — see `tools.js`'s own header on
+    // `endSculptStroke` for why this is a no-op rather than an empty history entry when the
+    // stroke never actually changed anything.
+    endSculptStroke(currentDoc, history, previewDrag.stroke);
+    session.notify();
   } else if (previewDrag?.mode === 'pan' && previewDownAt && session.getTool() === 'select' && preview) {
     const movedPx = Math.hypot(e.clientX - previewDownAt.x, e.clientY - previewDownAt.y);
     if (movedPx < 4) {
@@ -314,6 +362,10 @@ function endPreviewDrag(e) {
 }
 previewContainer.addEventListener('pointerup', endPreviewDrag);
 previewContainer.addEventListener('pointercancel', endPreviewDrag);
+// Clears the sculpt hover so its brush-radius ring does not linger at the last-known cell once
+// the pointer has actually left the pane — cheap (a `null` write) and only matters for this one
+// tool, since nothing else reads `session.getHover()` today.
+previewContainer.addEventListener('pointerleave', () => { if (session.getTool() === 'sculpt') session.setHover(null); });
 previewContainer.addEventListener('wheel', (e) => {
   if (!preview) return;
   e.preventDefault();
@@ -388,7 +440,7 @@ const validationDrawer = makeValidationDrawer({ docRef, session, onRevalidate: (
 // `mapPicker` at click time, by which point it is always assigned, not at construction time.
 let mapPicker = null;
 const toolbar = makeToolbar({
-  root: toolbarEl, doc: docRef, history,
+  root: toolbarEl, doc: docRef, history, session,
   onNew: () => openNewMapDialog({ onCreate: setDocument, hasUnsaved: !!currentDoc?.dirty }),
   onOpenPicker: () => mapPicker?.toggle(),
   onImport: async () => { const map = await importFile(); if (map) setDocument(createDocument(map)); },

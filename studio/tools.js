@@ -156,6 +156,114 @@ export function adjustHeight(doc, history, { cx, cz, delta }) {
   });
 }
 
+/** Snaps a height value to the nearest 0.05 — `adjustHeight`'s own precedent, matched exactly
+ *  (not reinvented) so a sculpted terrace lands on the same grid `canStep`/`ELEVATION_EPS`
+ *  (`src/terrain/draft.js`) reason about, rather than a near-miss like 0.2601 that reads
+ *  identically on screen but silently changes walkability. */
+const snapHeight = (v) => Math.round(v * 20) / 20;
+
+/** The mean height of a cell's own 3×3 neighborhood (itself included), clipped to the map —
+ *  `sculptTick`'s `smooth` mode target. A plain average, not distance-weighted: the tick's own
+ *  radius falloff (below) already does the "softer at the edge" job; a second weighting here
+ *  would just be two falloffs fighting each other for one visual effect. */
+function neighborMeanHeight(doc, cx, cz) {
+  let sum = 0;
+  let count = 0;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = cx + dx;
+      const nz = cz + dz;
+      if (!inside(doc, nx, nz)) continue;
+      sum += doc.height[idx(doc, nx, nz)];
+      count++;
+    }
+  }
+  return count ? sum / count : doc.height[idx(doc, cx, cz)];
+}
+
+/**
+ * Opens a sculpt stroke — call once per `pointerdown` on the `sculpt` tool. `before` is a lazy
+ * `idx -> original height` map, populated by `sculptTick` the first time each cell is actually
+ * touched, and read back by `endSculptStroke` to close the WHOLE stroke into one undo step
+ * (`paintRect`'s own before/after-map shape, generalized from a rectangle to a round brush).
+ * `targetHeight` is `flatten`'s pin — the height under the pointer at the moment the stroke
+ * started — captured lazily by the first `sculptTick` call instead of here, since that call
+ * already knows the stroke's starting cell and this one does not need to.
+ */
+export function beginSculptStroke(_doc) {
+  return { before: new Map() };
+}
+
+/**
+ * Applies one tick of the brush at `(cx,cz)` — one call per `pointerdown`/`pointermove` while a
+ * sculpt stroke is live. Round, not square (Euclidean distance, not Chebyshev/Manhattan), with a
+ * linear falloff from full strength at the center to nothing at `radius`. Mutates `doc.height`
+ * and bumps `doc._rev` (`touch`) directly — no history entry per tick, matching the doc's own
+ * comment above `sculptTick`'s design: the undo grain is the whole STROKE, not the tick, so
+ * `endSculptStroke` is what actually pushes to `history`.
+ *
+ * `stroke.before` only ever records a cell's PRE-STROKE value, the first time any tick in this
+ * stroke actually changes it (`stroke.before.has(idx)` guards every write) — a cell revisited by
+ * a later tick of the same stroke (a slow drag lingering over one spot, which is expected brush
+ * behaviour, not a bug to de-duplicate) must not overwrite that original with an
+ * already-modified value, or `endSculptStroke`'s undo would restore the wrong thing.
+ */
+export function sculptTick(doc, stroke, { cx, cz, mode, radius, strength }) {
+  if (!inside(doc, cx, cz)) return;
+  if (mode === 'flatten' && stroke.targetHeight === undefined) {
+    stroke.targetHeight = doc.height[idx(doc, cx, cz)];
+  }
+  const r = Math.max(0, radius);
+  const minX = Math.max(0, Math.floor(cx - r));
+  const maxX = Math.min(doc.w - 1, Math.ceil(cx + r));
+  const minZ = Math.max(0, Math.floor(cz - r));
+  const maxZ = Math.min(doc.h - 1, Math.ceil(cz + r));
+  let changed = false;
+  for (let nz = minZ; nz <= maxZ; nz++) {
+    for (let nx = minX; nx <= maxX; nx++) {
+      const dist = Math.hypot(nx - cx, nz - cz);
+      if (dist > r) continue; // outside the round brush footprint, even though inside its bounding square
+      const weight = r > 0 ? Math.max(0, Math.min(1, 1 - dist / r)) : 1;
+      const i = idx(doc, nx, nz);
+      const before = doc.height[i];
+      let after;
+      if (mode === 'raise' || mode === 'lower') {
+        after = snapHeight(before + (mode === 'raise' ? 1 : -1) * strength * weight);
+      } else if (mode === 'flatten') {
+        after = snapHeight(before + (stroke.targetHeight - before) * strength * weight);
+      } else if (mode === 'smooth') {
+        after = snapHeight(before + (neighborMeanHeight(doc, nx, nz) - before) * strength * weight);
+      } else {
+        after = before;
+      }
+      if (after === before) continue; // a strength/radius-0 tick (or a fully-flat/leveled cell) is inert, not a spurious edit
+      if (!stroke.before.has(i)) stroke.before.set(i, before);
+      doc.height[i] = after;
+      changed = true;
+    }
+  }
+  if (changed) touch(doc);
+}
+
+/**
+ * Closes a sculpt stroke into one undo entry covering every cell it touched — a no-op when the
+ * stroke never actually changed anything (a click entirely off the map, or a down/up so quick no
+ * tick ran, or every tick's delta rounded to zero). Mirrors `paintRect`'s own before/after-map
+ * redo/undo shape: `after` is read back from the LIVE `doc.height` (already written by every
+ * `sculptTick` call this stroke made) at push time, not recomputed, since the ticks already did
+ * the real math — this command only needs to remember it as one atomic edit.
+ */
+export function endSculptStroke(doc, history, stroke) {
+  if (!stroke.before.size) return;
+  const after = new Map();
+  for (const i of stroke.before.keys()) after.set(i, doc.height[i]);
+  history.push({
+    label: 'esculpir altura',
+    redo() { for (const [i, v] of after) doc.height[i] = v; touch(doc); },
+    undo() { for (const [i, v] of stroke.before) doc.height[i] = v; touch(doc); },
+  });
+}
+
 export function toggleTag(doc, history, { cx, cz, tag }) {
   if (!inside(doc, cx, cz)) return;
   const i = idx(doc, cx, cz);

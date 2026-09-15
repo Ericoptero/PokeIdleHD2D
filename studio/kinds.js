@@ -63,10 +63,12 @@ export const OVERLAYS = [
   ['reach', 'Alcance', 'crosshair', '#7FC98C'],
 ];
 
-/** The 17 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
- *  `rect` is the one exception: a two-corner drag has no single-cell meaning, so it is its own
- *  gesture in `main.js`'s 3D pointer routing (`paintRect`, `tools.js`) rather than a case in
- *  `applyToolAt`'s switch — see that file's own comment where it handles `rect` specially. */
+/** The 18 tools `studio/session.js` dispatches (`applyToolAt`) — `[id, icon, label, keybind]`.
+ *  `rect` and `sculpt` are the two exceptions: a two-corner drag and a multi-cell brush stroke
+ *  both have no single-cell meaning, so each is its own gesture in `main.js`'s 3D pointer
+ *  routing (`paintRect` / `beginSculptStroke`+`sculptTick`+`endSculptStroke`, `tools.js`) rather
+ *  than a case in `applyToolAt`'s switch — see that file's own comments where it handles them
+ *  specially. */
 export const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selecionar', 'S'],
   ['pencil', 'pencil', 'Lápis', 'B'],
@@ -75,6 +77,12 @@ export const TOOLS = [
   ['fill', 'paint-bucket', 'Balde', 'F'],
   ['object', 'box', 'Objeto', 'O'],
   ['height', 'mountain', 'Altura', 'H'],
+  // A soft, multi-cell brush (radius/falloff, one undo step per stroke) — a generalization of
+  // `height`'s precise single-cell nudge, not a replacement for it; both stay on the rail.
+  // `palette` (not `mountain` again): a distinct glyph for a distinct gesture, and unclaimed by
+  // any other tool/overlay chip in this file. Keybind `R` ("Relevo") — `E`/`H`, the letters that
+  // would actually spell "esculpir"/"altura", are already eraser/height.
+  ['sculpt', 'palette', 'Esculpir altura', 'R'],
   ['coll', 'ban', 'Colisão', 'C'],
   ['tag', 'tag', 'Tag', 'T'],
   ['marker', 'map-pin', 'Marcador', 'M'],
